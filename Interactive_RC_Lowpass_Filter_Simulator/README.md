@@ -17,9 +17,8 @@ Created for **Signals and Systems (course code: EE204T)** under **Prof. Ameer Mu
 ## Running the Simulator
 
 ```bash
-python sim.py
+python main.py
 ```
 
-`main.py` offers the same behaviour if you prefer launching it directly.
 
 The application starts paused. Use the on-screen controls to play, pause, reset, and tweak the square-wave frequency, RC time constant, and amplitude. The frequency-domain pane displays harmonic stems against the RC filter magnitude response to make attenuation patterns easy to interpret.
