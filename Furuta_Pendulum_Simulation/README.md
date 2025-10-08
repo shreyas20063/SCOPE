@@ -12,7 +12,9 @@ Interactive 3D demo of the rotary inverted pendulum (Furuta pendulum) controlled
 
 ```bash
 pip install numpy matplotlib        # install dependencies
-python main.py                      # launch the simulator
+python main.py                      # launch the modular simulator
+# or
+python Pendulum_stabalization.py    # run the original single-file script
 ```
 
 Once the window opens, use the sliders to tweak physical parameters and PID gains, and the buttons to start, reset, or disturb the system.
