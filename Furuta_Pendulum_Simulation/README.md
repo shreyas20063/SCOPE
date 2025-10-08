@@ -12,9 +12,7 @@ Interactive 3D demo of the rotary inverted pendulum (Furuta pendulum) controlled
 
 ```bash
 pip install numpy matplotlib        # install dependencies
-python main.py                      # launch the modular simulator
-# or
-python Pendulum_stabalization.py    # run the original single-file script
+python main.py                      # launch the simulator
 ```
 
 Once the window opens, use the sliders to tweak physical parameters and PID gains, and the buttons to start, reset, or disturb the system.
@@ -36,21 +34,21 @@ Once the window opens, use the sliders to tweak physical parameters and PID gain
 ```
 Furuta_Pendulum_Simulation/
 ├── main.py                      # Entrypoint using the modular design
-├── Pendulum_stabalization.py    # Original single-file implementation
 └── src/
     ├── control/pid_controller.py      # PID logic (anti-windup, saturation)
     ├── physics/pendulum_dynamics.py   # System model + RK4 integrator
     └── gui/visualizer.py              # 3D scene, plots, sliders, buttons
 ```
 
-The modular version keeps physics, control, and GUI separate for easier maintenance, while the classic script remains for quick demos.
+The modular version keeps physics, control, and GUI separate for easier maintenance and experimentation.
 
 ---
 
 ## Recent Highlights
 
 - Reset button now restores **state, parameters, PID gains, slider positions, and plots**.
-- Default PID gains retuned to `Kp=200`, `Kd=35`, `Ki=8` for quicker settling with minimal overshoot.
+- Legacy single-file script removed; `main.py` is now the single entry point.
+- Default PID gains set to `Kp=150`, `Kd=25`, `Ki=5` to match the current controller defaults.
 - GUI overlays explain how to tell the arm is changing direction.
 - Added in-code docstrings and comments for easier study.
 
