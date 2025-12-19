@@ -5,78 +5,66 @@ Contains image loading and audio playback functionality
 
 import threading
 import sounddevice as sd
-from PIL import Image
-import customtkinter as ctk
+from PyQt5.QtGui import QPixmap
 import config
 
 
 class ImageLoader:
     """Handles loading and resizing of circuit diagram images"""
-    
+
     @staticmethod
     def load_images():
         """
-        Loads and resizes images to fit within a fixed bounding box
-        
+        Loads circuit diagram images
+
         Returns:
-            dict: Dictionary mapping mode names to CTkImage objects
+            dict: Dictionary mapping mode names to QPixmap objects
         """
         circuit_images = {}
-        bounding_box = config.IMAGE_BOUNDING_BOX
 
-        for mode, filename in config.IMAGE_MAP.items():
+        for mode, filepath in config.IMAGE_MAP.items():
             try:
-                img = Image.open(filename)
-                original_width, original_height = img.size
+                pixmap = QPixmap(filepath)
+                if pixmap.isNull():
+                    print(f"Warning: Could not load '{filepath}'. Make sure it exists in the assets folder.")
+                    circuit_images[mode] = None
+                else:
+                    circuit_images[mode] = pixmap
 
-                # Calculate scaling ratio to fit bounding box
-                width_ratio = bounding_box[0] / original_width
-                height_ratio = bounding_box[1] / original_height
-                scale_ratio = min(width_ratio, height_ratio)
-                
-                new_width = int(original_width * scale_ratio)
-                new_height = int(original_height * scale_ratio)
-
-                ctk_image = ctk.CTkImage(light_image=img, size=(new_width, new_height))
-                circuit_images[mode] = ctk_image
-            
-            except FileNotFoundError:
-                print(f"Warning: Could not find '{filename}'. Make sure it's in the same folder.")
-                circuit_images[mode] = None
             except Exception as e:
-                print(f"Error loading image {filename}: {e}")
+                print(f"Error loading image {filepath}: {e}")
                 circuit_images[mode] = None
-        
+
         return circuit_images
 
 
 class AudioPlayer:
     """Handles audio playback in a separate thread"""
-    
+
     def __init__(self):
         self.is_playing = False
         self.sample_rate = config.DEFAULT_SAMPLE_RATE
-        
+
     def play(self, audio_data, sample_rate, play_button, on_error_callback):
         """
         Play audio in a separate thread
-        
+
         Args:
             audio_data: Numpy array of audio samples
             sample_rate: Sample rate of audio
-            play_button: Button to disable/enable
+            play_button: QPushButton to disable/enable
             on_error_callback: Function to call on error
         """
         if not self.is_playing:
             self.is_playing = True
             self.sample_rate = sample_rate
-            play_button.configure(state="disabled")
+            play_button.setEnabled(False)
             threading.Thread(
-                target=self._play_thread, 
+                target=self._play_thread,
                 args=(audio_data, play_button, on_error_callback),
                 daemon=True
             ).start()
-    
+
     def _play_thread(self, audio_data, play_button, on_error_callback):
         """Audio playback thread"""
         try:
@@ -87,10 +75,10 @@ class AudioPlayer:
         finally:
             self.is_playing = False
             try:
-                play_button.configure(state="normal")
+                play_button.setEnabled(True)
             except:
                 pass  # Widget may have been destroyed
-    
+
     def stop(self):
         """Stop audio playback"""
         sd.stop()

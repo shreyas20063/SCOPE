@@ -3,6 +3,8 @@ Configuration file for Amplifier Simulator
 Contains all constants and default parameters
 """
 
+import os
+
 # System Default Parameters
 K_DEFAULT = 100.0
 F0_DEFAULT = 10.0
@@ -23,9 +25,8 @@ MAX_AUDIO_DURATION = 10  # seconds
 
 # UI Settings
 WINDOW_TITLE = "Amplifier Feedback Simulator"
-WINDOW_SIZE = "1600x850"
-APPEARANCE_MODE = "Light"
-COLOR_THEME = "green"
+WINDOW_WIDTH = 1600
+WINDOW_HEIGHT = 850
 
 # Plot Settings
 PLOT_WINDOW_SIZE = 3000
@@ -34,11 +35,14 @@ INITIAL_OUTPUT_LIMIT = 0.1
 
 # Image Settings
 IMAGE_BOUNDING_BOX = (300, 175)
+# Get the directory where this config file is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ASSETS_DIR = os.path.join(BASE_DIR, 'assets')
 IMAGE_MAP = {
-    'simple': 'simple.png',
-    'feedback': 'feedback.png',
-    'crossover': 'crossover.png',
-    'compensated': 'compensated.png'
+    'simple': os.path.join(ASSETS_DIR, 'simple.png'),
+    'feedback': os.path.join(ASSETS_DIR, 'feedback.png'),
+    'crossover': os.path.join(ASSETS_DIR, 'crossover.png'),
+    'compensated': os.path.join(ASSETS_DIR, 'compensated.png')
 }
 
 # Amplifier Configurations
