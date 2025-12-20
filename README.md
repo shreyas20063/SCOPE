@@ -91,7 +91,7 @@ Contributions are welcome! Submit pull requests or open issues for bug fixes, ne
 ## Contact
 
 - **Duggimpudi Shreyas Reddy** - [GitHub](https://github.com/shreyas20063)
-- **Prathamesh Nerpagar**
+- **Prathamesh Nerpagar** - [GitHub](https://github.com/aspirantee24bt017)
 
 ## Acknowledgments
 
