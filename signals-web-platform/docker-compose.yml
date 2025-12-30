@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    command: npm run dev -- --host
+
+# Optional: Uncomment to add Dockerfiles
+# For now, run locally with the instructions in README.md

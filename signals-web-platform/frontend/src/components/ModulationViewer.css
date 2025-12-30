@@ -1,0 +1,335 @@
+/**
+ * ModulationViewer Styles
+ *
+ * Styles for the Modulation Techniques simulation viewer with tabs.
+ */
+
+.modulation-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 1rem;
+}
+
+/* Tab Bar Styles */
+.modulation-tab-bar {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+}
+
+.modulation-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modulation-tab-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.modulation-tab-btn.active {
+  background: color-mix(in srgb, var(--tab-color) 15%, transparent);
+  border-color: var(--tab-color);
+  color: var(--tab-color);
+}
+
+.modulation-tab-btn .tab-icon {
+  font-size: 1.25rem;
+}
+
+.modulation-tab-btn .tab-label {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .modulation-tab-btn .tab-label {
+    display: inline;
+  }
+}
+
+/* Tab Content */
+.tab-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Demo Content Styles */
+.demo-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.demo-header {
+  text-align: center;
+  padding: 0.5rem 0;
+}
+
+.demo-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+.demo-description {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* Demo Layout */
+.demo-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  min-height: 0;
+}
+
+@media (min-width: 1024px) {
+  .demo-layout {
+    grid-template-columns: 1fr 280px;
+  }
+}
+
+.plots-area {
+  min-height: 0;
+  overflow: auto;
+}
+
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Plots Section */
+.modulation-plots-section {
+  height: 100%;
+}
+
+/* Vertical stacking for plots - one per row like PyQt5 */
+.modulation-plots-section .plots-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+/* Override PlotDisplay.css defaults - compact plots for modulation */
+.modulation-plots-section .plot-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+  height: 200px;
+  min-height: 200px !important;
+  max-height: 200px !important;
+}
+
+.modulation-plots-section .plot-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.modulation-plots-section .plot-card .js-plotly-plot {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Info Panel */
+.modulation-info-panel {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+
+.info-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.info-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.info-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+/* Audio Controls Panel */
+.audio-controls-panel {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+
+.audio-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.audio-buttons-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Audio Player */
+.modulation-audio-player {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background: var(--hover-bg);
+  border-radius: var(--radius-md);
+  border-left: 3px solid;
+}
+
+.audio-play-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.audio-play-btn:hover {
+  transform: scale(1.05);
+}
+
+.audio-play-btn:active {
+  transform: scale(0.95);
+}
+
+.audio-play-btn.playing {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.audio-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.audio-player-placeholder {
+  padding: 0.75rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+/* Empty State */
+.modulation-viewer-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+}
+
+/* AM Content specific */
+.am-content .demo-header h3 {
+  color: #2563EB;
+}
+
+/* FM Content specific */
+.fm-content .demo-header h3 {
+  color: #16A34A;
+}
+
+/* FDM Content specific */
+.fdm-content .demo-header h3 {
+  color: #CA8A04;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .modulation-tab-bar {
+    padding: 0.25rem;
+    gap: 0.25rem;
+  }
+
+  .modulation-tab-btn {
+    padding: 0.5rem;
+  }
+
+  .modulation-tab-btn .tab-icon {
+    font-size: 1.5rem;
+  }
+
+  .demo-header h3 {
+    font-size: 1rem;
+  }
+
+  .demo-description {
+    font-size: 0.75rem;
+  }
+
+  .modulation-plots-section .plot-card {
+    height: 160px;
+    min-height: 160px !important;
+    max-height: 160px !important;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+}

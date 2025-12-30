@@ -1,4 +1,5 @@
 import traceback
+from typing import Optional
 import numpy as np
 import scipy.signal as signal
 from PyQt5 import QtCore, QtWidgets
@@ -12,7 +13,7 @@ from utils import load_and_validate_audio, configure_axes
 from assets import AUDIO_SAMPLE_PATH
 
 class DemoWindowFM(DemoWindowBase):
-    def __init__(self, parent: QtWidgets.QWidget | None, title: str):
+    def __init__(self, parent: Optional[QtWidgets.QWidget], title: str):
         super().__init__(parent, title)
         self.fc_hz = 10_000
         self._sensitivity_cache = {"FM": 1200.0, "PM": 1.2}

@@ -1,0 +1,3300 @@
+/**
+ * SimulationViewer.css
+ * Styles for the SimulationViewer component
+ */
+
+/* Main container */
+.simulation-viewer {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 120px);
+  padding: 1rem;
+}
+
+/* Simulation header */
+.simulation-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: var(--surface, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.header-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md, 8px);
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text-secondary, #94a3b8);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.back-button:hover {
+  background: rgba(20, 184, 166, 0.2);
+  color: var(--primary, #14b8a6);
+}
+
+.header-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  margin-bottom: 0.5rem;
+}
+
+.breadcrumb ol {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.breadcrumb a {
+  color: var(--text-secondary, #94a3b8);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.breadcrumb a:hover {
+  color: var(--primary, #14b8a6);
+}
+
+.breadcrumb .separator {
+  color: var(--text-muted, #64748b);
+}
+
+.breadcrumb .current {
+  color: var(--text-primary, #f1f5f9);
+}
+
+/* Title */
+.simulation-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary, #f1f5f9);
+  margin: 0 0 0.5rem 0;
+}
+
+.title-icon {
+  font-size: 1.75rem;
+}
+
+.simulation-description {
+  font-size: 0.9375rem;
+  color: var(--text-secondary, #94a3b8);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Header meta */
+.header-meta {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.category-badge {
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(20, 184, 166, 0.15);
+  color: var(--primary, #14b8a6);
+}
+
+/* Mobile tabs */
+.mobile-tabs {
+  display: none;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  background: var(--surface, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+}
+
+.tab-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.tab-button.active {
+  background: rgba(20, 184, 166, 0.15);
+  color: var(--primary, #14b8a6);
+}
+
+/* Viewer content - Desktop: side by side, Mobile: tabbed */
+.viewer-content {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 1.5rem;
+  align-items: start; /* Prevent grid items from stretching to fill height */
+}
+
+/* Full width when no controls panel */
+.viewer-content.no-controls {
+  grid-template-columns: 1fr;
+}
+
+.plots-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  /* No height constraints - let plots determine their natural height */
+}
+
+.controls-section {
+  position: sticky;
+  top: 1rem;
+  align-self: start;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+/* Not implemented placeholder */
+.not-implemented {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 3rem;
+}
+
+.placeholder-content {
+  text-align: center;
+  max-width: 400px;
+}
+
+.placeholder-icon {
+  display: block;
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.7;
+}
+
+.placeholder-content h3 {
+  font-size: 1.25rem;
+  color: var(--text-primary, #f1f5f9);
+  margin: 0 0 0.75rem 0;
+}
+
+.placeholder-content p {
+  color: var(--text-secondary, #94a3b8);
+  margin: 0 0 1.5rem 0;
+  line-height: 1.6;
+}
+
+/* Responsive styles */
+@media (max-width: 1024px) {
+  .viewer-content {
+    grid-template-columns: 1fr 320px;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .simulation-viewer {
+    padding: 0.75rem;
+  }
+
+  .simulation-header {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .header-meta {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .simulation-title {
+    font-size: 1.25rem;
+  }
+
+  .mobile-tabs {
+    display: flex;
+  }
+
+  .viewer-content {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .controls-section {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .plots-section {
+    gap: 1rem;
+  }
+
+  .mobile-hidden {
+    display: none;
+  }
+
+  .mobile-visible {
+    display: block;
+  }
+}
+
+/* Button styles */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary, #14b8a6), var(--secondary, #3b82f6));
+  color: white;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text-secondary, #94a3b8);
+}
+
+.btn-secondary:hover {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text-primary, #f1f5f9);
+}
+
+/* Header actions container */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+/* Share button styles */
+.share-button-container {
+  position: relative;
+}
+
+.share-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: var(--radius-md, 8px);
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.share-button:hover {
+  background: rgba(20, 184, 166, 0.15);
+  border-color: rgba(20, 184, 166, 0.3);
+  color: var(--primary, #14b8a6);
+}
+
+.share-button.copied {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+.share-tooltip {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface, #1e293b);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.75rem;
+  color: #10b981;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: tooltipFadeIn 0.2s ease;
+  z-index: 100;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Reset button styles */
+.reset-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: var(--radius-md, 8px);
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reset-button:hover {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+}
+
+.reset-button.resetting svg {
+  animation: spin 0.3s linear;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+/* Info panel styles */
+.info-panel {
+  background: var(--surface, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.info-panel-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.info-panel-toggle:hover {
+  background: rgba(148, 163, 184, 0.05);
+}
+
+.info-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.info-panel-chevron {
+  transition: transform 0.3s ease;
+}
+
+.info-panel-chevron.rotated {
+  transform: rotate(180deg);
+}
+
+.info-panel-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.info-panel.expanded .info-panel-content {
+  max-height: 500px;
+  padding: 0 1rem 1rem;
+}
+
+.info-section {
+  margin-bottom: 1rem;
+}
+
+.info-section:last-child {
+  margin-bottom: 0;
+}
+
+.info-section h4 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+  margin: 0 0 0.5rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.info-description {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.info-equations {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.equation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  background: rgba(148, 163, 184, 0.05);
+  border-radius: var(--radius-sm, 4px);
+}
+
+.equation code {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 0.875rem;
+  color: var(--primary, #14b8a6);
+}
+
+.equation span {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+
+.info-tips {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.info-tips li {
+  position: relative;
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #94a3b8);
+  margin-bottom: 0.5rem;
+}
+
+.info-tips li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--primary, #14b8a6);
+}
+
+.info-tips li:last-child {
+  margin-bottom: 0;
+}
+
+/* Loading spinner styles */
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+}
+
+.spinner-svg {
+  animation: rotate 1.5s linear infinite;
+}
+
+.spinner-track {
+  stroke: rgba(148, 163, 184, 0.1);
+}
+
+.spinner-progress {
+  stroke: var(--primary, #14b8a6);
+  stroke-dasharray: 90, 150;
+  stroke-dashoffset: 0;
+  animation: dash 1.5s ease-in-out infinite;
+}
+
+@keyframes rotate {
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes dash {
+  0% {
+    stroke-dasharray: 1, 150;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -35;
+  }
+  100% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -124;
+  }
+}
+
+.spinner-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.1) 0%,
+    rgba(148, 163, 184, 0.2) 50%,
+    rgba(148, 163, 184, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm, 4px);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Mobile responsive improvements */
+@media (max-width: 768px) {
+  .header-actions {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .share-button {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .share-button span {
+    display: none;
+  }
+
+  .share-tooltip {
+    right: auto;
+    left: 0;
+  }
+
+  .info-panel {
+    margin-bottom: 0.75rem;
+  }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+  .share-button,
+  .reset-button,
+  .tab-button,
+  .back-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .share-button:active,
+  .reset-button:active {
+    transform: scale(0.98);
+  }
+}
+
+/* Light mode overrides */
+[data-theme="light"] .simulation-header,
+[data-theme="light"] .mobile-tabs,
+[data-theme="light"] .info-panel {
+  background: var(--surface-color, #ffffff);
+}
+
+[data-theme="light"] .share-tooltip {
+  background: var(--surface-color, #ffffff);
+}
+
+[data-theme="light"] .equation {
+  background: rgba(241, 245, 249, 0.8);
+}
+
+/* Landscape phone optimizations */
+@media (max-height: 500px) and (orientation: landscape) {
+  .simulation-header {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .simulation-title {
+    font-size: 1.125rem;
+  }
+
+  .simulation-description {
+    display: none;
+  }
+}
+
+/* Formula footer for convolution simulations */
+.formula-footer {
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  background: var(--surface, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.formula-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 1.125rem;
+  font-family: 'SF Mono', 'Consolas', 'Liberation Mono', monospace;
+}
+
+.formula-symbol {
+  color: var(--primary, #14b8a6);
+  font-weight: 600;
+}
+
+.formula-equals {
+  color: var(--text-secondary, #94a3b8);
+}
+
+.formula-integral {
+  color: var(--text-primary, #f1f5f9);
+}
+
+.formula-approx {
+  color: var(--text-muted, #64748b);
+  margin-left: 0.5rem;
+}
+
+.formula-value {
+  color: var(--accent, #f59e0b);
+  font-weight: 700;
+  background: rgba(245, 158, 11, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-md, 8px);
+}
+
+/* Light mode overrides for formula footer */
+[data-theme="light"] .formula-footer {
+  background: var(--surface-color, #ffffff);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="light"] .formula-value {
+  background: rgba(245, 158, 11, 0.15);
+}
+
+/* Mobile responsive for formula footer */
+@media (max-width: 768px) {
+  .formula-footer {
+    padding: 0.875rem 1rem;
+  }
+
+  .formula-content {
+    font-size: 1rem;
+  }
+}
+
+/* ============================================================================
+   DC Motor Info Panel Styles
+   ============================================================================ */
+
+.dc-motor-info-panel {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Block Diagram Section */
+.block-diagram-section {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.info-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  background: rgba(59, 130, 246, 0.1);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+.info-section-title svg {
+  color: #60a5fa;
+}
+
+.block-diagram-container {
+  padding: 1rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.98);
+  min-height: 120px;
+}
+
+.block-diagram-image {
+  max-width: 100%;
+  max-height: 200px;
+  height: auto;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+/* System Information Section */
+.system-info-section {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.system-info-section .info-section-title {
+  background: rgba(16, 185, 129, 0.1);
+  border-bottom-color: rgba(16, 185, 129, 0.15);
+}
+
+.system-info-section .info-section-title svg {
+  color: #34d399;
+}
+
+/* Info Cards */
+.info-card {
+  margin: 1rem;
+  padding: 1rem 1.25rem;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  transition: all 0.2s ease;
+}
+
+.info-card:hover {
+  border-color: rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.info-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.info-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.info-card-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+.info-card-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  color: #f1f5f9;
+  margin-bottom: 0.5rem;
+}
+
+.info-card-subtext {
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.info-card-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Transfer Function Card */
+.transfer-function-card {
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.transfer-function-card .info-card-icon {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  font-style: italic;
+}
+
+.transfer-function-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 0;
+}
+
+.tf-symbolic {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 1rem;
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.1);
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+}
+
+.tf-equals {
+  font-size: 1.25rem;
+  color: #64748b;
+  font-weight: 300;
+}
+
+.tf-fraction {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.tf-numerator,
+.tf-denominator {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 1rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.tf-numerator {
+  color: #34d399;
+  font-weight: 600;
+}
+
+.tf-denominator {
+  color: #60a5fa;
+}
+
+.tf-line {
+  width: 100%;
+  min-width: 120px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #475569, transparent);
+}
+
+/* Info Cards Row */
+.info-cards-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin: 0 1rem 1rem;
+}
+
+/* Poles Card */
+.poles-card .info-card-icon {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  font-size: 1rem;
+}
+
+.poles-card.stable {
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.poles-card.stable .info-card-badge {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.poles-card.oscillatory {
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+.poles-card.oscillatory .info-card-badge {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+/* Steady State Card */
+.steady-state-card {
+  border-color: rgba(139, 92, 246, 0.25);
+}
+
+.steady-state-card .info-card-icon {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+}
+
+.steady-state-card .info-card-value {
+  color: #a78bfa;
+}
+
+/* Current Parameters Display */
+.current-params-display {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.4);
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.param-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.875rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  background: rgba(148, 163, 184, 0.1);
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.param-chip.alpha {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.param-chip.beta {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+.param-chip.gamma {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+.param-chip.p {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.2);
+  color: #fcd34d;
+}
+
+/* Light mode overrides for DC Motor panel */
+[data-theme="light"] .dc-motor-info-panel .block-diagram-section,
+[data-theme="light"] .dc-motor-info-panel .system-info-section {
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+[data-theme="light"] .info-section-title {
+  color: #1e293b;
+}
+
+[data-theme="light"] .info-card {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="light"] .info-card-value {
+  color: #1e293b;
+}
+
+[data-theme="light"] .tf-symbolic {
+  background: rgba(148, 163, 184, 0.15);
+  color: #475569;
+}
+
+[data-theme="light"] .current-params-display {
+  background: rgba(241, 245, 249, 0.8);
+}
+
+[data-theme="light"] .param-chip {
+  background: rgba(148, 163, 184, 0.15);
+  color: #475569;
+}
+
+[data-theme="light"] .block-diagram-container {
+  background: #ffffff;
+}
+
+/* Mobile responsive for DC Motor panel */
+@media (max-width: 768px) {
+  .dc-motor-info-panel {
+    margin-bottom: 1rem;
+  }
+
+  .info-cards-row {
+    grid-template-columns: 1fr;
+    margin: 0 0.75rem 0.75rem;
+  }
+
+  .info-card {
+    margin: 0.75rem;
+    padding: 0.875rem 1rem;
+  }
+
+  .transfer-function-display {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .current-params-display {
+    padding: 0.75rem;
+  }
+
+  .param-chip {
+    font-size: 0.8125rem;
+    padding: 0.3rem 0.75rem;
+  }
+
+  .block-diagram-image {
+    max-height: 150px;
+  }
+}
+
+/* ============================================================================
+   Sticky Controls Mode
+   Makes the control panel fixed when scrolling (for specific simulations)
+   ============================================================================ */
+
+.sticky-controls-mode .viewer-content {
+  position: relative;
+}
+
+.sticky-controls-mode .controls-section {
+  position: sticky;
+  top: 1rem;
+  height: fit-content;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  align-self: flex-start;
+}
+
+/* Custom scrollbar for sticky controls */
+.sticky-controls-mode .controls-section::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sticky-controls-mode .controls-section::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 3px;
+}
+
+.sticky-controls-mode .controls-section::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 3px;
+}
+
+.sticky-controls-mode .controls-section::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Ensure plots section can scroll independently */
+.sticky-controls-mode .plots-section {
+  overflow: visible;
+}
+
+/* Disable sticky on mobile (controls are in tab view) */
+@media (max-width: 768px) {
+  .sticky-controls-mode .controls-section {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+  }
+}
+
+/* ============================================================================
+   Second-Order System Info Panel Styles
+   ============================================================================ */
+
+.second-order-info-panel {
+  margin-bottom: 1.5rem;
+}
+
+/* Card-specific styles for Second-Order System */
+.second-order-info-panel .omega-card {
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+.second-order-info-panel .omega-card .info-card-icon {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.second-order-info-panel .omega-card .info-card-value {
+  color: #fbbf24;
+}
+
+.second-order-info-panel .q-card {
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.second-order-info-panel .q-card .info-card-icon {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  font-weight: 700;
+}
+
+.second-order-info-panel .q-card .info-card-value {
+  color: #60a5fa;
+}
+
+.second-order-info-panel .zeta-card {
+  border-color: rgba(34, 211, 238, 0.25);
+}
+
+.second-order-info-panel .zeta-card .info-card-icon {
+  background: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+  font-style: italic;
+}
+
+.second-order-info-panel .zeta-card .info-card-value {
+  color: #22d3ee;
+}
+
+/* Damping type badges */
+.second-order-info-panel .info-card-badge.underdamped {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.second-order-info-panel .info-card-badge.critical {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+}
+
+.second-order-info-panel .info-card-badge.overdamped {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.second-order-info-panel .bandwidth-card {
+  border-color: rgba(244, 114, 182, 0.25);
+}
+
+.second-order-info-panel .bandwidth-card .info-card-icon {
+  background: rgba(244, 114, 182, 0.15);
+  color: #f472b6;
+  font-size: 0.7rem;
+}
+
+.second-order-info-panel .bandwidth-card .info-card-value {
+  color: #f472b6;
+}
+
+.second-order-info-panel .resonance-card {
+  border-color: rgba(52, 211, 153, 0.25);
+}
+
+.second-order-info-panel .resonance-card .info-card-icon {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+  font-size: 0.7rem;
+}
+
+.second-order-info-panel .resonance-card .info-card-value {
+  color: #34d399;
+}
+
+/* Light mode for Second-Order panel */
+[data-theme="light"] .second-order-info-panel .system-info-section {
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+/* Mobile responsive for Second-Order panel */
+@media (max-width: 768px) {
+  .second-order-info-panel {
+    margin-bottom: 1rem;
+  }
+}
+
+/* ============================================================================
+   CT/DT Poles Info Panel Styles
+   ============================================================================ */
+
+.ct-dt-poles-info-panel {
+  margin-bottom: 1.5rem;
+}
+
+/* Method Card */
+.ct-dt-poles-info-panel .method-card {
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.ct-dt-poles-info-panel .method-card .info-card-icon {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.ct-dt-poles-info-panel .method-card .info-card-value {
+  color: #60a5fa;
+}
+
+/* T/τ Ratio Card */
+.ct-dt-poles-info-panel .ratio-card {
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+.ct-dt-poles-info-panel .ratio-card .info-card-icon {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.ct-dt-poles-info-panel .ratio-card .info-card-value {
+  color: #fbbf24;
+}
+
+/* S-Pole Card (CT) */
+.ct-dt-poles-info-panel .s-pole-card {
+  border-color: rgba(34, 211, 238, 0.25);
+}
+
+.ct-dt-poles-info-panel .s-pole-card .info-card-icon {
+  background: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.ct-dt-poles-info-panel .s-pole-card .info-card-value {
+  color: #22d3ee;
+}
+
+/* Z-Pole Card (DT) */
+.ct-dt-poles-info-panel .z-pole-card {
+  border-color: rgba(168, 85, 247, 0.25);
+}
+
+.ct-dt-poles-info-panel .z-pole-card .info-card-icon {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.ct-dt-poles-info-panel .z-pole-card .info-card-value {
+  color: #a855f7;
+}
+
+.ct-dt-poles-info-panel .z-pole-card.stable {
+  border-color: rgba(52, 211, 153, 0.25);
+}
+
+.ct-dt-poles-info-panel .z-pole-card.stable .info-card-value {
+  color: #34d399;
+}
+
+.ct-dt-poles-info-panel .z-pole-card.unstable {
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.ct-dt-poles-info-panel .z-pole-card.unstable .info-card-value {
+  color: #f87171;
+}
+
+/* Stability Card */
+.ct-dt-poles-info-panel .stability-card {
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+.ct-dt-poles-info-panel .stability-card .info-card-icon {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.ct-dt-poles-info-panel .stability-card.stable {
+  border-color: rgba(52, 211, 153, 0.25);
+}
+
+.ct-dt-poles-info-panel .stability-card.stable .info-card-icon {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+}
+
+.ct-dt-poles-info-panel .stability-card.stable .info-card-value {
+  color: #34d399;
+}
+
+.ct-dt-poles-info-panel .stability-card.unstable {
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.ct-dt-poles-info-panel .stability-card.unstable .info-card-icon {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+.ct-dt-poles-info-panel .stability-card.unstable .info-card-value {
+  color: #f87171;
+}
+
+/* Stability badges */
+.ct-dt-poles-info-panel .info-card-badge.stable {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+}
+
+.ct-dt-poles-info-panel .info-card-badge.unstable {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+/* Performance Card */
+.ct-dt-poles-info-panel .performance-card {
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+.ct-dt-poles-info-panel .performance-card .info-card-icon {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.ct-dt-poles-info-panel .performance-card.excellent {
+  border-color: rgba(52, 211, 153, 0.25);
+}
+
+.ct-dt-poles-info-panel .performance-card.excellent .info-card-value {
+  color: #34d399;
+}
+
+.ct-dt-poles-info-panel .performance-card.excellent .info-card-icon {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+}
+
+.ct-dt-poles-info-panel .performance-card.good {
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+.ct-dt-poles-info-panel .performance-card.good .info-card-value {
+  color: #fbbf24;
+}
+
+.ct-dt-poles-info-panel .performance-card.fair {
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.ct-dt-poles-info-panel .performance-card.fair .info-card-value {
+  color: #f59e0b;
+}
+
+.ct-dt-poles-info-panel .performance-card.fair .info-card-icon {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.ct-dt-poles-info-panel .performance-card.poor {
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.ct-dt-poles-info-panel .performance-card.poor .info-card-value {
+  color: #ef4444;
+}
+
+.ct-dt-poles-info-panel .performance-card.poor .info-card-icon {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.ct-dt-poles-info-panel .performance-card.unstable {
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.ct-dt-poles-info-panel .performance-card.unstable .info-card-value {
+  color: #f87171;
+}
+
+.ct-dt-poles-info-panel .performance-card.unstable .info-card-icon {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+/* Light mode for CT/DT Poles panel */
+[data-theme="light"] .ct-dt-poles-info-panel .system-info-section {
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+/* Mobile responsive for CT/DT Poles panel */
+@media (max-width: 768px) {
+  .ct-dt-poles-info-panel {
+    margin-bottom: 1rem;
+  }
+}
+
+/* ============================================================================
+   Feedback System Info Panel Styles
+   ============================================================================ */
+
+.feedback-system-info-panel {
+  margin-bottom: 1.5rem;
+}
+
+/* Transfer Function Card */
+.feedback-system-info-panel .tf-card {
+  border-color: rgba(59, 130, 246, 0.25);
+  margin-bottom: 1rem;
+}
+
+.feedback-system-info-panel .tf-card .info-card-header {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.feedback-system-info-panel .tf-card .info-card-icon {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  font-style: italic;
+  font-weight: 600;
+}
+
+.feedback-system-info-panel .tf-equations {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.feedback-system-info-panel .tf-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.feedback-system-info-panel .tf-label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 500;
+  min-width: 85px;
+}
+
+.feedback-system-info-panel .tf-formula {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 0.8125rem;
+  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.6);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* Open-Loop Metrics Card */
+.feedback-system-info-panel .ol-metrics-card {
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.feedback-system-info-panel .ol-metrics-card .info-card-icon {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.feedback-system-info-panel .ol-metrics-card .info-card-icon.open-loop {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+/* Closed-Loop Metrics Card */
+.feedback-system-info-panel .cl-metrics-card {
+  border-color: rgba(34, 211, 238, 0.25);
+}
+
+.feedback-system-info-panel .cl-metrics-card .info-card-icon {
+  background: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.feedback-system-info-panel .cl-metrics-card .info-card-icon.closed-loop {
+  background: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+}
+
+/* Metrics list inside cards */
+.feedback-system-info-panel .metrics-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.feedback-system-info-panel .metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+}
+
+.feedback-system-info-panel .metric-label {
+  color: #94a3b8;
+}
+
+.feedback-system-info-panel .metric-value {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.feedback-system-info-panel .ol-metrics-card .metric-value {
+  color: #f87171;
+}
+
+.feedback-system-info-panel .cl-metrics-card .metric-value {
+  color: #22d3ee;
+}
+
+/* Speedup Card */
+.feedback-system-info-panel .speedup-card {
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+.feedback-system-info-panel .speedup-card .info-card-icon {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.feedback-system-info-panel .speedup-card .info-card-value {
+  color: #fbbf24;
+}
+
+.feedback-system-info-panel .speedup-card.highlight {
+  border-color: rgba(52, 211, 153, 0.35);
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(52, 211, 153, 0.05));
+}
+
+.feedback-system-info-panel .speedup-card.highlight .info-card-value {
+  color: #34d399;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+/* Parameter chips specific styles */
+.feedback-system-info-panel .current-params-display {
+  margin-bottom: 1rem;
+}
+
+.feedback-system-info-panel .param-chip.beta {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #f87171;
+}
+
+.feedback-system-info-panel .param-chip.k0 {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+}
+
+.feedback-system-info-panel .param-chip.alpha {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: #a855f7;
+}
+
+.feedback-system-info-panel .param-chip.input {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+/* Light mode for Feedback System panel */
+[data-theme="light"] .feedback-system-info-panel .system-info-section {
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+[data-theme="light"] .feedback-system-info-panel .tf-formula {
+  background: rgba(241, 245, 249, 0.8);
+  color: #1e293b;
+}
+
+[data-theme="light"] .feedback-system-info-panel .metric-value {
+  color: #1e293b;
+}
+
+/* Feedback block diagram specific styling */
+.feedback-system-info-panel .block-diagram-section {
+  margin-bottom: 1rem;
+}
+
+.feedback-system-info-panel .feedback-block-diagram {
+  background: rgba(255, 255, 255, 0.98);
+  padding: 1.25rem;
+  min-height: 100px;
+}
+
+.feedback-system-info-panel .feedback-block-diagram .block-diagram-image {
+  max-height: 160px;
+}
+
+/* Mobile responsive for Feedback System panel */
+@media (max-width: 768px) {
+  .feedback-system-info-panel {
+    margin-bottom: 1rem;
+  }
+
+  .feedback-system-info-panel .tf-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .feedback-system-info-panel .tf-label {
+    min-width: auto;
+  }
+
+  .feedback-system-info-panel .feedback-block-diagram .block-diagram-image {
+    max-height: 120px;
+  }
+}
+
+/* ============================================================================
+   Furuta Pendulum Info Panel Styles
+   ============================================================================ */
+
+.furuta-pendulum-info-panel {
+  margin-bottom: 1.5rem;
+}
+
+/* Status Chip (inline with header) */
+.status-chip {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.status-chip.stable {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.status-chip.unstable {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+/* Stability Banner */
+.stability-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.25rem;
+  margin: 0 1rem 1rem;
+  border-radius: var(--radius-md, 8px);
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.stability-banner.stable {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.15), rgba(16, 185, 129, 0.1));
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: #34d399;
+}
+
+.stability-banner.unstable {
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.15), rgba(239, 68, 68, 0.1));
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  color: #f87171;
+  animation: pulse-warning 2s ease-in-out infinite;
+}
+
+@keyframes pulse-warning {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+.stability-icon {
+  font-size: 1.25rem;
+}
+
+.stability-text {
+  font-size: 0.9375rem;
+  letter-spacing: 0.05em;
+}
+
+.peak-angle {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full, 9999px);
+}
+
+.settling-time {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  opacity: 0.85;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full, 9999px);
+}
+
+/* Pendulum State Card */
+.furuta-pendulum-info-panel .pendulum-state-card {
+  border-color: rgba(34, 211, 238, 0.25);
+}
+
+.furuta-pendulum-info-panel .pendulum-state-card .info-card-icon {
+  background: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.furuta-pendulum-info-panel .pendulum-state-card .info-card-value {
+  color: #22d3ee;
+}
+
+/* Arm State Card */
+.furuta-pendulum-info-panel .arm-state-card {
+  border-color: rgba(168, 85, 247, 0.25);
+}
+
+.furuta-pendulum-info-panel .arm-state-card .info-card-icon {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.furuta-pendulum-info-panel .arm-state-card .info-card-value {
+  color: #a855f7;
+}
+
+/* Torque Card */
+.furuta-pendulum-info-panel .torque-card {
+  border-color: rgba(244, 114, 182, 0.25);
+}
+
+.furuta-pendulum-info-panel .torque-card .info-card-icon {
+  background: rgba(244, 114, 182, 0.15);
+  color: #f472b6;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.furuta-pendulum-info-panel .torque-card .info-card-value {
+  color: #f472b6;
+}
+
+.furuta-pendulum-info-panel .torque-card.zero .info-card-value {
+  color: #94a3b8;
+}
+
+/* Height Card */
+.furuta-pendulum-info-panel .height-card {
+  border-color: rgba(52, 211, 153, 0.25);
+}
+
+.furuta-pendulum-info-panel .height-card .info-card-icon {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.furuta-pendulum-info-panel .height-card .info-card-value {
+  color: #34d399;
+}
+
+/* PID Gains Display */
+.pid-gains-display {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.pid-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.875rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  border: 1px solid;
+}
+
+.pid-chip.kp {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: #60a5fa;
+}
+
+.pid-chip.kd {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.25);
+  color: #fbbf24;
+}
+
+.pid-chip.ki {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: rgba(168, 85, 247, 0.25);
+  color: #a855f7;
+}
+
+/* Physical Properties Display */
+.physical-props-display {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.prop-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-sm, 4px);
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+}
+
+.prop-chip.mass {
+  color: #f87171;
+}
+
+.prop-chip.length {
+  color: #22d3ee;
+}
+
+.prop-chip.arm {
+  color: #a855f7;
+}
+
+/* Light mode for Furuta Pendulum panel */
+[data-theme="light"] .furuta-pendulum-info-panel .system-info-section {
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+[data-theme="light"] .stability-banner.stable {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(16, 185, 129, 0.15));
+}
+
+[data-theme="light"] .stability-banner.unstable {
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.2), rgba(239, 68, 68, 0.15));
+}
+
+[data-theme="light"] .status-chip.stable {
+  background: rgba(52, 211, 153, 0.2);
+  color: #059669;
+}
+
+[data-theme="light"] .status-chip.unstable {
+  background: rgba(248, 113, 113, 0.2);
+  color: #dc2626;
+}
+
+[data-theme="light"] .pid-gains-display {
+  background: rgba(241, 245, 249, 0.6);
+}
+
+[data-theme="light"] .physical-props-display {
+  background: rgba(241, 245, 249, 0.4);
+}
+
+/* Mobile responsive for Furuta Pendulum panel */
+@media (max-width: 768px) {
+  .furuta-pendulum-info-panel {
+    margin-bottom: 1rem;
+  }
+
+  .stability-banner {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .settling-time {
+    margin-left: 0;
+    width: 100%;
+    text-align: center;
+    margin-top: 0.25rem;
+  }
+
+  .pid-gains-display,
+  .physical-props-display {
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .pid-chip,
+  .prop-chip {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.625rem;
+  }
+}
+
+/* ============================================================================
+   Furuta Pendulum 3D Visualization Styles
+   ============================================================================ */
+
+.furuta-3d-section {
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.visualization-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  background: rgba(34, 211, 238, 0.1);
+  border-bottom: 1px solid rgba(34, 211, 238, 0.15);
+}
+
+.visualization-title svg {
+  color: #22d3ee;
+}
+
+.furuta-3d-container {
+  position: relative;
+  width: 100%;
+  height: 350px;
+  background: #0f172a;
+}
+
+.furuta-3d-overlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  backdrop-filter: blur(8px);
+}
+
+.status-badge.stable {
+  background: rgba(52, 211, 153, 0.2);
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  color: #34d399;
+}
+
+.status-badge.unstable {
+  background: rgba(248, 113, 113, 0.2);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: #f87171;
+  animation: pulse-badge 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-badge {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* Camera interaction hint */
+.camera-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 10;
+}
+
+.camera-hint span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius, 6px);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  color: #94a3b8;
+  backdrop-filter: blur(8px);
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.furuta-3d-container:hover .camera-hint span {
+  opacity: 0.5;
+}
+
+/* Light mode for 3D visualization */
+[data-theme="light"] .furuta-3d-section {
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+
+[data-theme="light"] .visualization-title {
+  color: #1e293b;
+}
+
+[data-theme="light"] .furuta-3d-container {
+  background: #f1f5f9;
+}
+
+/* Mobile responsive for 3D visualization */
+@media (max-width: 768px) {
+  .furuta-3d-section {
+    margin-bottom: 1rem;
+  }
+
+  .furuta-3d-container {
+    height: 280px;
+  }
+
+  .visualization-title {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* ============================================================================
+   Furuta Pendulum Animation Controls
+   ============================================================================ */
+
+.furuta-3d-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.animation-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: rgba(15, 23, 42, 0.6);
+  border-top: 1px solid rgba(34, 211, 238, 0.15);
+}
+
+.controls-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Control Buttons */
+.control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.control-btn.play-btn {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(34, 211, 238, 0.1));
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  color: #22d3ee;
+}
+
+.control-btn.play-btn:hover {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.3), rgba(34, 211, 238, 0.2));
+  border-color: rgba(34, 211, 238, 0.5);
+  transform: scale(1.05);
+}
+
+.control-btn.play-btn.playing {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.1));
+  border-color: rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+.control-btn.play-btn.playing:hover {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.3), rgba(251, 191, 36, 0.2));
+  border-color: rgba(251, 191, 36, 0.5);
+}
+
+.control-btn.reset-btn {
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+}
+
+.control-btn.reset-btn:hover {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: #e2e8f0;
+}
+
+/* Time Display */
+.time-display {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 0.875rem;
+  padding: 0.375rem 0.75rem;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.current-time {
+  color: #22d3ee;
+  font-weight: 600;
+  min-width: 50px;
+  text-align: right;
+}
+
+.time-separator {
+  color: #64748b;
+}
+
+.total-time {
+  color: #94a3b8;
+  min-width: 50px;
+}
+
+/* Speed Control */
+.speed-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.speed-control label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.speed-select {
+  padding: 0.375rem 0.625rem;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.6);
+  color: #e2e8f0;
+  font-size: 0.8125rem;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.speed-select:hover {
+  border-color: rgba(34, 211, 238, 0.3);
+}
+
+.speed-select:focus {
+  outline: none;
+  border-color: rgba(34, 211, 238, 0.5);
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.1);
+}
+
+/* Timeline Scrubber */
+.timeline-row {
+  width: 100%;
+}
+
+.timeline-scrubber {
+  width: 100%;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.timeline-scrubber:hover {
+  background: rgba(148, 163, 184, 0.3);
+}
+
+.timeline-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #22d3ee, #06b6d4);
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 6px rgba(34, 211, 238, 0.4);
+  transition: all 0.2s ease;
+}
+
+.timeline-scrubber::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 10px rgba(34, 211, 238, 0.6);
+}
+
+.timeline-scrubber::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #22d3ee, #06b6d4);
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 6px rgba(34, 211, 238, 0.4);
+  transition: all 0.2s ease;
+}
+
+.timeline-scrubber::-moz-range-thumb:hover {
+  transform: scale(1.15);
+}
+
+.timeline-scrubber::-moz-range-track {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 3px;
+  height: 6px;
+}
+
+/* Light mode for animation controls */
+[data-theme="light"] .animation-controls {
+  background: rgba(241, 245, 249, 0.8);
+  border-top-color: rgba(34, 211, 238, 0.2);
+}
+
+[data-theme="light"] .time-display {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="light"] .speed-select {
+  background: rgba(255, 255, 255, 0.8);
+  color: #1e293b;
+}
+
+[data-theme="light"] .timeline-scrubber {
+  background: rgba(148, 163, 184, 0.3);
+}
+
+/* Mobile responsive for animation controls */
+@media (max-width: 768px) {
+  .animation-controls {
+    padding: 0.75rem 1rem;
+    gap: 0.5rem;
+  }
+
+  .controls-row {
+    gap: 0.5rem;
+  }
+
+  .control-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .time-display {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .current-time,
+  .total-time {
+    min-width: 40px;
+  }
+
+  .speed-control {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .timeline-scrubber::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* ============================================================================
+   Fourier Phase vs Magnitude Info Panel Styles
+   ============================================================================ */
+
+.fourier-phase-mag-info-panel {
+  margin-bottom: 1.5rem;
+}
+
+/* Mode Chip (inline with header) */
+.mode-chip {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+}
+
+.mode-chip.image {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.mode-chip.audio {
+  background: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+}
+
+/* Source 1 Card */
+.fourier-phase-mag-info-panel .source1-card {
+  border-color: rgba(34, 211, 238, 0.25);
+}
+
+.fourier-phase-mag-info-panel .source1-card .info-card-icon {
+  background: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+  font-weight: 700;
+}
+
+.fourier-phase-mag-info-panel .source1-card .info-card-value {
+  color: #22d3ee;
+}
+
+/* Source 2 Card */
+.fourier-phase-mag-info-panel .source2-card {
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.fourier-phase-mag-info-panel .source2-card .info-card-icon {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  font-weight: 700;
+}
+
+.fourier-phase-mag-info-panel .source2-card .info-card-value {
+  color: #f87171;
+}
+
+/* Metrics Cards */
+.fourier-phase-mag-info-panel .metrics1-card {
+  border-color: rgba(34, 211, 238, 0.2);
+}
+
+.fourier-phase-mag-info-panel .metrics1-card .info-card-icon {
+  background: rgba(34, 211, 238, 0.1);
+  color: #22d3ee;
+}
+
+.fourier-phase-mag-info-panel .metrics2-card {
+  border-color: rgba(248, 113, 113, 0.2);
+}
+
+.fourier-phase-mag-info-panel .metrics2-card .info-card-icon {
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+}
+
+/* Metrics Grid */
+.fourier-phase-mag-info-panel .metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 0.5rem;
+}
+
+.fourier-phase-mag-info-panel .metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.fourier-phase-mag-info-panel .metric-item .metric-label {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.fourier-phase-mag-info-panel .metric-item .metric-value {
+  font-size: 0.875rem;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-weight: 600;
+}
+
+.fourier-phase-mag-info-panel .metric-value.mse {
+  color: #ef4444;
+}
+
+.fourier-phase-mag-info-panel .metric-value.corr {
+  color: #22d3ee;
+}
+
+.fourier-phase-mag-info-panel .metric-value.ssim {
+  color: #34d399;
+}
+
+.fourier-phase-mag-info-panel .metric-value.snr {
+  color: #fbbf24;
+}
+
+/* Hybrid Metrics Card */
+.fourier-phase-mag-info-panel .hybrid-metrics-card {
+  border-color: rgba(251, 191, 36, 0.25);
+  margin: 1rem;
+}
+
+.fourier-phase-mag-info-panel .hybrid-metrics-card .info-card-icon {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.fourier-phase-mag-info-panel .hybrid-metrics-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.fourier-phase-mag-info-panel .hybrid-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.fourier-phase-mag-info-panel .hybrid-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  background: rgba(148, 163, 184, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.fourier-phase-mag-info-panel .hybrid-values {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-family: 'SF Mono', 'Consolas', monospace;
+}
+
+.fourier-phase-mag-info-panel .hybrid-corr1 {
+  color: #34d399;
+}
+
+.fourier-phase-mag-info-panel .hybrid-corr2 {
+  color: #fbbf24;
+}
+
+/* Insight Banner */
+.fourier-phase-mag-info-panel .insight-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin: 0 1rem 1rem;
+  border-radius: var(--radius-md, 8px);
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.1), rgba(16, 185, 129, 0.05));
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+.fourier-phase-mag-info-panel .insight-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.fourier-phase-mag-info-panel .insight-text {
+  font-size: 0.8125rem;
+  color: #34d399;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+/* Light mode for Fourier Phase vs Magnitude panel */
+[data-theme="light"] .fourier-phase-mag-info-panel .system-info-section {
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+[data-theme="light"] .mode-chip.image {
+  background: rgba(168, 85, 247, 0.2);
+  color: #7c3aed;
+}
+
+[data-theme="light"] .mode-chip.audio {
+  background: rgba(34, 211, 238, 0.2);
+  color: #0891b2;
+}
+
+[data-theme="light"] .fourier-phase-mag-info-panel .hybrid-label {
+  background: rgba(148, 163, 184, 0.15);
+  color: #1e293b;
+}
+
+[data-theme="light"] .fourier-phase-mag-info-panel .insight-banner {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.15), rgba(16, 185, 129, 0.1));
+}
+
+[data-theme="light"] .fourier-phase-mag-info-panel .insight-text {
+  color: #059669;
+}
+
+/* Mobile responsive for Fourier Phase vs Magnitude panel */
+@media (max-width: 768px) {
+  .fourier-phase-mag-info-panel {
+    margin-bottom: 1rem;
+  }
+
+  .fourier-phase-mag-info-panel .hybrid-metrics-row {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .fourier-phase-mag-info-panel .metrics-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .fourier-phase-mag-info-panel .insight-banner {
+    padding: 0.75rem 1rem;
+    margin: 0 0.75rem 0.75rem;
+  }
+}
+
+/* ========================================
+   CONVOLUTION INFO PANEL STYLES
+   ======================================== */
+
+.convolution-info-panel {
+  margin-bottom: 1.5rem;
+}
+
+.convolution-info-panel .system-info-section {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  padding: 1rem;
+}
+
+.convolution-info-panel .info-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #e2e8f0;
+}
+
+.convolution-info-panel .info-section-title svg {
+  color: #22d3ee;
+}
+
+/* Mode chip - continuous/discrete */
+.convolution-info-panel .mode-chip {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.1875rem 0.625rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.convolution-info-panel .mode-chip.continuous {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.convolution-info-panel .mode-chip.discrete {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+/* Signal cards */
+.convolution-info-panel .signal-x-card {
+  border: 1px solid rgba(34, 211, 238, 0.2);
+}
+
+.convolution-info-panel .signal-h-card {
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.convolution-info-panel .formula-card {
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  margin: 0 1rem 1rem;
+  grid-column: 1 / -1;
+}
+
+/* Signal icon styling */
+.convolution-info-panel .info-card-icon.signal-x {
+  background: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.convolution-info-panel .info-card-icon.signal-h {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.convolution-info-panel .info-card-icon.result-y {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* Signal expression styling */
+.convolution-info-panel .signal-expression {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 0.9375rem;
+  color: #e2e8f0;
+  padding: 0.25rem 0;
+}
+
+/* Convolution formula display */
+.convolution-formula-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem 0;
+}
+
+.convolution-formula-display .formula-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 1rem;
+  color: #e2e8f0;
+}
+
+.convolution-formula-display .formula-lhs {
+  color: #34d399;
+  font-weight: 600;
+}
+
+.convolution-formula-display .formula-equals {
+  color: #94a3b8;
+}
+
+.convolution-formula-display .formula-integral {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.convolution-formula-display .integral-symbol,
+.convolution-formula-display .sum-symbol {
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #94a3b8;
+}
+
+.convolution-formula-display .integral-limits,
+.convolution-formula-display .sum-limits {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.625rem;
+  line-height: 1;
+  color: #64748b;
+  margin-right: 0.25rem;
+}
+
+.convolution-formula-display .integrand,
+.convolution-formula-display .summand {
+  color: #94a3b8;
+}
+
+.convolution-formula-display .formula-approx {
+  color: #64748b;
+  margin: 0 0.25rem;
+}
+
+.convolution-formula-display .formula-result {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #34d399;
+  padding: 0.25rem 0.625rem;
+  background: rgba(52, 211, 153, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+
+/* Time position display */
+.time-position-display {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  flex-wrap: wrap;
+}
+
+.time-position-display .time-chip {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.75rem;
+  background: rgba(20, 184, 166, 0.1);
+  color: #14b8a6;
+  border-radius: 9999px;
+  border: 1px solid rgba(20, 184, 166, 0.2);
+}
+
+.time-position-display .source-chip {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.75rem;
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+  border-radius: 9999px;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+/* Light mode for convolution panel */
+[data-theme="light"] .convolution-info-panel .system-info-section {
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+
+[data-theme="light"] .convolution-info-panel .info-section-title {
+  color: #1e293b;
+}
+
+[data-theme="light"] .convolution-info-panel .signal-expression {
+  color: #1e293b;
+}
+
+[data-theme="light"] .convolution-formula-display .formula-line {
+  color: #1e293b;
+}
+
+[data-theme="light"] .time-position-display .time-chip {
+  background: rgba(20, 184, 166, 0.15);
+}
+
+[data-theme="light"] .time-position-display .source-chip {
+  background: rgba(100, 116, 139, 0.1);
+  color: #64748b;
+}
+
+/* Mobile responsive for convolution panel */
+@media (max-width: 768px) {
+  .convolution-info-panel {
+    margin-bottom: 1rem;
+  }
+
+  .convolution-info-panel .formula-card {
+    margin: 0 0.75rem 0.75rem;
+  }
+
+  .convolution-formula-display .formula-line {
+    font-size: 0.875rem;
+    gap: 0.375rem;
+  }
+
+  .convolution-formula-display .integral-symbol,
+  .convolution-formula-display .sum-symbol {
+    font-size: 1.25rem;
+  }
+
+  .convolution-formula-display .formula-result {
+    font-size: 1rem;
+  }
+
+  .time-position-display {
+    padding: 0.5rem 0.75rem;
+    gap: 0.5rem;
+  }
+}
+
+/* ============================================================================
+   Amplifier Topologies Info Panel Styles
+   ============================================================================ */
+
+.amplifier-info-panel {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Amplifier Circuit Diagram */
+.amplifier-info-panel .amplifier-circuit-diagram {
+  background: rgba(255, 255, 255, 0.98);
+  padding: 1.5rem;
+  min-height: 150px;
+}
+
+.amplifier-info-panel .amplifier-circuit-diagram .block-diagram-image {
+  max-height: 180px;
+  width: auto;
+}
+
+/* Mode chip styles */
+.amplifier-info-panel .mode-chip {
+  margin-left: auto;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.amplifier-info-panel .mode-chip.simple {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.amplifier-info-panel .mode-chip.feedback {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.amplifier-info-panel .mode-chip.crossover {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.amplifier-info-panel .mode-chip.compensated {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+}
+
+/* Mode Description Card */
+.amplifier-info-panel .mode-description-card {
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.amplifier-info-panel .mode-description-card .info-card-subtext {
+  margin-top: 0.25rem;
+  font-style: italic;
+}
+
+/* Gain Cards */
+.amplifier-info-panel .gain-card {
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.amplifier-info-panel .gain-card .info-card-icon.gain {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.amplifier-info-panel .gain-card .info-card-value {
+  color: #22c55e;
+  font-size: 1.5rem;
+}
+
+.amplifier-info-panel .gain-formula {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.amplifier-info-panel .ideal-gain-card {
+  border-color: rgba(168, 85, 247, 0.25);
+}
+
+.amplifier-info-panel .ideal-gain-card .info-card-icon.ideal {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+  font-weight: 600;
+  font-size: 0.6875rem;
+}
+
+.amplifier-info-panel .ideal-gain-card .info-card-value {
+  color: #a855f7;
+  font-size: 1.5rem;
+}
+
+/* Parameter Cards */
+.amplifier-info-panel .k-param-card {
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.amplifier-info-panel .k-param-card .info-card-icon.param-k {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.amplifier-info-panel .k-param-card .info-card-value {
+  color: #60a5fa;
+}
+
+.amplifier-info-panel .f0-param-card {
+  border-color: rgba(34, 211, 238, 0.25);
+}
+
+.amplifier-info-panel .f0-param-card .info-card-icon.param-f0 {
+  background: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.amplifier-info-panel .f0-param-card .info-card-value {
+  color: #22d3ee;
+}
+
+.amplifier-info-panel .beta-param-card {
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+.amplifier-info-panel .beta-param-card .info-card-icon.param-beta {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.amplifier-info-panel .beta-param-card .info-card-value {
+  color: #fbbf24;
+}
+
+.amplifier-info-panel .vt-param-card {
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.amplifier-info-panel .vt-param-card .info-card-icon.param-vt {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.amplifier-info-panel .vt-param-card .info-card-value {
+  color: #f87171;
+}
+
+/* Input source chip */
+.amplifier-info-panel .input-source {
+  background: rgba(20, 184, 166, 0.1);
+  color: #14b8a6;
+  border: 1px solid rgba(20, 184, 166, 0.2);
+}
+
+/* Light mode overrides for Amplifier panel */
+[data-theme="light"] .amplifier-info-panel .block-diagram-section,
+[data-theme="light"] .amplifier-info-panel .system-info-section {
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+[data-theme="light"] .amplifier-info-panel .amplifier-circuit-diagram {
+  background: #ffffff;
+}
+
+/* Audio Playback Section - Compact PyQt5 Style */
+.audio-playback-section.compact {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.audio-source-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  margin-bottom: 0.625rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.audio-source-label svg {
+  color: #14b8a6;
+  flex-shrink: 0;
+}
+
+.audio-source-label span {
+  font-weight: 500;
+}
+
+.audio-buttons-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.audio-btn-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 6px;
+  border: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 80px;
+}
+
+.audio-btn-compact.input-btn {
+  background: rgba(0, 160, 255, 0.15);
+  color: #00A0FF;
+  border: 1px solid rgba(0, 160, 255, 0.3);
+}
+
+.audio-btn-compact.input-btn:hover {
+  background: rgba(0, 160, 255, 0.25);
+  border-color: rgba(0, 160, 255, 0.5);
+}
+
+.audio-btn-compact.input-btn.playing {
+  background: rgba(0, 160, 255, 0.3);
+  border-color: #00A0FF;
+  box-shadow: 0 0 8px rgba(0, 160, 255, 0.4);
+}
+
+.audio-btn-compact.output-btn {
+  background: rgba(255, 87, 51, 0.15);
+  color: #FF5733;
+  border: 1px solid rgba(255, 87, 51, 0.3);
+}
+
+.audio-btn-compact.output-btn:hover {
+  background: rgba(255, 87, 51, 0.25);
+  border-color: rgba(255, 87, 51, 0.5);
+}
+
+.audio-btn-compact.output-btn.playing {
+  background: rgba(255, 87, 51, 0.3);
+  border-color: #FF5733;
+  box-shadow: 0 0 8px rgba(255, 87, 51, 0.4);
+}
+
+.audio-btn-compact.stop-btn {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.audio-btn-compact.stop-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.audio-btn-compact:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.audio-playing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #22c55e;
+  font-weight: 500;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background: #22c55e;
+  border-radius: 50%;
+  animation: pulse-animation 1s ease-in-out infinite;
+}
+
+@keyframes pulse-animation {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.3);
+  }
+}
+
+/* Light theme audio playback */
+[data-theme="light"] .audio-playback-section.compact {
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+[data-theme="light"] .audio-source-label {
+  color: #475569;
+  border-bottom-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="light"] .audio-btn-compact.input-btn {
+  background: rgba(0, 160, 255, 0.1);
+  color: #0284c7;
+  border-color: rgba(0, 160, 255, 0.25);
+}
+
+[data-theme="light"] .audio-btn-compact.output-btn {
+  background: rgba(255, 87, 51, 0.1);
+  color: #dc2626;
+  border-color: rgba(255, 87, 51, 0.25);
+}
+
+[data-theme="light"] .audio-btn-compact.stop-btn {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+/* Mobile responsive for Audio playback */
+@media (max-width: 768px) {
+  .audio-playback-section.compact {
+    padding: 0.625rem 0.75rem;
+  }
+
+  .audio-source-label {
+    font-size: 0.75rem;
+  }
+
+  .audio-btn-compact {
+    padding: 0.4rem 0.625rem;
+    font-size: 0.75rem;
+    min-width: 70px;
+  }
+
+  .audio-playing-indicator {
+    font-size: 0.6875rem;
+  }
+}
+
+/* Mobile responsive for Amplifier panel */
+@media (max-width: 768px) {
+  .amplifier-info-panel {
+    margin-bottom: 1rem;
+  }
+
+  .amplifier-info-panel .amplifier-circuit-diagram {
+    padding: 1rem;
+    min-height: 120px;
+  }
+
+  .amplifier-info-panel .amplifier-circuit-diagram .block-diagram-image {
+    max-height: 140px;
+  }
+
+  .amplifier-info-panel .mode-chip {
+    font-size: 0.625rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  .amplifier-info-panel .gain-card .info-card-value,
+  .amplifier-info-panel .ideal-gain-card .info-card-value {
+    font-size: 1.25rem;
+  }
+}

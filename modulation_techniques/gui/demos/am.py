@@ -1,3 +1,4 @@
+from typing import Optional
 import numpy as np
 import scipy.signal as signal
 from PyQt5 import QtCore, QtWidgets
@@ -11,7 +12,7 @@ from utils import load_and_validate_audio, configure_axes
 from assets import AUDIO_SAMPLE_PATH
 
 class DemoWindowAM(DemoWindowBase):
-    def __init__(self, parent: QtWidgets.QWidget | None, title: str):
+    def __init__(self, parent: Optional[QtWidgets.QWidget], title: str):
         super().__init__(parent, title)
         self.fc_hz = 5_000
         self.carrier_dc = 1.2

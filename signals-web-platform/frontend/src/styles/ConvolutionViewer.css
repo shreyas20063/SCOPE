@@ -1,0 +1,207 @@
+/**
+ * ConvolutionViewer Styles
+ * Clean visualization layout - controls are in ControlPanel
+ */
+
+/* Main Container */
+.convolution-viewer {
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+  border-radius: 12px;
+  overflow: hidden;
+  gap: 8px;
+  padding: 12px;
+}
+
+.conv-viewer-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #94a3b8;
+  font-size: 14px;
+  gap: 16px;
+}
+
+/* ========================================
+   SIGNAL INFO PANEL
+   ======================================== */
+.conv-signal-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 12px 16px;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+
+.conv-info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.conv-info-label {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.conv-info-value {
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  color: #e2e8f0;
+}
+
+.conv-info-value.x {
+  color: #3b82f6;
+}
+
+.conv-info-value.h {
+  color: #10b981;
+}
+
+.conv-info-value.y {
+  color: #ef4444;
+}
+
+.conv-info-item.time {
+  padding: 4px 12px;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.conv-info-item.result {
+  padding: 4px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* ========================================
+   PLOT STACK
+   ======================================== */
+.conv-plot-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.conv-plot-row {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 8px;
+  padding: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  min-height: 160px;
+}
+
+.conv-plot-row.signal_x {
+  border-left: 3px solid #3b82f6;
+}
+
+.conv-plot-row.signal_h {
+  border-left: 3px solid #10b981;
+}
+
+.conv-plot-row.product {
+  border-left: 3px solid #f59e0b;
+}
+
+.conv-plot-row.result {
+  border-left: 3px solid #ef4444;
+}
+
+/* Loading State */
+.conv-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #94a3b8;
+  padding: 60px 0;
+}
+
+.conv-loading p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.conv-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(148, 163, 184, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: conv-spin 0.8s linear infinite;
+}
+
+@keyframes conv-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ========================================
+   FORMULA FOOTER
+   ======================================== */
+.conv-formula-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.conv-formula {
+  color: #e2e8f0;
+  font-size: 15px;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  font-weight: 500;
+}
+
+.conv-credit {
+  color: #64748b;
+  font-size: 12px;
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+@media (max-width: 768px) {
+  .conv-signal-info {
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .conv-info-item {
+    gap: 4px;
+  }
+
+  .conv-formula-footer {
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+  }
+
+  .conv-plot-row {
+    min-height: 140px;
+  }
+}
+
+/* ========================================
+   PLOTLY OVERRIDES
+   ======================================== */
+.conv-plot-row .js-plotly-plot {
+  width: 100% !important;
+}
+
+.conv-plot-row .plotly .modebar {
+  display: none !important;
+}

@@ -1,4 +1,5 @@
 import warnings
+from typing import Optional
 import numpy as np
 from PyQt5 import QtCore, QtWidgets
 from gui.styles import COLORS
@@ -28,7 +29,7 @@ except Exception:
 class DemoWindowBase(QtWidgets.QWidget):
     update_delay_ms = 40
 
-    def __init__(self, parent: QtWidgets.QWidget | None, title: str):
+    def __init__(self, parent: Optional[QtWidgets.QWidget], title: str):
         super().__init__(parent, QtCore.Qt.Window)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle(title)

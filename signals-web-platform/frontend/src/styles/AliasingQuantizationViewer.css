@@ -1,0 +1,425 @@
+/**
+ * AliasingQuantizationViewer Styles
+ * Matches PyQt5 aesthetic with modern web styling
+ */
+
+/* Main Container */
+.aliasing-quantization-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.aq-viewer-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+/* ========================================
+   TAB BAR
+   ======================================== */
+.aq-tab-bar {
+  display: flex;
+  gap: 4px;
+  padding: 12px 16px;
+  background: rgba(15, 23, 42, 0.8);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.aq-tab-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.aq-tab-button:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: #e2e8f0;
+}
+
+.aq-tab-button.active {
+  background: rgba(6, 182, 212, 0.15);
+  border-color: rgba(6, 182, 212, 0.3);
+  color: #06b6d4;
+}
+
+.aq-tab-icon {
+  font-size: 16px;
+}
+
+.aq-tab-label {
+  font-weight: 500;
+}
+
+/* ========================================
+   TAB CONTENT
+   ======================================== */
+.aq-tab-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+/* ========================================
+   STATUS BANNER
+   ======================================== */
+.aq-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 16px;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.aq-status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.aq-status-label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.aq-status-value {
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.aq-status-value.on {
+  color: #22c55e;
+}
+
+.aq-status-value.off {
+  color: #ef4444;
+}
+
+.aq-status-value.highlight {
+  color: #f59e0b;
+}
+
+/* Badges */
+.aq-aliasing-badge {
+  margin-left: auto;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.aq-aliasing-badge.safe {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.aq-aliasing-badge.warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.aq-snr-badge {
+  margin-left: auto;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(6, 182, 212, 0.15);
+  color: #06b6d4;
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  font-family: 'SF Mono', 'Monaco', monospace;
+}
+
+/* ========================================
+   AUDIO CONTROLS
+   ======================================== */
+.aq-audio-controls {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.aq-audio-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.aq-audio-btn.original {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.aq-audio-btn.original:hover {
+  background: rgba(59, 130, 246, 0.25);
+}
+
+.aq-audio-btn.original.playing {
+  background: #3b82f6;
+  color: white;
+}
+
+.aq-audio-btn.processed {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.aq-audio-btn.processed:hover {
+  background: rgba(245, 158, 11, 0.25);
+}
+
+.aq-audio-btn.processed.playing {
+  background: #f59e0b;
+  color: white;
+}
+
+/* ========================================
+   PLOTS GRID
+   ======================================== */
+.aq-plots-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.aq-plots-grid.aliasing {
+  grid-template-columns: 1fr 1fr;
+}
+
+.aq-plots-grid.quantization {
+  grid-template-columns: 1fr 1fr;
+}
+
+.aq-plot-panel {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 10px;
+  padding: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.aq-plot-panel.wide {
+  grid-column: 1 / -1;
+}
+
+/* ========================================
+   NYQUIST INFO
+   ======================================== */
+.aq-nyquist-info {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  padding: 12px;
+  background: rgba(30, 41, 59, 0.4);
+  border-radius: 8px;
+}
+
+.aq-nyquist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aq-nyquist-label {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.aq-nyquist-value {
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Monaco', monospace;
+}
+
+.aq-nyquist-item.original .aq-nyquist-value {
+  color: #3b82f6;
+}
+
+.aq-nyquist-item.new .aq-nyquist-value {
+  color: #ef4444;
+}
+
+/* ========================================
+   IMAGE TAB
+   ======================================== */
+.aq-image-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.aq-mse-badges {
+  display: flex;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.aq-mse-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Monaco', monospace;
+}
+
+.aq-mse-badge.standard {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.aq-mse-badge.dither {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.aq-mse-badge.roberts {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+}
+
+/* Image Grid */
+.aq-image-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.aq-image-panel {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 10px;
+  padding: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.aq-image-panel.standard {
+  border-left: 3px solid #ef4444;
+}
+
+.aq-image-panel.dither {
+  border-left: 3px solid #22c55e;
+}
+
+.aq-image-panel.roberts {
+  border-left: 3px solid #a855f7;
+}
+
+.aq-image-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+/* Analysis Grid */
+.aq-analysis-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ========================================
+   LOADING SPINNER
+   ======================================== */
+.aq-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  color: #94a3b8;
+  gap: 16px;
+}
+
+.aq-loading p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.aq-loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(148, 163, 184, 0.2);
+  border-top-color: #06b6d4;
+  border-radius: 50%;
+  animation: aq-spin 0.8s linear infinite;
+}
+
+@keyframes aq-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+@media (max-width: 768px) {
+  .aq-plots-grid.aliasing,
+  .aq-plots-grid.quantization,
+  .aq-image-grid,
+  .aq-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .aq-status-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .aq-aliasing-badge,
+  .aq-snr-badge,
+  .aq-mse-badges {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+
+  .aq-audio-controls {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .aq-nyquist-info {
+    flex-direction: column;
+    gap: 8px;
+  }
+}

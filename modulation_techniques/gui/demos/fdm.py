@@ -1,7 +1,7 @@
 import traceback
 import numpy as np
 import scipy.signal as signal
-from typing import List
+from typing import List, Optional
 from PyQt5 import QtCore, QtWidgets
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -13,7 +13,7 @@ from utils import load_and_validate_audio, configure_axes
 from assets import AUDIO_SAMPLE_PATH
 
 class DemoWindowFDM(DemoWindowBase):
-    def __init__(self, parent: QtWidgets.QWidget | None, title: str):
+    def __init__(self, parent: Optional[QtWidgets.QWidget], title: str):
         super().__init__(parent, title)
         self.num_channels = 3
         self.selected_channel = 1
