@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import axios from 'axios'
+import api from '../services/api'
 import SimulationCard from '../components/SimulationCard'
 
 const CATEGORIES = ['All', 'Signal Processing', 'Circuits', 'Control Systems', 'Transforms', 'Optics']
@@ -14,8 +14,12 @@ function LandingPage() {
   useEffect(() => {
     const fetchSimulations = async () => {
       try {
-        const response = await axios.get('/api/simulations')
-        setSimulations(response.data)
+        const result = await api.getSimulations()
+        if (result.success) {
+          setSimulations(result.data)
+        } else {
+          setError(result.error || 'Failed to load simulations')
+        }
         setLoading(false)
       } catch (err) {
         console.error('Error fetching simulations:', err)
