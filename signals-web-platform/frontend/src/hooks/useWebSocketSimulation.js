@@ -9,17 +9,17 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
 
 // Derive WebSocket URL from API URL
-// In production: https://backend.onrender.com -> wss://backend.onrender.com/api/v1
+// In production: https://backend.onrender.com -> wss://backend.onrender.com/api
 // In development: use localhost
 function getWebSocketBaseUrl() {
   const apiUrl = import.meta.env.VITE_API_URL;
   if (apiUrl) {
     // Convert http(s) to ws(s)
-    return apiUrl.replace(/^http/, 'ws') + '/api/v1';
+    return apiUrl.replace(/^http/, 'ws') + '/api';
   }
   // Development fallback
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//localhost:8000/api/v1`;
+  return `${protocol}//localhost:8000/api`;
 }
 
 const WS_BASE_URL = getWebSocketBaseUrl();

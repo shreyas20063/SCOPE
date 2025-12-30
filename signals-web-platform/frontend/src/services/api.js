@@ -14,7 +14,7 @@ import axios from 'axios';
 // In production (Render), VITE_API_URL points to the backend service
 // In development, we use relative URL with Vite proxy
 const API_BASE_URL = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api/v1`
+  ? `${import.meta.env.VITE_API_URL}/api`
   : '/api';
 const API_TIMEOUT = 30000; // 30 seconds
 
