@@ -3,6 +3,16 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    // Fix for plotly.js dependencies that check for Node.js globals
+    global: 'globalThis',
+  },
+  resolve: {
+    alias: {
+      // Empty shims for Node.js built-ins used by plotly dependencies
+      'buffer/': 'buffer',
+    },
+  },
   server: {
     port: 3001,
     open: true,
