@@ -1,7 +1,19 @@
 # Convolution Simulator
 
-An interactive Python application for visualizing convolution operations for both continuous and discrete-time signals.Built for engineering education and signal processing understanding.
+An interactive Python application for visualizing convolution operations for both continuous and discrete-time signals. Built for engineering education and signal processing understanding.
 
+---
+
+## Also Available as Web Application
+
+This simulation is also available in the **web platform** version with additional features:
+- Browser-based interface (no installation required)
+- Real-time step-by-step visualization
+- Mobile-responsive design
+
+See [signals-web-platform](../signals-web-platform/) for the web version.
+
+---
 
 ## Table of Contents
 

@@ -4,9 +4,22 @@ An interactive Python simulation for visualizing and analyzing DC motor feedback
 
 ## 📚 Course Information
 
-**Course:** Signals and Systems (EE204T)  
-**Professor:** Ameer Mulla  
+**Course:** Signals and Systems (EE204T)
+**Professor:** Ameer Mulla
 **Authors:** Duggimpudi Shreyas Reddy, Prathamesh Nerpagar
+
+---
+
+## Also Available as Web Application
+
+This simulation is also available in the **web platform** version with additional features:
+- Browser-based interface (no installation required)
+- Real-time parameter updates
+- Mobile-responsive design
+
+See [signals-web-platform](../signals-web-platform/) for the web version.
+
+---
 
 ## 🎯 About This Simulation
 

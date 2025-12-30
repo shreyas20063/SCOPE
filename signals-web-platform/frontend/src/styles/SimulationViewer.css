@@ -3298,3 +3298,36 @@
     font-size: 1.25rem;
   }
 }
+
+/* ============================================
+   Lazy Loading Fallback Styles
+   ============================================ */
+.lazy-load-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  padding: 2rem;
+  background: var(--surface, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  gap: 1rem;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.875rem;
+}
+
+.lazy-load-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(20, 184, 166, 0.2);
+  border-top-color: var(--primary, #14b8a6);
+  border-radius: 50%;
+  animation: lazy-spin 0.8s linear infinite;
+}
+
+@keyframes lazy-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

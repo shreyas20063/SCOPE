@@ -8,6 +8,17 @@ Interactive 3D simulator of the rotary inverted (Furuta) pendulum, controlled by
 
 ---
 
+## Also Available as Web Application
+
+This simulation is also available in the **web platform** version with additional features:
+- Browser-based interface (no installation required)
+- Real-time 3D visualization with Three.js
+- Mobile-responsive design
+
+See [signals-web-platform](../signals-web-platform/) for the web version.
+
+---
+
 ## Features
 
 - **Professional PyQt5 Interface**: Modern, responsive GUI with embedded matplotlib visualizations

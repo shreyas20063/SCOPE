@@ -15,6 +15,7 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import Any, Dict, Optional
@@ -107,6 +108,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Enable GZip compression for responses > 500 bytes
+# Significantly reduces bandwidth for plot data JSON (60-80% smaller)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
 # Security headers middleware

@@ -14,4 +14,39 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // Enable minification for production
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,  // Remove console.log in production
+        drop_debugger: true,
+      },
+    },
+    // Code splitting configuration
+    rollupOptions: {
+      output: {
+        // Manual chunk splitting for better caching
+        manualChunks: {
+          // Vendor chunks - rarely change, cache well
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-plotly': ['plotly.js', 'react-plotly.js'],
+          'vendor-three': ['three'],
+          'vendor-axios': ['axios'],
+        },
+      },
+    },
+    // Target modern browsers for smaller bundles
+    target: 'es2020',
+    // Generate source maps for debugging (can disable for smaller builds)
+    sourcemap: false,
+    // Chunk size warning threshold (in KB)
+    chunkSizeWarningLimit: 1000,
+  },
+  // Optimize dependencies
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', 'axios'],
+    // Exclude large libraries from pre-bundling (loaded on demand)
+    exclude: ['three'],
+  },
 })

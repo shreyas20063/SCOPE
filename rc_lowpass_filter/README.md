@@ -6,6 +6,20 @@ This repository contains an interactive PyQt5-based simulator for visualizing th
 
 Created for **Signals and Systems (course code: EE204T)** under **Prof. Ameer Mulla** by **Duggimpudi Shreyas Reddy** and **Prathamesh Nerpagar**.
 
+---
+
+## Also Available as Web Application
+
+This simulation is also available in the **web platform** version with additional features:
+- Browser-based interface (no installation required)
+- Real-time WebSocket updates
+- Mobile-responsive design
+- CSV data export
+
+See [signals-web-platform](../signals-web-platform/) for the web version.
+
+---
+
 ## Features
 
 - Professional PyQt5 interface with embedded Matplotlib canvas

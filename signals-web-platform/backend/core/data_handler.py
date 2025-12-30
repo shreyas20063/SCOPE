@@ -354,6 +354,85 @@ class DataHandler:
             }
 
     @classmethod
+    def subsample_data(
+        cls,
+        x: List,
+        y: List,
+        max_points: int = 1000,
+        preserve_peaks: bool = True,
+    ) -> tuple:
+        """
+        Subsample large datasets to reduce bandwidth while preserving signal shape.
+
+        Uses intelligent subsampling that preserves peaks and valleys for better
+        visual representation of the original signal.
+
+        Args:
+            x: X-axis data (list or numpy array)
+            y: Y-axis data (list or numpy array)
+            max_points: Maximum number of points to return (default 1000)
+            preserve_peaks: If True, use LTTB-like algorithm to preserve peaks
+
+        Returns:
+            Tuple of (subsampled_x, subsampled_y)
+        """
+        if cls.is_numpy_available():
+            import numpy as np
+
+            # Convert to numpy arrays if needed
+            x_arr = np.asarray(x)
+            y_arr = np.asarray(y)
+
+            n_points = len(x_arr)
+
+            # No subsampling needed if already under limit
+            if n_points <= max_points:
+                return x_arr.tolist(), y_arr.tolist()
+
+            if preserve_peaks:
+                # Largest-Triangle-Three-Buckets (LTTB) inspired algorithm
+                # Simplified version that preserves min/max in each bucket
+                bucket_size = n_points / max_points
+                sampled_x = [x_arr[0]]
+                sampled_y = [y_arr[0]]
+
+                for i in range(max_points - 2):
+                    start = int(i * bucket_size) + 1
+                    end = int((i + 1) * bucket_size) + 1
+                    end = min(end, n_points - 1)
+
+                    if start >= end:
+                        continue
+
+                    bucket_y = y_arr[start:end]
+                    bucket_x = x_arr[start:end]
+
+                    # Find index of value furthest from line between neighbors
+                    # Simplified: just pick the point with max absolute value in bucket
+                    max_idx = np.argmax(np.abs(bucket_y - np.mean(bucket_y)))
+                    sampled_x.append(bucket_x[max_idx])
+                    sampled_y.append(bucket_y[max_idx])
+
+                # Always include last point
+                sampled_x.append(x_arr[-1])
+                sampled_y.append(y_arr[-1])
+
+                return sampled_x, sampled_y
+            else:
+                # Simple uniform subsampling
+                indices = np.linspace(0, n_points - 1, max_points, dtype=int)
+                return x_arr[indices].tolist(), y_arr[indices].tolist()
+
+        # Fallback for no numpy
+        n_points = len(x)
+        if n_points <= max_points:
+            return list(x), list(y)
+
+        step = n_points // max_points
+        indices = range(0, n_points, step)
+        return [x[i] for i in indices], [y[i] for i in indices]
+
+    @classmethod
     def create_plotly_trace(
         cls,
         x: List,
@@ -364,6 +443,7 @@ class DataHandler:
         line_width: float = 2,
         marker_size: int = 8,
         marker_color: Optional[str] = None,
+        max_points: int = 0,
     ) -> Dict[str, Any]:
         """
         Create a Plotly trace dictionary.
@@ -377,10 +457,15 @@ class DataHandler:
             line_width: Width for lines
             marker_size: Size for markers
             marker_color: Color for markers
+            max_points: If > 0, subsample data to this many points for performance
 
         Returns:
             Plotly trace dictionary
         """
+        # Apply subsampling if requested
+        if max_points > 0 and len(x) > max_points:
+            x, y = cls.subsample_data(x, y, max_points=max_points)
+
         trace = {
             "x": cls.serialize_result(x),
             "y": cls.serialize_result(y),

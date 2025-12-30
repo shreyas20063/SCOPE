@@ -2,6 +2,19 @@
 
 Interactive Fourier series exploration tool created for the Signals and Systems course (EE204T) under Prof. Ameer Mulla by Duggimpudi Shreyas Reddy and Prathamesh Nerpagar.
 
+---
+
+## Also Available as Web Application
+
+This simulation is also available in the **web platform** version with additional features:
+- Browser-based interface (no installation required)
+- Real-time parameter updates
+- Mobile-responsive design
+
+See [signals-web-platform](../signals-web-platform/) for the web version.
+
+---
+
 ## Project Structure
 
 - `core/` — waveform definitions and Fourier series helpers

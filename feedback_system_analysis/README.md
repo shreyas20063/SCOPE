@@ -10,6 +10,19 @@ An interactive Python-based simulator for visualizing and understanding feedback
   - Duggimpudi Shreyas Reddy
   - Prathamesh Nerpagar
 
+---
+
+## Also Available as Web Application
+
+This simulation is also available in the **web platform** version with additional features:
+- Browser-based interface (no installation required)
+- Real-time parameter updates
+- Mobile-responsive design
+
+See [signals-web-platform](../signals-web-platform/) for the web version.
+
+---
+
 ## 🎯 What This Simulation Does
 
 This interactive tool demonstrates how feedback affects amplifier performance in real-time. Users can adjust system parameters using sliders and immediately observe the effects on:

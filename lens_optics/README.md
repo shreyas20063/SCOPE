@@ -2,6 +2,19 @@
 
 A comprehensive PyQt5-based simulation tool for exploring optical lens behavior, point spread functions (PSF), and image blurring effects.
 
+---
+
+## Also Available as Web Application
+
+This simulation is also available in the **web platform** version with additional features:
+- Browser-based interface (no installation required)
+- Real-time parameter updates
+- Mobile-responsive design
+
+See [signals-web-platform](../signals-web-platform/) for the web version.
+
+---
+
 ## Features
 
 - Interactive PyQt5 graphical user interface

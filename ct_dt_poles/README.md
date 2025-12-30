@@ -9,6 +9,19 @@ This application helps students and instructors visualize and understand how con
 - Backward Euler
 - Trapezoidal Rule
 
+---
+
+## Also Available as Web Application
+
+This simulation is also available in the **web platform** version with additional features:
+- Browser-based interface (no installation required)
+- Real-time parameter updates
+- Mobile-responsive design
+
+See [signals-web-platform](../signals-web-platform/) for the web version.
+
+---
+
 ## Features
 
 - **Interactive Visualization**: Real-time s-plane to z-plane pole mapping

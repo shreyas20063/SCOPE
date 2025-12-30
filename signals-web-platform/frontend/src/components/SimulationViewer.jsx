@@ -5,19 +5,30 @@
  * Combines PlotDisplay and ControlPanel in a responsive layout.
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import PlotDisplay from './PlotDisplay';
 import ControlPanel from './ControlPanel';
 import ShareButton from './ShareButton';
-import FurutaPendulum3D from './FurutaPendulum3D';
-import FourierPhaseMagnitudeViewer from './FourierPhaseMagnitudeViewer';
-import ModulationViewer from './ModulationViewer';
-import LensOpticsViewer from './LensOpticsViewer';
-import AliasingQuantizationViewer from './AliasingQuantizationViewer';
 import ConvolutionViewer from './ConvolutionViewer';
 import RCLowpassViewer from './RCLowpassViewer';
 import '../styles/SimulationViewer.css';
+
+// Lazy load heavy components for better initial load performance
+// These components are code-split and loaded on-demand
+const FurutaPendulum3D = lazy(() => import('./FurutaPendulum3D'));
+const FourierPhaseMagnitudeViewer = lazy(() => import('./FourierPhaseMagnitudeViewer'));
+const ModulationViewer = lazy(() => import('./ModulationViewer'));
+const LensOpticsViewer = lazy(() => import('./LensOpticsViewer'));
+const AliasingQuantizationViewer = lazy(() => import('./AliasingQuantizationViewer'));
+
+// Loading fallback for lazy-loaded components
+const LazyLoadFallback = () => (
+  <div className="lazy-load-fallback">
+    <div className="lazy-load-spinner"></div>
+    <span>Loading visualization...</span>
+  </div>
+);
 
 /**
  * Breadcrumb navigation
@@ -1463,39 +1474,49 @@ function SimulationViewer({
                     </svg>
                     3D Visualization
                   </h4>
-                  <FurutaPendulum3D
-                    visualization3D={metadata?.visualization_3d}
-                    isStable={metadata?.system_info?.is_stable || false}
-                    onFrameChange={handleFrameChange}
-                  />
+                  <Suspense fallback={<LazyLoadFallback />}>
+                    <FurutaPendulum3D
+                      visualization3D={metadata?.visualization_3d}
+                      isStable={metadata?.system_info?.is_stable || false}
+                      onFrameChange={handleFrameChange}
+                    />
+                  </Suspense>
                 </div>
               )}
 
               {/* Custom viewers for specific simulations */}
               {metadata?.simulation_type === 'fourier_phase_vs_magnitude' && metadata?.has_custom_viewer ? (
-                <FourierPhaseMagnitudeViewer
-                  metadata={metadata}
-                  plots={plots}
-                />
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <FourierPhaseMagnitudeViewer
+                    metadata={metadata}
+                    plots={plots}
+                  />
+                </Suspense>
               ) : metadata?.simulation_type === 'modulation_techniques' ? (
-                <ModulationViewer
-                  metadata={metadata}
-                  plots={plots}
-                  currentParams={currentParams}
-                  onParamChange={onParamChange}
-                />
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <ModulationViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                  />
+                </Suspense>
               ) : metadata?.simulation_type === 'lens_optics' ? (
-                <LensOpticsViewer
-                  metadata={metadata}
-                  plots={plots}
-                />
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <LensOpticsViewer
+                    metadata={metadata}
+                    plots={plots}
+                  />
+                </Suspense>
               ) : metadata?.simulation_type === 'aliasing_quantization' ? (
-                <AliasingQuantizationViewer
-                  metadata={metadata}
-                  plots={plots}
-                  currentParams={currentParams}
-                  onParamChange={onParamChange}
-                />
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <AliasingQuantizationViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                  />
+                </Suspense>
               ) : metadata?.simulation_type === 'convolution_simulator' ? (
                 <ConvolutionViewer
                   metadata={metadata}

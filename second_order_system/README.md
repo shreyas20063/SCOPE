@@ -3,6 +3,19 @@
 Signals and Systems (EE204T) course project carried out under Prof. Ameer Mulla
 by Duggimpudi Shreyas Reddy and Prathamesh Nerpagar.
 
+---
+
+## Also Available as Web Application
+
+This simulation is also available in the **web platform** version with additional features:
+- Browser-based interface (no installation required)
+- Real-time parameter updates
+- Mobile-responsive design
+
+See [signals-web-platform](../signals-web-platform/) for the web version.
+
+---
+
 This repository provides an interactive visualiser for a second-order system.
 Users can explore how the natural frequency (ω₀) and quality factor (Q) influence pole locations,
 the Bode magnitude/phase responses, and key system indicators such as resonant frequency and bandwidth.
