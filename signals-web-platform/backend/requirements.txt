@@ -1,7 +1,8 @@
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
+gunicorn==21.2.0
 python-multipart==0.0.6
 pydantic==2.5.3
-numpy>=2.0.0
-scipy>=1.10.0
+numpy>=1.24.0,<2.0.0
+scipy>=1.10.0,<2.0.0
 Pillow>=10.0.0
