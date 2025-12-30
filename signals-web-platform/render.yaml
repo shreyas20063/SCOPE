@@ -1,0 +1,62 @@
+# Render.com Blueprint
+# Deploy with: Connect GitHub repo → Select "signals-web-platform" directory → Deploy
+# Or use "New Blueprint" and point to this file
+
+services:
+  # ==========================================================================
+  # Backend API Service
+  # ==========================================================================
+  - type: web
+    name: signals-backend
+    runtime: python
+    region: oregon
+    plan: free  # Change to "starter" ($7/mo) for production
+    rootDir: signals-web-platform/backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120 --keep-alive 5
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: CACHE_MAX_SIZE
+        value: "10000"
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "100"
+    autoDeploy: true
+
+  # ==========================================================================
+  # Frontend Static Site
+  # ==========================================================================
+  - type: web
+    name: signals-frontend
+    runtime: static
+    region: oregon
+    plan: free  # Static sites are free on Render
+    rootDir: signals-web-platform/frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: "18"
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: signals-backend
+          property: host
+    autoDeploy: true

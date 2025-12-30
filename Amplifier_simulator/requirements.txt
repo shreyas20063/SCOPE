@@ -1,7 +1,0 @@
-numpy>=1.21.0
-matplotlib>=3.4.0
-scipy>=1.7.0
-customtkinter>=5.0.0
-sounddevice>=0.4.4
-Pillow>=9.0.0
-pydub>=0.25.1

@@ -10,14 +10,21 @@ Usage:
 
 """
 
-import tkinter as tk
+import sys
+
+# Set matplotlib backend before importing PyQt5
+import matplotlib
+matplotlib.use('Qt5Agg')
+
+from PyQt5.QtWidgets import QApplication
 from gui.main_window import ConvolutionSimulator
 
 def main():
     """Initialize and run the Convolution Simulator application."""
-    root = tk.Tk()
-    app = ConvolutionSimulator(root)
-    root.mainloop()
+    app = QApplication(sys.argv)
+    window = ConvolutionSimulator()
+    window.show()
+    sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()

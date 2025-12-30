@@ -3,8 +3,8 @@ numpy>=1.21.0
 matplotlib>=3.5.0
 sympy>=1.9.0
 
-# GUI framework (usually included with Python)
-# tkinter - comes with standard Python installation
+# GUI framework
+PyQt5>=5.15.0
 
 # File I/O and multimedia
 imageio>=2.19.0

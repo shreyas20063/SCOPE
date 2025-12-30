@@ -1,0 +1,63 @@
+version: '3.8'
+
+# Development Docker Compose
+# Usage: docker-compose up
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+      - CACHE_MAX_SIZE=1000
+      - RATE_LIMIT_PER_MINUTE=1000
+    volumes:
+      - ./backend:/app
+      - backend_logs:/app/logs
+    # Override production CMD for development with hot-reload
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - simulations-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+    # Override production CMD for development with hot-reload
+    command: npm run dev -- --host --port 3000
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - simulations-network
+
+volumes:
+  backend_logs:
+
+networks:
+  simulations-network:
+    name: simulations-dev-network

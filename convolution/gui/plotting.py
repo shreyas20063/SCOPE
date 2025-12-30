@@ -29,7 +29,7 @@ class PlotManager:
             ax.grid(True, alpha=0.3)
         
         # Plot based on signal type
-        if self.app.is_continuous.get():
+        if self.app.is_continuous:
             self.plot_continuous_signals(time_val)
         else:
             self.plot_discrete_signals(time_val)
@@ -38,7 +38,7 @@ class PlotManager:
         self.app.canvas.draw()
         
         # Update block plot if in block-step mode
-        if self.app.visualization_style.get() == "Block-Step":
+        if self.app.visualization_style == "Block-Step":
             self.update_block_plot(time_val)
     
     def plot_continuous_signals(self, t0):
@@ -47,8 +47,8 @@ class PlotManager:
         signals = self.app.get_current_signals()
         
         # Format expressions for LaTeX
-        x_latex = self.app.signal_parser.latex_formatter(self.app.custom_x_str.get())
-        h_latex = self.app.signal_parser.latex_formatter(self.app.custom_h_str.get())
+        x_latex = self.app.signal_parser.latex_formatter(self.app.custom_x_str)
+        h_latex = self.app.signal_parser.latex_formatter(self.app.custom_h_str)
         
         # Create time axis for plotting
         tau = np.linspace(-15, 15, 3000)
@@ -109,8 +109,8 @@ class PlotManager:
         
         # Update math label
         integral_val = np.trapz(product, tau)
-        self.app.math_label.config(
-            text=f"$y({t0:.2f}) = \\int x(\\tau)h({t0:.2f}-\\tau)d\\tau \\approx {integral_val:.3f}$"
+        self.app.math_label.setText(
+            f"$y({t0:.2f}) = \\int x(\\tau)h({t0:.2f}-\\tau)d\\tau \\approx {integral_val:.3f}$"
         )
     
     def plot_discrete_signals(self, n0):
@@ -119,8 +119,8 @@ class PlotManager:
         signals = self.app.get_current_signals()
         
         # Format expressions for LaTeX
-        x_latex = self.app.signal_parser.latex_formatter(self.app.custom_x_str.get())
-        h_latex = self.app.signal_parser.latex_formatter(self.app.custom_h_str.get())
+        x_latex = self.app.signal_parser.latex_formatter(self.app.custom_x_str)
+        h_latex = self.app.signal_parser.latex_formatter(self.app.custom_h_str)
         
         n0 = int(round(n0))
         k = signals['n']
@@ -178,8 +178,8 @@ class PlotManager:
         
         # Update math label
         sum_val = np.sum(product)
-        self.app.math_label.config(
-            text=f"$y[{n0}] = \\sum x[k]h[{n0}-k] = {sum_val:.3f}$"
+        self.app.math_label.setText(
+            f"$y[{n0}] = \\sum x[k]h[{n0}-k] = {sum_val:.3f}$"
         )
     
     def update_block_plot(self, time_val):
@@ -192,7 +192,7 @@ class PlotManager:
             ax.clear()
             ax.grid(True, alpha=0.3)
         
-        if self.app.is_continuous.get():
+        if self.app.is_continuous:
             self._plot_continuous_block_steps(time_val, block_axes, signals)
         else:
             self._plot_discrete_block_steps(time_val, block_axes, signals)

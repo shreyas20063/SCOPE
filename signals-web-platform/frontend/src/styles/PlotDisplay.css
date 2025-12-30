@@ -1,0 +1,283 @@
+/**
+ * PlotDisplay.css
+ * Styles for the PlotDisplay component
+ */
+
+/* Plots container */
+.plots-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+/* Individual plot card - flex containment strategy */
+.plot-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  overflow: hidden; /* Keep hidden - prevents overflow */
+  min-height: 310px;
+  max-height: 320px;
+  transition: box-shadow 0.3s ease, transform 0.3s ease, opacity 0.4s ease;
+  animation: plotFadeIn 0.4s ease-out;
+}
+
+/* Staggered animation delays for multiple plots */
+.plot-card:nth-child(1) { animation-delay: 0ms; }
+.plot-card:nth-child(2) { animation-delay: 100ms; }
+.plot-card:nth-child(3) { animation-delay: 200ms; }
+.plot-card:nth-child(4) { animation-delay: 300ms; }
+
+@keyframes plotFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.plot-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Plot description - header section */
+.plot-description {
+  padding: 0.75rem 1rem;
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #94a3b8);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.05);
+  flex-shrink: 0; /* Header doesn't shrink */
+}
+
+/* Plot wrapper - contains the Plotly chart */
+.plot-wrapper {
+  flex: 1; /* Takes remaining space after header */
+  min-height: 0; /* Critical: allows Plotly to calculate height correctly */
+  width: 100%;
+  position: relative;
+  overflow: hidden; /* Clip any overflow */
+}
+
+/* Ensure Plotly container fills parent */
+.plot-wrapper > div {
+  width: 100%;
+  height: 100%;
+}
+
+/* Plotly overrides for dark theme */
+.plot-wrapper .js-plotly-plot {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.plot-wrapper .plotly .modebar {
+  background: transparent !important;
+}
+
+.plot-wrapper .plotly .modebar-btn {
+  color: var(--text-secondary, #94a3b8) !important;
+}
+
+.plot-wrapper .plotly .modebar-btn:hover {
+  color: var(--primary, #14b8a6) !important;
+}
+
+.plot-wrapper .plotly .modebar-btn.active {
+  color: var(--primary, #14b8a6) !important;
+}
+
+/* Empty state */
+.plots-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 4rem 2rem;
+  background: var(--surface, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  text-align: center;
+}
+
+.plots-empty svg {
+  color: var(--text-muted, #64748b);
+  opacity: 0.5;
+}
+
+.plots-empty p {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--text-secondary, #94a3b8);
+  max-width: 300px;
+}
+
+/* Loading skeleton */
+.plot-skeleton {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  padding: 1rem;
+  min-height: 310px;
+  max-height: 320px;
+}
+
+.skeleton-title {
+  height: 24px;
+  width: 40%;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.1) 0%,
+    rgba(148, 163, 184, 0.2) 50%,
+    rgba(148, 163, 184, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm, 4px);
+  margin-bottom: 1rem;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-chart {
+  flex: 1;
+  min-height: 240px;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.05) 0%,
+    rgba(148, 163, 184, 0.1) 50%,
+    rgba(148, 163, 184, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-md, 8px);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Responsive - Tablet */
+@media (max-width: 1024px) {
+  .plot-card {
+    min-height: 290px;
+    max-height: 310px;
+  }
+}
+
+/* Responsive - Mobile */
+@media (max-width: 768px) {
+  .plots-container {
+    gap: 1rem;
+  }
+
+  .plot-card {
+    border-radius: var(--radius-md, 8px);
+    min-height: 260px;
+    max-height: 280px;
+  }
+
+  .plot-description {
+    padding: 0.625rem 0.875rem;
+    font-size: 0.8125rem;
+  }
+}
+
+/* Multi-plot layout (for future use with side-by-side plots) */
+.plots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .plots-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+/* Text Panel Styles (for Theory/Learning panels) */
+.text-panel-card {
+  min-height: auto;
+}
+
+.text-panel-header {
+  padding: 1rem 1.25rem 0.5rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.text-panel-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.text-panel-content {
+  padding: 1.25rem;
+  border: 1px solid;
+  border-radius: 6px;
+  margin: 1rem;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.text-panel-content .guided-message {
+  font-size: 0.875rem;
+}
+
+.text-panel-content .explanation-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.text-panel-content .explanation-text b {
+  color: var(--primary, #14b8a6);
+}
+
+.text-panel-content .status-display {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+}
+
+/* Scrollbar styling for text panel */
+.text-panel-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.text-panel-content::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 4px;
+}
+
+.text-panel-content::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 4px;
+}
+
+.text-panel-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Light mode overrides */
+[data-theme="light"] .plot-card,
+[data-theme="light"] .plots-empty,
+[data-theme="light"] .plot-skeleton {
+  background: var(--surface-color, #ffffff);
+}
+
+[data-theme="light"] .text-panel-header h3 {
+  color: var(--text-primary, #1e293b);
+}

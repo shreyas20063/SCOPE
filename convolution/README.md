@@ -1,7 +1,19 @@
 # Convolution Simulator
 
-An interactive Python application for visualizing convolution operations for both continuous and discrete-time signals.Built for engineering education and signal processing understanding.
+An interactive Python application for visualizing convolution operations for both continuous and discrete-time signals. Built for engineering education and signal processing understanding.
 
+---
+
+## Also Available as Web Application
+
+This simulation is also available in the **web platform** version with additional features:
+- Browser-based interface (no installation required)
+- Real-time step-by-step visualization
+- Mobile-responsive design
+
+See [signals-web-platform](../signals-web-platform/) for the web version.
+
+---
 
 ## Table of Contents
 
@@ -41,7 +53,7 @@ Convolution is a fundamental operation in signal processing, defined mathematica
 - **Real-time Parameter Control**: Adjustable time/index position, playback speed, and sampling rate
 
 ### User Interface
-- **Modern GUI**: Built with tkinter and ttk for cross-platform compatibility
+- **Modern GUI**: Built with PyQt5 for cross-platform compatibility and professional appearance
 - **Dark/Light Themes**: Toggle between visual themes for comfortable viewing
 - **Responsive Controls**: Keyboard shortcuts and mouse interactions
 - **Professional Layout**: Clean, organized interface suitable for educational presentations
@@ -51,9 +63,39 @@ Convolution is a fundamental operation in signal processing, defined mathematica
 - **CSV Data Export**: Export convolution results for further analysis
 - **GIF Animations**: Create animated visualizations for presentations
 
+## Installation
 
+### Prerequisites
+- Python 3.8 or higher
+- pip (Python package installer)
 
+### Step 1: Install Dependencies
 
+Install all required packages using pip:
+
+```bash
+pip install -r requirements.txt
+```
+
+Or install packages individually:
+
+```bash
+pip install numpy>=1.21.0
+pip install matplotlib>=3.5.0
+pip install sympy>=1.9.0
+pip install PyQt5>=5.15.0
+pip install imageio>=2.19.0
+```
+
+### Step 2: Run the Application
+
+Navigate to the project directory and run:
+
+```bash
+python main.py
+```
+
+## Usage
 
 ### Method 1: Windows Executable (Recommended for End Users)
 Simply double-click `dist/convolution_simulator.exe` to launch the application. No Python installation or setup required.
@@ -303,7 +345,6 @@ convolution-simulator/
 
 ## References
 
-- **MIT 6.003 Signals and Systems**: Course materials and lecture notes
 - **Oppenheim, A. V., & Willsky, A. S.**: "Signals and Systems" (2nd Edition)
 - **NumPy Documentation**: [https://numpy.org/doc/](https://numpy.org/doc/)
 - **Matplotlib Documentation**: [https://matplotlib.org/stable/](https://matplotlib.org/stable/)
