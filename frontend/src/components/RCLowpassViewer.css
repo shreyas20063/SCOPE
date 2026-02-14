@@ -1,7 +1,6 @@
 /**
  * RCLowpassViewer Styles
- *
- * Custom styles for the RC Lowpass Filter simulation viewer.
+ * Claude-themed RC Lowpass Filter viewer
  */
 
 .rc-lowpass-viewer {
@@ -17,9 +16,10 @@
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  background: var(--card-bg, #1e293b);
-  border-radius: var(--radius-md, 8px);
-  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.1));
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
 .rc-filter-status .status-row {
@@ -30,19 +30,20 @@
 
 .rc-filter-status .status-badge {
   padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.6875rem;
   font-weight: 600;
+  font-family: var(--font-ui);
   color: white;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 
 .rc-filter-status .status-detail {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--text-primary, #f1f5f9);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
+  color: var(--text-primary);
 }
 
 .rc-filter-status .status-info {
@@ -50,11 +51,12 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8125rem;
-  color: var(--text-secondary, #94a3b8);
+  font-family: var(--font-ui);
+  color: var(--text-secondary);
 }
 
 .rc-filter-status .separator {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 /* Plots Container */
@@ -66,17 +68,18 @@
 
 /* Individual Plot Card */
 .rc-plot-card {
-  background: var(--surface, #1e293b);
-  border-radius: var(--radius-lg, 12px);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
   overflow: hidden;
   min-height: 300px;
   max-height: 320px;
   transition: box-shadow 0.3s ease;
+  box-shadow: var(--shadow-sm);
 }
 
 .rc-plot-card:hover {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-md);
 }
 
 /* Plotly container sizing */
@@ -96,11 +99,11 @@
 }
 
 .rc-plot-card .plotly .modebar-btn {
-  color: var(--text-secondary, #94a3b8) !important;
+  color: var(--text-tertiary) !important;
 }
 
 .rc-plot-card .plotly .modebar-btn:hover {
-  color: var(--primary, #14b8a6) !important;
+  color: var(--accent) !important;
 }
 
 /* Empty State */
@@ -109,8 +112,9 @@
   align-items: center;
   justify-content: center;
   min-height: 200px;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   font-size: 0.9375rem;
+  font-family: var(--font-body);
 }
 
 /* Responsive - Tablet */
@@ -137,17 +141,8 @@
   }
 
   .rc-plot-card {
-    border-radius: var(--radius-md, 8px);
+    border-radius: var(--radius-md);
     min-height: 250px;
     max-height: 270px;
   }
-}
-
-/* Light mode overrides */
-[data-theme="light"] .rc-filter-status {
-  background: var(--surface-color, #ffffff);
-}
-
-[data-theme="light"] .rc-plot-card {
-  background: var(--surface-color, #ffffff);
 }

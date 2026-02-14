@@ -1,0 +1,91 @@
+/* =============================================================================
+   Design Tokens — Claude/Anthropic Aesthetic
+   Warm cream, terracotta accents, polished minimalism
+   ============================================================================= */
+
+:root {
+  /* --- Backgrounds --- */
+  --bg-primary: #FAF9F6;
+  --bg-secondary: #F5F0EB;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --bg-code: #F5F0EB;
+  --bg-hover: rgba(217, 119, 87, 0.06);
+  --bg-active: rgba(217, 119, 87, 0.1);
+
+  /* --- Accent --- */
+  --accent: #D97757;
+  --accent-hover: #C4623F;
+  --accent-light: rgba(217, 119, 87, 0.1);
+  --accent-subtle: rgba(217, 119, 87, 0.06);
+
+  /* --- Text --- */
+  --text-primary: #1A1A1A;
+  --text-secondary: #6B6560;
+  --text-tertiary: #9B9590;
+  --text-on-accent: #FFFFFF;
+  --text-link: #D97757;
+
+  /* --- Borders --- */
+  --border: #E8E2DB;
+  --border-light: #F0EBE4;
+  --border-focus: #D97757;
+
+  /* --- Shadows --- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+
+  /* --- Status --- */
+  --success: #3D8C6F;
+  --success-light: rgba(61, 140, 111, 0.1);
+  --warning: #D4943A;
+  --warning-light: rgba(212, 148, 58, 0.1);
+  --error: #C75450;
+  --error-light: rgba(199, 84, 80, 0.1);
+
+  /* --- Plot Colors --- */
+  --plot-blue: #4A7FC4;
+  --plot-terracotta: #D97757;
+  --plot-green: #3D8C6F;
+  --plot-purple: #8B7EC8;
+  --plot-amber: #D4943A;
+  --plot-bg: #FAFAF7;
+  --plot-paper: #FFFFFF;
+  --plot-grid: rgba(0, 0, 0, 0.05);
+  --plot-axis: #E8E2DB;
+  --plot-text: #6B6560;
+
+  /* --- Typography --- */
+  --font-heading: 'Styrene A', 'Styrene B', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body: 'Tiempos Text', Georgia, 'Times New Roman', serif;
+  --font-ui: 'Styrene A', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* --- Spacing --- */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* --- Radii --- */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* --- Transitions --- */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* --- Layout --- */
+  --max-width: 1280px;
+  --sidebar-width: 320px;
+  --header-height: 56px;
+}

@@ -1,6 +1,6 @@
 /**
  * PlotDisplay.css
- * Styles for the PlotDisplay component
+ * Claude-themed plot containers — clean, warm, subtle
  */
 
 /* Plots container */
@@ -11,21 +11,22 @@
   width: 100%;
 }
 
-/* Individual plot card - flex containment strategy */
+/* Individual plot card */
 .plot-card {
   display: flex;
   flex-direction: column;
-  background: var(--surface, #1e293b);
-  border-radius: var(--radius-lg, 12px);
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  overflow: hidden; /* Keep hidden - prevents overflow */
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
   min-height: 310px;
   max-height: 320px;
   transition: box-shadow 0.3s ease, transform 0.3s ease, opacity 0.4s ease;
   animation: plotFadeIn 0.4s ease-out;
+  box-shadow: var(--shadow-sm);
 }
 
-/* Staggered animation delays for multiple plots */
+/* Staggered animation delays */
 .plot-card:nth-child(1) { animation-delay: 0ms; }
 .plot-card:nth-child(2) { animation-delay: 100ms; }
 .plot-card:nth-child(3) { animation-delay: 200ms; }
@@ -34,7 +35,7 @@
 @keyframes plotFadeIn {
   from {
     opacity: 0;
-    transform: translateY(15px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -43,36 +44,36 @@
 }
 
 .plot-card:hover {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-lg);
   transform: translateY(-2px);
 }
 
-/* Plot description - header section */
+/* Plot description - header */
 .plot-description {
   padding: 0.75rem 1rem;
   margin: 0;
-  font-size: 0.875rem;
-  color: var(--text-secondary, #94a3b8);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.05);
-  flex-shrink: 0; /* Header doesn't shrink */
+  font-size: 0.8125rem;
+  font-family: var(--font-ui);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-light, rgba(232, 226, 219, 0.5));
+  flex-shrink: 0;
 }
 
-/* Plot wrapper - contains the Plotly chart */
+/* Plot wrapper */
 .plot-wrapper {
-  flex: 1; /* Takes remaining space after header */
-  min-height: 0; /* Critical: allows Plotly to calculate height correctly */
+  flex: 1;
+  min-height: 0;
   width: 100%;
   position: relative;
-  overflow: hidden; /* Clip any overflow */
+  overflow: hidden;
 }
 
-/* Ensure Plotly container fills parent */
 .plot-wrapper > div {
   width: 100%;
   height: 100%;
 }
 
-/* Plotly overrides for dark theme */
+/* Plotly overrides */
 .plot-wrapper .js-plotly-plot {
   width: 100% !important;
   height: 100% !important;
@@ -83,15 +84,15 @@
 }
 
 .plot-wrapper .plotly .modebar-btn {
-  color: var(--text-secondary, #94a3b8) !important;
+  color: var(--text-tertiary) !important;
 }
 
 .plot-wrapper .plotly .modebar-btn:hover {
-  color: var(--primary, #14b8a6) !important;
+  color: var(--accent) !important;
 }
 
 .plot-wrapper .plotly .modebar-btn.active {
-  color: var(--primary, #14b8a6) !important;
+  color: var(--accent) !important;
 }
 
 /* Empty state */
@@ -102,21 +103,22 @@
   justify-content: center;
   gap: 1rem;
   padding: 4rem 2rem;
-  background: var(--surface, #1e293b);
-  border-radius: var(--radius-lg, 12px);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
   text-align: center;
 }
 
 .plots-empty svg {
-  color: var(--text-muted, #64748b);
+  color: var(--text-tertiary);
   opacity: 0.5;
 }
 
 .plots-empty p {
   margin: 0;
   font-size: 0.9375rem;
-  color: var(--text-secondary, #94a3b8);
+  font-family: var(--font-body);
+  color: var(--text-secondary);
   max-width: 300px;
 }
 
@@ -124,8 +126,8 @@
 .plot-skeleton {
   display: flex;
   flex-direction: column;
-  background: var(--surface, #1e293b);
-  border-radius: var(--radius-lg, 12px);
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
   padding: 1rem;
   min-height: 310px;
   max-height: 320px;
@@ -136,12 +138,12 @@
   width: 40%;
   background: linear-gradient(
     90deg,
-    rgba(148, 163, 184, 0.1) 0%,
-    rgba(148, 163, 184, 0.2) 50%,
-    rgba(148, 163, 184, 0.1) 100%
+    var(--border) 0%,
+    rgba(232, 226, 219, 0.6) 50%,
+    var(--border) 100%
   );
   background-size: 200% 100%;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   margin-bottom: 1rem;
   animation: shimmer 1.5s infinite;
 }
@@ -151,22 +153,18 @@
   min-height: 240px;
   background: linear-gradient(
     90deg,
-    rgba(148, 163, 184, 0.05) 0%,
-    rgba(148, 163, 184, 0.1) 50%,
-    rgba(148, 163, 184, 0.05) 100%
+    rgba(232, 226, 219, 0.2) 0%,
+    rgba(232, 226, 219, 0.4) 50%,
+    rgba(232, 226, 219, 0.2) 100%
   );
   background-size: 200% 100%;
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--radius-md);
   animation: shimmer 1.5s infinite;
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* Responsive - Tablet */
@@ -184,18 +182,18 @@
   }
 
   .plot-card {
-    border-radius: var(--radius-md, 8px);
+    border-radius: var(--radius-md);
     min-height: 260px;
     max-height: 280px;
   }
 
   .plot-description {
     padding: 0.625rem 0.875rem;
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
   }
 }
 
-/* Multi-plot layout (for future use with side-by-side plots) */
+/* Multi-plot layout */
 .plots-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
@@ -209,27 +207,28 @@
   }
 }
 
-/* Text Panel Styles (for Theory/Learning panels) */
+/* Text Panel Styles */
 .text-panel-card {
   min-height: auto;
 }
 
 .text-panel-header {
   padding: 1rem 1.25rem 0.5rem;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  border-bottom: 1px solid var(--border);
 }
 
 .text-panel-header h3 {
   margin: 0;
   font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary, #f1f5f9);
+  font-weight: 500;
+  font-family: var(--font-heading);
+  color: var(--text-primary);
 }
 
 .text-panel-content {
   padding: 1.25rem;
-  border: 1px solid;
-  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   margin: 1rem;
   max-height: 500px;
   overflow-y: auto;
@@ -237,47 +236,38 @@
 
 .text-panel-content .guided-message {
   font-size: 0.875rem;
+  font-family: var(--font-body);
 }
 
 .text-panel-content .explanation-text {
   white-space: pre-wrap;
   word-wrap: break-word;
+  font-family: var(--font-body);
 }
 
 .text-panel-content .explanation-text b {
-  color: var(--primary, #14b8a6);
+  color: var(--accent);
 }
 
 .text-panel-content .status-display {
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-family: var(--font-mono);
 }
 
 /* Scrollbar styling for text panel */
 .text-panel-content::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .text-panel-content::-webkit-scrollbar-track {
-  background: rgba(148, 163, 184, 0.1);
-  border-radius: 4px;
+  background: var(--bg-secondary);
+  border-radius: 3px;
 }
 
 .text-panel-content::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
-  border-radius: 4px;
+  background: var(--border);
+  border-radius: 3px;
 }
 
 .text-panel-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.5);
-}
-
-/* Light mode overrides */
-[data-theme="light"] .plot-card,
-[data-theme="light"] .plots-empty,
-[data-theme="light"] .plot-skeleton {
-  background: var(--surface-color, #ffffff);
-}
-
-[data-theme="light"] .text-panel-header h3 {
-  color: var(--text-primary, #1e293b);
+  background: var(--text-tertiary);
 }

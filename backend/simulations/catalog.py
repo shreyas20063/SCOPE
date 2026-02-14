@@ -14,13 +14,13 @@ Each simulation entry includes:
 - plots: List of plot definitions
 """
 
-# Category definitions with colors
+# Category definitions with colors (Claude warm palette)
 CATEGORIES = {
-    "Signal Processing": {"color": "#06b6d4", "icon": "wave"},
-    "Circuits": {"color": "#8b5cf6", "icon": "circuit"},
-    "Control Systems": {"color": "#f59e0b", "icon": "gear"},
-    "Transforms": {"color": "#10b981", "icon": "transform"},
-    "Optics": {"color": "#ec4899", "icon": "lens"},
+    "Signal Processing": {"color": "#4A7FC4", "icon": "wave"},
+    "Circuits": {"color": "#8B7EC8", "icon": "circuit"},
+    "Control Systems": {"color": "#D4943A", "icon": "gear"},
+    "Transforms": {"color": "#3D8C6F", "icon": "transform"},
+    "Optics": {"color": "#D97757", "icon": "lens"},
 }
 
 # Complete simulation catalog with parameter definitions from 4A analysis
@@ -46,6 +46,43 @@ SIMULATION_CATALOG = [
             {"id": "time_domain", "title": "Time Domain", "description": "Input and output signals over time"},
             {"id": "bode", "title": "Frequency Domain (Bode Plot)", "description": "Filter magnitude response with harmonics"},
         ],
+        "theory": {
+            "title": "RC Lowpass Filter",
+            "content": [
+                "An RC lowpass filter is one of the simplest and most fundamental analog circuits in signal processing. It consists of a resistor (R) and a capacitor (C) in series, with the output taken across the capacitor. This arrangement allows low-frequency signals to pass through while attenuating high-frequency components.",
+                "The filter's behavior is governed by its cutoff frequency, fc = 1/(2\u03c0RC), where the output power drops to half (\u22123 dB) of the input. Below this frequency, signals pass with minimal attenuation. Above it, the output rolls off at 20 dB per decade \u2014 a characteristic first-order response.",
+                "When a square wave is applied to the filter, the sharp transitions are smoothed because the capacitor takes time to charge and discharge through the resistor. The RC time constant (\u03c4 = RC) determines how quickly the capacitor responds. Shorter time constants mean faster response and less filtering; longer time constants produce more aggressive smoothing.",
+            ],
+            "equations": [
+                {"formula": "H(s) = 1 / (1 + sRC)", "description": "Transfer function in the Laplace domain"},
+                {"formula": "fc = 1 / (2\u03c0RC)", "description": "Cutoff frequency (\u22123 dB point)"},
+                {"formula": "|H(j\u03c9)| = 1 / \u221a(1 + (\u03c9/\u03c9c)\u00b2)", "description": "Magnitude response"},
+                {"formula": "\u03c4 = RC", "description": "Time constant \u2014 time to reach 63.2% of final value"},
+            ],
+        },
+        "analysis": {
+            "observations": [
+                "When the input frequency is well below the cutoff frequency (f \u226a fc), the output closely follows the input with minimal distortion.",
+                "At the cutoff frequency (f = fc), the output amplitude drops to approximately 70.7% of the input (\u22123 dB).",
+                "As frequency increases beyond fc, the output becomes increasingly sinusoidal as higher harmonics of the square wave are filtered out.",
+                "The Bode plot shows a flat response below fc and a consistent \u221220 dB/decade rolloff above it.",
+            ],
+            "try_this": [
+                "Set the frequency near the cutoff and observe how the square wave begins to round off at the transitions.",
+                "Increase the RC time constant and watch the cutoff frequency shift lower on the Bode plot.",
+                "Try a very high frequency (f \u226b fc) and notice the output becomes nearly sinusoidal \u2014 only the fundamental harmonic passes through.",
+                "Compare the time-domain waveform at f/fc = 0.1, 1.0, and 10.0 to see the full range of filter behavior.",
+            ],
+            "related_concepts": [
+                "First-Order Systems",
+                "Bode Plots",
+                "Transfer Functions",
+                "Frequency Response",
+                "Time Constants",
+                "Impedance",
+                "RC High-Pass Filter",
+            ],
+        },
     },
 
     # =========================================================================

@@ -1,19 +1,15 @@
 /**
  * App.jsx
  *
- * Main application component with dark theme and navigation.
+ * Main application component — Claude/Anthropic aesthetic.
  */
 
-import React, { useEffect } from 'react'
+import React from 'react'
 import { Routes, Route, Link } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 import SimulationPage from './pages/SimulationPage'
 
 function App() {
-  // Initialize dark theme on first load
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', 'dark');
-  }, []);
 
   return (
     <div className="app">
