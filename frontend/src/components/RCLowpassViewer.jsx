@@ -3,82 +3,92 @@
  *
  * Custom viewer for RC Lowpass Filter simulation.
  * Renders plots directly to ensure dynamic title updates work correctly.
- * Uses Claude/Anthropic warm theme colors.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import './RCLowpassViewer.css';
 
 /**
- * Claude theme colors for Plotly — warm, muted palette
+ * Get current theme from document
  */
-const CLAUDE_PLOT_THEME = {
-  paper_bgcolor: '#FFFFFF',
-  plot_bgcolor: '#FAFAF7',
-  gridcolor: 'rgba(0, 0, 0, 0.05)',
-  zerolinecolor: 'rgba(0, 0, 0, 0.1)',
-  axislinecolor: '#E8E2DB',
-  titleColor: '#1A1A1A',
-  textColor: '#6B6560',
-  tickColor: '#9B9590',
-  legendBg: 'rgba(255, 255, 255, 0.95)',
-  legendBorder: '#E8E2DB',
-  fontFamily: "'Styrene A', 'Styrene B', -apple-system, BlinkMacSystemFont, sans-serif",
-};
+function useTheme() {
+  const [theme, setTheme] = React.useState(() => {
+    return document.documentElement.getAttribute('data-theme') || 'dark';
+  });
+
+  React.useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const newTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+      setTheme(newTheme);
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  return theme;
+}
 
 /**
- * Single plot component — renders Plotly chart with Claude theme
+ * Single plot component - renders Plotly chart with dynamic title
  */
-function RCPlot({ plot }) {
+function RCPlot({ plot, theme }) {
+  const isDark = theme === 'dark';
+
+  // Build layout fresh every render - no memoization to ensure title updates
   const layout = {
     title: {
       text: plot.title || 'Plot',
-      font: { color: CLAUDE_PLOT_THEME.titleColor, size: 14, family: CLAUDE_PLOT_THEME.fontFamily },
+      font: { color: isDark ? '#f1f5f9' : '#1e293b', size: 15 },
       x: 0.5,
       xanchor: 'center',
     },
-    paper_bgcolor: CLAUDE_PLOT_THEME.paper_bgcolor,
-    plot_bgcolor: CLAUDE_PLOT_THEME.plot_bgcolor,
+    paper_bgcolor: isDark ? '#0f172a' : 'rgba(255, 255, 255, 0.98)',
+    plot_bgcolor: isDark ? '#1e293b' : '#f8fafc',
     font: {
-      color: CLAUDE_PLOT_THEME.textColor,
-      family: CLAUDE_PLOT_THEME.fontFamily,
+      color: isDark ? '#e2e8f0' : '#1e293b',
+      family: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       size: 12,
     },
     xaxis: {
       ...plot.layout?.xaxis,
-      gridcolor: CLAUDE_PLOT_THEME.gridcolor,
+      gridcolor: isDark ? 'rgba(71, 85, 105, 0.4)' : 'rgba(100, 116, 139, 0.2)',
       gridwidth: 1,
-      zerolinecolor: CLAUDE_PLOT_THEME.zerolinecolor,
-      zerolinewidth: 1,
-      tickfont: { color: CLAUDE_PLOT_THEME.tickColor, size: 11, family: CLAUDE_PLOT_THEME.fontFamily },
+      zerolinecolor: isDark ? 'rgba(148, 163, 184, 0.5)' : 'rgba(100, 116, 139, 0.5)',
+      zerolinewidth: 1.5,
+      tickfont: { color: isDark ? '#94a3b8' : '#475569', size: 11 },
       title: {
         text: plot.layout?.xaxis?.title || '',
-        font: { color: CLAUDE_PLOT_THEME.textColor, size: 12, family: CLAUDE_PLOT_THEME.fontFamily },
+        font: { color: isDark ? '#94a3b8' : '#334155', size: 12 },
       },
       showline: true,
-      linecolor: CLAUDE_PLOT_THEME.axislinecolor,
+      linecolor: isDark ? '#475569' : '#cbd5e1',
       linewidth: 1,
     },
     yaxis: {
       ...plot.layout?.yaxis,
-      gridcolor: CLAUDE_PLOT_THEME.gridcolor,
+      gridcolor: isDark ? 'rgba(71, 85, 105, 0.4)' : 'rgba(100, 116, 139, 0.2)',
       gridwidth: 1,
-      zerolinecolor: CLAUDE_PLOT_THEME.zerolinecolor,
-      zerolinewidth: 1,
-      tickfont: { color: CLAUDE_PLOT_THEME.tickColor, size: 11, family: CLAUDE_PLOT_THEME.fontFamily },
+      zerolinecolor: isDark ? 'rgba(148, 163, 184, 0.5)' : 'rgba(100, 116, 139, 0.5)',
+      zerolinewidth: 1.5,
+      tickfont: { color: isDark ? '#94a3b8' : '#475569', size: 11 },
       title: {
         text: plot.layout?.yaxis?.title || '',
-        font: { color: CLAUDE_PLOT_THEME.textColor, size: 12, family: CLAUDE_PLOT_THEME.fontFamily },
+        font: { color: isDark ? '#94a3b8' : '#334155', size: 12 },
       },
       showline: true,
-      linecolor: CLAUDE_PLOT_THEME.axislinecolor,
+      linecolor: isDark ? '#475569' : '#cbd5e1',
       linewidth: 1,
     },
     legend: {
-      font: { color: CLAUDE_PLOT_THEME.titleColor, size: 11, family: CLAUDE_PLOT_THEME.fontFamily },
-      bgcolor: CLAUDE_PLOT_THEME.legendBg,
-      bordercolor: CLAUDE_PLOT_THEME.legendBorder,
+      font: { color: isDark ? '#e2e8f0' : '#1e293b', size: 11 },
+      bgcolor: isDark ? 'rgba(30, 41, 59, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+      bordercolor: isDark ? '#334155' : '#e2e8f0',
       borderwidth: 1,
       ...plot.layout?.legend,
     },
@@ -86,7 +96,9 @@ function RCPlot({ plot }) {
     height: 280,
     autosize: true,
     showlegend: true,
+    // Critical: datarevision changes force Plotly to update
     datarevision: `${plot.id}-${plot.title}-${Date.now()}`,
+    // uirevision preserves zoom/pan
     uirevision: plot.id,
   };
 
@@ -97,21 +109,10 @@ function RCPlot({ plot }) {
     displaylogo: false,
   };
 
-  // Remap trace colors to Claude palette
-  const themedData = (plot.data || []).map((trace, i) => {
-    const colors = ['#4A7FC4', '#D97757', '#3D8C6F', '#8B7EC8', '#D4943A', '#C75450'];
-    const newTrace = { ...trace };
-    if (!trace.line?.color && !trace.marker?.color) {
-      newTrace.line = { ...trace.line, color: colors[i % colors.length] };
-      newTrace.marker = { ...trace.marker, color: colors[i % colors.length] };
-    }
-    return newTrace;
-  });
-
   return (
     <div className="rc-plot-card">
       <Plot
-        data={themedData}
+        data={plot.data || []}
         layout={layout}
         config={config}
         useResizeHandler={true}
@@ -129,12 +130,12 @@ function FilterStatusBadge({ metadata }) {
   if (!filterInfo) return null;
 
   const statusColors = {
-    PASSING: '#3D8C6F',
-    TRANSITIONING: '#D4943A',
-    FILTERING: '#C75450',
+    PASSING: '#10b981',
+    TRANSITIONING: '#f59e0b',
+    FILTERING: '#ef4444',
   };
 
-  const statusColor = statusColors[filterInfo.status] || '#9B9590';
+  const statusColor = statusColors[filterInfo.status] || '#6b7280';
 
   return (
     <div className="rc-filter-status">
@@ -162,6 +163,8 @@ function FilterStatusBadge({ metadata }) {
  * Main RCLowpassViewer Component
  */
 function RCLowpassViewer({ metadata, plots }) {
+  const theme = useTheme();
+
   if (!plots || plots.length === 0) {
     return (
       <div className="rc-lowpass-viewer">
@@ -183,6 +186,7 @@ function RCLowpassViewer({ metadata, plots }) {
           <RCPlot
             key={`${plot.id}-${index}`}
             plot={plot}
+            theme={theme}
           />
         ))}
       </div>

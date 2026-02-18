@@ -1,6 +1,6 @@
 /**
  * PlotDisplay.css
- * Claude-themed plot containers — clean, warm, subtle
+ * Styles for the PlotDisplay component
  */
 
 /* Plots container */
@@ -11,22 +11,24 @@
   width: 100%;
 }
 
-/* Individual plot card */
+/* Individual plot card - flex containment strategy, sci-fi border */
 .plot-card {
   display: flex;
   flex-direction: column;
-  background: var(--bg-surface);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  overflow: hidden;
+  background: rgba(19, 27, 46, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(0, 217, 255, 0.08);
+  overflow: hidden; /* Keep hidden - prevents overflow */
   min-height: 310px;
   max-height: 320px;
-  transition: box-shadow 0.3s ease, transform 0.3s ease, opacity 0.4s ease;
+  transition: box-shadow 0.3s ease, transform 0.3s ease, opacity 0.4s ease, border-color 0.3s ease;
   animation: plotFadeIn 0.4s ease-out;
-  box-shadow: var(--shadow-sm);
+  position: relative;
 }
 
-/* Staggered animation delays */
+/* Staggered animation delays for multiple plots */
 .plot-card:nth-child(1) { animation-delay: 0ms; }
 .plot-card:nth-child(2) { animation-delay: 100ms; }
 .plot-card:nth-child(3) { animation-delay: 200ms; }
@@ -35,7 +37,7 @@
 @keyframes plotFadeIn {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(15px);
   }
   to {
     opacity: 1;
@@ -44,36 +46,36 @@
 }
 
 .plot-card:hover {
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 15px rgba(0, 217, 255, 0.08);
   transform: translateY(-2px);
 }
 
-/* Plot description - header */
+/* Plot description - header section */
 .plot-description {
   padding: 0.75rem 1rem;
   margin: 0;
-  font-size: 0.8125rem;
-  font-family: var(--font-ui);
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--border-light, rgba(232, 226, 219, 0.5));
-  flex-shrink: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #94a3b8);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.05);
+  flex-shrink: 0; /* Header doesn't shrink */
 }
 
-/* Plot wrapper */
+/* Plot wrapper - contains the Plotly chart */
 .plot-wrapper {
-  flex: 1;
-  min-height: 0;
+  flex: 1; /* Takes remaining space after header */
+  min-height: 0; /* Critical: allows Plotly to calculate height correctly */
   width: 100%;
   position: relative;
-  overflow: hidden;
+  overflow: hidden; /* Clip any overflow */
 }
 
+/* Ensure Plotly container fills parent */
 .plot-wrapper > div {
   width: 100%;
   height: 100%;
 }
 
-/* Plotly overrides */
+/* Plotly overrides for dark theme */
 .plot-wrapper .js-plotly-plot {
   width: 100% !important;
   height: 100% !important;
@@ -84,15 +86,15 @@
 }
 
 .plot-wrapper .plotly .modebar-btn {
-  color: var(--text-tertiary) !important;
+  color: var(--text-secondary, #94a3b8) !important;
 }
 
 .plot-wrapper .plotly .modebar-btn:hover {
-  color: var(--accent) !important;
+  color: var(--primary, #14b8a6) !important;
 }
 
 .plot-wrapper .plotly .modebar-btn.active {
-  color: var(--accent) !important;
+  color: var(--primary, #14b8a6) !important;
 }
 
 /* Empty state */
@@ -103,22 +105,21 @@
   justify-content: center;
   gap: 1rem;
   padding: 4rem 2rem;
-  background: var(--bg-surface);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
+  background: var(--surface, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
   text-align: center;
 }
 
 .plots-empty svg {
-  color: var(--text-tertiary);
+  color: var(--text-muted, #64748b);
   opacity: 0.5;
 }
 
 .plots-empty p {
   margin: 0;
   font-size: 0.9375rem;
-  font-family: var(--font-body);
-  color: var(--text-secondary);
+  color: var(--text-secondary, #94a3b8);
   max-width: 300px;
 }
 
@@ -126,8 +127,8 @@
 .plot-skeleton {
   display: flex;
   flex-direction: column;
-  background: var(--bg-surface);
-  border-radius: var(--radius-lg);
+  background: var(--surface, #1e293b);
+  border-radius: var(--radius-lg, 12px);
   padding: 1rem;
   min-height: 310px;
   max-height: 320px;
@@ -138,12 +139,12 @@
   width: 40%;
   background: linear-gradient(
     90deg,
-    var(--border) 0%,
-    rgba(232, 226, 219, 0.6) 50%,
-    var(--border) 100%
+    rgba(148, 163, 184, 0.1) 0%,
+    rgba(148, 163, 184, 0.2) 50%,
+    rgba(148, 163, 184, 0.1) 100%
   );
   background-size: 200% 100%;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-sm, 4px);
   margin-bottom: 1rem;
   animation: shimmer 1.5s infinite;
 }
@@ -153,18 +154,22 @@
   min-height: 240px;
   background: linear-gradient(
     90deg,
-    rgba(232, 226, 219, 0.2) 0%,
-    rgba(232, 226, 219, 0.4) 50%,
-    rgba(232, 226, 219, 0.2) 100%
+    rgba(148, 163, 184, 0.05) 0%,
+    rgba(148, 163, 184, 0.1) 50%,
+    rgba(148, 163, 184, 0.05) 100%
   );
   background-size: 200% 100%;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-md, 8px);
   animation: shimmer 1.5s infinite;
 }
 
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* Responsive - Tablet */
@@ -182,18 +187,18 @@
   }
 
   .plot-card {
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-md, 8px);
     min-height: 260px;
     max-height: 280px;
   }
 
   .plot-description {
     padding: 0.625rem 0.875rem;
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
   }
 }
 
-/* Multi-plot layout */
+/* Multi-plot layout (for future use with side-by-side plots) */
 .plots-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
@@ -207,28 +212,27 @@
   }
 }
 
-/* Text Panel Styles */
+/* Text Panel Styles (for Theory/Learning panels) */
 .text-panel-card {
   min-height: auto;
 }
 
 .text-panel-header {
   padding: 1rem 1.25rem 0.5rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
 }
 
 .text-panel-header h3 {
   margin: 0;
   font-size: 1rem;
-  font-weight: 500;
-  font-family: var(--font-heading);
-  color: var(--text-primary);
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
 }
 
 .text-panel-content {
   padding: 1.25rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border: 1px solid;
+  border-radius: 6px;
   margin: 1rem;
   max-height: 500px;
   overflow-y: auto;
@@ -236,38 +240,47 @@
 
 .text-panel-content .guided-message {
   font-size: 0.875rem;
-  font-family: var(--font-body);
 }
 
 .text-panel-content .explanation-text {
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-family: var(--font-body);
 }
 
 .text-panel-content .explanation-text b {
-  color: var(--accent);
+  color: var(--primary, #14b8a6);
 }
 
 .text-panel-content .status-display {
-  font-family: var(--font-mono);
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
 }
 
 /* Scrollbar styling for text panel */
 .text-panel-content::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .text-panel-content::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 4px;
 }
 
 .text-panel-content::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 4px;
 }
 
 .text-panel-content::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Light mode overrides */
+[data-theme="light"] .plot-card,
+[data-theme="light"] .plots-empty,
+[data-theme="light"] .plot-skeleton {
+  background: var(--surface-color, #ffffff);
+}
+
+[data-theme="light"] .text-panel-header h3 {
+  color: var(--text-primary, #1e293b);
 }
