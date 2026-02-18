@@ -375,10 +375,14 @@ async def execute_simulation(sim_id: str, request: ExecuteRequest):
                 result = executor.execute(simulator.get_state)
 
         else:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": f"Unknown action: {action}"}
-            )
+            # Delegate to simulator's custom action handler if available
+            if hasattr(simulator, 'handle_action'):
+                result = executor.execute(simulator.handle_action, action, params)
+            else:
+                return JSONResponse(
+                    status_code=400,
+                    content={"success": False, "error": f"Unknown action: {action}"}
+                )
 
         if result["success"]:
             serialized = DataHandler.serialize_result(result["data"])

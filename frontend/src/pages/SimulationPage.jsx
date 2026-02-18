@@ -2,15 +2,13 @@
  * SimulationPage
  *
  * Page component for displaying individual simulations.
- * Layout: Theory Section → Interactive Simulation → Analysis Section
+ * Uses HTTP with debounced updates.
  */
 
 import React, { useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { useSimulation } from '../hooks/useSimulation';
 import SimulationViewer from '../components/SimulationViewer';
-import TheorySection from '../components/TheorySection';
-import AnalysisSection from '../components/AnalysisSection';
 import Spinner from '../components/Spinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { decodeParams } from '../utils/urlParams';
@@ -34,6 +32,7 @@ function SimulationPage() {
     stepForward,
     stepBackward,
     setParamsFromUrl,
+    setMetadata,
   } = useSimulation(id);
 
   // Load parameters from URL on mount
@@ -80,29 +79,16 @@ function SimulationPage() {
     );
   }
 
-  // Extract theory and analysis data from simulation catalog
-  const theory = simulation?.theory;
-  const analysis = simulation?.analysis;
-
-  // Show simulation viewer with theory + analysis sections
+  // Show simulation viewer
   return (
     <div className="simulation-page">
-      {/* Theory Section — scrollable content above the sim */}
-      {theory && (
-        <TheorySection
-          title={theory.title}
-          content={theory.content}
-          equations={theory.equations}
-        />
-      )}
-
-      {/* Interactive Simulation */}
       <SimulationViewer
         simulation={simulation}
         plots={plots}
         metadata={metadata}
         currentParams={currentParams}
         onParamChange={updateParam}
+        onMetadataChange={setMetadata}
         onReset={resetToDefaults}
         onButtonClick={handleButtonAction}
         onStepForward={stepForward}
@@ -111,15 +97,6 @@ function SimulationPage() {
         isUpdating={isUpdating}
         isRunning={isRunning}
       />
-
-      {/* Analysis Section — scrollable content below the sim */}
-      {analysis && (
-        <AnalysisSection
-          observations={analysis.observations}
-          tryThis={analysis.try_this}
-          relatedConcepts={analysis.related_concepts}
-        />
-      )}
     </div>
   );
 }

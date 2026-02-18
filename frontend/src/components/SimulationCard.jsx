@@ -12,7 +12,10 @@ function SimulationCard({ id, name, description, category, categoryColor, thumbn
         <span className="card-thumbnail">{thumbnail}</span>
         <span
           className="category-badge"
-          style={{ backgroundColor: categoryColor || '#64748b' }}
+          style={{
+            backgroundColor: categoryColor || '#64748b',
+            boxShadow: `0 0 12px ${categoryColor || '#64748b'}40`
+          }}
         >
           {category}
         </span>
