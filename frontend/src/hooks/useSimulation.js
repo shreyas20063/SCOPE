@@ -434,13 +434,35 @@ export function useSimulation(simId) {
   /**
    * Handle button actions (play_pause, reset)
    */
-  const handleButtonAction = useCallback((buttonName) => {
+  const handleButtonAction = useCallback(async (buttonName, actionParams = {}) => {
     if (buttonName === 'play_pause') {
       toggleAnimation();
     } else if (buttonName === 'reset') {
       resetToDefaults();
+    } else {
+      // Route custom button actions to backend handle_action
+      try {
+        setIsUpdating(true);
+        const result = await api.executeSimulation(simId, buttonName, actionParams);
+        if (!mountedRef.current) return;
+        if (result.success) {
+          setPlots(result.plots || []);
+          if (result.parameters) {
+            setCurrentParams(prev => ({ ...prev, ...result.parameters }));
+          }
+          if (result.metadata) {
+            setMetadata(result.metadata);
+          }
+        }
+      } catch (err) {
+        console.error(`Button action '${buttonName}' failed:`, err);
+      } finally {
+        if (mountedRef.current) {
+          setIsUpdating(false);
+        }
+      }
     }
-  }, [toggleAnimation, resetToDefaults]);
+  }, [toggleAnimation, resetToDefaults, simId]);
 
   // Animation loop effect - uses setTimeout chain to prevent overlapping
   // Uses animation_speed from currentParams for speed control
@@ -586,6 +608,7 @@ export function useSimulation(simId) {
     // Utilities
     getParamDef,
     validateParam,
+    setMetadata,
   };
 }
 

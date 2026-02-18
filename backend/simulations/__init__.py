@@ -22,6 +22,10 @@ from .feedback_system_analysis import FeedbackAmplifierSimulator
 from .amplifier_topologies import AmplifierSimulator
 from .lens_optics import LensOpticsSimulator
 from .furuta_pendulum import FurutaPendulumSimulator
+from .block_diagram_builder import BlockDiagramSimulator
+from .signal_operations import SignalOperationsSimulator
+from .sampling_reconstruction import SamplingReconstructionSimulator
+from .mass_spring_system import MassSpringSimulator
 
 # Registry mapping simulation IDs to their simulator classes
 # Add new simulators here as they are implemented
@@ -39,6 +43,10 @@ SIMULATOR_REGISTRY = {
     "amplifier_topologies": AmplifierSimulator,
     "lens_optics": LensOpticsSimulator,
     "furuta_pendulum": FurutaPendulumSimulator,
+    "block_diagram_builder": BlockDiagramSimulator,
+    "signal_operations": SignalOperationsSimulator,
+    "sampling_reconstruction": SamplingReconstructionSimulator,
+    "mass_spring_system": MassSpringSimulator,
 }
 
 
@@ -93,6 +101,10 @@ __all__ = [
     "AmplifierSimulator",
     "LensOpticsSimulator",
     "FurutaPendulumSimulator",
+    "BlockDiagramSimulator",
+    "SignalOperationsSimulator",
+    "SamplingReconstructionSimulator",
+    "MassSpringSimulator",
     "SIMULATOR_REGISTRY",
     "get_simulator_class",
     "is_simulator_available",

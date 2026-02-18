@@ -12,6 +12,7 @@ import ControlPanel from './ControlPanel';
 import ShareButton from './ShareButton';
 import ConvolutionViewer from './ConvolutionViewer';
 import RCLowpassViewer from './RCLowpassViewer';
+import SignalOperationsViewer from './SignalOperationsViewer';
 import '../styles/SimulationViewer.css';
 
 // Lazy load heavy components for better initial load performance
@@ -21,6 +22,9 @@ const FourierPhaseMagnitudeViewer = lazy(() => import('./FourierPhaseMagnitudeVi
 const ModulationViewer = lazy(() => import('./ModulationViewer'));
 const LensOpticsViewer = lazy(() => import('./LensOpticsViewer'));
 const AliasingQuantizationViewer = lazy(() => import('./AliasingQuantizationViewer'));
+const BlockDiagramViewer = lazy(() => import('./BlockDiagramViewer'));
+const SamplingReconstructionViewer = lazy(() => import('./SamplingReconstructionViewer'));
+const MassSpringViewer = lazy(() => import('./MassSpringViewer'));
 
 // Loading fallback for lazy-loaded components
 const LazyLoadFallback = () => (
@@ -1386,6 +1390,102 @@ function AmplifierInfoPanel({ metadata }) {
 }
 
 /**
+ * Block Diagram TF Panel — shown in controls section for block_diagram_builder
+ */
+function BlockDiagramTFPanel({ metadata }) {
+  const tf = metadata?.transfer_function;
+  const error = metadata?.error;
+  const systemType = metadata?.system_type || 'dt';
+  const blocks = metadata?.blocks || {};
+  const connections = metadata?.connections || [];
+
+  return (
+    <div className="bd-tf-controls-panel">
+      <h4 className="control-group-title" style={{ color: 'var(--accent-color)', marginBottom: '0.5rem' }}>
+        Transfer Function
+      </h4>
+      {error && (
+        <div style={{
+          padding: '0.4rem 0.6rem',
+          borderRadius: '6px',
+          fontSize: '0.78rem',
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.25)',
+          color: 'var(--error-color)',
+          marginBottom: '0.5rem',
+        }}>{error}</div>
+      )}
+      {tf ? (
+        <div>
+          <div style={{
+            padding: '0.5rem 0.6rem',
+            borderRadius: '8px',
+            background: 'rgba(0, 217, 255, 0.06)',
+            border: '1px solid rgba(0, 217, 255, 0.12)',
+            fontFamily: "'Fira Code', monospace",
+            fontSize: '0.85rem',
+            color: 'var(--text-primary)',
+            marginBottom: '0.4rem',
+            wordBreak: 'break-word',
+          }}>
+            {tf.expression}
+          </div>
+          {tf.domain_expression && (
+            <div style={{
+              padding: '0.35rem 0.6rem',
+              fontSize: '0.78rem',
+              fontFamily: "'Fira Code', monospace",
+              color: 'var(--text-muted)',
+              marginBottom: '0.4rem',
+            }}>
+              {systemType === 'dt' ? 'H(z)' : 'H(s)'} = {tf.domain_expression}
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.8rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Stability</span>
+              <span style={{ color: tf.is_stable ? 'var(--success-color)' : 'var(--error-color)', fontWeight: 600 }}>
+                {tf.is_stable ? '\u2713 Stable' : '\u2717 Unstable'}
+              </span>
+            </div>
+            {tf.poles && tf.poles.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Poles</span>
+                <span style={{ color: 'var(--text-secondary)', fontFamily: "'Fira Code', monospace", fontSize: '0.75rem', textAlign: 'right' }}>
+                  {tf.poles.map((p, i) => (
+                    <span key={i} style={{ display: 'block' }}>
+                      {p.imag !== 0 ? `${p.real.toFixed(3)} \u00B1 ${Math.abs(p.imag).toFixed(3)}j` : p.real.toFixed(3)}
+                    </span>
+                  ))}
+                </span>
+              </div>
+            )}
+            <div style={{ height: '1px', background: 'rgba(148,163,184,0.1)', margin: '0.15rem 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Connections</span>
+              <span style={{ color: 'var(--text-secondary)', fontFamily: "'Fira Code', monospace" }}>{connections.length}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Paths / Loops</span>
+              <span style={{ color: 'var(--text-secondary)', fontFamily: "'Fira Code', monospace" }}>{tf.num_forward_paths} / {tf.num_loops}</span>
+            </div>
+          </div>
+        </div>
+      ) : Object.keys(blocks).length > 0 ? (
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>
+          Connect Input &rarr; blocks &rarr; Output to compute TF
+        </div>
+      ) : (
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>
+          Add blocks to see the transfer function
+        </div>
+      )}
+      <div style={{ height: '1px', background: 'rgba(0, 217, 255, 0.08)', margin: '0.75rem 0 0.5rem' }} />
+    </div>
+  );
+}
+
+/**
  * Main SimulationViewer component
  */
 function SimulationViewer({
@@ -1394,6 +1494,7 @@ function SimulationViewer({
   metadata = null,
   currentParams = {},
   onParamChange,
+  onMetadataChange,
   onReset,
   onButtonClick,
   onStepForward,
@@ -1529,6 +1630,38 @@ function SimulationViewer({
                   metadata={metadata}
                   plots={plots}
                 />
+              ) : metadata?.simulation_type === 'block_diagram_builder' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <BlockDiagramViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                    onMetadataChange={onMetadataChange}
+                    simId={simulation?.id}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'sampling_reconstruction' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <SamplingReconstructionViewer
+                    metadata={metadata}
+                    plots={plots}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'mass_spring_system' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <MassSpringViewer
+                    metadata={metadata}
+                    plots={plots}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'signal_operations' ? (
+                <SignalOperationsViewer
+                  metadata={metadata}
+                  plots={plots}
+                  onButtonClick={onButtonClick}
+                  isUpdating={isUpdating}
+                />
               ) : (
                 <PlotDisplay
                   plots={plots}
@@ -1549,6 +1682,10 @@ function SimulationViewer({
                   mobileActiveTab === 'controls' ? 'mobile-visible' : 'mobile-hidden'
                 }`}
               >
+                {/* Transfer Function display for block diagram builder */}
+                {metadata?.simulation_type === 'block_diagram_builder' && (
+                  <BlockDiagramTFPanel metadata={metadata} />
+                )}
                 <ControlPanel
                   parameters={parameters}
                   currentValues={currentParams}

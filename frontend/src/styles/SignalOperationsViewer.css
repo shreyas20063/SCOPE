@@ -1,0 +1,126 @@
+.signal-operations-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* Formula display bar */
+.signal-ops-formula {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+.formula-label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.formula-text {
+  color: var(--accent-color);
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+/* Quiz panel */
+.quiz-panel {
+  padding: 16px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.quiz-prompt {
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+}
+
+.quiz-instruction {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.quiz-result {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.quiz-result.correct {
+  color: var(--success-color);
+}
+
+.quiz-result.incorrect {
+  color: var(--error-color);
+}
+
+.quiz-result.incorrect strong {
+  color: var(--success-color);
+}
+
+/* Quiz option buttons */
+.quiz-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.quiz-option-btn {
+  padding: 12px 16px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.quiz-option-btn:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+.quiz-option-btn.correct {
+  border-color: var(--success-color);
+  background: var(--primary-light);
+  color: var(--success-color);
+}
+
+.quiz-option-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.quiz-option-btn.disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.quiz-option-btn:disabled {
+  cursor: default;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .quiz-options {
+    grid-template-columns: 1fr;
+  }
+
+  .signal-ops-formula {
+    flex-wrap: wrap;
+  }
+
+  .formula-text {
+    word-break: break-all;
+    font-size: 0.95rem;
+  }
+}

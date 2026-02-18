@@ -14,13 +14,13 @@ Each simulation entry includes:
 - plots: List of plot definitions
 """
 
-# Category definitions with colors (Claude warm palette)
+# Category definitions with colors
 CATEGORIES = {
-    "Signal Processing": {"color": "#4A7FC4", "icon": "wave"},
-    "Circuits": {"color": "#8B7EC8", "icon": "circuit"},
-    "Control Systems": {"color": "#D4943A", "icon": "gear"},
-    "Transforms": {"color": "#3D8C6F", "icon": "transform"},
-    "Optics": {"color": "#D97757", "icon": "lens"},
+    "Signal Processing": {"color": "#06b6d4", "icon": "wave"},
+    "Circuits": {"color": "#8b5cf6", "icon": "circuit"},
+    "Control Systems": {"color": "#f59e0b", "icon": "gear"},
+    "Transforms": {"color": "#10b981", "icon": "transform"},
+    "Optics": {"color": "#ec4899", "icon": "lens"},
 }
 
 # Complete simulation catalog with parameter definitions from 4A analysis
@@ -46,43 +46,6 @@ SIMULATION_CATALOG = [
             {"id": "time_domain", "title": "Time Domain", "description": "Input and output signals over time"},
             {"id": "bode", "title": "Frequency Domain (Bode Plot)", "description": "Filter magnitude response with harmonics"},
         ],
-        "theory": {
-            "title": "RC Lowpass Filter",
-            "content": [
-                "An RC lowpass filter is one of the simplest and most fundamental analog circuits in signal processing. It consists of a resistor (R) and a capacitor (C) in series, with the output taken across the capacitor. This arrangement allows low-frequency signals to pass through while attenuating high-frequency components.",
-                "The filter's behavior is governed by its cutoff frequency, fc = 1/(2\u03c0RC), where the output power drops to half (\u22123 dB) of the input. Below this frequency, signals pass with minimal attenuation. Above it, the output rolls off at 20 dB per decade \u2014 a characteristic first-order response.",
-                "When a square wave is applied to the filter, the sharp transitions are smoothed because the capacitor takes time to charge and discharge through the resistor. The RC time constant (\u03c4 = RC) determines how quickly the capacitor responds. Shorter time constants mean faster response and less filtering; longer time constants produce more aggressive smoothing.",
-            ],
-            "equations": [
-                {"formula": "H(s) = 1 / (1 + sRC)", "description": "Transfer function in the Laplace domain"},
-                {"formula": "fc = 1 / (2\u03c0RC)", "description": "Cutoff frequency (\u22123 dB point)"},
-                {"formula": "|H(j\u03c9)| = 1 / \u221a(1 + (\u03c9/\u03c9c)\u00b2)", "description": "Magnitude response"},
-                {"formula": "\u03c4 = RC", "description": "Time constant \u2014 time to reach 63.2% of final value"},
-            ],
-        },
-        "analysis": {
-            "observations": [
-                "When the input frequency is well below the cutoff frequency (f \u226a fc), the output closely follows the input with minimal distortion.",
-                "At the cutoff frequency (f = fc), the output amplitude drops to approximately 70.7% of the input (\u22123 dB).",
-                "As frequency increases beyond fc, the output becomes increasingly sinusoidal as higher harmonics of the square wave are filtered out.",
-                "The Bode plot shows a flat response below fc and a consistent \u221220 dB/decade rolloff above it.",
-            ],
-            "try_this": [
-                "Set the frequency near the cutoff and observe how the square wave begins to round off at the transitions.",
-                "Increase the RC time constant and watch the cutoff frequency shift lower on the Bode plot.",
-                "Try a very high frequency (f \u226b fc) and notice the output becomes nearly sinusoidal \u2014 only the fundamental harmonic passes through.",
-                "Compare the time-domain waveform at f/fc = 0.1, 1.0, and 10.0 to see the full range of filter behavior.",
-            ],
-            "related_concepts": [
-                "First-Order Systems",
-                "Bode Plots",
-                "Transfer Functions",
-                "Frequency Response",
-                "Time Constants",
-                "Impedance",
-                "RC High-Pass Filter",
-            ],
-        },
     },
 
     # =========================================================================
@@ -628,6 +591,180 @@ SIMULATION_CATALOG = [
             {"id": "pole_zero", "title": "Pole-Zero Plot", "description": "S-plane with system poles"},
             {"id": "bode_magnitude", "title": "Bode Magnitude", "description": "|H(jω)| in dB"},
             {"id": "bode_phase", "title": "Bode Phase", "description": "∠H(jω) in degrees"},
+        ],
+    },
+
+    # =========================================================================
+    # 14. BLOCK DIAGRAM BUILDER
+    # =========================================================================
+    {
+        "id": "block_diagram_builder",
+        "name": "Block Diagram Builder",
+        "description": "Build block diagrams by dragging and connecting Gain, Adder, Delay, and Integrator blocks. Switch between building diagrams to get transfer functions, or entering transfer functions to see their block diagram realization.",
+        "category": "Control Systems",
+        "thumbnail": "🔲",
+        "tags": ["block diagram", "transfer function", "feedback", "operator", "simulink", "DT", "CT"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "select", "name": "system_type", "label": "System Type", "options": [
+                {"label": "Discrete-Time (DT)", "value": "dt"},
+                {"label": "Continuous-Time (CT)", "value": "ct"}
+            ], "default": "dt", "group": "System"},
+            {"type": "select", "name": "mode", "label": "Mode", "options": [
+                {"label": "Build Diagram → TF", "value": "build"},
+                {"label": "Enter TF → Diagram", "value": "parse"}
+            ], "default": "build", "group": "System"},
+        ],
+        "default_params": {"system_type": "dt", "mode": "build"},
+        "plots": [
+            {"id": "response", "title": "System Response", "description": "Step/impulse response of the computed transfer function"},
+        ],
+    },
+
+    # =========================================================================
+    # 15. SIGNAL OPERATIONS PLAYGROUND
+    # =========================================================================
+    {
+        "id": "signal_operations",
+        "name": "Signal Operations Playground",
+        "description": "Interactive canvas for exploring signal transformations: time-scaling, time-shifting, time-reversal, amplitude scaling, and DC offset. Apply chains of operations and see the original vs. transformed signal. Includes a quiz mode to test your understanding.",
+        "category": "Signal Processing",
+        "thumbnail": "🎛️",
+        "tags": ["signal operations", "time scaling", "time shifting", "time reversal", "amplitude", "transformations", "quiz"],
+        "has_simulator": True,
+        "controls": [
+            # Signal Selection
+            {"type": "select", "name": "signal_type", "label": "Base Signal", "options": [
+                {"value": "sine", "label": "Sine Wave"},
+                {"value": "square", "label": "Square Wave"},
+                {"value": "triangle", "label": "Triangle Wave"},
+                {"value": "sawtooth", "label": "Sawtooth Wave"},
+                {"value": "unit_step", "label": "Unit Step u(t)"},
+                {"value": "impulse", "label": "Impulse δ(t)"},
+            ], "default": "sine", "group": "Signal"},
+            {"type": "slider", "name": "frequency", "label": "Frequency", "min": 0.5, "max": 10.0, "step": 0.1, "default": 1.0, "unit": "Hz", "group": "Signal", "visible_when": {"signal_type": ["sine", "square", "triangle", "sawtooth"]}},
+
+            # Mode
+            {"type": "select", "name": "mode", "label": "Mode", "options": [
+                {"value": "explore", "label": "Explore"},
+                {"value": "quiz", "label": "Quiz"},
+            ], "default": "explore", "group": "Mode"},
+
+            # Transformations (hidden in quiz mode)
+            {"type": "slider", "name": "amplitude", "label": "Amplitude A", "min": -3.0, "max": 3.0, "step": 0.1, "default": 1.0, "group": "Transformations", "description": "A in A·f(t)", "visible_when": {"mode": "explore"}},
+            {"type": "slider", "name": "time_scale", "label": "Time Scale a", "min": -3.0, "max": 3.0, "step": 0.1, "default": 1.0, "group": "Transformations", "description": "a in f(a·t)", "visible_when": {"mode": "explore"}},
+            {"type": "slider", "name": "time_shift", "label": "Time Shift t₀", "min": -5.0, "max": 5.0, "step": 0.1, "default": 0.0, "unit": "s", "group": "Transformations", "description": "t₀ in f(t - t₀)", "visible_when": {"mode": "explore"}},
+            {"type": "checkbox", "name": "time_reverse", "label": "Time Reverse f(−t)", "default": False, "group": "Transformations", "visible_when": {"mode": "explore"}},
+            {"type": "slider", "name": "dc_offset", "label": "DC Offset", "min": -2.0, "max": 2.0, "step": 0.1, "default": 0.0, "group": "Transformations", "visible_when": {"mode": "explore"}},
+
+            # Quiz Controls (visible only in quiz mode)
+            {"type": "select", "name": "quiz_difficulty", "label": "Difficulty", "options": [
+                {"value": "easy", "label": "Easy (1 op)"},
+                {"value": "medium", "label": "Medium (2 ops)"},
+                {"value": "hard", "label": "Hard (3 ops)"},
+            ], "default": "easy", "group": "Quiz", "visible_when": {"mode": "quiz"}},
+            {"type": "button", "name": "new_quiz", "label": "New Question", "group": "Quiz", "visible_when": {"mode": "quiz"}},
+        ],
+        "default_params": {
+            "signal_type": "sine",
+            "frequency": 1.0,
+            "amplitude": 1.0,
+            "time_scale": 1.0,
+            "time_shift": 0.0,
+            "time_reverse": False,
+            "dc_offset": 0.0,
+            "mode": "explore",
+            "quiz_difficulty": "easy",
+        },
+        "plots": [
+            {"id": "original", "title": "Original Signal f(t)", "description": "Base signal before any transformations"},
+            {"id": "transformed", "title": "Transformed Signal", "description": "Signal after applying all operations, with original ghost overlay"},
+            {"id": "quiz_challenge", "title": "Quiz Challenge", "description": "Mystery transformed signal — identify the operations applied"},
+        ],
+    },
+    # =========================================================================
+    # 16. SAMPLING & RECONSTRUCTION EXPLORER
+    # =========================================================================
+    {
+        "id": "sampling_reconstruction",
+        "name": "Sampling & Reconstruction",
+        "description": "Explore how sampling interval affects signal reconstruction fidelity. Compare zero-order hold, linear interpolation, and ideal sinc reconstruction methods side by side. Visualize the Nyquist criterion in action.",
+        "category": "Signal Processing",
+        "thumbnail": "\U0001f4f6",
+        "tags": ["sampling", "reconstruction", "nyquist", "interpolation", "sinc", "zero-order hold", "DAC"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "select", "name": "signal_type", "label": "Signal Preset", "options": [
+                {"value": "sine", "label": "Pure Sine"},
+                {"value": "sum_of_sines", "label": "Sum of Sines (f\u2080 + f\u2080+4 Hz)"},
+                {"value": "square", "label": "Square Wave"},
+                {"value": "triangle", "label": "Triangle Wave"},
+                {"value": "chirp", "label": "Chirp (Frequency Sweep)"},
+                {"value": "custom_multitone", "label": "Multi-tone (1 + 4 + 9 Hz)"},
+            ], "default": "sum_of_sines", "group": "Signal"},
+            {"type": "slider", "name": "signal_frequency", "label": "Primary Frequency", "min": 0.5, "max": 20.0, "step": 0.1, "default": 3.0, "unit": "Hz", "group": "Signal"},
+            {"type": "slider", "name": "sampling_frequency", "label": "Sampling Frequency (fs)", "min": 1.0, "max": 100.0, "step": 0.5, "default": 10.0, "unit": "Hz", "group": "Sampling"},
+            {"type": "slider", "name": "time_window", "label": "Time Window", "min": 0.5, "max": 5.0, "step": 0.1, "default": 2.0, "unit": "s", "group": "Display"},
+            {"type": "checkbox", "name": "show_zoh", "label": "Zero-Order Hold", "default": True, "group": "Reconstruction Methods"},
+            {"type": "checkbox", "name": "show_linear", "label": "Linear Interpolation", "default": True, "group": "Reconstruction Methods"},
+            {"type": "checkbox", "name": "show_sinc", "label": "Ideal Sinc", "default": True, "group": "Reconstruction Methods"},
+            {"type": "checkbox", "name": "show_original", "label": "Show Original Signal", "default": True, "group": "Display"},
+            {"type": "checkbox", "name": "show_error", "label": "Show Error Plot", "default": False, "group": "Display"},
+        ],
+        "default_params": {
+            "signal_type": "sum_of_sines",
+            "signal_frequency": 3.0,
+            "sampling_frequency": 10.0,
+            "time_window": 2.0,
+            "show_zoh": True,
+            "show_linear": True,
+            "show_sinc": True,
+            "show_original": True,
+            "show_error": False,
+        },
+        "plots": [
+            {"id": "sampling", "title": "Sampling", "description": "Continuous signal with discrete sample points (stem plot)"},
+            {"id": "reconstruction", "title": "Reconstruction", "description": "Comparison of ZOH, linear, and sinc reconstruction methods"},
+            {"id": "error", "title": "Reconstruction Error", "description": "Error between original and each reconstruction method"},
+        ],
+    },
+    # =========================================================================
+    # 17. MASS-SPRING SYSTEM VISUALIZER
+    # =========================================================================
+    {
+        "id": "mass_spring_system",
+        "name": "Mass-Spring System",
+        "description": "Animated mass-spring-damper system showing how physical systems transform input signals. Watch the spring stretch and compress as base excitation x(t) becomes mass displacement y(t).",
+        "category": "Control Systems",
+        "thumbnail": "\U0001f529",
+        "tags": ["mass-spring", "damper", "oscillation", "second-order", "resonance", "natural frequency", "damping ratio", "ODE"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "slider", "name": "mass", "label": "Mass (m)", "min": 0.1, "max": 5.0, "step": 0.1, "default": 1.0, "unit": "kg", "group": "System"},
+            {"type": "slider", "name": "spring_constant", "label": "Spring Constant (k)", "min": 1, "max": 100, "step": 1, "default": 10, "unit": "N/m", "group": "System"},
+            {"type": "slider", "name": "damping", "label": "Damping (b)", "min": 0, "max": 10, "step": 0.1, "default": 0.5, "unit": "Ns/m", "group": "System"},
+            {"type": "select", "name": "input_type", "label": "Input Waveform", "options": [
+                {"value": "step", "label": "Step Input"},
+                {"value": "sinusoid", "label": "Sinusoidal"},
+                {"value": "impulse", "label": "Impulse"},
+                {"value": "none", "label": "Free Response"},
+            ], "default": "step", "group": "Input"},
+            {"type": "slider", "name": "input_frequency", "label": "Input Frequency", "min": 0.1, "max": 10.0, "step": 0.1, "default": 1.0, "unit": "Hz", "group": "Input", "visible_when": {"input_type": "sinusoid"}},
+            {"type": "slider", "name": "input_amplitude", "label": "Amplitude", "min": 0.1, "max": 2.0, "step": 0.1, "default": 1.0, "unit": "m", "group": "Input"},
+            {"type": "slider", "name": "simulation_time", "label": "Duration", "min": 2, "max": 20, "step": 1, "default": 10, "unit": "s", "group": "Simulation"},
+        ],
+        "default_params": {
+            "mass": 1.0,
+            "spring_constant": 10.0,
+            "damping": 0.5,
+            "input_type": "step",
+            "input_frequency": 1.0,
+            "input_amplitude": 1.0,
+            "simulation_time": 10.0,
+        },
+        "plots": [
+            {"id": "response", "title": "System Response", "description": "Input x(t) and output y(t) overlaid — the system as signal transformer"},
+            {"id": "phase_portrait", "title": "Phase Portrait", "description": "y vs y\u2032 trajectory in phase plane"},
         ],
     },
 ]
