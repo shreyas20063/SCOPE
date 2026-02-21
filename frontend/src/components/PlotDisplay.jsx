@@ -247,7 +247,7 @@ function PlotCard({ plot, index }) {
     xaxis: {
       ...defaultLayout.xaxis,
       ...plotLayout.xaxis,
-      autorange: false,
+      autorange: plotLayout.xaxis?.autorange !== undefined ? plotLayout.xaxis.autorange : false,
       fixedrange: false,
       title: {
         text: plotLayout.xaxis?.title || '',
@@ -257,7 +257,7 @@ function PlotCard({ plot, index }) {
     yaxis: {
       ...defaultLayout.yaxis,
       ...plotLayout.yaxis,
-      autorange: false,
+      autorange: plotLayout.yaxis?.autorange !== undefined ? plotLayout.yaxis.autorange : false,
       fixedrange: false,
       title: {
         text: plotLayout.yaxis?.title || '',
@@ -280,8 +280,8 @@ function PlotCard({ plot, index }) {
     annotations: plotLayout.annotations || [],
     // datarevision changes when data/title changes, triggering Plotly update
     datarevision: revision,
-    // uirevision: use plotId to preserve zoom/pan per-plot
-    uirevision: plotId || 'stable',
+    // uirevision: use backend value if provided, otherwise plotId for zoom/pan preservation
+    uirevision: plotLayout.uirevision || plotId || 'stable',
     transition: {
       duration: 0,
     },

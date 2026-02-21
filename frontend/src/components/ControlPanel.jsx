@@ -410,8 +410,11 @@ function shouldShowControl(param, currentValues) {
   // If no visibility condition, always show
   if (!param.visible_when) return true;
 
-  // Check all conditions
+  // Check all conditions (supports array values for OR matching)
   return Object.entries(param.visible_when).every(([key, expectedValue]) => {
+    if (Array.isArray(expectedValue)) {
+      return expectedValue.includes(currentValues[key]);
+    }
     return currentValues[key] === expectedValue;
   });
 }

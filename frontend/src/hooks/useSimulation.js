@@ -298,6 +298,10 @@ export function useSimulation(simId) {
     setIsRunning(false);
     setIsUpdating(true);
     pendingUpdates.current = {};
+    // Cancel any pending debounced updates to prevent stale overwrites
+    if (debouncedUpdateRef.current?.cancel) {
+      debouncedUpdateRef.current.cancel();
+    }
 
     try {
       const result = await api.resetSimulation(simId);
@@ -306,6 +310,9 @@ export function useSimulation(simId) {
         setPlots(result.plots || []);
         if (result.parameters) {
           setCurrentParams(result.parameters);
+        }
+        if (result.metadata) {
+          setMetadata(result.metadata);
         }
         setError(null);
         return { success: true };

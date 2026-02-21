@@ -13,6 +13,11 @@ import ShareButton from './ShareButton';
 import ConvolutionViewer from './ConvolutionViewer';
 import RCLowpassViewer from './RCLowpassViewer';
 import SignalOperationsViewer from './SignalOperationsViewer';
+import CyclicPathViewer from './CyclicPathViewer';
+import DifferenceEquationViewer from './DifferenceEquationViewer';
+import PoleBehaviorViewer from './PoleBehaviorViewer';
+import OperatorAlgebraViewer from './OperatorAlgebraViewer';
+import DTCTComparatorViewer from './DTCTComparatorViewer';
 import '../styles/SimulationViewer.css';
 
 // Lazy load heavy components for better initial load performance
@@ -25,6 +30,17 @@ const AliasingQuantizationViewer = lazy(() => import('./AliasingQuantizationView
 const BlockDiagramViewer = lazy(() => import('./BlockDiagramViewer'));
 const SamplingReconstructionViewer = lazy(() => import('./SamplingReconstructionViewer'));
 const MassSpringViewer = lazy(() => import('./MassSpringViewer'));
+const FundamentalModesViewer = lazy(() => import('./FundamentalModesViewer'));
+const FeedbackConvergenceViewer = lazy(() => import('./FeedbackConvergenceViewer'));
+const PolynomialMultiplicationViewer = lazy(() => import('./PolynomialMultiplicationViewer'));
+const CascadeParallelViewer = lazy(() => import('./CascadeParallelViewer'));
+const ImpulseConstructionViewer = lazy(() => import('./ImpulseConstructionViewer'));
+const CTImpulseResponseViewer = lazy(() => import('./CTImpulseResponseViewer'));
+const ComplexPolesModesViewer = lazy(() => import('./ComplexPolesModesViewer'));
+const ZTransformROCViewer = lazy(() => import('./ZTransformROCViewer'));
+const ZTransformPropertiesViewer = lazy(() => import('./ZTransformPropertiesViewer'));
+const InverseZTransformViewer = lazy(() => import('./InverseZTransformViewer'));
+const SystemRepresentationViewer = lazy(() => import('./SystemRepresentationViewer'));
 
 // Loading fallback for lazy-loaded components
 const LazyLoadFallback = () => (
@@ -1655,6 +1671,22 @@ function SimulationViewer({
                     plots={plots}
                   />
                 </Suspense>
+              ) : metadata?.simulation_type === 'dt_difference_equation' ? (
+                <DifferenceEquationViewer
+                  metadata={metadata}
+                  plots={plots}
+                  onButtonClick={onButtonClick}
+                  isUpdating={isUpdating}
+                />
+              ) : metadata?.simulation_type === 'pole_behavior' ? (
+                <PoleBehaviorViewer
+                  metadata={metadata}
+                  plots={plots}
+                  currentParams={currentParams}
+                  onParamChange={onParamChange}
+                  onButtonClick={onButtonClick}
+                  isUpdating={isUpdating}
+                />
               ) : metadata?.simulation_type === 'signal_operations' ? (
                 <SignalOperationsViewer
                   metadata={metadata}
@@ -1662,6 +1694,130 @@ function SimulationViewer({
                   onButtonClick={onButtonClick}
                   isUpdating={isUpdating}
                 />
+              ) : metadata?.simulation_type === 'cyclic_path_detector' ? (
+                <CyclicPathViewer
+                  metadata={metadata}
+                  plots={plots}
+                  onButtonClick={onButtonClick}
+                  isUpdating={isUpdating}
+                />
+              ) : metadata?.simulation_type === 'feedback_convergence' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <FeedbackConvergenceViewer
+                    metadata={metadata}
+                    plots={plots}
+                    onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'ct_impulse_response' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <CTImpulseResponseViewer
+                    metadata={metadata}
+                    plots={plots}
+                    onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'polynomial_multiplication' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <PolynomialMultiplicationViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                    onButtonClick={onButtonClick}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'cascade_parallel' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <CascadeParallelViewer
+                    metadata={metadata}
+                    plots={plots}
+                    onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'operator_algebra' ? (
+                <OperatorAlgebraViewer
+                  metadata={metadata}
+                  plots={plots}
+                  onButtonClick={onButtonClick}
+                />
+              ) : metadata?.simulation_type === 'complex_poles_modes' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <ComplexPolesModesViewer
+                    metadata={metadata}
+                    plots={plots}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'fundamental_modes' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <FundamentalModesViewer
+                    metadata={metadata}
+                    plots={plots}
+                    onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'impulse_construction' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <ImpulseConstructionViewer
+                    metadata={metadata}
+                    plots={plots}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'dt_ct_comparator' ? (
+                <DTCTComparatorViewer
+                  metadata={metadata}
+                  plots={plots}
+                  onButtonClick={onButtonClick}
+                  isUpdating={isUpdating}
+                />
+              ) : metadata?.simulation_type === 'z_transform_roc' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <ZTransformROCViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                    onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'z_transform_properties' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <ZTransformPropertiesViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                    onButtonClick={onButtonClick}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'inverse_z_transform' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <InverseZTransformViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                    onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'dt_system_representations' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <SystemRepresentationViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                    onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
               ) : (
                 <PlotDisplay
                   plots={plots}
