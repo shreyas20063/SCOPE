@@ -6,7 +6,7 @@ A comprehensive collection of interactive simulations for understanding Signals 
 
 - **Course**: Signals and Systems (EE204T)
 - **Instructor**: Prof. Ameer Mulla
-- **Authors**: Duggimpudi Shreyas Reddy, Prathamesh Nerpagar
+- **Author**: Duggimpudi Shreyas Reddy
 
 ## Features
 
@@ -153,7 +153,6 @@ Contributions are welcome! Submit pull requests or open issues for bug fixes, ne
 ## Contact
 
 - **Duggimpudi Shreyas Reddy** - [GitHub](https://github.com/shreyas20063)
-- **Prathamesh Nerpagar** - [GitHub](https://github.com/aspirantee24bt017)
 
 ## Acknowledgments
 
