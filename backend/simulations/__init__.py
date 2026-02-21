@@ -42,6 +42,14 @@ from .z_transform_properties import ZTransformPropertiesSimulator
 from .z_transform_roc import ZTransformROCSimulator
 from .inverse_z_transform import InverseZTransformSimulator
 from .dt_system_representations import SystemRepresentationSimulator
+from .laplace_roc import LaplaceROCSimulator
+from .laplace_properties import LaplacePropertiesSimulator
+from .ivt_fvt_visualizer import IVTFVTSimulator
+from .ode_laplace_solver import ODELaplaceSolverSimulator
+from .resonance_anatomy import ResonanceAnatomySimulator
+from .vector_freq_response import VectorFreqResponseSimulator
+from .eigenfunction_tester import EigenfunctionTesterSimulator
+from .audio_freq_response import AudioFreqResponseSimulator
 
 # Registry mapping simulation IDs to their simulator classes
 # Add new simulators here as they are implemented
@@ -79,6 +87,14 @@ SIMULATOR_REGISTRY = {
     "z_transform_roc": ZTransformROCSimulator,
     "inverse_z_transform": InverseZTransformSimulator,
     "dt_system_representations": SystemRepresentationSimulator,
+    "laplace_roc": LaplaceROCSimulator,
+    "laplace_properties": LaplacePropertiesSimulator,
+    "ivt_fvt_visualizer": IVTFVTSimulator,
+    "ode_laplace_solver": ODELaplaceSolverSimulator,
+    "resonance_anatomy": ResonanceAnatomySimulator,
+    "vector_freq_response": VectorFreqResponseSimulator,
+    "eigenfunction_tester": EigenfunctionTesterSimulator,
+    "audio_freq_response": AudioFreqResponseSimulator,
 }
 
 
@@ -153,6 +169,14 @@ __all__ = [
     "ZTransformROCSimulator",
     "InverseZTransformSimulator",
     "SystemRepresentationSimulator",
+    "LaplaceROCSimulator",
+    "LaplacePropertiesSimulator",
+    "IVTFVTSimulator",
+    "ODELaplaceSolverSimulator",
+    "ResonanceAnatomySimulator",
+    "EigenfunctionTesterSimulator",
+    "VectorFreqResponseSimulator",
+    "AudioFreqResponseSimulator",
     "SIMULATOR_REGISTRY",
     "get_simulator_class",
     "is_simulator_available",

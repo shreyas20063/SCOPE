@@ -1,0 +1,324 @@
+/**
+ * LaplacePropertiesViewer Styles
+ */
+
+.lp-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.lp-viewer-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.9375rem;
+}
+
+/* ── Formula Badge ─────────────────────────────────────── */
+
+.lp-formula-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.75rem 1rem;
+  background: var(--card-bg, #1e293b);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.1));
+}
+
+.lp-formula-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.lp-formula-text {
+  font-size: 0.875rem;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  color: var(--text-primary, #f1f5f9);
+  line-height: 1.5;
+}
+
+/* ── Signal Info Cards ─────────────────────────────────── */
+
+.lp-signal-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.lp-signal-card {
+  padding: 0.75rem 1rem;
+  background: var(--card-bg, #1e293b);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.1));
+  border-left: 3px solid var(--signal-color, #3b82f6);
+}
+
+.lp-signal-card-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.lp-signal-card-label {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+  margin-bottom: 0.25rem;
+}
+
+.lp-signal-card-s {
+  font-size: 0.8125rem;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  color: var(--text-secondary, #94a3b8);
+  margin-bottom: 0.25rem;
+}
+
+.lp-signal-card-roc {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+
+/* ── Section Headers ───────────────────────────────────── */
+
+.lp-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.lp-section-tag {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-full, 9999px);
+  color: #ffffff;
+}
+
+.lp-section-tag--time {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.lp-section-tag--s {
+  background: rgba(20, 184, 166, 0.2);
+  color: #14b8a6;
+}
+
+.lp-section-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+}
+
+/* ── Time Domain Section ───────────────────────────────── */
+
+.lp-time-domain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lp-signal-plots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.lp-signal-plots--single {
+  grid-template-columns: 1fr;
+}
+
+/* ── S Domain Section ──────────────────────────────────── */
+
+.lp-s-domain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* ── ROC Legend ─────────────────────────────────────────── */
+
+.lp-roc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  background: var(--card-bg, #1e293b);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.1));
+}
+
+.lp-roc-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.lp-roc-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--swatch-color, #94a3b8);
+  background: var(--swatch-bg, rgba(148, 163, 184, 0.2));
+}
+
+.lp-roc-note {
+  font-size: 0.75rem;
+  font-style: italic;
+  color: var(--text-muted, #64748b);
+  width: 100%;
+  margin-top: 0.125rem;
+}
+
+/* ── Line Plot Cards ──────────────────────────────────── */
+
+.lp-line-card {
+  background: var(--surface, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  overflow: hidden;
+  min-height: 200px;
+  transition: box-shadow 0.3s ease;
+}
+
+.lp-line-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.lp-line-card > div {
+  width: 100%;
+  height: 100%;
+}
+
+.lp-line-card .js-plotly-plot {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── S-Plane Card ──────────────────────────────────────── */
+
+.lp-splane-card {
+  background: var(--surface, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  overflow: hidden;
+  min-height: 320px;
+  transition: box-shadow 0.3s ease;
+}
+
+.lp-splane-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.lp-splane-card > div {
+  width: 100%;
+  height: 100%;
+}
+
+.lp-splane-card .js-plotly-plot {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── Result Info ───────────────────────────────────────── */
+
+.lp-result-info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(20, 184, 166, 0.06);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid rgba(20, 184, 166, 0.15);
+}
+
+.lp-result-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #14b8a6;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.lp-result-expr {
+  font-size: 0.8125rem;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  color: var(--text-primary, #f1f5f9);
+}
+
+/* ── Responsive: Tablet ────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  .lp-line-card {
+    min-height: 180px;
+  }
+
+  .lp-splane-card {
+    min-height: 280px;
+  }
+}
+
+/* ── Responsive: Mobile ────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .lp-viewer {
+    gap: 0.75rem;
+  }
+
+  .lp-signal-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-signal-plots {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-line-card {
+    min-height: 170px;
+  }
+
+  .lp-splane-card {
+    min-height: 250px;
+  }
+
+  .lp-formula-badge {
+    padding: 0.625rem 0.875rem;
+  }
+}
+
+/* ── Light Mode Overrides ──────────────────────────────── */
+
+[data-theme="light"] .lp-formula-badge,
+[data-theme="light"] .lp-roc-legend {
+  background: var(--surface-color, #ffffff);
+}
+
+[data-theme="light"] .lp-signal-card {
+  background: var(--surface-color, #ffffff);
+}
+
+[data-theme="light"] .lp-line-card,
+[data-theme="light"] .lp-splane-card {
+  background: var(--surface-color, #ffffff);
+}
+
+[data-theme="light"] .lp-result-info {
+  background: rgba(20, 184, 166, 0.04);
+}

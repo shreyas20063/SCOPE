@@ -38,9 +38,17 @@ const ImpulseConstructionViewer = lazy(() => import('./ImpulseConstructionViewer
 const CTImpulseResponseViewer = lazy(() => import('./CTImpulseResponseViewer'));
 const ComplexPolesModesViewer = lazy(() => import('./ComplexPolesModesViewer'));
 const ZTransformROCViewer = lazy(() => import('./ZTransformROCViewer'));
+const LaplaceROCViewer = lazy(() => import('./LaplaceROCViewer'));
 const ZTransformPropertiesViewer = lazy(() => import('./ZTransformPropertiesViewer'));
 const InverseZTransformViewer = lazy(() => import('./InverseZTransformViewer'));
 const SystemRepresentationViewer = lazy(() => import('./SystemRepresentationViewer'));
+const IVTFVTViewer = lazy(() => import('./IVTFVTViewer'));
+const LaplacePropertiesViewer = lazy(() => import('./LaplacePropertiesViewer'));
+const ODELaplaceViewer = lazy(() => import('./ODELaplaceViewer'));
+const ResonanceAnatomyViewer = lazy(() => import('./ResonanceAnatomyViewer'));
+const EigenfunctionTesterViewer = lazy(() => import('./EigenfunctionTesterViewer'));
+const AudioFreqResponseViewer = lazy(() => import('./AudioFreqResponseViewer'));
+const VectorFreqResponseViewer = lazy(() => import('./VectorFreqResponseViewer'));
 
 // Loading fallback for lazy-loaded components
 const LazyLoadFallback = () => (
@@ -1786,6 +1794,17 @@ function SimulationViewer({
                     isUpdating={isUpdating}
                   />
                 </Suspense>
+              ) : metadata?.simulation_type === 'laplace_roc' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <LaplaceROCViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                    onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
               ) : metadata?.simulation_type === 'z_transform_properties' ? (
                 <Suspense fallback={<LazyLoadFallback />}>
                   <ZTransformPropertiesViewer
@@ -1815,6 +1834,72 @@ function SimulationViewer({
                     currentParams={currentParams}
                     onParamChange={onParamChange}
                     onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'ivt_fvt_visualizer' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <IVTFVTViewer
+                    metadata={metadata}
+                    plots={plots}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'laplace_properties' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <LaplacePropertiesViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                    onButtonClick={onButtonClick}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'ode_laplace_solver' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <ODELaplaceViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                    onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'resonance_anatomy' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <ResonanceAnatomyViewer
+                    metadata={metadata}
+                    plots={plots}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'eigenfunction_tester' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <EigenfunctionTesterViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                    onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'audio_freq_response' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <AudioFreqResponseViewer
+                    metadata={metadata}
+                    plots={plots}
+                    onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'vector_freq_response' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <VectorFreqResponseViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
                     isUpdating={isUpdating}
                   />
                 </Suspense>

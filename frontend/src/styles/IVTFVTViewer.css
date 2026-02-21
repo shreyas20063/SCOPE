@@ -1,0 +1,202 @@
+/* Initial & Final Value Theorem Viewer */
+
+.ivt-fvt-viewer {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+/* ── Equation banner ── */
+
+.ivt-equation-banner {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 12px 20px;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    border-left: 3px solid var(--primary-color);
+    flex-wrap: wrap;
+}
+
+.ivt-formula-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ivt-label {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.ivt-expression {
+    font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    letter-spacing: 0.02em;
+}
+
+.ivt-formula-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border-color);
+    flex-shrink: 0;
+}
+
+/* ── Info cards row ── */
+
+.ivt-info-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.ivt-info-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 16px;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--border-color);
+    border-radius: var(--radius-md);
+    min-width: 180px;
+    flex: 1;
+    transition: border-color var(--transition-fast);
+}
+
+.ivt-info-card:hover {
+    border-color: var(--border-hover);
+}
+
+.ivt-card-label {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.ivt-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.ivt-card-key {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+.ivt-card-val {
+    color: var(--text-primary);
+    font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.ivt-validity-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--radius-full);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid;
+    align-self: flex-start;
+    margin-top: 2px;
+}
+
+/* ── Failure warning banner ── */
+
+.ivt-failure-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--error-color);
+}
+
+.ivt-failure-icon {
+    color: var(--error-color);
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+.ivt-failure-text {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+/* ── Plots layout: signal + kernel side by side ── */
+
+.ivt-plots-row {
+    display: flex;
+    gap: 16px;
+    min-height: 300px;
+}
+
+.ivt-plot-half {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ── Product plot: full width ── */
+
+.ivt-plot-product {
+    width: 100%;
+    min-height: 320px;
+}
+
+/* ── Mobile responsive ── */
+
+@media (max-width: 768px) {
+    .ivt-plots-row {
+        flex-direction: column;
+    }
+
+    .ivt-info-row {
+        flex-direction: column;
+    }
+
+    .ivt-equation-banner {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+
+    .ivt-formula-divider {
+        display: none;
+    }
+}
+
+/* ── Light theme ── */
+
+[data-theme="light"] .ivt-equation-banner {
+    background: rgba(255, 255, 255, 0.98);
+}
+
+[data-theme="light"] .ivt-info-card {
+    background: rgba(255, 255, 255, 0.98);
+}
+
+[data-theme="light"] .ivt-failure-banner {
+    background: rgba(239, 68, 68, 0.05);
+}

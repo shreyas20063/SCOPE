@@ -1593,6 +1593,522 @@ SIMULATION_CATALOG = [
             {"id": "pole_zero", "title": "Pole-Zero Map", "description": "Poles and zeros on the z-plane with unit circle"},
         ],
     },
+    # =========================================================================
+    # Lecture 06 — Laplace Transform
+    # =========================================================================
+    {
+        "id": "laplace_roc",
+        "name": "Laplace Transform & s-Plane ROC Explorer",
+        "description": "Explore how the Laplace transform maps continuous-time signals to the s-plane. Select different signal types, move poles, and click ROC regions to see how the same H(s) produces different time-domain signals depending on the region of convergence.",
+        "category": "Transforms",
+        "thumbnail": "\U0001f504",
+        "tags": ["laplace", "s-plane", "roc", "convergence", "causality", "transforms"],
+        "has_simulator": True,
+        "sticky_controls": True,
+        "controls": [
+            {
+                "type": "select", "name": "signal_family",
+                "label": "Signal Type",
+                "options": [
+                    {"value": "right_exponential", "label": "Right-sided: e\u1d43\u1d57u(t)"},
+                    {"value": "left_exponential", "label": "Left-sided: -e\u1d43\u1d57u(-t)"},
+                    {"value": "two_sided", "label": "Two-sided: e\u207b\u1d43|t|"},
+                    {"value": "sum_exponentials", "label": "Sum: e\u1d56\u00b9\u1d57u(t) + e\u1d56\u00b2\u1d57u(t)"},
+                    {"value": "second_order", "label": "Second-order (complex poles)"},
+                    {"value": "custom_rational", "label": "Custom Rational H(s)"},
+                ],
+                "default": "right_exponential", "group": "Signal",
+            },
+            {
+                "type": "slider", "name": "pole1_real",
+                "label": "Pole 1 (Re)", "min": -5.0, "max": 5.0, "step": 0.1,
+                "default": -1.0, "unit": "", "group": "Poles",
+            },
+            {
+                "type": "slider", "name": "pole1_imag",
+                "label": "Pole 1 (Im)", "min": -5.0, "max": 5.0, "step": 0.1,
+                "default": 0.0, "unit": "", "group": "Poles",
+                "visible_when": {"signal_family": ["second_order", "custom_rational"]},
+            },
+            {
+                "type": "slider", "name": "pole2_real",
+                "label": "Pole 2 (Re)", "min": -5.0, "max": 5.0, "step": 0.1,
+                "default": 2.0, "unit": "", "group": "Poles",
+                "visible_when": {"signal_family": ["two_sided", "sum_exponentials", "second_order"]},
+            },
+            {
+                "type": "slider", "name": "pole2_imag",
+                "label": "Pole 2 (Im)", "min": -5.0, "max": 5.0, "step": 0.1,
+                "default": 0.0, "unit": "", "group": "Poles",
+                "visible_when": {"signal_family": ["second_order", "custom_rational"]},
+            },
+            {
+                "type": "select", "name": "roc_selection",
+                "label": "ROC Region",
+                "options": [
+                    {"value": "auto_causal", "label": "Causal (right of rightmost pole)"},
+                    {"value": "auto_anticausal", "label": "Anti-causal (left of leftmost pole)"},
+                    {"value": "strip", "label": "Strip (between poles)"},
+                ],
+                "default": "auto_causal", "group": "ROC",
+            },
+            {
+                "type": "slider", "name": "time_range",
+                "label": "Time Range (\u00b1T)", "min": 1.0, "max": 10.0, "step": 0.5,
+                "default": 5.0, "unit": "s", "group": "Display",
+            },
+            {
+                "type": "slider", "name": "num_points",
+                "label": "Plot Points", "min": 200, "max": 2000, "step": 100,
+                "default": 500, "unit": "", "group": "Display",
+            },
+            {
+                "type": "checkbox", "name": "show_convergence",
+                "label": "Show Convergence Test",
+                "default": False, "group": "Convergence",
+            },
+            {
+                "type": "slider", "name": "sigma_test",
+                "label": "Test \u03c3", "min": -5.0, "max": 5.0, "step": 0.1,
+                "default": 0.0, "unit": "", "group": "Convergence",
+                "visible_when": {"show_convergence": True},
+            },
+            {
+                "type": "expression", "name": "custom_num_coeffs",
+                "label": "Numerator coeffs", "default": "1", "group": "Custom",
+                "visible_when": {"signal_family": "custom_rational"},
+            },
+            {
+                "type": "expression", "name": "custom_den_coeffs",
+                "label": "Denominator coeffs", "default": "1, 1", "group": "Custom",
+                "visible_when": {"signal_family": "custom_rational"},
+            },
+        ],
+        "default_params": {
+            "signal_family": "right_exponential",
+            "pole1_real": -1.0,
+            "pole1_imag": 0.0,
+            "pole2_real": 2.0,
+            "pole2_imag": 0.0,
+            "roc_selection": "auto_causal",
+            "time_range": 5.0,
+            "num_points": 500,
+            "show_convergence": False,
+            "sigma_test": 0.0,
+            "custom_num_coeffs": "1",
+            "custom_den_coeffs": "1, 1",
+        },
+        "plots": [
+            {"id": "s_plane", "title": "s-Plane: Poles, Zeros & ROC", "description": "Complex s-plane showing pole/zero locations and the Region of Convergence as a shaded vertical strip"},
+            {"id": "time_domain", "title": "Time-Domain Signal x(t)", "description": "Continuous-time waveform determined by H(s) and the chosen ROC"},
+            {"id": "convergence", "title": "Convergence Test", "description": "Shows |x(t)e^{-\u03c3t}| to visualize where the Laplace integral converges"},
+        ],
+    },
+    # =========================================================================
+    # INITIAL & FINAL VALUE THEOREM VISUALIZER
+    # =========================================================================
+    {
+        "id": "ivt_fvt_visualizer",
+        "name": "Initial & Final Value Theorem",
+        "description": "Interactive visualization of the Initial and Final Value Theorems for Laplace transforms. Explore how the kernel s\u00b7e^{-st} scans a signal: as s\u2192\u221e it concentrates near t=0 (IVT), as s\u21920 it flattens to capture the steady-state (FVT). Includes failure mode demonstrations where FVT breaks down.",
+        "category": "Transforms",
+        "thumbnail": "\u221e",
+        "tags": [
+            "laplace", "initial value theorem", "final value theorem",
+            "IVT", "FVT", "s-domain", "kernel", "convergence",
+            "steady-state", "stability", "failure modes",
+        ],
+        "has_simulator": True,
+        "sticky_controls": True,
+        "controls": [
+            {
+                "type": "select", "name": "signal_type",
+                "label": "Signal",
+                "options": [
+                    {"value": "decaying_exp", "label": "Decaying Exp: e^{-t}u(t)"},
+                    {"value": "step_response", "label": "Step Response: (1-e^{-2t})u(t)"},
+                    {"value": "oscillatory_decay", "label": "Damped Oscillation: e^{-0.5t}cos(3t)u(t)"},
+                ],
+                "default": "decaying_exp", "group": "Signal",
+            },
+            {
+                "type": "checkbox", "name": "failure_mode",
+                "label": "Enable Failure Mode",
+                "default": False, "group": "Signal",
+            },
+            {
+                "type": "slider", "name": "log_s",
+                "label": "log\u2081\u2080(s)",
+                "min": -2.0, "max": 2.0, "step": 0.01,
+                "default": 0.0, "unit": "", "group": "Laplace Variable",
+            },
+        ],
+        "default_params": {
+            "signal_type": "decaying_exp",
+            "failure_mode": False,
+            "log_s": 0.0,
+        },
+        "plots": [
+            {"id": "signal_xt", "title": "Signal x(t)", "description": "The signal being analyzed with initial and final value reference lines"},
+            {"id": "kernel_set", "title": "Laplace Kernel s\u00b7e^{-st}", "description": "The scanning kernel that concentrates near t=0 for large s and flattens for small s"},
+            {"id": "product_integral", "title": "Product & Integral", "description": "x(t) multiplied by the kernel; the shaded area equals sX(s)"},
+        ],
+    },
+    # =========================================================================
+    # LAPLACE PROPERTIES LAB
+    # =========================================================================
+    {
+        "id": "laplace_properties",
+        "name": "Laplace Properties Lab",
+        "description": "Interactive demonstration of the seven key Laplace transform properties: linearity, time delay, multiply-by-t, frequency shift, differentiation, integration, and convolution. Pick signals from a library, apply a property, and see the operation in both time domain and s-domain simultaneously with ROC visualization.",
+        "category": "Transforms",
+        "thumbnail": "\u2112",
+        "tags": [
+            "laplace", "linearity", "delay", "convolution",
+            "ROC", "poles", "zeros", "continuous-time", "properties",
+            "differentiation", "integration", "frequency-shift",
+        ],
+        "has_simulator": True,
+        "controls": [
+            {"type": "select", "name": "signal_1", "label": "Signal x\u2081(t)", "options": [
+                {"value": "impulse", "label": "\u03b4(t) (Impulse)"},
+                {"value": "unit_step", "label": "u(t) (Unit Step)"},
+                {"value": "exponential", "label": "e^(\u2212\u03b1t) u(t)"},
+                {"value": "ramp_exp", "label": "t\u00b7e^(\u2212\u03b1t) u(t)"},
+                {"value": "cosine", "label": "cos(\u03c9\u2080t) u(t)"},
+                {"value": "damped_cosine", "label": "e^(\u2212\u03b1t)cos(\u03c9\u2080t) u(t)"},
+            ], "default": "unit_step", "group": "Signals"},
+            {"type": "slider", "name": "signal_1_alpha", "label": "\u03b1 (Signal 1)", "min": 0.1, "max": 5.0, "step": 0.1, "default": 1.0, "group": "Signals",
+             "visible_when": {"signal_1": ["exponential", "ramp_exp", "damped_cosine"]}},
+            {"type": "slider", "name": "signal_1_omega0", "label": "\u03c9\u2080 (Signal 1)", "min": 0.1, "max": 10.0, "step": 0.1, "default": 2.0, "unit": "rad/s", "group": "Signals",
+             "visible_when": {"signal_1": ["cosine", "damped_cosine"]}},
+
+            {"type": "select", "name": "signal_2", "label": "Signal x\u2082(t)", "options": [
+                {"value": "impulse", "label": "\u03b4(t) (Impulse)"},
+                {"value": "unit_step", "label": "u(t) (Unit Step)"},
+                {"value": "exponential", "label": "e^(\u2212\u03b1t) u(t)"},
+                {"value": "ramp_exp", "label": "t\u00b7e^(\u2212\u03b1t) u(t)"},
+                {"value": "cosine", "label": "cos(\u03c9\u2080t) u(t)"},
+                {"value": "damped_cosine", "label": "e^(\u2212\u03b1t)cos(\u03c9\u2080t) u(t)"},
+            ], "default": "exponential", "group": "Signals",
+             "visible_when": {"property": ["linearity", "convolution"]}},
+            {"type": "slider", "name": "signal_2_alpha", "label": "\u03b1 (Signal 2)", "min": 0.1, "max": 5.0, "step": 0.1, "default": 1.0, "group": "Signals",
+             "visible_when": {"signal_2": ["exponential", "ramp_exp", "damped_cosine"]}},
+            {"type": "slider", "name": "signal_2_omega0", "label": "\u03c9\u2080 (Signal 2)", "min": 0.1, "max": 10.0, "step": 0.1, "default": 2.0, "unit": "rad/s", "group": "Signals",
+             "visible_when": {"signal_2": ["cosine", "damped_cosine"]}},
+
+            {"type": "select", "name": "property", "label": "Property", "options": [
+                {"value": "linearity", "label": "Linearity"},
+                {"value": "delay", "label": "Time Delay"},
+                {"value": "multiply_t", "label": "Multiply by t"},
+                {"value": "freq_shift", "label": "Frequency Shift"},
+                {"value": "differentiate", "label": "Differentiation"},
+                {"value": "integrate", "label": "Integration"},
+                {"value": "convolution", "label": "Convolution"},
+            ], "default": "linearity", "group": "Property"},
+
+            {"type": "slider", "name": "alpha", "label": "a (scale \u2081)", "min": -3.0, "max": 3.0, "step": 0.1, "default": 1.0, "group": "Property",
+             "visible_when": {"property": "linearity"}},
+            {"type": "slider", "name": "beta", "label": "b (scale \u2082)", "min": -3.0, "max": 3.0, "step": 0.1, "default": 1.0, "group": "Property",
+             "visible_when": {"property": "linearity"}},
+            {"type": "slider", "name": "delay_T", "label": "Delay T", "min": 0.0, "max": 5.0, "step": 0.1, "default": 1.0, "unit": "s", "group": "Property",
+             "visible_when": {"property": "delay"}},
+            {"type": "slider", "name": "freq_shift_alpha", "label": "Shift \u03b1", "min": -3.0, "max": 3.0, "step": 0.1, "default": 1.0, "group": "Property",
+             "visible_when": {"property": "freq_shift"}},
+        ],
+        "default_params": {
+            "signal_1": "unit_step",
+            "signal_2": "exponential",
+            "property": "linearity",
+            "alpha": 1.0,
+            "beta": 1.0,
+            "delay_T": 1.0,
+            "freq_shift_alpha": 1.0,
+            "signal_1_alpha": 1.0,
+            "signal_1_omega0": 2.0,
+            "signal_2_alpha": 1.0,
+            "signal_2_omega0": 2.0,
+        },
+        "plots": [
+            {"id": "signal_1", "title": "x\u2081(t)", "description": "Time-domain plot of signal 1"},
+            {"id": "signal_2", "title": "x\u2082(t)", "description": "Time-domain plot of signal 2"},
+            {"id": "result", "title": "Result", "description": "Result of applying the selected property"},
+            {"id": "s_plane", "title": "S-Plane", "description": "Pole-zero plot with ROC regions in the s-plane"},
+        ],
+    },
+
+    # =========================================================================
+    # ODE SOLVER VIA LAPLACE TRANSFORM
+    # =========================================================================
+    {
+        "id": "ode_laplace_solver",
+        "name": "ODE Solver via Laplace Transform",
+        "description": "Step-by-step solution of linear constant-coefficient ODEs using the Laplace transform pipeline: take L{}, solve algebraically for Y(s), partial fractions, inverse Laplace, and plot y(t). No homogeneous/particular solution splitting needed!",
+        "category": "Transforms",
+        "thumbnail": "\u2112",
+        "tags": ["ODE", "Laplace transform", "differential equation", "partial fractions", "inverse Laplace", "s-domain"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "select", "name": "preset", "label": "ODE Preset", "options": [
+                {"value": "first_order_impulse", "label": "Lec 6 Ex 1: \u1e8f + y = \u03b4(t)"},
+                {"value": "second_order_impulse", "label": "Lec 6 Ex 2: \u00ff + 3\u1e8f + 2y = \u03b4(t)"},
+                {"value": "second_order_step", "label": "Step: \u00ff + 3\u1e8f + 2y = u(t)"},
+                {"value": "underdamped", "label": "Underdamped: \u00ff + 2\u1e8f + 5y = \u03b4(t)"},
+                {"value": "repeated_poles", "label": "Repeated: \u00ff + 2\u1e8f + y = \u03b4(t)"},
+                {"value": "third_order", "label": "3rd: y\u2034 + 6y\u2033 + 11\u1e8f + 6y = \u03b4(t)"},
+                {"value": "exponential_input", "label": "Exp: \u1e8f + 2y = e\u207b\u1d57u(t)"},
+                {"value": "custom", "label": "Custom Coefficients"},
+            ], "default": "first_order_impulse", "group": "ODE"},
+            {"type": "expression", "name": "output_coeffs", "label": "Output coeffs a\u2099,...,a\u2080 (descending)", "default": "1, 3, 2", "group": "ODE", "visible_when": {"preset": "custom"}},
+            {"type": "expression", "name": "input_coeffs", "label": "Input coeffs b\u2098,...,b\u2080 (descending)", "default": "1", "group": "ODE", "visible_when": {"preset": "custom"}},
+            {"type": "select", "name": "input_signal", "label": "Input Signal x(t)", "options": [
+                {"value": "delta", "label": "\u03b4(t) \u2014 Impulse"},
+                {"value": "step", "label": "u(t) \u2014 Unit Step"},
+                {"value": "exp", "label": "e^(\u2212\u03b1t)u(t) \u2014 Exponential"},
+                {"value": "cosine", "label": "cos(\u03c9t)u(t) \u2014 Cosine"},
+            ], "default": "delta", "group": "Input"},
+            {"type": "slider", "name": "alpha", "label": "\u03b1 (decay rate)", "min": 0.1, "max": 10.0, "step": 0.1, "default": 1.0, "unit": "", "group": "Input", "visible_when": {"input_signal": "exp"}},
+            {"type": "slider", "name": "omega", "label": "\u03c9 (frequency)", "min": 0.1, "max": 20.0, "step": 0.1, "default": 2.0, "unit": "rad/s", "group": "Input", "visible_when": {"input_signal": "cosine"}},
+            {"type": "checkbox", "name": "show_compare", "label": "Compare: Classical Method", "default": False, "group": "Display"},
+            {"type": "slider", "name": "t_max", "label": "Time Range", "min": 2.0, "max": 20.0, "step": 0.5, "default": 8.0, "unit": "s", "group": "Display"},
+        ],
+        "default_params": {
+            "preset": "first_order_impulse",
+            "output_coeffs": "1, 3, 2",
+            "input_coeffs": "1",
+            "input_signal": "delta",
+            "alpha": 1.0,
+            "omega": 2.0,
+            "show_compare": False,
+            "t_max": 8.0,
+        },
+        "plots": [
+            {"id": "input_signal", "title": "Input Signal x(t)", "description": "The input driving signal"},
+            {"id": "pole_zero_splane", "title": "Pole-Zero Map (s-plane)", "description": "Poles and zeros of Y(s) in the complex s-plane"},
+            {"id": "time_response", "title": "Time-Domain Response y(t)", "description": "The solution of the ODE"},
+        ],
+    },
+    # =========================================================================
+    # RESONANCE ANATOMY EXPLORER
+    # =========================================================================
+    {
+        "id": "resonance_anatomy",
+        "name": "Resonance Anatomy Explorer",
+        "description": "Dissect the three characteristic frequencies of a second-order system H(s) = K/(Ms\u00b2 + Bs + K): the undamped natural frequency \u03c9\u2080, the damped oscillation frequency \u03c9_d, and the magnitude peak frequency \u03c9_peak. Watch them converge and disappear as damping increases.",
+        "category": "Control Systems",
+        "thumbnail": "\U0001f50d",
+        "tags": [
+            "resonance", "second order", "natural frequency", "damped frequency",
+            "peak frequency", "damping ratio", "mass-spring-damper", "s-plane",
+            "frequency response", "impulse response",
+        ],
+        "has_simulator": True,
+        "sticky_controls": True,
+        "controls": [
+            {"type": "slider", "name": "K", "label": "Spring Constant (K)", "min": 1, "max": 100, "step": 0.5, "default": 25, "unit": "N/m", "group": "Physical System"},
+            {"type": "slider", "name": "M", "label": "Mass (M)", "min": 0.1, "max": 5.0, "step": 0.1, "default": 1.0, "unit": "kg", "group": "Physical System"},
+            {"type": "slider", "name": "B", "label": "Damping (B)", "min": 0.0, "max": 20.0, "step": 0.1, "default": 2.0, "unit": "Ns/m", "group": "Physical System"},
+            {"type": "slider", "name": "time_window", "label": "Time Window", "min": 1, "max": 20, "step": 0.5, "default": 8, "unit": "s", "group": "Display"},
+        ],
+        "default_params": {"K": 25.0, "M": 1.0, "B": 2.0, "time_window": 8.0},
+        "plots": [
+            {"id": "magnitude_response", "title": "Magnitude Response |H(j\u03c9)|", "description": "Frequency response with \u03c9\u2080, \u03c9_d, and \u03c9_peak markers"},
+            {"id": "s_plane", "title": "S-Plane Poles", "description": "Complex conjugate poles with geometric \u03c3/\u03c9_d decomposition"},
+            {"id": "impulse_response", "title": "Impulse Response h(t)", "description": "Time-domain oscillation at \u03c9_d with exponential envelope"},
+        ],
+    },
+
+    # =========================================================================
+    # EIGENFUNCTION TESTER LAB
+    # =========================================================================
+    {
+        "id": "eigenfunction_tester",
+        "name": "Eigenfunction Tester Lab",
+        "description": "Test which signals are eigenfunctions of LTI systems. Complex exponentials e^{st} are eigenfunctions of ALL LTI systems with eigenvalue H(s). Verify this for multiple systems and signal types, with vector diagrams in the s-plane.",
+        "category": "Transforms",
+        "thumbnail": "\u03bb",
+        "tags": [
+            "eigenfunction", "eigenvalue", "LTI", "frequency response",
+            "transfer function", "complex exponential", "Laplace", "H(s)",
+        ],
+        "has_simulator": True,
+        "sticky_controls": True,
+        "controls": [
+            # System selection
+            {"type": "select", "name": "system_preset", "label": "LTI System", "options": [
+                {"value": "lecture_example", "label": "Lecture 9: H(s) = 1/(s+2)"},
+                {"value": "integrator", "label": "Integrator: H(s) = 1/s"},
+                {"value": "second_order_real", "label": "2nd Order: 1/((s+1)(s+3))"},
+                {"value": "second_order_complex", "label": "Underdamped: 1/(s\u00b2+2s+5)"},
+                {"value": "unstable", "label": "Unstable: 1/(s\u22121)"},
+                {"value": "allpass", "label": "Allpass: (s\u22121)/(s+1)"},
+                {"value": "custom", "label": "Custom Coefficients"},
+            ], "default": "lecture_example", "group": "System"},
+            # Custom coefficients
+            {"type": "expression", "name": "num_coeffs", "label": "Numerator N(s) coeffs", "default": "1", "placeholder": "e.g. 1 or 2, 7, 8", "group": "System", "visible_when": {"system_preset": "custom"}},
+            {"type": "expression", "name": "den_coeffs", "label": "Denominator D(s) coeffs", "default": "1, 2", "placeholder": "e.g. 1, 2 or 1, 3, 4", "group": "System", "visible_when": {"system_preset": "custom"}},
+            # Signal selection
+            {"type": "select", "name": "test_signal", "label": "Test Signal", "options": [
+                {"value": "exp_neg", "label": "e^{\u22121t} (s = \u22121)"},
+                {"value": "exp_pos", "label": "e^{t} (s = 1)"},
+                {"value": "exp_jt", "label": "e^{jt} (s = j)"},
+                {"value": "exp_neg_jt", "label": "e^{\u2212jt} (s = \u2212j)"},
+                {"value": "cos_t", "label": "cos(t)"},
+                {"value": "sin_t", "label": "sin(t)"},
+                {"value": "unit_step", "label": "u(t)"},
+                {"value": "t_squared", "label": "t\u00b2 u(t)"},
+                {"value": "custom_exp", "label": "e^{st} (custom s)"},
+            ], "default": "exp_neg", "group": "Signal"},
+            # Custom s parameters
+            {"type": "slider", "name": "custom_s_real", "label": "\u03c3 (Real part of s)", "min": -5.0, "max": 5.0, "step": 0.1, "default": -1.0, "group": "Signal", "visible_when": {"test_signal": "custom_exp"}},
+            {"type": "slider", "name": "custom_s_imag", "label": "\u03c9 (Imag part of s)", "min": -5.0, "max": 5.0, "step": 0.1, "default": 0.0, "group": "Signal", "visible_when": {"test_signal": "custom_exp"}},
+            # Display options
+            {"type": "slider", "name": "time_range", "label": "Time Range", "min": 1.0, "max": 10.0, "step": 0.5, "default": 5.0, "unit": "s", "group": "Display"},
+            {"type": "checkbox", "name": "show_ratio", "label": "Show Ratio Plot", "default": True, "group": "Display"},
+            {"type": "checkbox", "name": "show_splane", "label": "Show S-Plane", "default": True, "group": "Display"},
+            # Mode
+            {"type": "select", "name": "mode", "label": "Mode", "options": [
+                {"value": "explore", "label": "Explore"},
+                {"value": "quiz", "label": "Quiz"},
+            ], "default": "explore", "group": "Mode"},
+            {"type": "button", "name": "new_quiz", "label": "New Question", "group": "Mode", "visible_when": {"mode": "quiz"}},
+        ],
+        "default_params": {
+            "system_preset": "lecture_example",
+            "num_coeffs": "1",
+            "den_coeffs": "1, 2",
+            "test_signal": "exp_neg",
+            "custom_s_real": -1.0,
+            "custom_s_imag": 0.0,
+            "time_range": 5.0,
+            "show_ratio": True,
+            "show_splane": True,
+            "mode": "explore",
+        },
+        "plots": [
+            {"id": "time_domain", "title": "Input x(t) vs Output y(t)", "description": "Input and output signals overlaid. For eigenfunctions, output is a scaled version of input."},
+            {"id": "ratio_plot", "title": "Ratio y(t)/x(t)", "description": "Constant for eigenfunctions (= eigenvalue), varies for non-eigenfunctions."},
+            {"id": "s_plane", "title": "S-Plane: Poles, Zeros & Vectors", "description": "Pole-zero map with vectors to evaluation point s."},
+        ],
+    },
+
+    # =========================================================================
+    # VECTOR DIAGRAM FREQUENCY RESPONSE BUILDER
+    # =========================================================================
+    {
+        "id": "vector_freq_response",
+        "name": "Vector Diagram Frequency Response",
+        "description": "Build frequency response curves from vector diagrams. Watch vectors from poles and zeros to the jω axis trace out magnitude and phase as frequency sweeps. Recreates the animated construction from MIT 6.003 Lecture 9.",
+        "category": "Transforms",
+        "thumbnail": "📐",
+        "tags": [
+            "frequency response", "vector diagram", "poles", "zeros",
+            "magnitude", "phase", "s-plane", "eigenfunction",
+            "transfer function", "Bode",
+        ],
+        "has_simulator": True,
+        "sticky_controls": True,
+        "controls": [
+            # System Configuration
+            {"type": "select", "name": "preset", "label": "System Preset", "options": [
+                {"value": "single_zero", "label": "Single Zero: H(s) = s \u2212 z\u2081"},
+                {"value": "single_pole", "label": "Single Pole: H(s) = K/(s \u2212 p\u2081)"},
+                {"value": "pole_zero_pair", "label": "Pole-Zero: H(s) = K(s \u2212 z\u2081)/(s \u2212 p\u2081)"},
+                {"value": "conjugate_poles", "label": "Conjugate Poles: H(s) = K/((s \u2212 p\u2081)(s \u2212 p\u2081*))"},
+                {"value": "custom", "label": "Custom Configuration"},
+            ], "default": "single_zero", "group": "System"},
+            {"type": "slider", "name": "gain", "label": "Gain K", "min": 0.1, "max": 20.0, "step": 0.1, "default": 1.0, "group": "System",
+             "visible_when": {"preset": ["single_pole", "pole_zero_pair", "conjugate_poles", "custom"]}},
+
+            # Zero positions
+            {"type": "slider", "name": "zero1_real", "label": "Zero \u03c3 (real)", "min": -5.0, "max": 5.0, "step": 0.1, "default": -3.0, "group": "Zeros",
+             "visible_when": {"preset": ["single_zero", "pole_zero_pair", "custom"]}},
+            {"type": "slider", "name": "zero1_imag", "label": "Zero j\u03c9 (imag)", "min": -5.0, "max": 5.0, "step": 0.1, "default": 0.0, "group": "Zeros",
+             "visible_when": {"preset": ["custom"]}},
+
+            # Pole positions
+            {"type": "slider", "name": "pole1_real", "label": "Pole 1 \u03c3 (real)", "min": -5.0, "max": 1.0, "step": 0.1, "default": -3.0, "group": "Poles",
+             "visible_when": {"preset": ["single_pole", "pole_zero_pair", "conjugate_poles", "custom"]}},
+            {"type": "slider", "name": "pole1_imag", "label": "Pole 1 j\u03c9 (imag)", "min": 0.0, "max": 5.0, "step": 0.1, "default": 3.0, "group": "Poles",
+             "visible_when": {"preset": ["conjugate_poles", "custom"]}},
+            {"type": "slider", "name": "pole2_real", "label": "Pole 2 \u03c3 (real)", "min": -5.0, "max": 1.0, "step": 0.1, "default": -1.0, "group": "Poles",
+             "visible_when": {"preset": ["custom"]}},
+            {"type": "slider", "name": "pole2_imag", "label": "Pole 2 j\u03c9 (imag)", "min": -5.0, "max": 5.0, "step": 0.1, "default": 0.0, "group": "Poles",
+             "visible_when": {"preset": ["custom"]}},
+
+            # Display
+            {"type": "slider", "name": "omega_max", "label": "Frequency Range \u00b1\u03c9", "min": 2.0, "max": 15.0, "step": 0.5, "default": 5.0, "unit": "rad/s", "group": "Display"},
+            {"type": "checkbox", "name": "show_individual", "label": "Show Individual Contributions", "default": False, "group": "Display"},
+        ],
+        "default_params": {
+            "preset": "single_zero",
+            "gain": 1.0,
+            "zero1_real": -3.0,
+            "zero1_imag": 0.0,
+            "pole1_real": -3.0,
+            "pole1_imag": 3.0,
+            "pole2_real": -1.0,
+            "pole2_imag": 0.0,
+            "omega_max": 5.0,
+            "show_individual": False,
+        },
+        "plots": [
+            {"id": "s_plane", "title": "s-Plane: Poles & Zeros", "description": "Interactive s-plane showing pole/zero locations and animated vectors to j\u03c9"},
+            {"id": "magnitude_response", "title": "|H(j\u03c9)| Magnitude", "description": "Magnitude of frequency response, traced out as \u03c9 sweeps"},
+            {"id": "phase_response", "title": "\u2220H(j\u03c9) Phase", "description": "Phase of frequency response, traced out as \u03c9 sweeps"},
+        ],
+    },
+
+    # =========================================================================
+    # AUDIO FREQUENCY RESPONSE PLAYGROUND
+    # =========================================================================
+    {
+        "id": "audio_freq_response",
+        "name": "Audio Frequency Response Playground",
+        "description": "Place poles and zeros on the s-plane to define a transfer function H(s) and instantly see how it shapes the frequency response. Apply the filter to test signals (sine, multi-tone, chirp, square wave) and compare input vs output in time and frequency domains. Includes preset filters (lowpass, highpass, bandpass, notch, resonant) and a challenge mode.",
+        "category": "Signal Processing",
+        "thumbnail": "\U0001f39b\ufe0f",
+        "tags": [
+            "frequency response", "poles", "zeros", "filter", "audio",
+            "bode", "magnitude", "phase", "transfer function",
+            "lowpass", "highpass", "bandpass", "notch", "resonant",
+        ],
+        "has_simulator": True,
+        "sticky_controls": True,
+        "controls": [
+            {"type": "select", "name": "mode", "label": "Mode", "options": [
+                {"value": "explore", "label": "Explore"},
+                {"value": "challenge", "label": "Challenge"},
+            ], "default": "explore", "group": "Mode"},
+            {"type": "select", "name": "signal_type", "label": "Test Signal", "options": [
+                {"value": "multi_tone", "label": "Multi-Tone (3 freq)"},
+                {"value": "sine", "label": "Sine Wave"},
+                {"value": "chirp", "label": "Chirp (Sweep)"},
+                {"value": "square", "label": "Square Wave"},
+                {"value": "white_noise", "label": "White Noise"},
+            ], "default": "multi_tone", "group": "Signal"},
+            {"type": "slider", "name": "signal_freq", "label": "Signal Frequency", "min": 20, "max": 2000, "step": 10, "default": 440, "unit": "Hz", "group": "Signal",
+             "visible_when": {"signal_type": ["sine", "square"]}},
+            {"type": "checkbox", "name": "show_db_scale", "label": "Magnitude in dB", "default": True, "group": "Display"},
+            {"type": "checkbox", "name": "show_phase", "label": "Show Phase Response", "default": True, "group": "Display"},
+            {"type": "slider", "name": "gain_K", "label": "System Gain (K)", "min": 0.1, "max": 10.0, "step": 0.1, "default": 1.0, "unit": "", "group": "Gain"},
+        ],
+        "default_params": {
+            "mode": "explore",
+            "signal_type": "multi_tone",
+            "signal_freq": 440,
+            "show_db_scale": True,
+            "show_phase": True,
+            "gain_K": 1.0,
+        },
+        "plots": [
+            {"id": "s_plane", "title": "S-Plane Pole-Zero Map", "description": "Interactive s-plane showing poles (\u00d7) and zeros (\u25cb). Click to place, right-click to remove. Left half-plane is the stable region."},
+            {"id": "magnitude_response", "title": "Magnitude Response |H(j\u03c9)|", "description": "Bode magnitude plot showing how the filter attenuates or amplifies each frequency."},
+            {"id": "phase_response", "title": "Phase Response \u2220H(j\u03c9)", "description": "Phase shift introduced by the filter at each frequency."},
+            {"id": "time_domain", "title": "Time Domain: Input vs Output", "description": "Test signal before and after filtering."},
+            {"id": "spectrum", "title": "Frequency Spectrum", "description": "FFT magnitude of input and output signals showing spectral content changes."},
+        ],
+    },
 ]
 
 

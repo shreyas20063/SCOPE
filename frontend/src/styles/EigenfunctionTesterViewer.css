@@ -1,0 +1,488 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Eigenfunction Tester Lab Viewer Styles
+   ═══════════════════════════════════════════════════════════════════ */
+
+.ef-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── System Banner ──────────────────────────────────────────────── */
+
+.ef-system-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  flex-wrap: wrap;
+}
+
+.ef-system-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.ef-hs-expression {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.95rem;
+  color: var(--accent-color);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.ef-pole-zero-summary {
+  display: flex;
+  gap: 0.6rem;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.ef-pz-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: 'Fira Code', monospace;
+}
+
+.ef-pz-badge.poles {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.ef-pz-badge.zeros {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* ── Signal Palette ─────────────────────────────────────────────── */
+
+.ef-signal-palette {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.ef-signal-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.ef-signal-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 3px 0 0 3px;
+}
+
+.ef-signal-card.exponential::before { background: #3b82f6; }
+.ef-signal-card.trig::before { background: #f59e0b; }
+.ef-signal-card.other::before { background: #8b5cf6; }
+.ef-signal-card.custom::before { background: #14b8a6; }
+
+.ef-signal-card:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+}
+
+.ef-signal-card:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.ef-signal-card.active {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+  box-shadow: var(--shadow-glow);
+}
+
+.ef-signal-expr {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ef-signal-s-value {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: 'Fira Code', monospace;
+}
+
+.ef-signal-category-tag {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* ── Verdict Banner ─────────────────────────────────────────────── */
+
+.ef-verdict {
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  transition: all var(--transition-normal);
+}
+
+.ef-verdict.is-eigen {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.ef-verdict.not-eigen {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.ef-verdict.at-pole {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.ef-verdict-icon {
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+}
+
+.ef-verdict.is-eigen .ef-verdict-icon {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.ef-verdict.not-eigen .ef-verdict-icon {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.ef-verdict.at-pole .ef-verdict-icon {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+}
+
+.ef-verdict-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ef-verdict-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ef-verdict-reason {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* ── Eigenvalue Card ────────────────────────────────────────────── */
+
+.ef-eigenvalue-card {
+  padding: 0.85rem 1rem;
+  background: var(--surface-color);
+  border: 1px solid rgba(20, 184, 166, 0.25);
+  border-radius: var(--radius-lg);
+}
+
+.ef-eigenvalue-header {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--primary-color);
+  margin-bottom: 0.6rem;
+}
+
+.ef-eigenvalue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.ef-ev-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.ef-ev-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ef-ev-value {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ef-ev-equation {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  font-family: 'Fira Code', monospace;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ── Quiz Panel ─────────────────────────────────────────────────── */
+
+.ef-quiz-panel {
+  padding: 1rem 1.2rem;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.ef-quiz-question {
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  margin-bottom: 0.85rem;
+  line-height: 1.5;
+}
+
+.ef-quiz-question strong {
+  color: var(--accent-color);
+  font-family: 'Fira Code', monospace;
+}
+
+.ef-quiz-buttons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ef-quiz-btn {
+  flex: 1;
+  min-width: 140px;
+  padding: 0.65rem 1.2rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface-color);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ef-quiz-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.ef-quiz-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.ef-quiz-btn.yes:hover:not(:disabled) {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.ef-quiz-btn.no:hover:not(:disabled) {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.ef-quiz-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ef-quiz-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.ef-quiz-feedback {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.ef-quiz-feedback.correct {
+  color: #10b981;
+}
+
+.ef-quiz-feedback.incorrect {
+  color: #ef4444;
+}
+
+.ef-quiz-explanation {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.ef-quiz-next {
+  align-self: flex-start;
+  padding: 0.5rem 1.2rem;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ef-quiz-next:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.ef-quiz-next:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Plot Layout ────────────────────────────────────────────────── */
+
+.ef-plots-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.ef-plot-splane {
+  flex: 2;
+  min-width: 0;
+  min-height: 350px;
+}
+
+.ef-plot-time {
+  flex: 3;
+  min-width: 0;
+  min-height: 350px;
+}
+
+.ef-plot-ratio {
+  min-height: 280px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .ef-signal-palette {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 6px;
+  }
+
+  .ef-signal-card {
+    padding: 8px 6px;
+  }
+
+  .ef-signal-expr {
+    font-size: 0.8rem;
+  }
+
+  .ef-plots-row {
+    flex-direction: column;
+  }
+
+  .ef-plot-splane,
+  .ef-plot-time {
+    min-height: 280px;
+  }
+
+  .ef-system-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ef-pole-zero-summary {
+    margin-left: 0;
+  }
+
+  .ef-quiz-buttons {
+    flex-direction: column;
+  }
+
+  .ef-quiz-btn {
+    min-width: unset;
+  }
+
+  .ef-eigenvalue-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ── Light Theme ────────────────────────────────────────────────── */
+
+[data-theme="light"] .ef-system-banner {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .ef-signal-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .ef-signal-card:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .ef-signal-card.active {
+  background: rgba(20, 184, 166, 0.08);
+}
+
+[data-theme="light"] .ef-eigenvalue-card {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="light"] .ef-quiz-panel {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .ef-quiz-btn {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.15);
+}

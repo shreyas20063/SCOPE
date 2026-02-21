@@ -1,0 +1,147 @@
+/* Laplace Transform & s-Plane ROC Explorer Viewer */
+
+.lt-roc-viewer {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+/* Equation banner */
+.lt-equation-banner {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 12px 20px;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    border-left: 3px solid var(--primary-color);
+    flex-wrap: wrap;
+}
+
+.lt-hs-expression,
+.lt-roc-text {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.lt-label {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.lt-expression {
+    font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    color: var(--text-primary);
+    letter-spacing: 0.02em;
+}
+
+/* Info row */
+.lt-info-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: stretch;
+}
+
+.lt-info-cards {
+    display: flex;
+    gap: 12px;
+    flex: 1;
+    flex-wrap: wrap;
+}
+
+.lt-info-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--border-color);
+    border-radius: var(--radius-md);
+    min-width: 120px;
+    flex: 1;
+    transition: border-color var(--transition-fast);
+}
+
+.lt-info-card:hover {
+    border-color: var(--border-hover);
+}
+
+.lt-card-label {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.lt-card-value {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.lt-pole-value {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.85rem;
+}
+
+/* Split plot layout */
+.lt-plots-row {
+    display: flex;
+    gap: 16px;
+    min-height: 350px;
+}
+
+.lt-plot-splane {
+    flex: 3;
+    min-width: 0;
+}
+
+.lt-plot-time {
+    flex: 2;
+    min-width: 0;
+}
+
+/* Convergence plot */
+.lt-plot-convergence {
+    width: 100%;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .lt-plots-row {
+        flex-direction: column;
+    }
+
+    .lt-info-cards {
+        flex-direction: column;
+    }
+
+    .lt-equation-banner {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+
+    .lt-info-row {
+        flex-direction: column;
+    }
+}
+
+/* Light theme */
+[data-theme="light"] .lt-equation-banner {
+    background: rgba(255, 255, 255, 0.98);
+}
+
+[data-theme="light"] .lt-info-card {
+    background: rgba(255, 255, 255, 0.98);
+}

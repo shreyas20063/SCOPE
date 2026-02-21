@@ -1,0 +1,218 @@
+/* Resonance Anatomy Explorer Viewer */
+
+.ra-viewer {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+/* -- Equation banner -- */
+.ra-equation-banner {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 12px 20px;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    border-left: 3px solid var(--primary-color);
+    flex-wrap: wrap;
+}
+
+.ra-hs-expression {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ra-label {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.ra-expression {
+    font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    color: var(--text-primary);
+    letter-spacing: 0.02em;
+}
+
+.ra-param-values {
+    display: flex;
+    gap: 12px;
+    font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* -- Info cards row -- */
+.ra-info-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.ra-info-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--border-color);
+    border-radius: var(--radius-md);
+    min-width: 110px;
+    flex: 1;
+    transition: border-color var(--transition-fast);
+}
+
+.ra-info-card:hover {
+    border-color: var(--border-hover);
+}
+
+.ra-info-card--inactive {
+    opacity: 0.5;
+}
+
+.ra-card-label {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.ra-card-value {
+    font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.ra-card-note {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* -- Frequency relationship bar -- */
+.ra-frequency-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    flex-wrap: wrap;
+}
+
+.ra-frequency-bar--overdamped {
+    border-left: 3px solid var(--warning-color);
+}
+
+.ra-freq-value {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.ra-freq-lte {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    padding: 0 2px;
+}
+
+.ra-freq-absent {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-style: italic;
+    padding-right: 8px;
+    border-right: 1px solid var(--border-color);
+    margin-right: 4px;
+}
+
+.ra-freq-status {
+    color: var(--warning-color);
+    font-weight: 500;
+}
+
+/* -- Plot layouts -- */
+.ra-plot-magnitude {
+    width: 100%;
+    min-height: 350px;
+}
+
+.ra-plots-row {
+    display: flex;
+    gap: 16px;
+    min-height: 320px;
+}
+
+.ra-plot-splane {
+    flex: 1;
+    min-width: 0;
+}
+
+.ra-plot-impulse {
+    flex: 1;
+    min-width: 0;
+}
+
+/* -- Damping badge -- */
+.ra-damping-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+/* -- Mobile responsive -- */
+@media (max-width: 768px) {
+    .ra-plots-row {
+        flex-direction: column;
+    }
+
+    .ra-info-row {
+        flex-direction: column;
+    }
+
+    .ra-equation-banner {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+
+    .ra-frequency-bar {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .ra-plot-magnitude {
+        min-height: 280px;
+    }
+
+    .ra-plots-row {
+        min-height: 250px;
+    }
+}
+
+/* -- Light theme overrides -- */
+[data-theme="light"] .ra-equation-banner {
+    background: rgba(255, 255, 255, 0.98);
+}
+
+[data-theme="light"] .ra-info-card {
+    background: rgba(255, 255, 255, 0.98);
+}
+
+[data-theme="light"] .ra-frequency-bar {
+    background: rgba(255, 255, 255, 0.98);
+}

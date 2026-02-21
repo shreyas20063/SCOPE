@@ -1,0 +1,351 @@
+/* Vector Diagram Frequency Response Builder Viewer */
+
+.vfr-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* Equation banner */
+.vfr-equation-banner {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 20px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  border-left: 3px solid var(--primary-color);
+  flex-wrap: wrap;
+}
+
+.vfr-hs-expression {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vfr-label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.vfr-expression {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+
+.vfr-preset-badge {
+  padding: 3px 10px;
+  background: var(--primary-light);
+  border: 1px solid rgba(20, 184, 166, 0.25);
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--primary-color);
+  white-space: nowrap;
+}
+
+/* Main layout: s-plane left, response plots right */
+.vfr-plots-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  min-height: 400px;
+}
+
+.vfr-splane-container {
+  position: relative;
+  min-height: 350px;
+}
+
+.vfr-response-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vfr-response-container .vfr-plot-wrapper {
+  flex: 1;
+  min-height: 175px;
+}
+
+/* Animation controls bar */
+.vfr-controls-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  flex-wrap: wrap;
+}
+
+.vfr-transport-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vfr-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-size: 0.85rem;
+}
+
+.vfr-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.vfr-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.vfr-btn.play-btn {
+  width: 36px;
+  height: 36px;
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.vfr-btn.play-btn:hover {
+  background: var(--primary-light);
+}
+
+.vfr-btn.play-btn.active {
+  background: var(--primary-color);
+  color: var(--background-color);
+}
+
+/* Omega slider */
+.vfr-omega-slider-group {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 200px;
+}
+
+.vfr-omega-slider-group label {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.vfr-omega-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--border-color);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.vfr-omega-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--primary-color);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--background-color);
+  box-shadow: 0 0 4px rgba(20, 184, 166, 0.3);
+}
+
+.vfr-omega-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--primary-color);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--background-color);
+}
+
+/* Speed selector */
+.vfr-speed-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vfr-speed-group label {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.vfr-speed-select {
+  padding: 4px 8px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-family: 'Fira Code', monospace;
+  cursor: pointer;
+}
+
+.vfr-speed-select:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 1px;
+}
+
+/* Info readout */
+.vfr-info-readout {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: rgba(20, 184, 166, 0.05);
+  border: 1px solid rgba(20, 184, 166, 0.15);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+
+.vfr-info-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vfr-info-label {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.vfr-info-value {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.vfr-info-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-color);
+}
+
+/* Individual contributions section */
+.vfr-individual-section {
+  padding-top: 8px;
+}
+
+.vfr-individual-title {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.vfr-individual-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 8px;
+}
+
+.vfr-individual-card {
+  padding: 8px 12px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.vfr-individual-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.vfr-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.vfr-dot.zero {
+  background: #3b82f6;
+}
+
+.vfr-dot.pole {
+  background: #ef4444;
+}
+
+.vfr-individual-card-header span {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-family: 'Fira Code', monospace;
+}
+
+.vfr-individual-values {
+  display: flex;
+  gap: 16px;
+  font-size: 0.75rem;
+}
+
+.vfr-individual-values span {
+  color: var(--text-muted);
+}
+
+.vfr-individual-values strong {
+  color: var(--text-primary);
+  font-family: 'Fira Code', monospace;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .vfr-plots-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vfr-equation-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .vfr-controls-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .vfr-transport-buttons {
+    justify-content: center;
+  }
+
+  .vfr-info-readout {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .vfr-info-divider {
+    display: none;
+  }
+}
