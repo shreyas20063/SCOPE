@@ -11,6 +11,7 @@ To add a new simulator:
 from .base_simulator import BaseSimulator
 from .rc_lowpass_filter import RCLowpassSimulator
 from .fourier_series import FourierSeriesSimulator
+from .fundamental_modes import FundamentalModesSimulator
 from .second_order_system import SecondOrderSystemSimulator
 from .convolution_simulator import ConvolutionSimulator
 from .aliasing_quantization import AliasingQuantizationSimulator
@@ -18,14 +19,29 @@ from .fourier_phase_vs_magnitude import FourierPhaseMagnitudeSimulator
 from .modulation_techniques import ModulationTechniquesSimulator
 from .ct_dt_poles import CTDTPolesSimulator
 from .dc_motor import DCMotorSimulator
+from .dt_difference_equation import DifferenceEquationSimulator
 from .feedback_system_analysis import FeedbackAmplifierSimulator
 from .amplifier_topologies import AmplifierSimulator
 from .lens_optics import LensOpticsSimulator
 from .furuta_pendulum import FurutaPendulumSimulator
 from .block_diagram_builder import BlockDiagramSimulator
+from .cyclic_path_detector import CyclicPathDetectorSimulator
+from .feedback_convergence import FeedbackConvergenceSimulator
 from .signal_operations import SignalOperationsSimulator
 from .sampling_reconstruction import SamplingReconstructionSimulator
 from .mass_spring_system import MassSpringSimulator
+from .polynomial_multiplication import PolynomialMultiplicationSimulator
+from .operator_algebra import OperatorAlgebraSimulator
+from .pole_behavior import PoleBehaviorSimulator
+from .cascade_parallel import CascadeParallelSimulator
+from .dt_ct_comparator import DTCTComparatorSimulator
+from .impulse_construction import ImpulseConstructionSimulator
+from .ct_impulse_response import CTImpulseResponseSimulator
+from .complex_poles_modes import ComplexPolesModesSimulator
+from .z_transform_properties import ZTransformPropertiesSimulator
+from .z_transform_roc import ZTransformROCSimulator
+from .inverse_z_transform import InverseZTransformSimulator
+from .dt_system_representations import SystemRepresentationSimulator
 
 # Registry mapping simulation IDs to their simulator classes
 # Add new simulators here as they are implemented
@@ -39,14 +55,30 @@ SIMULATOR_REGISTRY = {
     "modulation_techniques": ModulationTechniquesSimulator,
     "ct_dt_poles": CTDTPolesSimulator,
     "dc_motor": DCMotorSimulator,
+    "dt_difference_equation": DifferenceEquationSimulator,
     "feedback_system_analysis": FeedbackAmplifierSimulator,
     "amplifier_topologies": AmplifierSimulator,
     "lens_optics": LensOpticsSimulator,
     "furuta_pendulum": FurutaPendulumSimulator,
     "block_diagram_builder": BlockDiagramSimulator,
+    "cyclic_path_detector": CyclicPathDetectorSimulator,
+    "feedback_convergence": FeedbackConvergenceSimulator,
+    "fundamental_modes": FundamentalModesSimulator,
     "signal_operations": SignalOperationsSimulator,
     "sampling_reconstruction": SamplingReconstructionSimulator,
     "mass_spring_system": MassSpringSimulator,
+    "polynomial_multiplication": PolynomialMultiplicationSimulator,
+    "operator_algebra": OperatorAlgebraSimulator,
+    "pole_behavior": PoleBehaviorSimulator,
+    "cascade_parallel": CascadeParallelSimulator,
+    "dt_ct_comparator": DTCTComparatorSimulator,
+    "impulse_construction": ImpulseConstructionSimulator,
+    "ct_impulse_response": CTImpulseResponseSimulator,
+    "complex_poles_modes": ComplexPolesModesSimulator,
+    "z_transform_properties": ZTransformPropertiesSimulator,
+    "z_transform_roc": ZTransformROCSimulator,
+    "inverse_z_transform": InverseZTransformSimulator,
+    "dt_system_representations": SystemRepresentationSimulator,
 }
 
 
@@ -97,14 +129,30 @@ __all__ = [
     "ModulationTechniquesSimulator",
     "CTDTPolesSimulator",
     "DCMotorSimulator",
+    "DifferenceEquationSimulator",
     "FeedbackAmplifierSimulator",
     "AmplifierSimulator",
     "LensOpticsSimulator",
     "FurutaPendulumSimulator",
     "BlockDiagramSimulator",
+    "CyclicPathDetectorSimulator",
+    "FeedbackConvergenceSimulator",
+    "FundamentalModesSimulator",
     "SignalOperationsSimulator",
     "SamplingReconstructionSimulator",
     "MassSpringSimulator",
+    "PolynomialMultiplicationSimulator",
+    "OperatorAlgebraSimulator",
+    "PoleBehaviorSimulator",
+    "CascadeParallelSimulator",
+    "DTCTComparatorSimulator",
+    "ImpulseConstructionSimulator",
+    "CTImpulseResponseSimulator",
+    "ComplexPolesModesSimulator",
+    "ZTransformPropertiesSimulator",
+    "ZTransformROCSimulator",
+    "InverseZTransformSimulator",
+    "SystemRepresentationSimulator",
     "SIMULATOR_REGISTRY",
     "get_simulator_class",
     "is_simulator_available",

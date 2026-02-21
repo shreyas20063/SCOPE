@@ -683,6 +683,37 @@ SIMULATION_CATALOG = [
         ],
     },
     # =========================================================================
+    # 18. FEEDBACK & CONVERGENCE EXPLORER
+    # =========================================================================
+    {
+        "id": "feedback_convergence",
+        "name": "Feedback & Convergence Explorer",
+        "description": "Explore how a single feedback loop with gain p\u2080 creates geometric sequences. Watch the impulse response y[n] = p\u2080\u207f converge or diverge as you adjust the pole, and trace the signal path cycle by cycle through the feedback loop.",
+        "category": "Signal Processing",
+        "thumbnail": "\U0001f501",
+        "tags": ["feedback", "convergence", "divergence", "geometric", "impulse response", "poles", "modes", "discrete-time"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "slider", "name": "p0", "label": "Feedback Gain p\u2080", "min": -2.0, "max": 2.0, "step": 0.01, "default": 0.5, "unit": "", "group": "Feedback Loop"},
+            {"type": "slider", "name": "num_samples", "label": "Number of Samples", "min": 5, "max": 30, "step": 1, "default": 15, "unit": "", "group": "Display"},
+            {"type": "checkbox", "name": "show_envelope", "label": "Show Envelope \u00b1|p\u2080|\u207f", "default": True, "group": "Display"},
+            {"type": "checkbox", "name": "show_unit_circle", "label": "Show |p\u2080|=1 Boundary", "default": False, "group": "Display"},
+            {"type": "button", "name": "animate_cycles", "label": "Animate Cycle", "group": "Animation"},
+            {"type": "button", "name": "reset_animation", "label": "Reset Animation", "group": "Animation"},
+        ],
+        "default_params": {
+            "p0": 0.5,
+            "num_samples": 15,
+            "show_envelope": True,
+            "show_unit_circle": False,
+        },
+        "plots": [
+            {"id": "impulse_response", "title": "Impulse Response", "description": "Stem plot of y[n] = p\u2080\u207f \u2014 green for converging, red for diverging"},
+            {"id": "geometric_sum", "title": "Partial Sum", "description": "Cumulative sum S[n] = \u03a3 p\u2080\u1d4f showing geometric series convergence"},
+        ],
+    },
+
+    # =========================================================================
     # 16. SAMPLING & RECONSTRUCTION EXPLORER
     # =========================================================================
     {
@@ -765,6 +796,801 @@ SIMULATION_CATALOG = [
         "plots": [
             {"id": "response", "title": "System Response", "description": "Input x(t) and output y(t) overlaid — the system as signal transformer"},
             {"id": "phase_portrait", "title": "Phase Portrait", "description": "y vs y\u2032 trajectory in phase plane"},
+        ],
+    },
+    # =========================================================================
+    # 18. DT DIFFERENCE EQUATION STEP-BY-STEP SOLVER
+    # =========================================================================
+    {
+        "id": "dt_difference_equation",
+        "name": "DT Difference Equation Solver",
+        "description": "Step-by-step evaluation of discrete-time difference equations with synchronized block diagram visualization. Watch signal values propagate through gain, delay, and adder blocks one sample at a time.",
+        "category": "Signal Processing",
+        "thumbnail": "\U0001f522",
+        "tags": ["difference equation", "discrete-time", "block diagram", "step-by-step", "impulse response", "accumulator"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "select", "name": "equation_preset", "label": "Difference Equation", "options": [
+                {"value": "difference_machine", "label": "Difference Machine: y[n] = x[n] \u2212 x[n\u22121]"},
+                {"value": "accumulator", "label": "Accumulator: y[n] = x[n] + y[n\u22121]"},
+                {"value": "moving_average", "label": "Moving Average: y[n] = (x[n]+x[n\u22121])/2"},
+                {"value": "leaky_integrator", "label": "Leaky Integrator: y[n] = 0.9y[n\u22121]+0.1x[n]"},
+            ], "default": "difference_machine", "group": "Equation"},
+            {"type": "select", "name": "input_signal", "label": "Input Signal", "options": [
+                {"value": "impulse", "label": "Unit Impulse \u03b4[n]"},
+                {"value": "step", "label": "Unit Step u[n]"},
+                {"value": "ramp", "label": "Ramp n\u00b7u[n]"},
+            ], "default": "impulse", "group": "Input Signal"},
+            {"type": "slider", "name": "animation_speed", "label": "Animation Speed", "min": 0.5, "max": 3.0, "step": 0.5, "default": 1.0, "unit": "x", "group": "Playback"},
+            {"type": "button", "name": "step_forward", "label": "Step Forward", "group": "Playback"},
+            {"type": "button", "name": "step_backward", "label": "Step Back", "group": "Playback"},
+            {"type": "button", "name": "reset", "label": "Reset", "group": "Playback"},
+            {"type": "button", "name": "play_pause", "label": "Play", "group": "Playback"},
+        ],
+        "default_params": {
+            "equation_preset": "difference_machine",
+            "input_signal": "impulse",
+            "animation_speed": 1.0,
+        },
+        "plots": [
+            {"id": "input_signal", "title": "Input Signal x[n]", "description": "Discrete input signal stem plot, growing incrementally"},
+            {"id": "output_signal", "title": "Output Signal y[n]", "description": "Computed output signal stem plot, growing incrementally"},
+        ],
+    },
+    # =========================================================================
+    # 19. POLYNOMIAL MULTIPLICATION VISUALIZER
+    # =========================================================================
+    {
+        "id": "polynomial_multiplication",
+        "name": "Polynomial Multiplication",
+        "description": "Visualize the tabular/anti-diagonal method for multiplying two operator series (1 + aR + a²R² + …) × (1 + bR + b²R² + …). Watch how collecting terms along anti-diagonals produces the combined unit-sample response of cascaded first-order systems.",
+        "category": "Signal Processing",
+        "thumbnail": "\u2716",
+        "tags": ["polynomial", "multiplication", "operator series", "cascade", "convolution", "anti-diagonal", "impulse response", "first-order"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "slider", "name": "pole_a", "label": "Pole a", "min": -0.95, "max": 0.95, "step": 0.05, "default": 0.5, "group": "System Poles"},
+            {"type": "slider", "name": "pole_b", "label": "Pole b", "min": -0.95, "max": 0.95, "step": 0.05, "default": 0.3, "group": "System Poles"},
+            {"type": "slider", "name": "num_terms", "label": "Number of Terms", "min": 3, "max": 10, "step": 1, "default": 6, "group": "Display"},
+            {"type": "select", "name": "view_mode", "label": "View Mode", "options": [
+                {"value": "tabular", "label": "Tabular (Anti-Diagonal)"},
+                {"value": "graphical", "label": "Graphical (Cascade)"},
+            ], "default": "tabular", "group": "Display"},
+        ],
+        "default_params": {
+            "pole_a": 0.5,
+            "pole_b": 0.3,
+            "num_terms": 6,
+            "view_mode": "tabular",
+        },
+        "plots": [
+            {"id": "h1_response", "title": "h₁[n] = aⁿ", "description": "Impulse response of first system (pole at a)"},
+            {"id": "h2_response", "title": "h₂[n] = bⁿ", "description": "Impulse response of second system (pole at b)"},
+            {"id": "combined_response", "title": "Combined cₙ", "description": "Combined unit-sample response from anti-diagonal sums"},
+        ],
+    },
+    # =========================================================================
+    # 20. OPERATOR ALGEBRA VISUALIZER
+    # =========================================================================
+    {
+        "id": "operator_algebra",
+        "name": "Operator Algebra Visualizer",
+        "description": "Explore the R-operator (delay operator) algebra for discrete-time systems. Type an operator polynomial like (1-R)^2 and instantly see the expanded form, factored form, difference equation, block diagram, and impulse response.",
+        "category": "Signal Processing",
+        "thumbnail": "\U0001f522",
+        "tags": ["R-operator", "delay", "difference equation", "polynomial", "discrete-time", "impulse response", "block diagram"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "expression", "name": "expression", "label": "Operator Polynomial P(R)", "default": "(1-R)^2", "placeholder": "e.g. (1-R)^2, 1+2R+R^2", "group": "Expression"},
+            {"type": "slider", "name": "num_samples", "label": "Impulse Response Length", "min": 5, "max": 40, "step": 1, "default": 15, "unit": "samples", "group": "Display"},
+        ],
+        "default_params": {
+            "expression": "(1-R)^2",
+            "num_samples": 15,
+        },
+        "plots": [
+            {"id": "impulse_response", "title": "Impulse Response h[n]", "description": "Stem plot of the system impulse response (coefficients of the operator polynomial)"},
+        ],
+    },
+    # =========================================================================
+    # 21. POLE BEHAVIOR EXPLORER
+    # =========================================================================
+    {
+        "id": "pole_behavior",
+        "name": "Pole Behavior Explorer",
+        "description": "Drag a pole along the real number line and watch the first-order DT system response y[n] = p\u2080\u207f u[n] update in real time. See how pole location determines convergence, divergence, and alternating-sign behavior. Quiz mode tests your intuition.",
+        "category": "Signal Processing",
+        "thumbnail": "\U0001f3af",
+        "tags": ["poles", "discrete-time", "stability", "convergence", "first-order", "z-transform", "unit sample response"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "slider", "name": "pole_position", "label": "Pole Position (p\u2080)", "min": -2.0, "max": 2.0, "step": 0.01, "default": 0.5, "group": "Pole", "visible_when": {"mode": "explore"}},
+            {"type": "slider", "name": "num_samples", "label": "Number of Samples", "min": 10, "max": 50, "step": 1, "default": 20, "group": "Display"},
+            {"type": "checkbox", "name": "show_envelope", "label": "Show Envelope |\u2009p\u2080\u2009|\u207f", "default": False, "group": "Display", "visible_when": {"mode": "explore"}},
+            {"type": "select", "name": "mode", "label": "Mode", "options": [
+                {"value": "explore", "label": "Explore"},
+                {"value": "quiz", "label": "Quiz"},
+            ], "default": "explore", "group": "Mode"},
+            {"type": "button", "name": "new_quiz", "label": "New Question", "group": "Quiz", "visible_when": {"mode": "quiz"}},
+        ],
+        "default_params": {
+            "pole_position": 0.5,
+            "num_samples": 20,
+            "show_envelope": False,
+            "mode": "explore",
+        },
+        "plots": [
+            {"id": "stem_plot", "title": "Unit-Sample Response", "description": "Stem plot of y[n] = p\u2080\u207f u[n] showing the system's impulse response as the pole moves"},
+        ],
+    },
+    # =========================================================================
+    # 22. CYCLIC PATH DETECTOR
+    # =========================================================================
+    {
+        "id": "cyclic_path_detector",
+        "name": "Cyclic Path Detector",
+        "description": "Detect cyclic signal paths in block diagrams. Identify feedback loops, classify systems as FIR or IIR, and test your understanding in quiz mode. Based on MIT 6.003 Lecture 2, slides 43-49.",
+        "category": "Signal Processing",
+        "thumbnail": "\U0001f517",
+        "tags": ["cyclic paths", "feedback", "FIR", "IIR", "block diagram", "acyclic", "discrete-time", "operator"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "select", "name": "preset", "label": "Diagram Preset", "options": [
+                {"value": "difference", "label": "Difference Machine"},
+                {"value": "accumulator", "label": "Accumulator"},
+                {"value": "cascaded_diff", "label": "Cascaded Difference"},
+                {"value": "slide48_a", "label": "Slide 48 \u2014 System A"},
+                {"value": "slide48_b", "label": "Slide 48 \u2014 System B"},
+                {"value": "slide48_c", "label": "Slide 48 \u2014 System C"},
+                {"value": "slide48_d", "label": "Slide 48 \u2014 System D"},
+            ], "default": "difference", "group": "Diagram"},
+            {"type": "select", "name": "mode", "label": "Mode", "options": [
+                {"value": "explore", "label": "Explore"},
+                {"value": "quiz", "label": "Quiz"},
+            ], "default": "explore", "group": "Mode"},
+            {"type": "checkbox", "name": "show_cycles", "label": "Highlight Cycles", "default": True, "group": "Display", "visible_when": {"mode": "explore"}},
+            {"type": "slider", "name": "impulse_steps", "label": "Impulse Response Steps", "min": 5, "max": 30, "step": 1, "default": 15, "unit": "steps", "group": "Analysis"},
+            {"type": "button", "name": "new_quiz", "label": "New Question", "group": "Quiz", "visible_when": {"mode": "quiz"}},
+        ],
+        "default_params": {
+            "preset": "difference",
+            "mode": "explore",
+            "show_cycles": True,
+            "impulse_steps": 15,
+        },
+        "plots": [
+            {"id": "impulse_response", "title": "Impulse Response h[n]", "description": "Stem plot showing FIR (finite) vs IIR (infinite) impulse response"},
+        ],
+    },
+    # =========================================================================
+    # CASCADE & PARALLEL DECOMPOSITION
+    # =========================================================================
+    {
+        "id": "cascade_parallel",
+        "name": "Cascade & Parallel Decomposition",
+        "description": "Decompose a second-order DT system into cascade (series) and parallel (partial fraction) forms. Watch step-by-step factoring of the operator polynomial and see that all three representations produce the same impulse response.",
+        "category": "Signal Processing",
+        "thumbnail": "\U0001f500",
+        "tags": [
+            "decomposition", "cascade", "parallel", "partial fractions",
+            "poles", "transfer function", "DT", "impulse response", "modes",
+            "second order", "factoring",
+        ],
+        "has_simulator": True,
+        "controls": [
+            {
+                "type": "slider", "name": "a1", "label": "a\u2081 (Feedback Coeff 1)",
+                "min": -2.0, "max": 2.0, "step": 0.01, "default": 1.6,
+                "unit": "", "group": "System Coefficients",
+                "description": "First feedback coefficient in y[n] = a\u2081 y[n-1] + a\u2082 y[n-2] + x[n]",
+            },
+            {
+                "type": "slider", "name": "a2", "label": "a\u2082 (Feedback Coeff 2)",
+                "min": -1.0, "max": 1.0, "step": 0.01, "default": -0.63,
+                "unit": "", "group": "System Coefficients",
+                "description": "Second feedback coefficient",
+            },
+            {
+                "type": "button", "name": "decompose",
+                "label": "Decompose \u2192", "group": "Animation",
+            },
+            {
+                "type": "button", "name": "reset_decomposition",
+                "label": "Reset Steps", "group": "Animation",
+            },
+        ],
+        "default_params": {"a1": 1.6, "a2": -0.63},
+        "plots": [
+            {"id": "original_response", "title": "Original Form: h[n]", "description": "Impulse response computed directly from the difference equation"},
+            {"id": "cascade_response", "title": "Cascade Form: h\u2081[n] * h\u2082[n]", "description": "Impulse response from convolving two first-order responses"},
+            {"id": "parallel_response", "title": "Parallel Form: A\u2081p\u2081\u207f + A\u2082p\u2082\u207f", "description": "Impulse response from partial fraction sum"},
+            {"id": "individual_modes", "title": "Individual Modes", "description": "Geometric modes shown separately with sum overlay"},
+        ],
+    },
+    # =========================================================================
+    # FUNDAMENTAL MODES SUPERPOSITION
+    # =========================================================================
+    {
+        "id": "fundamental_modes",
+        "name": "Fundamental Modes Superposition",
+        "description": "Visualize how any Nth-order DT system's unit-sample response is a weighted sum of N fundamental modes (geometric sequences). Adjust poles and weights to see how individual modes A\u2096\u00b7p\u2096\u207f combine into the total response y[n] = \u03a3A\u2096\u00b7p\u2096\u207f.",
+        "category": "Signal Processing",
+        "thumbnail": "\U0001f4ca",
+        "tags": [
+            "poles", "modes", "superposition", "discrete-time",
+            "partial fractions", "geometric sequences", "impulse response",
+            "DT systems", "parallel form",
+        ],
+        "has_simulator": True,
+        "controls": [
+            {
+                "type": "select", "name": "system_order", "label": "System Order",
+                "options": [
+                    {"value": "2", "label": "2 Poles"},
+                    {"value": "3", "label": "3 Poles"},
+                    {"value": "4", "label": "4 Poles"},
+                ],
+                "default": "2", "group": "System",
+                "description": "Number of poles (fundamental modes)",
+            },
+            {
+                "type": "select", "name": "mode", "label": "Mode",
+                "options": [
+                    {"value": "explore", "label": "Explore"},
+                    {"value": "reconstruct", "label": "Reconstruct Challenge"},
+                ],
+                "default": "explore", "group": "System",
+                "description": "Explore modes freely or match a mystery signal",
+            },
+            {
+                "type": "slider", "name": "num_samples", "label": "Samples",
+                "min": 5, "max": 50, "step": 1, "default": 25,
+                "unit": "", "group": "Display",
+                "description": "Number of discrete-time samples to display",
+            },
+            {
+                "type": "slider", "name": "p1", "label": "Pole p\u2081",
+                "min": -1.5, "max": 1.5, "step": 0.01, "default": 0.9,
+                "unit": "", "group": "Poles",
+                "description": "Location of pole 1 on the real line",
+            },
+            {
+                "type": "slider", "name": "p2", "label": "Pole p\u2082",
+                "min": -1.5, "max": 1.5, "step": 0.01, "default": 0.7,
+                "unit": "", "group": "Poles",
+                "description": "Location of pole 2 on the real line",
+            },
+            {
+                "type": "slider", "name": "p3", "label": "Pole p\u2083",
+                "min": -1.5, "max": 1.5, "step": 0.01, "default": -0.5,
+                "unit": "", "group": "Poles",
+                "description": "Location of pole 3 on the real line",
+                "visible_when": {"system_order": ["3", "4"]},
+            },
+            {
+                "type": "slider", "name": "p4", "label": "Pole p\u2084",
+                "min": -1.5, "max": 1.5, "step": 0.01, "default": 0.3,
+                "unit": "", "group": "Poles",
+                "description": "Location of pole 4 on the real line",
+                "visible_when": {"system_order": ["4"]},
+            },
+            {
+                "type": "slider", "name": "A1", "label": "Weight A\u2081",
+                "min": -5.0, "max": 5.0, "step": 0.1, "default": 4.5,
+                "unit": "", "group": "Weights",
+                "description": "Partial-fraction coefficient for mode 1",
+            },
+            {
+                "type": "slider", "name": "A2", "label": "Weight A\u2082",
+                "min": -5.0, "max": 5.0, "step": 0.1, "default": -3.5,
+                "unit": "", "group": "Weights",
+                "description": "Partial-fraction coefficient for mode 2",
+            },
+            {
+                "type": "slider", "name": "A3", "label": "Weight A\u2083",
+                "min": -5.0, "max": 5.0, "step": 0.1, "default": 1.0,
+                "unit": "", "group": "Weights",
+                "description": "Partial-fraction coefficient for mode 3",
+                "visible_when": {"system_order": ["3", "4"]},
+            },
+            {
+                "type": "slider", "name": "A4", "label": "Weight A\u2084",
+                "min": -5.0, "max": 5.0, "step": 0.1, "default": 1.0,
+                "unit": "", "group": "Weights",
+                "description": "Partial-fraction coefficient for mode 4",
+                "visible_when": {"system_order": ["4"]},
+            },
+            {
+                "type": "select", "name": "difficulty", "label": "Difficulty",
+                "options": [
+                    {"value": "easy", "label": "Easy (2 poles)"},
+                    {"value": "medium", "label": "Medium (3 poles)"},
+                    {"value": "hard", "label": "Hard (4 poles)"},
+                ],
+                "default": "easy", "group": "Challenge",
+                "description": "Challenge difficulty level",
+                "visible_when": {"mode": "reconstruct"},
+            },
+            {
+                "type": "button", "name": "new_challenge",
+                "label": "New Challenge", "group": "Challenge",
+                "visible_when": {"mode": "reconstruct"},
+            },
+            {
+                "type": "button", "name": "show_answer",
+                "label": "Reveal Answer", "group": "Challenge",
+                "visible_when": {"mode": "reconstruct"},
+            },
+        ],
+        "default_params": {
+            "system_order": "2",
+            "mode": "explore",
+            "num_samples": 25,
+            "p1": 0.9,
+            "p2": 0.7,
+            "p3": -0.5,
+            "p4": 0.3,
+            "A1": 4.5,
+            "A2": -3.5,
+            "A3": 1.0,
+            "A4": 1.0,
+            "difficulty": "easy",
+        },
+        "plots": [
+            {"id": "modes_overlay", "title": "Fundamental Modes & Total Response", "description": "Stem plot showing each mode A\u2096\u00b7p\u2096\u207f as colored stems, with the total y[n] in white"},
+            {"id": "pole_map", "title": "Pole Locations (Z-Plane)", "description": "Poles on the z-plane with unit circle stability boundary"},
+            {"id": "mode_envelopes", "title": "Mode Competition (Amplitude Envelopes)", "description": "Envelope |A\u2096\u00b7p\u2096\u207f| showing which mode dominates at each time step"},
+        ],
+        "sticky_controls": True,
+    },
+    # =========================================================================
+    # DT ↔ CT SIDE-BY-SIDE COMPARATOR
+    # =========================================================================
+    {
+        "id": "dt_ct_comparator",
+        "name": "DT \u2194 CT Comparator",
+        "description": "Side-by-side comparison of first-order DT and CT systems sharing the same pole value p. See how p\u207f u[n] in DT and e\u1d56\u1d57 u(t) in CT produce fundamentally different stability behavior \u2014 the same number, two different worlds.",
+        "category": "Signal Processing",
+        "thumbnail": "\u2696\ufe0f",
+        "tags": ["DT", "CT", "poles", "stability", "unit circle", "s-plane", "impulse response", "exponential", "comparison"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "slider", "name": "p", "label": "Pole Value (p)", "min": -2.0, "max": 2.0, "step": 0.01, "default": 0.5, "unit": "", "group": "Pole", "description": "Controls both systems simultaneously"},
+            {"type": "slider", "name": "num_samples", "label": "DT Samples", "min": 5, "max": 30, "step": 1, "default": 20, "unit": "", "group": "Display"},
+            {"type": "slider", "name": "ct_duration", "label": "CT Duration", "min": 1.0, "max": 8.0, "step": 0.5, "default": 4.0, "unit": "s", "group": "Display"},
+            {"type": "checkbox", "name": "show_envelope", "label": "Show Envelope", "default": True, "group": "Display"},
+            {"type": "select", "name": "mode", "label": "Mode", "options": [
+                {"value": "explore", "label": "Explore"},
+                {"value": "quiz", "label": "Quiz"},
+            ], "default": "explore", "group": "Mode"},
+            {"type": "button", "name": "new_quiz", "label": "New Question", "group": "Quiz", "visible_when": {"mode": "quiz"}},
+        ],
+        "default_params": {
+            "p": 0.5,
+            "num_samples": 20,
+            "ct_duration": 4.0,
+            "show_envelope": True,
+            "mode": "explore",
+        },
+        "plots": [
+            {"id": "dt_response", "title": "DT: y[n] = p\u207f u[n]", "description": "Stem plot of the discrete-time impulse response"},
+            {"id": "ct_response", "title": "CT: y(t) = e\u1d56\u1d57 u(t)", "description": "Continuous-time impulse response curve"},
+        ],
+    },
+    # =========================================================================
+    # UNIT IMPULSE CONSTRUCTION LAB
+    # =========================================================================
+    {
+        "id": "impulse_construction",
+        "name": "Unit Impulse Construction",
+        "description": "Build intuition for the Dirac delta function by watching rectangular pulses p\u03b5(t) of width 2\u03b5 and height 1/(2\u03b5) \u2014 always unit area \u2014 converge to \u03b4(t) as \u03b5\u21920. See the integral converge to u(t), pass the pulse through a first-order CT system, and contrast with the 'bad' building block w(t).",
+        "category": "Signal Processing",
+        "thumbnail": "\u26a1",
+        "tags": ["impulse", "delta function", "Dirac delta", "unit step", "limiting process", "continuous-time", "rectangular pulse", "system response"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "slider", "name": "epsilon", "label": "Pulse Half-Width (\u03b5)", "min": 0.01, "max": 1.0, "step": 0.01, "default": 0.5, "unit": "s", "group": "Pulse Shape"},
+            {"type": "select", "name": "mode", "label": "View Mode", "options": [
+                {"value": "construction", "label": "Delta Construction"},
+                {"value": "system_response", "label": "System Response"},
+                {"value": "contrast", "label": "Contrast: Bad Building Block"},
+            ], "default": "construction", "group": "Mode"},
+            {"type": "slider", "name": "system_pole", "label": "System Pole (p)", "min": -5.0, "max": -0.1, "step": 0.1, "default": -1.0, "group": "System", "visible_when": {"mode": "system_response"}},
+            {"type": "checkbox", "name": "show_limit", "label": "Show Ideal Limit", "default": True, "group": "Display"},
+        ],
+        "default_params": {
+            "epsilon": 0.5,
+            "mode": "construction",
+            "system_pole": -1.0,
+            "show_limit": True,
+        },
+        "plots": [
+            {"id": "pulse_plot", "title": "Rectangular Pulse p\u03b5(t)", "description": "Unit-area rectangular pulse of width 2\u03b5 and height 1/(2\u03b5)"},
+            {"id": "integral_plot", "title": "Running Integral", "description": "Cumulative integral converging to the unit step u(t)"},
+            {"id": "system_output", "title": "System Output", "description": "Output when p\u03b5(t) is passed through a first-order CT system"},
+            {"id": "contrast_plot", "title": "Contrast: w(t)", "description": "The 'bad' building block w(t) = 1 at t=0 only, whose integral is zero"},
+        ],
+    },
+    # =========================================================================
+    # CT IMPULSE RESPONSE BUILDER
+    # =========================================================================
+    {
+        "id": "ct_impulse_response",
+        "name": "CT Impulse Response Builder",
+        "description": "Build the continuous-time impulse response e^(pt)u(t) term-by-term from the Taylor/operator series expansion A(1 + pA + p\u00b2A\u00b2 + \u2026)\u03b4(t). Watch partial sums converge to the exact exponential for stable poles (p < 0) and diverge for unstable poles (p > 0).",
+        "category": "Signal Processing",
+        "thumbnail": "\u2211",
+        "tags": [
+            "impulse response", "continuous-time", "operator", "Taylor series",
+            "exponential", "convergence", "feedback", "CT", "s-plane", "poles",
+        ],
+        "has_simulator": True,
+        "controls": [
+            {
+                "type": "slider", "name": "pole_p", "label": "Pole Value p",
+                "min": -5.0, "max": 5.0, "step": 0.1, "default": -2.0,
+                "unit": "", "group": "System",
+                "description": "CT pole location on the real axis",
+            },
+            {
+                "type": "slider", "name": "num_terms", "label": "Max Terms",
+                "min": 1, "max": 20, "step": 1, "default": 10,
+                "unit": "", "group": "Display",
+                "description": "Maximum number of Taylor series terms to add",
+            },
+            {
+                "type": "checkbox", "name": "show_all_partials",
+                "label": "Show All Partial Sums", "default": True,
+                "group": "Display",
+            },
+            {
+                "type": "checkbox", "name": "show_individual_terms",
+                "label": "Show Individual Terms", "default": False,
+                "group": "Display",
+            },
+            {
+                "type": "button", "name": "add_term",
+                "label": "\u25b6 Add Term", "group": "Animation",
+            },
+            {
+                "type": "button", "name": "remove_term",
+                "label": "\u25c0 Remove Term", "group": "Animation",
+            },
+            {
+                "type": "button", "name": "reset_terms",
+                "label": "\u21ba Reset Terms", "group": "Animation",
+            },
+        ],
+        "default_params": {
+            "pole_p": -2.0,
+            "num_terms": 10,
+            "show_all_partials": True,
+            "show_individual_terms": False,
+        },
+        "plots": [
+            {
+                "id": "taylor_buildup",
+                "title": "Taylor Series Buildup",
+                "description": "Partial sums S_N(t) approaching e^(pt)u(t)",
+            },
+            {
+                "id": "individual_terms",
+                "title": "Individual Terms",
+                "description": "Each Taylor term T_k(t) = (pt)^k / k!",
+            },
+        ],
+    },
+    # =========================================================================
+    # COMPLEX POLES & SINUSOIDAL MODES
+    # =========================================================================
+    {
+        "id": "complex_poles_modes",
+        "name": "Complex Poles & Sinusoidal Modes",
+        "description": "Visualize how complex conjugate poles of a CT second-order system (mass-spring-damper) produce sinusoidal oscillation from the superposition of two complex exponential modes. Explore s-plane pole locations, mode decomposition, Taylor series convergence, and the 3D helix of e^(j\u03c9t).",
+        "category": "Control Systems",
+        "thumbnail": "\U0001f30a",
+        "tags": [
+            "complex poles", "sinusoidal modes", "mass-spring", "damping",
+            "s-plane", "complex exponential", "Taylor series", "helix",
+            "conjugate poles", "second order", "continuous time", "impulse response",
+        ],
+        "has_simulator": True,
+        "sticky_controls": True,
+        "controls": [
+            {"type": "slider", "name": "K", "label": "Spring Constant (K)", "min": 1, "max": 100, "step": 1, "default": 10, "unit": "N/m", "group": "Physical System"},
+            {"type": "slider", "name": "M", "label": "Mass (M)", "min": 0.1, "max": 5.0, "step": 0.1, "default": 1.0, "unit": "kg", "group": "Physical System"},
+            {"type": "slider", "name": "b", "label": "Damping (b)", "min": 0.0, "max": 10.0, "step": 0.1, "default": 0.0, "unit": "Ns/m", "group": "Physical System"},
+            {"type": "slider", "name": "num_taylor_terms", "label": "Taylor Terms", "min": 1, "max": 15, "step": 1, "default": 5, "unit": "", "group": "Taylor Series"},
+            {"type": "slider", "name": "time_window", "label": "Time Window", "min": 1, "max": 20, "step": 0.5, "default": 5, "unit": "s", "group": "Display"},
+        ],
+        "default_params": {"K": 10.0, "M": 1.0, "b": 0.0, "num_taylor_terms": 5, "time_window": 5.0},
+        "plots": [
+            {"id": "s_plane", "title": "S-Plane Poles", "description": "Complex conjugate pole locations with stability regions"},
+            {"id": "mode_decomposition", "title": "Mode Decomposition", "description": "Two complex exponential modes and their real sum h(t)"},
+            {"id": "taylor_convergence", "title": "Taylor Series Convergence", "description": "Partial sums of sin(\u03c9\u2080t) Taylor series"},
+            {"id": "helix_3d", "title": "3D Complex Exponential Helix", "description": "e^(j\u03c9\u2080t) as a helix in (t, Re, Im) space with real projection"},
+        ],
+    },
+    # =========================================================================
+    # Z-TRANSFORM PROPERTIES LAB
+    # =========================================================================
+    {
+        "id": "z_transform_properties",
+        "name": "Z-Transform Properties Lab",
+        "description": "Interactive demonstration of the four key Z-transform properties: linearity, time delay, multiply-by-n, and convolution. Pick signals from a library, apply a property, and see the operation in both time domain and z-domain simultaneously with animated convolution and ROC visualization.",
+        "category": "Transforms",
+        "thumbnail": "\u2124",
+        "tags": [
+            "z-transform", "linearity", "delay", "convolution",
+            "ROC", "poles", "zeros", "discrete-time", "properties",
+        ],
+        "has_simulator": True,
+        "controls": [
+            {"type": "select", "name": "signal_1", "label": "Signal x\u2081[n]", "options": [
+                {"value": "impulse", "label": "\u03b4[n] (Impulse)"},
+                {"value": "unit_step", "label": "u[n] (Unit Step)"},
+                {"value": "geometric", "label": "a\u207f u[n] (Geometric)"},
+                {"value": "ramp_geometric", "label": "n\u00b7a\u207f u[n] (Ramp)"},
+                {"value": "cosine", "label": "cos(\u03c9\u2080n) u[n]"},
+                {"value": "finite_121", "label": "[1, 2, 1] (Finite)"},
+            ], "default": "unit_step", "group": "Signals"},
+            {"type": "slider", "name": "signal_1_a", "label": "a (Signal 1)", "min": -0.95, "max": 0.95, "step": 0.05, "default": 0.5, "group": "Signals", "visible_when": {"signal_1": ["geometric", "ramp_geometric"]}},
+            {"type": "slider", "name": "signal_1_omega0", "label": "\u03c9\u2080 (Signal 1)", "min": 0.1, "max": 3.0, "step": 0.1, "default": 1.0, "unit": "rad", "group": "Signals", "visible_when": {"signal_1": "cosine"}},
+
+            {"type": "select", "name": "signal_2", "label": "Signal x\u2082[n]", "options": [
+                {"value": "impulse", "label": "\u03b4[n] (Impulse)"},
+                {"value": "unit_step", "label": "u[n] (Unit Step)"},
+                {"value": "geometric", "label": "a\u207f u[n] (Geometric)"},
+                {"value": "ramp_geometric", "label": "n\u00b7a\u207f u[n] (Ramp)"},
+                {"value": "cosine", "label": "cos(\u03c9\u2080n) u[n]"},
+                {"value": "finite_121", "label": "[1, 2, 1] (Finite)"},
+            ], "default": "geometric", "group": "Signals", "visible_when": {"property": ["linearity", "convolution"]}},
+            {"type": "slider", "name": "signal_2_a", "label": "a (Signal 2)", "min": -0.95, "max": 0.95, "step": 0.05, "default": 0.3, "group": "Signals", "visible_when": {"signal_2": ["geometric", "ramp_geometric"], "property": ["linearity", "convolution"]}},
+            {"type": "slider", "name": "signal_2_omega0", "label": "\u03c9\u2080 (Signal 2)", "min": 0.1, "max": 3.0, "step": 0.1, "default": 1.0, "unit": "rad", "group": "Signals", "visible_when": {"signal_2": "cosine", "property": ["linearity", "convolution"]}},
+
+            {"type": "select", "name": "property", "label": "Property", "options": [
+                {"value": "linearity", "label": "Linearity"},
+                {"value": "delay", "label": "Time Delay"},
+                {"value": "multiply_n", "label": "Multiply by n"},
+                {"value": "convolution", "label": "Convolution"},
+            ], "default": "linearity", "group": "Property"},
+
+            {"type": "slider", "name": "alpha", "label": "\u03b1 (alpha)", "min": -3.0, "max": 3.0, "step": 0.1, "default": 1.0, "group": "Property", "visible_when": {"property": "linearity"}},
+            {"type": "slider", "name": "beta", "label": "\u03b2 (beta)", "min": -3.0, "max": 3.0, "step": 0.1, "default": 1.0, "group": "Property", "visible_when": {"property": "linearity"}},
+            {"type": "slider", "name": "delay_k", "label": "Delay k", "min": 0, "max": 10, "step": 1, "default": 2, "group": "Property", "visible_when": {"property": "delay"}},
+
+            {"type": "slider", "name": "num_samples", "label": "Samples", "min": 10, "max": 40, "step": 1, "default": 20, "group": "Display"},
+        ],
+        "default_params": {
+            "signal_1": "unit_step",
+            "signal_2": "geometric",
+            "property": "linearity",
+            "alpha": 1.0,
+            "beta": 1.0,
+            "delay_k": 2,
+            "signal_1_a": 0.5,
+            "signal_1_omega0": 1.0,
+            "signal_2_a": 0.3,
+            "signal_2_omega0": 1.0,
+            "num_samples": 20,
+        },
+        "plots": [
+            {"id": "signal_1", "title": "x\u2081[n]", "description": "Time-domain samples of signal 1"},
+            {"id": "signal_2", "title": "x\u2082[n]", "description": "Time-domain samples of signal 2"},
+            {"id": "result", "title": "Result", "description": "Result of applying the selected property"},
+            {"id": "z_plane", "title": "Z-Plane", "description": "Pole-zero plot with ROC regions"},
+        ],
+    },
+    # =========================================================================
+    # Z TRANSFORM & ROC EXPLORER
+    # =========================================================================
+    {
+        "id": "z_transform_roc",
+        "name": "Z Transform & ROC Explorer",
+        "description": "Interactive z-plane visualization exploring Z transforms, regions of convergence, and how ROC determines causality. See how the same H(z) maps to different time-domain signals depending on the ROC selection.",
+        "category": "Transforms",
+        "thumbnail": "Z",
+        "tags": ["z-transform", "ROC", "poles", "zeros", "causality", "inverse z-transform", "stability", "convergence"],
+        "has_simulator": True,
+        "sticky_controls": True,
+        "controls": [
+            {"type": "select", "name": "signal_family", "label": "Signal Family", "options": [
+                {"value": "right_exponential", "label": "Right-sided: a\u207fu[n]"},
+                {"value": "left_exponential", "label": "Left-sided: -a\u207fu[-n-1]"},
+                {"value": "two_sided", "label": "Two-sided Exponential"},
+                {"value": "second_order", "label": "Second-order (2 poles)"},
+                {"value": "damped_sinusoid", "label": "Damped Sinusoid: r\u207fcos(\u03c9\u2080n)u[n]"},
+                {"value": "custom_rational", "label": "Custom Rational H(z)"},
+            ], "default": "right_exponential", "group": "Signal"},
+
+            {"type": "slider", "name": "pole_real", "label": "Pole 1 Real", "min": -1.5, "max": 1.5, "step": 0.01, "default": 0.7, "group": "Poles",
+             "visible_when": {"signal_family": ["right_exponential", "left_exponential", "two_sided", "second_order"]}},
+            {"type": "slider", "name": "pole_imag", "label": "Pole 1 Imaginary", "min": -1.5, "max": 1.5, "step": 0.01, "default": 0.0, "group": "Poles",
+             "visible_when": {"signal_family": ["right_exponential", "left_exponential", "two_sided", "second_order"]}},
+            {"type": "slider", "name": "pole2_real", "label": "Pole 2 Real", "min": -1.5, "max": 1.5, "step": 0.01, "default": -0.5, "group": "Poles",
+             "visible_when": {"signal_family": ["two_sided", "second_order"]}},
+            {"type": "slider", "name": "pole2_imag", "label": "Pole 2 Imaginary", "min": -1.5, "max": 1.5, "step": 0.01, "default": 0.0, "group": "Poles",
+             "visible_when": {"signal_family": ["two_sided", "second_order"]}},
+
+            {"type": "slider", "name": "r_magnitude", "label": "Radius r", "min": 0.1, "max": 1.5, "step": 0.01, "default": 0.8, "group": "Damped Sinusoid",
+             "visible_when": {"signal_family": "damped_sinusoid"}},
+            {"type": "slider", "name": "omega_0", "label": "Frequency \u03c9\u2080", "min": 0.1, "max": 3.14, "step": 0.01, "default": 0.785, "unit": "rad", "group": "Damped Sinusoid",
+             "visible_when": {"signal_family": "damped_sinusoid"}},
+
+            {"type": "expression", "name": "custom_num_coeffs", "label": "Numerator coeffs (comma-separated)", "default": "1", "group": "Custom H(z)",
+             "visible_when": {"signal_family": "custom_rational"}},
+            {"type": "expression", "name": "custom_den_coeffs", "label": "Denominator coeffs (comma-separated)", "default": "1, -0.7", "group": "Custom H(z)",
+             "visible_when": {"signal_family": "custom_rational"}},
+
+            {"type": "select", "name": "roc_selection", "label": "ROC Region", "options": [
+                {"value": "auto_causal", "label": "Causal (outside all poles)"},
+                {"value": "auto_anticausal", "label": "Anti-causal (inside all poles)"},
+                {"value": "annular", "label": "Annular Ring (two-sided)"},
+            ], "default": "auto_causal", "group": "Region of Convergence"},
+
+            {"type": "slider", "name": "num_samples", "label": "Samples", "min": 10, "max": 60, "step": 1, "default": 30, "group": "Display"},
+            {"type": "checkbox", "name": "show_convergence", "label": "Show Convergence", "default": False, "group": "Display"},
+            {"type": "slider", "name": "convergence_terms", "label": "Partial Sum Terms", "min": 1, "max": 50, "step": 1, "default": 10, "group": "Display",
+             "visible_when": {"show_convergence": True}},
+        ],
+        "default_params": {
+            "signal_family": "right_exponential",
+            "pole_real": 0.7, "pole_imag": 0.0,
+            "pole2_real": -0.5, "pole2_imag": 0.0,
+            "r_magnitude": 0.8, "omega_0": 0.785,
+            "roc_selection": "auto_causal",
+            "num_samples": 30,
+            "show_convergence": False,
+            "convergence_terms": 10,
+            "custom_num_coeffs": "1",
+            "custom_den_coeffs": "1, -0.7",
+        },
+        "plots": [
+            {"id": "z_plane", "title": "Z-Plane", "description": "Poles, zeros, unit circle, and ROC region"},
+            {"id": "time_domain", "title": "Time-Domain Signal x[n]", "description": "Inverse Z-transform stem plot determined by ROC selection"},
+            {"id": "convergence", "title": "Convergence of Partial Sums", "description": "Watch partial sums approach the closed-form H(z)"},
+        ],
+    },
+    # =========================================================================
+    # INVERSE Z TRANSFORM STEP-BY-STEP SOLVER
+    # =========================================================================
+    {
+        "id": "inverse_z_transform",
+        "name": "Inverse Z Transform Solver",
+        "description": "Step-by-step inverse Z transform solver. Factor the denominator, perform partial fraction decomposition, match Z-transform pairs based on ROC, and assemble the time-domain signal h[n]. Includes quiz mode and multiple solution methods.",
+        "category": "Transforms",
+        "thumbnail": "\u2124\u207b\u00b9",
+        "tags": ["z-transform", "inverse", "partial fractions", "ROC", "poles", "residues", "step-by-step", "quiz"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "select", "name": "preset", "label": "Example H(z)", "options": [
+                {"value": "example_1", "label": "Slide 35: z/((z\u22120.5)(z\u22120.8))"},
+                {"value": "example_2", "label": "Slide 38: Standard PFE"},
+                {"value": "example_3", "label": "Repeated Pole"},
+                {"value": "example_4", "label": "Complex Poles"},
+                {"value": "example_5", "label": "Mixed Causal/Anticausal"},
+                {"value": "custom", "label": "Custom Coefficients"},
+            ], "default": "example_1", "group": "Transfer Function"},
+            {"type": "expression", "name": "num_coeffs", "label": "Numerator b[] (descending z)", "default": "1, 0", "group": "Transfer Function", "visible_when": {"preset": "custom"}},
+            {"type": "expression", "name": "den_coeffs", "label": "Denominator a[] (descending z)", "default": "1, -1.3, 0.4", "group": "Transfer Function", "visible_when": {"preset": "custom"}},
+            {"type": "select", "name": "roc_type", "label": "ROC Specification", "options": [
+                {"value": "causal", "label": "Causal (|z| > max|pole|)"},
+                {"value": "anticausal", "label": "Anti-causal (|z| < min|pole|)"},
+                {"value": "custom", "label": "Custom (per-pole in viewer)"},
+            ], "default": "causal", "group": "ROC"},
+            {"type": "select", "name": "active_method", "label": "Solution Method", "options": [
+                {"value": "partial_fractions", "label": "A: Partial Fractions"},
+                {"value": "long_division", "label": "B: Long Division"},
+                {"value": "power_series", "label": "C: Power Series"},
+            ], "default": "partial_fractions", "group": "Method"},
+            {"type": "select", "name": "mode", "label": "Mode", "options": [
+                {"value": "solve", "label": "Solve"},
+                {"value": "quiz", "label": "Quiz"},
+            ], "default": "solve", "group": "Mode"},
+            {"type": "slider", "name": "num_samples", "label": "Samples", "min": 10, "max": 60, "step": 1, "default": 30, "unit": "", "group": "Display"},
+            {"type": "button", "name": "prev_step", "label": "\u2190 Prev Step", "group": "Navigation"},
+            {"type": "button", "name": "next_step", "label": "Next Step \u2192", "group": "Navigation"},
+            {"type": "button", "name": "show_all", "label": "Show All Steps", "group": "Navigation"},
+            {"type": "button", "name": "reset_steps", "label": "Reset Steps", "group": "Navigation"},
+            {"type": "button", "name": "new_quiz", "label": "New Quiz", "group": "Quiz", "visible_when": {"mode": "quiz"}},
+        ],
+        "default_params": {
+            "preset": "example_1",
+            "num_coeffs": "1, 0",
+            "den_coeffs": "1, -1.3, 0.4",
+            "roc_type": "causal",
+            "active_method": "partial_fractions",
+            "mode": "solve",
+            "num_samples": 30,
+        },
+        "plots": [
+            {"id": "pole_zero_map", "title": "Pole-Zero Map & ROC", "description": "Z-plane with poles, zeros, unit circle, and ROC shading"},
+            {"id": "impulse_response", "title": "Impulse Response h[n]", "description": "Stem plot of the inverse Z transform result"},
+            {"id": "magnitude_response", "title": "|H(e\u02b2\u03c9)|", "description": "Magnitude response on the unit circle"},
+        ],
+    },
+    # =========================================================================
+    # DT SYSTEM REPRESENTATION NAVIGATOR
+    # =========================================================================
+    {
+        "id": "dt_system_representations",
+        "name": "DT System Representation Navigator",
+        "description": "Interactive concept map showing five equivalent representations of a discrete-time LTI system: block diagram, difference equation, system functional H(R), system function H(z), and impulse response h[n]. Enter a system in any form and see all five simultaneously with animated conversion paths.",
+        "category": "Signal Processing",
+        "thumbnail": "\U0001f5fa",
+        "tags": [
+            "representations", "difference equation", "transfer function",
+            "impulse response", "block diagram", "H(z)", "H(R)",
+            "delay operator", "z-transform", "concept map", "DT",
+        ],
+        "has_simulator": True,
+        "controls": [
+            {
+                "type": "select", "name": "preset", "label": "System Preset",
+                "options": [
+                    {"value": "first_difference", "label": "First Difference (FIR)"},
+                    {"value": "accumulator", "label": "Accumulator (IIR)"},
+                    {"value": "moving_average_3", "label": "3-Point Moving Avg (FIR)"},
+                    {"value": "leaky_integrator", "label": "Leaky Integrator (IIR)"},
+                    {"value": "second_order", "label": "2nd-Order Resonator (IIR)"},
+                    {"value": "two_tap_fir", "label": "Two-Tap Echo (FIR)"},
+                    {"value": "custom", "label": "Custom Coefficients"},
+                ],
+                "default": "first_difference", "group": "System",
+            },
+            {
+                "type": "expression", "name": "b_coefficients",
+                "label": "b coefficients (feedforward)",
+                "default": "1, -1",
+                "placeholder": "e.g. 1, -0.5, 0.25",
+                "group": "Custom Input",
+                "visible_when": {"preset": "custom"},
+            },
+            {
+                "type": "expression", "name": "a_coefficients",
+                "label": "a coefficients (feedback)",
+                "default": "1",
+                "placeholder": "e.g. 1, -0.9 (a\u2080 = 1 always)",
+                "group": "Custom Input",
+                "visible_when": {"preset": "custom"},
+            },
+            {
+                "type": "slider", "name": "num_samples",
+                "label": "Impulse Response Samples",
+                "min": 8, "max": 30, "step": 1, "default": 15,
+                "group": "Display",
+            },
+            {
+                "type": "select", "name": "mode", "label": "Mode",
+                "options": [
+                    {"value": "explore", "label": "Explore"},
+                    {"value": "challenge", "label": "Challenge"},
+                ],
+                "default": "explore", "group": "Mode",
+            },
+            {
+                "type": "button", "name": "new_challenge",
+                "label": "New Challenge",
+                "group": "Challenge",
+                "visible_when": {"mode": "challenge"},
+            },
+            {
+                "type": "button", "name": "reveal_all",
+                "label": "Reveal Answer",
+                "group": "Challenge",
+                "visible_when": {"mode": "challenge"},
+            },
+        ],
+        "default_params": {
+            "preset": "first_difference",
+            "b_coefficients": "1, -1",
+            "a_coefficients": "1",
+            "num_samples": 15,
+            "mode": "explore",
+        },
+        "plots": [
+            {"id": "impulse_response", "title": "Impulse Response h[n]", "description": "Stem plot of the system impulse response"},
+            {"id": "pole_zero", "title": "Pole-Zero Map", "description": "Poles and zeros on the z-plane with unit circle"},
         ],
     },
 ]
