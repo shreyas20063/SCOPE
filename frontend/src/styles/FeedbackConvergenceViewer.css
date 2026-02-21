@@ -1,0 +1,308 @@
+/* Feedback & Convergence Explorer Viewer */
+
+.feedback-convergence-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── Info Panel ─────────────────────────────────────── */
+
+.fc-info-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.fc-equation {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.fc-equation-label {
+  color: var(--text-secondary);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.fc-status-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.fc-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.fc-status-badge.converging {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.fc-status-badge.diverging {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.fc-status-badge.marginal {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.fc-sum-info {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-family: 'Fira Code', monospace;
+}
+
+/* ── Block Diagram ──────────────────────────────────── */
+
+.fc-block-diagram-section {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+}
+
+.fc-diagram-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.fc-diagram-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.fc-animation-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fc-animate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--border-color);
+  background: var(--surface-color);
+  color: var(--text-primary);
+}
+
+.fc-animate-btn:hover {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+  color: var(--primary-color);
+}
+
+.fc-animate-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.fc-animate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fc-animate-btn.primary {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.fc-animate-btn.primary:hover {
+  background: var(--primary-hover);
+}
+
+.fc-step-counter {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: 'Fira Code', monospace;
+  min-width: 4.5rem;
+  text-align: center;
+}
+
+/* SVG Block Diagram */
+.fc-svg-container {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0;
+}
+
+.fc-svg-container svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.fc-svg-container svg text {
+  font-family: 'Inter', sans-serif;
+}
+
+.fc-svg-container svg .block-label {
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  fill: var(--text-primary);
+}
+
+.fc-svg-container svg .signal-label {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--text-primary);
+}
+
+.fc-svg-container svg .block-rect {
+  fill: var(--surface-color);
+  stroke: var(--border-hover);
+  stroke-width: 1.5;
+  rx: 4;
+  ry: 4;
+}
+
+.fc-svg-container svg .adder-circle {
+  fill: var(--surface-color);
+  stroke: var(--primary-color);
+  stroke-width: 2;
+}
+
+.fc-svg-container svg .arrow-line {
+  stroke: var(--text-secondary);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.fc-svg-container svg .arrow-head {
+  fill: var(--text-secondary);
+}
+
+.fc-svg-container svg .gain-triangle {
+  fill: var(--surface-color);
+  stroke: var(--accent-purple);
+  stroke-width: 1.5;
+}
+
+/* Signal pulse animation */
+.fc-signal-pulse {
+  r: 5;
+  fill: var(--accent-color);
+  filter: drop-shadow(0 0 6px rgba(0, 217, 255, 0.6));
+  opacity: 0;
+}
+
+.fc-signal-pulse.active {
+  opacity: 1;
+}
+
+.fc-signal-pulse.path-input {
+  animation: pulse-input 0.8s ease-in-out forwards;
+}
+
+.fc-signal-pulse.path-loop {
+  animation: pulse-loop 1.2s ease-in-out forwards;
+}
+
+@keyframes pulse-input {
+  0% { cx: 20; cy: 50; opacity: 1; }
+  50% { cx: 100; cy: 50; opacity: 1; }
+  100% { cx: 260; cy: 50; opacity: 1; }
+}
+
+@keyframes pulse-loop {
+  0% { cx: 260; cy: 50; opacity: 1; }
+  20% { cx: 260; cy: 90; opacity: 1; }
+  40% { cx: 190; cy: 90; opacity: 1; }
+  60% { cx: 120; cy: 90; opacity: 1; }
+  80% { cx: 60; cy: 90; opacity: 1; }
+  90% { cx: 60; cy: 50; opacity: 1; }
+  100% { cx: 100; cy: 50; opacity: 0.5; }
+}
+
+/* ── Cycle Trace Description ────────────────────────── */
+
+.fc-cycle-description {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(0, 217, 255, 0.05);
+  border: 1px solid rgba(0, 217, 255, 0.1);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-family: 'Fira Code', monospace;
+  line-height: 1.5;
+}
+
+.fc-cycle-description .highlight {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+/* ── Responsive ─────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .fc-info-panel {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .fc-diagram-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .fc-animation-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* ── Light Theme ────────────────────────────────────── */
+
+[data-theme="light"] .fc-svg-container svg .arrow-line {
+  stroke: #475569;
+}
+
+[data-theme="light"] .fc-svg-container svg .arrow-head {
+  fill: #475569;
+}
+
+[data-theme="light"] .fc-signal-pulse {
+  fill: #0891b2;
+  filter: drop-shadow(0 0 4px rgba(8, 145, 178, 0.5));
+}

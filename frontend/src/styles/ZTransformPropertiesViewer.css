@@ -1,0 +1,391 @@
+/**
+ * ZTransformPropertiesViewer Styles
+ */
+
+.zt-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.zt-viewer-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.9375rem;
+}
+
+/* ── Formula Badge ─────────────────────────────────────── */
+
+.zt-formula-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.75rem 1rem;
+  background: var(--card-bg, #1e293b);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.1));
+}
+
+.zt-formula-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.zt-formula-text {
+  font-size: 0.875rem;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  color: var(--text-primary, #f1f5f9);
+  line-height: 1.5;
+}
+
+/* ── Signal Info Cards ─────────────────────────────────── */
+
+.zt-signal-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.zt-signal-card {
+  padding: 0.75rem 1rem;
+  background: var(--card-bg, #1e293b);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.1));
+  border-left: 3px solid var(--signal-color, #3b82f6);
+}
+
+.zt-signal-card-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.zt-signal-card-label {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+  margin-bottom: 0.25rem;
+}
+
+.zt-signal-card-z {
+  font-size: 0.8125rem;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  color: var(--text-secondary, #94a3b8);
+  margin-bottom: 0.25rem;
+}
+
+.zt-signal-card-roc {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+
+/* ── Section Headers ───────────────────────────────────── */
+
+.zt-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.zt-section-tag {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-full, 9999px);
+  color: #ffffff;
+}
+
+.zt-section-tag--time {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.zt-section-tag--z {
+  background: rgba(20, 184, 166, 0.2);
+  color: #14b8a6;
+}
+
+.zt-section-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+}
+
+/* ── Time Domain Section ───────────────────────────────── */
+
+.zt-time-domain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.zt-signal-plots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.zt-signal-plots--single {
+  grid-template-columns: 1fr;
+}
+
+/* ── Z Domain Section ──────────────────────────────────── */
+
+.zt-z-domain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* ── ROC Legend ─────────────────────────────────────────── */
+
+.zt-roc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  background: var(--card-bg, #1e293b);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.1));
+}
+
+.zt-roc-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.zt-roc-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--swatch-color, #94a3b8);
+  background: var(--swatch-bg, rgba(148, 163, 184, 0.2));
+}
+
+.zt-roc-note {
+  font-size: 0.75rem;
+  font-style: italic;
+  color: var(--text-muted, #64748b);
+  width: 100%;
+  margin-top: 0.125rem;
+}
+
+/* ── Animation Controls ────────────────────────────────── */
+
+.zt-animation-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--card-bg, #1e293b);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.1));
+}
+
+.zt-anim-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.2));
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms) ease;
+}
+
+.zt-anim-btn:hover:not(:disabled) {
+  background: var(--surface-hover, #334155);
+  color: var(--text-primary, #f1f5f9);
+  border-color: var(--border-hover, #475569);
+}
+
+.zt-anim-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.zt-anim-btn--primary {
+  background: var(--primary-light, rgba(20, 184, 166, 0.1));
+  border-color: var(--primary-color, #14b8a6);
+  color: var(--primary-color, #14b8a6);
+}
+
+.zt-anim-btn--primary:hover:not(:disabled) {
+  background: var(--primary-color, #14b8a6);
+  color: #ffffff;
+}
+
+.zt-anim-counter {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  color: var(--text-secondary, #94a3b8);
+}
+
+/* ── Stem Plot Cards ───────────────────────────────────── */
+
+.zt-stem-card {
+  background: var(--surface, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  overflow: hidden;
+  min-height: 200px;
+  transition: box-shadow 0.3s ease;
+}
+
+.zt-stem-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.zt-stem-card > div {
+  width: 100%;
+  height: 100%;
+}
+
+.zt-stem-card .js-plotly-plot {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── Z-Plane Card ──────────────────────────────────────── */
+
+.zt-zplane-card {
+  background: var(--surface, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  overflow: hidden;
+  min-height: 320px;
+  transition: box-shadow 0.3s ease;
+}
+
+.zt-zplane-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.zt-zplane-card > div {
+  width: 100%;
+  height: 100%;
+}
+
+.zt-zplane-card .js-plotly-plot {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── Result Info ───────────────────────────────────────── */
+
+.zt-result-info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(20, 184, 166, 0.06);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid rgba(20, 184, 166, 0.15);
+}
+
+.zt-result-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #14b8a6;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.zt-result-expr {
+  font-size: 0.8125rem;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  color: var(--text-primary, #f1f5f9);
+}
+
+/* ── Responsive: Tablet ────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  .zt-stem-card {
+    min-height: 180px;
+  }
+
+  .zt-zplane-card {
+    min-height: 280px;
+  }
+}
+
+/* ── Responsive: Mobile ────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .zt-viewer {
+    gap: 0.75rem;
+  }
+
+  .zt-signal-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .zt-signal-plots {
+    grid-template-columns: 1fr;
+  }
+
+  .zt-stem-card {
+    min-height: 170px;
+  }
+
+  .zt-zplane-card {
+    min-height: 250px;
+  }
+
+  .zt-animation-controls {
+    flex-wrap: wrap;
+  }
+
+  .zt-anim-counter {
+    width: 100%;
+    text-align: center;
+    margin-left: 0;
+    margin-top: 0.25rem;
+  }
+
+  .zt-formula-badge {
+    padding: 0.625rem 0.875rem;
+  }
+}
+
+/* ── Light Mode Overrides ──────────────────────────────── */
+
+[data-theme="light"] .zt-formula-badge,
+[data-theme="light"] .zt-animation-controls,
+[data-theme="light"] .zt-roc-legend {
+  background: var(--surface-color, #ffffff);
+}
+
+[data-theme="light"] .zt-signal-card {
+  background: var(--surface-color, #ffffff);
+}
+
+[data-theme="light"] .zt-stem-card,
+[data-theme="light"] .zt-zplane-card {
+  background: var(--surface-color, #ffffff);
+}
+
+[data-theme="light"] .zt-result-info {
+  background: rgba(20, 184, 166, 0.04);
+}

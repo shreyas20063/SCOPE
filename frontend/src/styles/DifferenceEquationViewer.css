@@ -1,0 +1,316 @@
+/* DT Difference Equation Step-by-Step Solver Viewer */
+
+.diff-eq-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* ============================================================
+   Step Controls Bar
+   ============================================================ */
+.diff-eq-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  flex-wrap: wrap;
+}
+
+.diff-eq-controls__step-info {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--text-primary);
+  padding: 4px 10px;
+  background: var(--background-secondary);
+  border-radius: var(--radius-sm);
+  min-width: 80px;
+  text-align: center;
+}
+
+.diff-eq-controls__step-info--at-rest {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.diff-eq-controls__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface-color);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-width: 36px;
+}
+
+.diff-eq-controls__btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+
+.diff-eq-controls__btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.diff-eq-controls__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.diff-eq-controls__btn--primary {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+
+.diff-eq-controls__btn--primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.diff-eq-controls__spacer {
+  flex: 1;
+}
+
+/* ============================================================
+   Top Panels (Equation + Block Diagram side by side)
+   ============================================================ */
+.diff-eq-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .diff-eq-panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   Equation Panel
+   ============================================================ */
+.diff-eq-equation-panel {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 220px;
+  max-height: 350px;
+}
+
+.diff-eq-equation-panel__header {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 15px;
+  color: var(--primary-color);
+  font-weight: 600;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.diff-eq-equation-panel__steps {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 4px;
+}
+
+.diff-eq-equation-panel__steps::-webkit-scrollbar {
+  width: 4px;
+}
+
+.diff-eq-equation-panel__steps::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: var(--radius-full);
+}
+
+.diff-eq-step {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid transparent;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+.diff-eq-step::-webkit-scrollbar {
+  height: 0;
+}
+
+.diff-eq-step--current {
+  color: var(--text-primary);
+  background: var(--primary-light);
+  border-left-color: var(--primary-color);
+  font-weight: 500;
+}
+
+.diff-eq-step--zero {
+  color: var(--text-muted);
+}
+
+.diff-eq-equation-panel__empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* ============================================================
+   Block Diagram Panel
+   ============================================================ */
+.diff-eq-diagram-panel {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 220px;
+  max-height: 350px;
+}
+
+.diff-eq-diagram-panel__title {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.diff-eq-diagram-svg {
+  flex: 1;
+  width: 100%;
+  min-height: 160px;
+}
+
+/* SVG Styling */
+.diff-eq-diagram-svg .wire {
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.diff-eq-diagram-svg .wire--active {
+  stroke: var(--primary-color);
+  stroke-width: 2;
+}
+
+.diff-eq-diagram-svg .arrowhead {
+  fill: var(--text-muted);
+}
+
+.diff-eq-diagram-svg .arrowhead--active {
+  fill: var(--primary-color);
+}
+
+.diff-eq-diagram-svg .block {
+  fill: var(--background-secondary);
+  stroke: var(--border-hover);
+  stroke-width: 1.5;
+}
+
+.diff-eq-diagram-svg .block--gain {
+  fill: var(--background-secondary);
+  stroke: var(--accent-purple);
+  stroke-width: 1.5;
+}
+
+.diff-eq-diagram-svg .block--delay {
+  fill: var(--background-secondary);
+  stroke: var(--accent-color);
+  stroke-width: 1.5;
+}
+
+.diff-eq-diagram-svg .block--adder {
+  fill: var(--background-secondary);
+  stroke: var(--primary-color);
+  stroke-width: 2;
+}
+
+.diff-eq-diagram-svg .block-label {
+  fill: var(--text-primary);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 12px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.diff-eq-diagram-svg .wire-value {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+  transition: all var(--transition-normal);
+}
+
+.diff-eq-diagram-svg .wire-value--input {
+  fill: #3b82f6;
+}
+
+.diff-eq-diagram-svg .wire-value--output {
+  fill: #ef4444;
+}
+
+.diff-eq-diagram-svg .wire-value--internal {
+  fill: var(--accent-color);
+}
+
+.diff-eq-diagram-svg .wire-value-bg {
+  fill: var(--surface-color);
+  stroke: var(--border-color);
+  stroke-width: 1;
+  rx: 4;
+  ry: 4;
+}
+
+.diff-eq-diagram-svg .signal-label {
+  fill: var(--text-secondary);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ============================================================
+   Stem Plots
+   ============================================================ */
+.diff-eq-plots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .diff-eq-plots {
+    grid-template-columns: 1fr;
+  }
+}
+
+.diff-eq-plot-wrapper {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 8px;
+  min-height: 250px;
+}

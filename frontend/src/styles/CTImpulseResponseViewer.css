@@ -1,0 +1,394 @@
+/* CT Impulse Response Builder Viewer */
+
+.ct-impulse-response-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* -- Info Panel ------------------------------------------------ */
+
+.ct-info-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.ct-equation {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  flex-wrap: wrap;
+}
+
+.ct-equation-label {
+  color: var(--text-secondary);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.ct-status-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ct-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ct-status-badge.converging {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.ct-status-badge.diverging {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.ct-status-badge.marginal {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.ct-terms-info {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-family: 'Fira Code', monospace;
+}
+
+.ct-error-info {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: 'Fira Code', monospace;
+}
+
+/* -- Block Diagram Section ------------------------------------- */
+
+.ct-block-diagram-section {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+}
+
+.ct-diagram-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.ct-diagram-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ct-animation-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ct-animate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--border-color);
+  background: var(--surface-color);
+  color: var(--text-primary);
+}
+
+.ct-animate-btn:hover {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+  color: var(--primary-color);
+}
+
+.ct-animate-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.ct-animate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ct-animate-btn.primary {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.ct-animate-btn.primary:hover {
+  background: var(--primary-hover);
+}
+
+.ct-step-counter {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: 'Fira Code', monospace;
+  min-width: 4.5rem;
+  text-align: center;
+}
+
+/* -- Diagram Content Row --------------------------------------- */
+
+.ct-diagram-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.ct-diagram-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* -- SVG Block Diagram ----------------------------------------- */
+
+.ct-svg-container {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0;
+}
+
+.ct-svg-container svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.ct-svg-container svg text {
+  font-family: 'Inter', sans-serif;
+}
+
+.ct-svg-container svg .block-label {
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  fill: var(--text-primary);
+}
+
+.ct-svg-container svg .signal-label {
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--text-primary);
+}
+
+.ct-svg-container svg .block-rect {
+  fill: var(--surface-color);
+  stroke: var(--border-hover);
+  stroke-width: 1.5;
+  rx: 4;
+  ry: 4;
+}
+
+.ct-svg-container svg .integrator-rect {
+  fill: var(--surface-color);
+  stroke: var(--primary-color);
+  stroke-width: 2;
+  rx: 4;
+  ry: 4;
+}
+
+.ct-svg-container svg .adder-circle {
+  fill: var(--surface-color);
+  stroke: var(--primary-color);
+  stroke-width: 2;
+}
+
+.ct-svg-container svg .arrow-line {
+  stroke: var(--text-secondary);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.ct-svg-container svg .arrow-head {
+  fill: var(--text-secondary);
+}
+
+.ct-svg-container svg .gain-triangle {
+  fill: var(--surface-color);
+  stroke: var(--accent-purple);
+  stroke-width: 1.5;
+}
+
+/* Signal pulse animation */
+.ct-signal-pulse {
+  r: 5;
+  fill: var(--accent-color);
+  filter: drop-shadow(0 0 6px rgba(0, 217, 255, 0.6));
+  opacity: 0;
+}
+
+.ct-signal-pulse.active {
+  opacity: 1;
+}
+
+.ct-signal-pulse.path-input {
+  animation: ct-pulse-input 0.8s ease-in-out forwards;
+}
+
+.ct-signal-pulse.path-loop {
+  animation: ct-pulse-loop 1.2s ease-in-out forwards;
+}
+
+@keyframes ct-pulse-input {
+  0%   { cx: 20;  cy: 50; opacity: 1; }
+  50%  { cx: 130; cy: 50; opacity: 1; }
+  100% { cx: 280; cy: 50; opacity: 1; }
+}
+
+@keyframes ct-pulse-loop {
+  0%   { cx: 260; cy: 50; opacity: 1; }
+  20%  { cx: 260; cy: 95; opacity: 1; }
+  50%  { cx: 140; cy: 95; opacity: 1; }
+  70%  { cx: 60;  cy: 95; opacity: 1; }
+  85%  { cx: 60;  cy: 50; opacity: 1; }
+  100% { cx: 130; cy: 50; opacity: 0.5; }
+}
+
+/* -- S-Plane Inset --------------------------------------------- */
+
+.ct-splane-container {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ct-splane-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ct-splane-inset {
+  width: 120px;
+  height: 90px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.ct-splane-inset svg {
+  width: 100%;
+  height: 100%;
+}
+
+.ct-splane-inset svg text {
+  font-family: 'Fira Code', monospace;
+}
+
+/* -- Term Description ------------------------------------------ */
+
+.ct-term-description {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(0, 217, 255, 0.05);
+  border: 1px solid rgba(0, 217, 255, 0.1);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-family: 'Fira Code', monospace;
+  line-height: 1.5;
+}
+
+.ct-term-description .highlight {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.ct-term-description .math {
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+/* -- Responsive ------------------------------------------------ */
+
+@media (max-width: 768px) {
+  .ct-info-panel {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ct-diagram-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .ct-animation-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .ct-diagram-content {
+    flex-direction: column;
+  }
+
+  .ct-splane-container {
+    align-self: center;
+  }
+}
+
+/* -- Light Theme ----------------------------------------------- */
+
+[data-theme="light"] .ct-svg-container svg .arrow-line {
+  stroke: #475569;
+}
+
+[data-theme="light"] .ct-svg-container svg .arrow-head {
+  fill: #475569;
+}
+
+[data-theme="light"] .ct-signal-pulse {
+  fill: #0891b2;
+  filter: drop-shadow(0 0 4px rgba(8, 145, 178, 0.5));
+}
+
+[data-theme="light"] .ct-splane-inset {
+  background: rgba(248, 250, 252, 0.8);
+}
+
+[data-theme="light"] .ct-term-description {
+  background: rgba(8, 145, 178, 0.05);
+  border-color: rgba(8, 145, 178, 0.15);
+}

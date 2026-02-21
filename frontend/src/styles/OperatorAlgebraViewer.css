@@ -1,0 +1,293 @@
+/* Operator Algebra Visualizer */
+
+.oa-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* ============================================================
+   Preset Buttons
+   ============================================================ */
+.oa-presets {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  flex-wrap: wrap;
+}
+
+.oa-presets-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.oa-presets-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.oa-preset-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--background-secondary);
+  color: var(--text-primary);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.oa-preset-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.oa-preset-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Error Display
+   ============================================================ */
+.oa-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--error-color);
+  font-size: 13px;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+.oa-error-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: var(--error-color);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Main Grid: Representations + Block Diagram
+   ============================================================ */
+.oa-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 16px;
+}
+
+.oa-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 10px 0;
+}
+
+/* ============================================================
+   Representations Panel
+   ============================================================ */
+.oa-representations {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.oa-rep-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--background-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition: border-color var(--transition-fast);
+}
+
+.oa-rep-card:hover {
+  border-color: var(--border-hover);
+}
+
+.oa-rep-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.oa-rep-value {
+  font-size: 15px;
+  color: var(--text-primary);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.oa-mono {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+/* ============================================================
+   Block Diagram
+   ============================================================ */
+.oa-block-diagram {
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.oa-diagram-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  overflow-x: auto;
+}
+
+.oa-block-diagram-svg {
+  width: 100%;
+  max-height: 240px;
+}
+
+/* SVG styles */
+.oa-wire {
+  stroke: var(--text-secondary);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.oa-sum-wire {
+  stroke-dasharray: 4 3;
+  stroke-opacity: 0.5;
+}
+
+.oa-arrowhead {
+  fill: var(--text-secondary);
+}
+
+.oa-delay-block {
+  fill: var(--background-secondary);
+  stroke: var(--primary-color);
+  stroke-width: 1.5;
+}
+
+.oa-gain-block {
+  fill: var(--background-secondary);
+  stroke: var(--secondary-color);
+  stroke-width: 1.5;
+}
+
+.oa-gain-zero {
+  stroke: var(--text-muted);
+  stroke-dasharray: 3 2;
+  opacity: 0.5;
+}
+
+.oa-block-text {
+  fill: var(--text-primary);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 12px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.oa-signal-label {
+  fill: var(--text-secondary);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 12px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.oa-tap-node {
+  fill: var(--primary-color);
+  stroke: none;
+}
+
+.oa-adder {
+  fill: var(--background-secondary);
+  stroke: var(--success-color);
+  stroke-width: 1.5;
+}
+
+.oa-adder-text {
+  fill: var(--success-color);
+  font-size: 16px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* ============================================================
+   Plot Section
+   ============================================================ */
+.oa-plot-section {
+  border-radius: var(--radius-lg);
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 768px) {
+  .oa-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .oa-presets {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .oa-rep-value {
+    font-size: 13px;
+  }
+}
+
+/* ============================================================
+   Light Theme Overrides
+   ============================================================ */
+[data-theme="light"] .oa-wire {
+  stroke: var(--text-muted);
+}
+
+[data-theme="light"] .oa-arrowhead {
+  fill: var(--text-muted);
+}
+
+[data-theme="light"] .oa-block-text {
+  fill: var(--text-primary);
+}

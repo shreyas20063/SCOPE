@@ -1,0 +1,312 @@
+/* ── Cyclic Path Viewer ─────────────────────────────────── */
+
+.cyclic-path-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+/* ── SVG Diagram Container ─────────────────────────────── */
+
+.cpv-diagram-container {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.cpv-svg {
+  width: 100%;
+  height: auto;
+  max-height: 320px;
+}
+
+/* ── Nodes ──────────────────────────────────────────────── */
+
+.cpv-node {
+  fill: var(--background-secondary);
+  stroke: var(--text-secondary);
+  stroke-width: 1.5;
+  transition: stroke var(--transition-fast);
+}
+
+.cpv-adder {
+  fill: var(--surface-color);
+  stroke: var(--accent-color);
+  stroke-width: 2;
+}
+
+.cpv-adder-sign {
+  stroke: var(--accent-color);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.cpv-delay {
+  fill: var(--surface-color);
+  stroke: var(--primary-color);
+  stroke-width: 2;
+}
+
+.cpv-gain {
+  fill: var(--surface-color);
+  stroke: var(--text-secondary);
+  stroke-width: 1.5;
+}
+
+.cpv-node-label {
+  fill: var(--text-primary);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.cpv-io-label {
+  font-size: 16px;
+  font-weight: 700;
+  fill: var(--text-primary);
+}
+
+/* ── Edges ──────────────────────────────────────────────── */
+
+.cpv-edge {
+  fill: none;
+  stroke: var(--text-secondary);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: stroke var(--transition-normal), stroke-width var(--transition-normal);
+}
+
+.cpv-edge-cycle {
+  stroke-width: 3;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+/* ── Info Panel ─────────────────────────────────────────── */
+
+.cpv-info-panel {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 0.875rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+}
+
+.cpv-info-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cpv-info-label {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.cpv-info-value {
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.cpv-mono {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  color: var(--accent-color);
+}
+
+.cpv-cycle-legend {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.cpv-cycle-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+}
+
+/* ── Badges ─────────────────────────────────────────────── */
+
+.cpv-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.cpv-badge-fir {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success-color);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.cpv-badge-iir {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning-color);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* ── Quiz Panel ─────────────────────────────────────────── */
+
+.cpv-quiz-panel {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  text-align: center;
+}
+
+.cpv-quiz-prompt {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.875rem;
+}
+
+.cpv-quiz-result {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.875rem;
+}
+
+.cpv-quiz-correct {
+  color: var(--success-color);
+}
+
+.cpv-quiz-incorrect {
+  color: var(--error-color);
+}
+
+.cpv-quiz-incorrect strong {
+  color: var(--success-color);
+}
+
+.cpv-quiz-options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.625rem;
+  max-width: 400px;
+  margin: 0 auto 0.875rem;
+}
+
+.cpv-quiz-btn {
+  background: var(--background-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0.625rem;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.cpv-quiz-btn:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+.cpv-quiz-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.cpv-quiz-btn-correct {
+  border-color: var(--success-color);
+  color: var(--success-color);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.cpv-quiz-btn-disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.cpv-new-quiz-btn {
+  background: var(--primary-light);
+  border: 1px solid var(--primary-color);
+  border-radius: var(--radius-md);
+  color: var(--primary-color);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.45rem 1.25rem;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.cpv-new-quiz-btn:hover:not(:disabled) {
+  background: rgba(20, 184, 166, 0.2);
+}
+
+.cpv-new-quiz-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .cpv-info-panel {
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .cpv-quiz-options {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+  }
+
+  .cpv-diagram-container {
+    padding: 0.625rem;
+  }
+}
+
+/* ── Light Theme ────────────────────────────────────────── */
+
+[data-theme="light"] .cpv-node {
+  fill: #f8fafc;
+  stroke: #64748b;
+}
+
+[data-theme="light"] .cpv-adder {
+  fill: #f0fdfa;
+  stroke: #0d9488;
+}
+
+[data-theme="light"] .cpv-adder-sign {
+  stroke: #0d9488;
+}
+
+[data-theme="light"] .cpv-delay {
+  fill: #f0f9ff;
+  stroke: #0284c7;
+}
+
+[data-theme="light"] .cpv-edge {
+  stroke: #64748b;
+}
+
+[data-theme="light"] .cpv-node-label {
+  fill: #1e293b;
+}
+
+[data-theme="light"] .cpv-io-label {
+  fill: #0f172a;
+}

@@ -1,0 +1,255 @@
+/* DTCTComparatorViewer.css — DT ↔ CT Side-by-Side Comparator */
+
+.dtct-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* ── Status Badge ───────────────────────────────────────────────── */
+
+.dtct-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+
+.dtct-status-badge__pole {
+  color: var(--accent-color);
+  font-family: 'Fira Code', monospace;
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.dtct-status-badge__tag {
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dtct-status-badge__tag--stable {
+  background-color: var(--success-color);
+}
+
+.dtct-status-badge__tag--unstable {
+  background-color: var(--error-color);
+}
+
+.dtct-status-badge__tag--marginal {
+  background-color: var(--warning-color);
+}
+
+.dtct-status-badge__insight {
+  color: var(--accent-color);
+  font-size: 0.82rem;
+  font-style: italic;
+  margin-left: auto;
+}
+
+/* ── Response Plots Grid ────────────────────────────────────────── */
+
+.dtct-plots-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.dtct-plot-panel {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 8px;
+  min-height: 280px;
+  transition: border-color var(--transition-fast);
+}
+
+.dtct-plot-panel--stable {
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.dtct-plot-panel--unstable {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.dtct-plot-panel--marginal {
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.dtct-plot-panel__label {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 4px 0 0;
+  color: var(--text-muted);
+}
+
+/* ── Stability Maps ─────────────────────────────────────────────── */
+
+.dtct-stability-maps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.dtct-stability-map {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 12px 8px;
+  overflow: visible;
+}
+
+.dtct-stability-map__title {
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-family: 'Fira Code', monospace;
+}
+
+.dtct-stability-map svg {
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+
+/* ── Quiz Panel ─────────────────────────────────────────────────── */
+
+.dtct-quiz-panel {
+  padding: 16px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dtct-quiz-panel__question {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.dtct-quiz-panel__question em {
+  color: var(--accent-color);
+  font-family: 'Fira Code', monospace;
+  font-style: normal;
+}
+
+.dtct-quiz-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.dtct-quiz-option {
+  padding: 10px 16px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.dtct-quiz-option:hover:not(:disabled) {
+  border-color: var(--accent-color);
+  background: rgba(0, 217, 255, 0.08);
+}
+
+.dtct-quiz-option:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.dtct-quiz-option--correct {
+  border-color: var(--success-color);
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success-color);
+  font-weight: 600;
+}
+
+.dtct-quiz-option--incorrect {
+  border-color: var(--error-color);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--error-color);
+}
+
+.dtct-quiz-option--dimmed {
+  opacity: 0.4;
+}
+
+.dtct-quiz-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dtct-quiz-result__text {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.dtct-quiz-result__text--correct {
+  color: var(--success-color);
+}
+
+.dtct-quiz-result__text--incorrect {
+  color: var(--error-color);
+}
+
+.dtct-quiz-next-btn {
+  padding: 8px 20px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background var(--transition-fast);
+}
+
+.dtct-quiz-next-btn:hover {
+  background: var(--primary-hover);
+}
+
+.dtct-quiz-next-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .dtct-plots-grid,
+  .dtct-stability-maps,
+  .dtct-quiz-options {
+    grid-template-columns: 1fr;
+  }
+
+  .dtct-status-badge {
+    gap: 8px;
+  }
+
+  .dtct-status-badge__insight {
+    margin-left: 0;
+    width: 100%;
+  }
+}

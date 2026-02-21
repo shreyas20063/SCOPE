@@ -1,0 +1,576 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   SystemRepresentationViewer — DT System Representation Navigator
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.sr-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.sr-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--text-muted, #64748b);
+  font-size: 0.85rem;
+}
+
+/* ── Info Badge ─────────────────────────────────────────────────────────── */
+
+.sr-info-badge {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-lg, 12px);
+  background: var(--surface-color, #131b2e);
+  border: 1px solid var(--border-color, #1e293b);
+}
+
+.sr-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sr-badge-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, #64748b);
+  font-weight: 600;
+}
+
+.sr-badge-value {
+  font-size: 0.82rem;
+  color: var(--text-primary, #f1f5f9);
+  font-family: 'Fira Code', monospace;
+}
+
+.sr-badge-pill {
+  font-size: 0.68rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-full, 9999px);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* ── Concept Map ────────────────────────────────────────────────────────── */
+
+.sr-concept-map {
+  border-radius: var(--radius-lg, 12px);
+  background: var(--surface-color, #131b2e);
+  border: 1px solid var(--border-color, #1e293b);
+  padding: 0.5rem;
+  overflow: hidden;
+}
+
+.sr-concept-map-label {
+  font-size: 0.7rem;
+  color: var(--text-muted, #64748b);
+  text-align: center;
+  padding-bottom: 0.25rem;
+}
+
+.sr-concept-map-svg {
+  width: 100%;
+  max-width: 540px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Node animations */
+.sr-node-group {
+  animation: srNodeAppear 0.4s ease both;
+  animation-delay: var(--anim-delay, 0s);
+}
+
+.sr-node-group.sr-node-hidden .sr-node-rect {
+  stroke-dasharray: 4 3;
+}
+
+.sr-node-rect {
+  transition: fill var(--transition-fast, 150ms), stroke var(--transition-fast, 150ms);
+}
+
+.sr-node-group:hover .sr-node-rect {
+  filter: brightness(1.2);
+}
+
+/* Edge animations */
+.sr-edge-path {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: srEdgeDraw 0.8s ease forwards;
+  transition: stroke var(--transition-fast, 150ms), stroke-width var(--transition-fast, 150ms);
+}
+
+.sr-edge-path.sr-edge-active {
+  filter: drop-shadow(0 0 4px rgba(0, 217, 255, 0.5));
+}
+
+.sr-edge-label {
+  pointer-events: none;
+  transition: fill var(--transition-fast, 150ms);
+}
+
+.sr-edge-group:hover .sr-edge-path {
+  stroke-width: 2.5;
+  stroke: var(--accent-color, #00d9ff);
+}
+
+.sr-edge-group:hover .sr-edge-label {
+  fill: var(--accent-color, #00d9ff);
+}
+
+@keyframes srNodeAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes srEdgeDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ── Representation Cards ───────────────────────────────────────────────── */
+
+.sr-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.6rem;
+}
+
+.sr-card {
+  border-radius: var(--radius-lg, 12px);
+  background: var(--surface-color, #131b2e);
+  border: 1px solid var(--border-color, #1e293b);
+  border-top: 3px solid var(--card-accent, #3b82f6);
+  overflow: hidden;
+  transition: border-color var(--transition-fast, 150ms), box-shadow var(--transition-fast, 150ms);
+}
+
+.sr-card:hover {
+  border-color: var(--card-accent, #3b82f6);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--card-accent) 20%, transparent);
+}
+
+.sr-card--hidden {
+  opacity: 0.5;
+}
+
+.sr-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+  border-bottom: 1px solid var(--border-color, #1e293b);
+}
+
+.sr-card-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sr-card-title {
+  font-family: 'Fira Code', monospace;
+}
+
+.sr-card-body {
+  padding: 0.6rem 0.75rem;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sr-card-hidden {
+  font-size: 2rem;
+  color: var(--text-muted, #64748b);
+  font-weight: 700;
+  text-align: center;
+  padding: 1rem;
+}
+
+/* Equation display */
+.sr-card-equation {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--accent-color, #00d9ff);
+  padding: 0.35rem 0.5rem;
+  background: rgba(0, 217, 255, 0.06);
+  border-radius: var(--radius-sm, 6px);
+  border-left: 3px solid var(--accent-color, #00d9ff);
+  width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* Fraction display */
+.sr-fraction {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.82rem;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.sr-fraction-label {
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.sr-fraction-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.sr-fraction-num,
+.sr-fraction-den {
+  padding: 0.15rem 0.4rem;
+  white-space: nowrap;
+  color: var(--accent-color, #00d9ff);
+  font-size: 0.8rem;
+}
+
+.sr-fraction-line {
+  width: 100%;
+  height: 1.5px;
+  background: var(--text-muted, #64748b);
+  min-width: 40px;
+}
+
+/* Impulse response card */
+.sr-card-impulse {
+  width: 100%;
+}
+
+.sr-card-sequence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.sr-card-sample {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.2rem 0.35rem;
+  border-radius: var(--radius-sm, 6px);
+  background: rgba(236, 72, 153, 0.08);
+  min-width: 42px;
+}
+
+.sr-card-sample-n {
+  font-size: 0.6rem;
+  color: var(--text-muted, #64748b);
+  font-family: 'Fira Code', monospace;
+}
+
+.sr-card-sample-val {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+  font-family: 'Fira Code', monospace;
+}
+
+.sr-card-ellipsis {
+  font-size: 1rem;
+  color: var(--text-muted, #64748b);
+  padding: 0 0.25rem;
+  align-self: flex-end;
+}
+
+.sr-card-closed-form {
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text-secondary, #94a3b8);
+  font-family: 'Fira Code', monospace;
+  padding: 0.2rem 0.4rem;
+  background: rgba(236, 72, 153, 0.05);
+  border-radius: var(--radius-sm, 6px);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* Block diagram in card */
+.sr-block-diagram-svg {
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+}
+
+/* ── Conversion Detail Panel ────────────────────────────────────────────── */
+
+.sr-conversion-panel {
+  border-radius: var(--radius-lg, 12px);
+  background: var(--surface-color, #131b2e);
+  border: 1px solid rgba(0, 217, 255, 0.3);
+  box-shadow: 0 0 20px rgba(0, 217, 255, 0.08);
+  overflow: hidden;
+  animation: srSlideIn 0.25s ease;
+}
+
+.sr-conversion-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--border-color, #1e293b);
+}
+
+.sr-conversion-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-color, #00d9ff);
+}
+
+.sr-conversion-subtitle {
+  font-size: 0.7rem;
+  color: var(--text-muted, #64748b);
+}
+
+.sr-conversion-close {
+  background: none;
+  border: none;
+  color: var(--text-muted, #64748b);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 0.3rem;
+  line-height: 1;
+  transition: color var(--transition-fast, 150ms);
+}
+
+.sr-conversion-close:hover {
+  color: var(--text-primary, #f1f5f9);
+}
+
+.sr-conversion-steps {
+  padding: 0.5rem 0.85rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sr-conversion-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.45;
+}
+
+.sr-conversion-step--math {
+  font-family: 'Fira Code', monospace;
+  color: var(--accent-color, #00d9ff);
+  padding-left: 1.5rem;
+  font-size: 0.76rem;
+  background: rgba(0, 217, 255, 0.04);
+  border-radius: var(--radius-sm, 6px);
+  padding: 0.2rem 0.5rem 0.2rem 1.5rem;
+}
+
+.sr-conversion-step-num {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 217, 255, 0.12);
+  color: var(--accent-color, #00d9ff);
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes srSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Challenge Panel ────────────────────────────────────────────────────── */
+
+.sr-challenge-panel {
+  border-radius: var(--radius-lg, 12px);
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  padding: 0.75rem 1rem;
+}
+
+.sr-challenge-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.sr-challenge-icon {
+  font-size: 1.1rem;
+}
+
+.sr-challenge-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.sr-challenge-prompt {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.5;
+  margin-bottom: 0.6rem;
+}
+
+.sr-challenge-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Buttons */
+.sr-btn {
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--transition-fast, 150ms);
+}
+
+.sr-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sr-btn-primary {
+  background: var(--primary-color, #14b8a6);
+  color: white;
+  border-color: var(--primary-color, #14b8a6);
+}
+
+.sr-btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover, #0d9488);
+}
+
+.sr-btn-secondary {
+  background: transparent;
+  color: var(--text-secondary, #94a3b8);
+  border-color: var(--border-color, #1e293b);
+}
+
+.sr-btn-secondary:hover:not(:disabled) {
+  border-color: var(--border-hover, #334155);
+  color: var(--text-primary, #f1f5f9);
+}
+
+/* ── Plots Row ──────────────────────────────────────────────────────────── */
+
+.sr-plots-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.sr-stem-plot {
+  width: 100%;
+  border-radius: var(--radius-lg, 12px);
+  background: var(--surface-color, #131b2e);
+  border: 1px solid var(--border-color, #1e293b);
+  overflow: hidden;
+}
+
+.sr-stem-plot .js-plotly-plot {
+  border-radius: var(--radius-md, 8px);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .sr-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .sr-plots-row {
+    grid-template-columns: 1fr;
+  }
+
+  .sr-concept-map-svg {
+    max-width: 100%;
+  }
+
+  .sr-info-badge {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .sr-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ── Light Mode Overrides ───────────────────────────────────────────────── */
+
+[data-theme="light"] .sr-info-badge,
+[data-theme="light"] .sr-concept-map,
+[data-theme="light"] .sr-card,
+[data-theme="light"] .sr-conversion-panel,
+[data-theme="light"] .sr-stem-plot {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .sr-card-equation {
+  background: rgba(0, 130, 200, 0.06);
+  color: #0369a1;
+  border-left-color: #0369a1;
+}
+
+[data-theme="light"] .sr-conversion-step--math {
+  color: #0369a1;
+  background: rgba(0, 130, 200, 0.04);
+}
+
+[data-theme="light"] .sr-card-sample {
+  background: rgba(236, 72, 153, 0.06);
+}
+
+[data-theme="light"] .sr-fraction-num,
+[data-theme="light"] .sr-fraction-den {
+  color: #0369a1;
+}
+
+[data-theme="light"] .sr-challenge-panel {
+  background: rgba(245, 158, 11, 0.04);
+  border-color: rgba(245, 158, 11, 0.2);
+}

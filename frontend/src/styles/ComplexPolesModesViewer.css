@@ -1,0 +1,300 @@
+/* ============================================
+   Complex Poles & Sinusoidal Modes Viewer
+   ============================================ */
+
+.complex-poles-modes-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* Equation Banner */
+.cpm-equation-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  border-left: 3px solid var(--accent-color);
+  flex-wrap: wrap;
+}
+
+.cpm-equation-text {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+  letter-spacing: 0.3px;
+}
+
+.cpm-equation-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+}
+
+.cpm-equation-impulse {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* System Values Row */
+.cpm-system-values {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cpm-value-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.cpm-value-item:hover {
+  background: var(--surface-hover);
+}
+
+.cpm-value-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.cpm-value-number {
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.9rem;
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+/* Damping Badge */
+.cpm-damping-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  margin-left: auto;
+}
+
+.cpm-damping-badge.undamped {
+  background: rgba(20, 184, 166, 0.15);
+  color: var(--primary-color);
+}
+
+.cpm-damping-badge.underdamped {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--secondary-color);
+}
+
+.cpm-damping-badge.critically_damped {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning-color);
+}
+
+.cpm-damping-badge.overdamped {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error-color);
+}
+
+/* Pole Cards */
+.cpm-pole-cards {
+  display: flex;
+  gap: 12px;
+}
+
+.cpm-pole-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid;
+  border-radius: var(--radius-md);
+  flex: 1;
+  min-width: 0;
+  transition: background var(--transition-fast);
+}
+
+.cpm-pole-card:hover {
+  background: var(--surface-hover);
+}
+
+.cpm-pole-card.pole-s1 {
+  border-left-color: #3b82f6;
+}
+
+.cpm-pole-card.pole-s2 {
+  border-left-color: #ef4444;
+}
+
+.cpm-pole-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cpm-pole-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.cpm-pole-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cpm-pole-value {
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* Plot Layout */
+.cpm-plots-row {
+  display: flex;
+  gap: 16px;
+}
+
+.cpm-plot-splane {
+  flex: 2;
+  min-width: 0;
+}
+
+.cpm-plot-modes {
+  flex: 3;
+  min-width: 0;
+}
+
+.cpm-plot-taylor {
+  flex: 1;
+  min-width: 0;
+}
+
+.cpm-plot-helix {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 8px;
+  min-height: 380px;
+}
+
+/* No-oscillation message */
+.cpm-no-oscillation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+  min-height: 200px;
+}
+
+.cpm-no-oscillation-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.cpm-no-oscillation-icon {
+  font-size: 1.5rem;
+  opacity: 0.6;
+}
+
+.cpm-no-oscillation-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  max-width: 280px;
+}
+
+/* Focus styles */
+.cpm-pole-card:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   Mobile Responsive
+   ============================================ */
+
+@media (max-width: 768px) {
+  .cpm-equation-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+
+  .cpm-equation-divider {
+    display: none;
+  }
+
+  .cpm-system-values {
+    width: 100%;
+  }
+
+  .cpm-damping-badge {
+    margin-left: 0;
+  }
+
+  .cpm-pole-cards {
+    flex-direction: column;
+  }
+
+  .cpm-plots-row {
+    flex-direction: column;
+  }
+
+  .cpm-plot-splane,
+  .cpm-plot-modes,
+  .cpm-plot-taylor,
+  .cpm-plot-helix {
+    flex: 1;
+  }
+}
+
+/* ============================================
+   Light Theme Overrides
+   ============================================ */
+
+[data-theme="light"] .cpm-equation-banner {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+[data-theme="light"] .cpm-value-item {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+[data-theme="light"] .cpm-pole-card {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+[data-theme="light"] .cpm-plot-helix {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+[data-theme="light"] .cpm-no-oscillation {
+  background: rgba(255, 255, 255, 0.98);
+}

@@ -1,0 +1,323 @@
+/* ============================================
+   Fundamental Modes Viewer Styles
+   ============================================ */
+
+.fundamental-modes-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* Equation Banner */
+.fm-equation-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  border-left: 3px solid var(--primary-color);
+}
+
+.fm-equation-text {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+
+.fm-equation-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Mode Summary Cards */
+.fm-mode-cards {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fm-mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid;
+  border-radius: var(--radius-md);
+  min-width: 140px;
+  flex: 1;
+  transition: border-color var(--transition-fast),
+              background var(--transition-fast);
+}
+
+.fm-mode-card:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+
+.fm-mode-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fm-mode-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.fm-mode-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fm-mode-details {
+  display: flex;
+  gap: 12px;
+}
+
+.fm-mode-param {
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.fm-mode-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.fm-mode-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.fm-mode-badge.converges {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success-color);
+}
+
+.fm-mode-badge.diverges {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error-color);
+}
+
+.fm-mode-badge.marginal {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning-color);
+}
+
+.fm-mode-badge.alternating {
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--accent-purple);
+}
+
+.fm-mode-halflife {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* Reconstruct Panel */
+.fm-reconstruct-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  border-left: 3px solid var(--accent-purple);
+}
+
+.fm-score-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fm-score-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.fm-score-value {
+  font-family: 'Fira Code', monospace;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.fm-rating-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+}
+
+.fm-challenge-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.fm-action-btn {
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+}
+
+.fm-action-btn.new-challenge {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.fm-action-btn.new-challenge:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.fm-action-btn.reveal {
+  background: transparent;
+  color: var(--accent-purple);
+  border-color: var(--accent-purple);
+}
+
+.fm-action-btn.reveal:hover:not(:disabled) {
+  background: rgba(124, 58, 237, 0.1);
+}
+
+.fm-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fm-answer-reveal {
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+  font-family: 'Fira Code', monospace;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.fm-answer-label {
+  font-weight: 600;
+  color: var(--accent-purple);
+  margin-right: 8px;
+}
+
+.fm-answer-term {
+  color: var(--text-primary);
+}
+
+/* Plot Layout */
+.fm-plots-row {
+  display: flex;
+  gap: 16px;
+}
+
+.fm-plot-main {
+  flex: 3;
+  min-width: 0;
+}
+
+.fm-plot-side {
+  flex: 2;
+  min-width: 0;
+}
+
+.fm-plot-full {
+  width: 100%;
+}
+
+/* Focus styles */
+.fm-action-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   Mobile Responsive
+   ============================================ */
+
+@media (max-width: 768px) {
+  .fm-equation-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 10px 14px;
+  }
+
+  .fm-equation-text {
+    font-size: 0.95rem;
+  }
+
+  .fm-mode-cards {
+    flex-direction: column;
+  }
+
+  .fm-mode-card {
+    min-width: unset;
+  }
+
+  .fm-reconstruct-panel {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .fm-challenge-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .fm-action-btn {
+    flex: 1;
+  }
+
+  .fm-plots-row {
+    flex-direction: column;
+  }
+
+  .fm-plot-side {
+    flex: 1;
+  }
+}
+
+/* ============================================
+   Light Theme Overrides
+   ============================================ */
+
+[data-theme="light"] .fm-equation-banner {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+[data-theme="light"] .fm-mode-card {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+[data-theme="light"] .fm-reconstruct-panel {
+  background: rgba(255, 255, 255, 0.98);
+}
