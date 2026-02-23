@@ -50,6 +50,9 @@ from .resonance_anatomy import ResonanceAnatomySimulator
 from .vector_freq_response import VectorFreqResponseSimulator
 from .eigenfunction_tester import EigenfunctionTesterSimulator
 from .audio_freq_response import AudioFreqResponseSimulator
+from .delay_instability import DelayInstabilitySimulator
+from .uav_perching import UAVPerchingSimulator
+from .perching_glider import PerchingGliderSimulator
 
 # Registry mapping simulation IDs to their simulator classes
 # Add new simulators here as they are implemented
@@ -95,6 +98,9 @@ SIMULATOR_REGISTRY = {
     "vector_freq_response": VectorFreqResponseSimulator,
     "eigenfunction_tester": EigenfunctionTesterSimulator,
     "audio_freq_response": AudioFreqResponseSimulator,
+    "delay_instability": DelayInstabilitySimulator,
+    "uav_perching": UAVPerchingSimulator,
+    "perching_glider": PerchingGliderSimulator,
 }
 
 
@@ -177,6 +183,9 @@ __all__ = [
     "EigenfunctionTesterSimulator",
     "VectorFreqResponseSimulator",
     "AudioFreqResponseSimulator",
+    "DelayInstabilitySimulator",
+    "UAVPerchingSimulator",
+    "PerchingGliderSimulator",
     "SIMULATOR_REGISTRY",
     "get_simulator_class",
     "is_simulator_available",

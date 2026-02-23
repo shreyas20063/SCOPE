@@ -49,6 +49,9 @@ const ResonanceAnatomyViewer = lazy(() => import('./ResonanceAnatomyViewer'));
 const EigenfunctionTesterViewer = lazy(() => import('./EigenfunctionTesterViewer'));
 const AudioFreqResponseViewer = lazy(() => import('./AudioFreqResponseViewer'));
 const VectorFreqResponseViewer = lazy(() => import('./VectorFreqResponseViewer'));
+const DelayInstabilityViewer = lazy(() => import('./DelayInstabilityViewer'));
+const UAVPerchingViewer = lazy(() => import('./UAVPerchingViewer'));
+const PerchingGliderViewer = lazy(() => import('./PerchingGliderViewer'));
 
 // Loading fallback for lazy-loaded components
 const LazyLoadFallback = () => (
@@ -1901,6 +1904,29 @@ function SimulationViewer({
                     currentParams={currentParams}
                     onParamChange={onParamChange}
                     isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'delay_instability' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <DelayInstabilityViewer
+                    metadata={metadata}
+                    plots={plots}
+                    onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'uav_perching' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <UAVPerchingViewer
+                    metadata={metadata}
+                    plots={plots}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'perching_glider' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <PerchingGliderViewer
+                    metadata={metadata}
+                    plots={plots}
                   />
                 </Suspense>
               ) : (

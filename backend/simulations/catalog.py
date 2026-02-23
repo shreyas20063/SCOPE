@@ -2109,6 +2109,113 @@ SIMULATION_CATALOG = [
             {"id": "spectrum", "title": "Frequency Spectrum", "description": "FFT magnitude of input and output signals showing spectral content changes."},
         ],
     },
+
+    # =========================================================================
+    # DELAY EFFECT: THE DOMINO OF INSTABILITY
+    # =========================================================================
+    {
+        "id": "delay_instability",
+        "name": "Delay Effect: The Domino of Instability",
+        "description": "See how adding sensor delay destroys a perfect dead-beat controller. Three robots race toward a wall: no delay settles instantly, 1-step delay oscillates forever, 2-step delay crashes.",
+        "category": "Control Systems",
+        "thumbnail": "\u23f1\ufe0f",
+        "tags": ["delay", "instability", "feedback", "control", "poles", "dead-beat", "wallFinder", "latency"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "slider", "name": "kt_product", "label": "KT Product", "min": -2.0, "max": -0.1, "step": 0.05, "default": -1.0, "unit": "", "group": "Controller"},
+            {"type": "slider", "name": "initial_distance", "label": "Initial Distance", "min": 1.5, "max": 5.0, "step": 0.1, "default": 2.0, "unit": "m", "group": "Setup"},
+            {"type": "slider", "name": "target_distance", "label": "Target Distance", "min": 0.5, "max": 3.0, "step": 0.1, "default": 1.0, "unit": "m", "group": "Setup"},
+            {"type": "slider", "name": "num_steps", "label": "Time Steps", "min": 10, "max": 40, "step": 1, "default": 25, "unit": "", "group": "Setup"},
+            {"type": "select", "name": "playback_speed", "label": "Playback Speed", "options": [
+                {"value": "slow", "label": "Slow"},
+                {"value": "normal", "label": "Normal"},
+                {"value": "fast", "label": "Fast"},
+            ], "default": "normal", "group": "Animation"},
+        ],
+        "default_params": {
+            "kt_product": -1.0,
+            "initial_distance": 2.0,
+            "target_distance": 1.0,
+            "num_steps": 25,
+            "playback_speed": "normal",
+        },
+        "plots": [
+            {"id": "position_timeline", "title": "Robot Position vs Time Step", "description": "Distance to wall over time for all three delay cases"},
+            {"id": "pole_zero_map", "title": "Pole-Zero Map (z-plane)", "description": "Closed-loop poles showing stability for each delay configuration"},
+        ],
+    },
+
+    # =========================================================================
+    # UAV PERCHING TRAJECTORY
+    # =========================================================================
+    {
+        "id": "uav_perching",
+        "name": "UAV Perching Trajectory",
+        "description": "Simulate a fixed-wing glider performing a bird-like perching maneuver. Control the elevator pitch-up rate to decelerate through high-alpha stall drag and land on a perch. Features animated streamlines showing flow separation.",
+        "category": "Control Systems",
+        "thumbnail": "\U0001f6e9\ufe0f",
+        "tags": ["perching", "UAV", "stall", "drag", "angle of attack", "flight dynamics", "feedback control", "aerodynamics"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "slider", "name": "phi_dot", "label": "Elevator Pitch-Up Rate", "min": 0, "max": 300, "step": 5, "default": 100, "unit": "deg/s", "group": "Control"},
+            {"type": "slider", "name": "initial_speed", "label": "Initial Speed", "min": 2, "max": 10, "step": 0.5, "default": 6.0, "unit": "m/s", "group": "Approach"},
+            {"type": "slider", "name": "initial_altitude", "label": "Initial Altitude", "min": 0.5, "max": 4.0, "step": 0.1, "default": 2.0, "unit": "m", "group": "Approach"},
+        ],
+        "default_params": {"phi_dot": 100, "initial_speed": 6.0, "initial_altitude": 2.0},
+        "plots": [
+            {"id": "trajectory", "title": "Flight Path", "description": "2D trajectory showing horizontal distance vs height"},
+            {"id": "alpha_vs_time", "title": "Angle of Attack vs Time", "description": "Angle of attack with stall threshold"},
+            {"id": "forces_vs_time", "title": "Lift & Drag Coefficients", "description": "Aerodynamic coefficients over time"},
+            {"id": "speed_vs_time", "title": "Speed vs Time", "description": "Airspeed with capture threshold"},
+        ],
+    },
+
+    # =========================================================================
+    # 2D PERCHING GLIDER WITH FEEDBACK CONTROLLER
+    # =========================================================================
+    {
+        "id": "perching_glider",
+        "name": "2D Perching Glider",
+        "description": "Fly a glider onto a perch using open-loop, proportional, or optimal control \u2014 experience why feedback is essential for agile maneuvers. Features flat-plate aerodynamics, animated streamlines, and real-time pole visualization.",
+        "category": "Control Systems",
+        "thumbnail": "\U0001f985",
+        "tags": ["perching", "feedback", "control", "aerodynamics", "open-loop", "LQR", "proportional", "poles", "glider"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "select", "name": "control_mode", "label": "Control Mode", "options": [
+                {"value": "open_loop", "label": "Open-Loop (Manual)"},
+                {"value": "p_controller", "label": "P-Controller (Tune K)"},
+                {"value": "optimal", "label": "Optimal (Pre-tuned)"},
+            ], "default": "open_loop", "group": "Control"},
+            {"type": "slider", "name": "elevator_rate", "label": "Elevator Rate (\u03c6\u0307)", "min": -5.0, "max": 5.0, "step": 0.1, "default": 0.0, "unit": "rad/s", "group": "Control",
+             "visible_when": {"control_mode": "open_loop"}},
+            {"type": "slider", "name": "Kp", "label": "Gain K\u209a", "min": 0.0, "max": 30.0, "step": 0.5, "default": 5.0, "group": "Control",
+             "visible_when": {"control_mode": "p_controller"}},
+            {"type": "slider", "name": "initial_speed", "label": "Initial Speed", "min": 3.0, "max": 8.0, "step": 0.1, "default": 6.0, "unit": "m/s", "group": "Initial Conditions"},
+            {"type": "slider", "name": "initial_altitude", "label": "Initial Altitude", "min": 0.5, "max": 3.0, "step": 0.1, "default": 2.0, "unit": "m", "group": "Initial Conditions"},
+            {"type": "checkbox", "name": "show_forces", "label": "Show Aero Force Vectors", "default": False, "group": "Overlays"},
+            {"type": "checkbox", "name": "show_velocity", "label": "Show Velocity & Streamlines", "default": True, "group": "Overlays"},
+            {"type": "checkbox", "name": "show_aoa", "label": "Show Angle of Attack", "default": False, "group": "Overlays"},
+            {"type": "slider", "name": "animation_speed", "label": "Playback Speed", "min": 0.1, "max": 4.0, "step": 0.1, "default": 1.0, "unit": "\u00d7", "group": "Playback"},
+        ],
+        "default_params": {
+            "control_mode": "open_loop",
+            "elevator_rate": 0.0,
+            "Kp": 5.0,
+            "initial_speed": 6.0,
+            "initial_altitude": 2.0,
+            "show_forces": False,
+            "show_velocity": True,
+            "show_aoa": False,
+            "animation_speed": 1.0,
+        },
+        "plots": [
+            {"id": "trajectory_2d", "title": "Flight Path", "description": "2D trajectory showing the glider approach and perching attempt"},
+            {"id": "state_history", "title": "State History", "description": "Speed, pitch angle, and elevator deflection over time"},
+            {"id": "aero_forces", "title": "Aerodynamic Coefficients", "description": "Lift/drag coefficients and angle of attack vs time"},
+            {"id": "pole_plot", "title": "Closed-Loop Poles", "description": "s-plane pole locations for P-controller (shown only in P-controller mode)"},
+        ],
+    },
 ]
 
 
