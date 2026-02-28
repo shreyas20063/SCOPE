@@ -1471,8 +1471,15 @@ function BlockDiagramTFPanel({ metadata }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.8rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>Stability</span>
-              <span style={{ color: tf.is_stable ? 'var(--success-color)' : 'var(--error-color)', fontWeight: 600 }}>
-                {tf.is_stable ? '\u2713 Stable' : '\u2717 Unstable'}
+              <span style={{
+                color: tf.stability === 'stable' ? 'var(--success-color)'
+                     : tf.stability === 'marginally_stable' ? 'var(--warning-color)'
+                     : 'var(--error-color)',
+                fontWeight: 600
+              }}>
+                {tf.stability === 'stable' ? '\u2713 Stable'
+                 : tf.stability === 'marginally_stable' ? '\u25CB Marginally Stable'
+                 : '\u2717 Unstable'}
               </span>
             </div>
             {tf.poles && tf.poles.length > 0 && (

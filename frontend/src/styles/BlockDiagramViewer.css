@@ -626,6 +626,13 @@
   stroke: rgba(20, 184, 166, 0.45);
 }
 
+.bd-junction-dot {
+  fill: var(--accent-color, #00d9ff);
+  stroke: var(--surface-color, #131b2e);
+  stroke-width: 2;
+  cursor: move;
+}
+
 /* ============================================================================
    Wires
    ============================================================================ */
@@ -669,7 +676,8 @@
 /* Branch point dot */
 .bd-branch-dot {
   fill: var(--accent-color, #00d9ff);
-  stroke: none;
+  stroke: var(--surface-color, #131b2e);
+  stroke-width: 2;
 }
 
 /* New wire animation (flash on successful connection) */

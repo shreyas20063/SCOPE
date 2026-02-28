@@ -40,6 +40,7 @@ class BlockDiagramSimulator(BaseSimulator):
         "adder": {"inputs": 2, "outputs": 1, "max_inputs": 2},
         "delay": {"inputs": 1, "outputs": 1, "label": "R", "system": "dt"},
         "integrator": {"inputs": 1, "outputs": 1, "label": "∫", "system": "ct"},
+        "junction": {"inputs": 1, "outputs": 8, "label": ""},
     }
 
     # Preset diagrams
@@ -135,9 +136,14 @@ class BlockDiagramSimulator(BaseSimulator):
         if len(self._history) > self._max_history:
             self._history.pop(0)
 
-    @staticmethod
-    def _max_port_index(block_type: str) -> int:
+    def _max_port_index(self, block_type: str, block_id: str = None) -> int:
         """Maximum valid port index for a given block type."""
+        if block_type == "junction":
+            # Dynamic: max used port + 1, minimum 1
+            if block_id and hasattr(self, 'connections'):
+                used = [c["from_port"] for c in self.connections if c["from_block"] == block_id]
+                return max(used + [1]) + 1
+            return 8
         if block_type == "adder":
             return 2   # ports 0=left, 1=bottom, 2=right
         if block_type in ("gain", "delay", "integrator"):
@@ -192,6 +198,7 @@ class BlockDiagramSimulator(BaseSimulator):
             "clear": self._action_clear,
             "load_preset": self._action_load_preset,
             "undo": self._action_undo,
+            "split_wire": self._action_split_wire,
         }
 
         handler = action_map.get(action)
@@ -311,8 +318,8 @@ class BlockDiagramSimulator(BaseSimulator):
         # --- 2. Port index validation for ALL block types ---
         from_port = int(from_port)
         to_port = int(to_port)
-        max_from = self._max_port_index(from_block_data["type"])
-        max_to = self._max_port_index(to_block_data["type"])
+        max_from = self._max_port_index(from_block_data["type"], from_block)
+        max_to = self._max_port_index(to_block_data["type"], to_block)
         if from_port < 0 or from_port > max_from:
             raise ValueError(
                 f"Invalid source port {from_port} for {from_block_data['type']} "
@@ -340,16 +347,32 @@ class BlockDiagramSimulator(BaseSimulator):
                     conn["to_port"] == to_port):
                 raise ValueError("This exact connection already exists")
 
-        # --- 5. Reverse connection prevention ---
+        # --- 5. Reverse connection prevention (same port pair) ---
         for conn in self.connections:
-            if conn["from_block"] == to_block and conn["to_block"] == from_block:
+            if (conn["from_block"] == to_block and conn["from_port"] == to_port and
+                    conn["to_block"] == from_block and conn["to_port"] == from_port):
                 raise ValueError(
-                    "A connection already exists in the opposite direction "
-                    "between these two blocks"
+                    f"A reverse connection already exists on the same ports "
+                    f"({to_block}:{to_port} -> {from_block}:{from_port})"
                 )
 
-        # --- 6. Input port already occupied (non-adder) ---
-        # Adders can accept wires on all 3 ports; other blocks have one input
+        # --- 5b. Port role collapse (bidirectional → locked) ---
+        # Once a port is used as output (from_port), it cannot also be an input,
+        # and vice versa. This enforces "collapse" semantics for bidirectional ports.
+        for conn in self.connections:
+            if conn["from_block"] == to_block and conn["from_port"] == to_port:
+                raise ValueError(
+                    f"Port {to_port} on block {to_block} is already used as an "
+                    "output and cannot also be used as an input"
+                )
+            if conn["to_block"] == from_block and conn["to_port"] == from_port:
+                raise ValueError(
+                    f"Port {from_port} on block {from_block} is already used as an "
+                    "input and cannot also be used as an output"
+                )
+
+        # --- 6. Input port already occupied ---
+        # Each port can only receive one incoming wire
         for conn in self.connections:
             if conn["to_block"] == to_block and conn["to_port"] == to_port:
                 raise ValueError(
@@ -490,6 +513,57 @@ class BlockDiagramSimulator(BaseSimulator):
         self._next_block_id = next_id
         self._recompute_tf()
 
+    def _action_split_wire(self, params: Dict[str, Any]) -> None:
+        """Split a wire by inserting a junction node at the given position.
+
+        Takes conn_index (which wire to split) and position {x, y}.
+        Removes the original A→B connection and creates:
+          A → junction(port 0)  and  junction(port 1) → B
+        The user can then draw more wires from the junction's output ports.
+        """
+        self._save_undo()
+        conn_index = params.get("conn_index")
+        position = params.get("position", {})
+
+        if conn_index is None or conn_index < 0 or conn_index >= len(self.connections):
+            raise ValueError(f"Invalid connection index: {conn_index}")
+
+        conn = self.connections[conn_index]
+        from_block = conn["from_block"]
+        from_port = conn["from_port"]
+        to_block = conn["to_block"]
+        to_port = conn["to_port"]
+
+        # Create junction block at the specified position
+        junc_id = self._gen_block_id()
+        self.blocks[junc_id] = {
+            "id": junc_id,
+            "type": "junction",
+            "position": {
+                "x": position.get("x", 400),
+                "y": position.get("y", 300),
+            },
+        }
+
+        # Remove original connection
+        self.connections.pop(conn_index)
+
+        # Create two new connections: A → junction(port 0), junction(port 1) → B
+        self.connections.append({
+            "from_block": from_block,
+            "from_port": from_port,
+            "to_block": junc_id,
+            "to_port": 0,
+        })
+        self.connections.append({
+            "from_block": junc_id,
+            "from_port": 1,
+            "to_block": to_block,
+            "to_port": to_port,
+        })
+
+        self._recompute_tf()
+
     # =========================================================================
     # Preset builders
     # =========================================================================
@@ -497,16 +571,16 @@ class BlockDiagramSimulator(BaseSimulator):
     def _build_accumulator_preset(self) -> None:
         """y[n] = y[n-1] + x[n]: input → adder → output, delay feedback."""
         inp = self._gen_block_id()
-        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 100, "y": 200}}
+        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 120, "y": 240}}
 
         adder = self._gen_block_id()
-        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 280, "y": 200}, "signs": ["+", "+", "+"]}
+        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 320, "y": 240}, "signs": ["+", "+", "+"]}
 
         out = self._gen_block_id()
-        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 550, "y": 200}}
+        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 600, "y": 240}}
 
         delay = self._gen_block_id()
-        self.blocks[delay] = {"id": delay, "type": "delay", "position": {"x": 420, "y": 330}}
+        self.blocks[delay] = {"id": delay, "type": "delay", "position": {"x": 460, "y": 380}}
 
         # Port numbering: gain/delay port 0=left, 1=right; adder port 0=left, 1=bottom, 2=right
         self.connections = [
@@ -519,16 +593,16 @@ class BlockDiagramSimulator(BaseSimulator):
     def _build_difference_preset(self) -> None:
         """y[n] = x[n] - x[n-1]: input splits to adder and delay→adder."""
         inp = self._gen_block_id()
-        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 100, "y": 200}}
+        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 120, "y": 220}}
 
         delay = self._gen_block_id()
-        self.blocks[delay] = {"id": delay, "type": "delay", "position": {"x": 280, "y": 330}}
+        self.blocks[delay] = {"id": delay, "type": "delay", "position": {"x": 320, "y": 380}}
 
         adder = self._gen_block_id()
-        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 420, "y": 200}, "signs": ["+", "-", "+"]}
+        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 460, "y": 220}, "signs": ["+", "-", "+"]}
 
         out = self._gen_block_id()
-        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 580, "y": 200}}
+        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 640, "y": 220}}
 
         self.connections = [
             {"from_block": inp, "from_port": 0, "to_block": adder, "to_port": 0},
@@ -540,25 +614,25 @@ class BlockDiagramSimulator(BaseSimulator):
     def _build_first_order_dt_preset(self) -> None:
         """y[n] = x[n] + 0.5·y[n-1]: adder → output, with delay→gain(0.5) feedback."""
         inp = self._gen_block_id()
-        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 80, "y": 200}}
+        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 100, "y": 220}}
 
         adder = self._gen_block_id()
-        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 260, "y": 200}, "signs": ["+", "+", "+"]}
+        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 300, "y": 220}, "signs": ["+", "+", "+"]}
 
         out = self._gen_block_id()
-        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 560, "y": 200}}
-
-        gain = self._gen_block_id()
-        self.blocks[gain] = {"id": gain, "type": "gain", "position": {"x": 330, "y": 340}, "value": 0.5}
+        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 600, "y": 220}}
 
         delay = self._gen_block_id()
-        self.blocks[delay] = {"id": delay, "type": "delay", "position": {"x": 470, "y": 340}}
+        self.blocks[delay] = {"id": delay, "type": "delay", "position": {"x": 500, "y": 380}}
+
+        gain = self._gen_block_id()
+        self.blocks[gain] = {"id": gain, "type": "gain", "position": {"x": 340, "y": 380}, "value": 0.5}
 
         self.connections = [
             {"from_block": inp, "from_port": 0, "to_block": adder, "to_port": 0},
             {"from_block": adder, "from_port": 2, "to_block": out, "to_port": 0},
             {"from_block": adder, "from_port": 2, "to_block": delay, "to_port": 0},
-            {"from_block": delay, "from_port": 1, "to_block": gain, "to_port": 0},
+            {"from_block": delay, "from_port": 1, "to_block": gain, "to_port": 1},
             {"from_block": gain, "from_port": 0, "to_block": adder, "to_port": 1},
         ]
 
@@ -618,25 +692,25 @@ class BlockDiagramSimulator(BaseSimulator):
     def _build_first_order_ct_preset(self) -> None:
         """dy/dt = -2y + x(t): input → adder → integrator → output, gain(-2) feedback."""
         inp = self._gen_block_id()
-        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 80, "y": 200}}
+        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 100, "y": 220}}
 
         adder = self._gen_block_id()
-        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 260, "y": 200}, "signs": ["+", "-", "+"]}
+        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 300, "y": 220}, "signs": ["+", "-", "+"]}
 
         integ = self._gen_block_id()
-        self.blocks[integ] = {"id": integ, "type": "integrator", "position": {"x": 420, "y": 200}}
+        self.blocks[integ] = {"id": integ, "type": "integrator", "position": {"x": 460, "y": 220}}
 
         out = self._gen_block_id()
-        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 580, "y": 200}}
+        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 640, "y": 220}}
 
         gain = self._gen_block_id()
-        self.blocks[gain] = {"id": gain, "type": "gain", "position": {"x": 340, "y": 340}, "value": 2.0}
+        self.blocks[gain] = {"id": gain, "type": "gain", "position": {"x": 380, "y": 380}, "value": 2.0}
 
         self.connections = [
             {"from_block": inp, "from_port": 0, "to_block": adder, "to_port": 0},
             {"from_block": adder, "from_port": 2, "to_block": integ, "to_port": 0},
             {"from_block": integ, "from_port": 1, "to_block": out, "to_port": 0},
-            {"from_block": integ, "from_port": 1, "to_block": gain, "to_port": 0},
+            {"from_block": integ, "from_port": 1, "to_block": gain, "to_port": 1},
             {"from_block": gain, "from_port": 0, "to_block": adder, "to_port": 1},
         ]
 
@@ -763,7 +837,7 @@ class BlockDiagramSimulator(BaseSimulator):
                 # R or A operator: [0, 1] = 0 + 1*R = R
                 return (np.array([0.0, 1.0]), np.array([1.0]))
             else:
-                # input, output, adder: unity
+                # input, output, adder, junction: unity (pass-through)
                 return (np.array([1.0]), np.array([1.0]))
 
         # Find all forward paths and loops
@@ -801,7 +875,7 @@ class BlockDiagramSimulator(BaseSimulator):
                         num = self._pscale(num, -1.0)
 
                 # Multiply by block's transfer function
-                if block["type"] not in ("input", "output", "adder"):
+                if block["type"] not in ("input", "output", "adder", "junction"):
                     bn, bd = block_tf(bid)
                     num = self._pmul(num, bn)
                     den = self._pmul(den, bd)
@@ -825,65 +899,115 @@ class BlockDiagramSimulator(BaseSimulator):
                     if port_idx < len(signs) and signs[port_idx] == "-":
                         num = self._pscale(num, -1.0)
 
-                if block["type"] not in ("input", "output", "adder"):
+                if block["type"] not in ("input", "output", "adder", "junction"):
                     bn, bd = block_tf(bid)
                     num = self._pmul(num, bn)
                     den = self._pmul(den, bd)
 
             return (num, den)
 
-        # Mason's formula: T = Σ(P_k * Δ_k) / Δ
-        # Δ = 1 - Σ L_i + Σ (non-touching pairs) - ...
-        # Simplified: Δ = 1 - Σ L_i (sufficient for typical diagrams)
+        # ── Full Mason's gain formula ──
+        # T = Σ(P_k · Δ_k) / Δ
+        # Δ = 1 - Σ L_i + Σ L_i·L_j (non-touching pairs) - Σ L_i·L_j·L_k (non-touching triples) + ...
+        # Δ_k = graph determinant with all loops touching forward path k removed
 
-        if len(forward_paths) == 1 and len(all_loops) <= 1:
-            p_num, p_den = compute_path_gain(forward_paths[0])
+        def loops_are_non_touching(loop1: List[str], loop2: List[str]) -> bool:
+            """Two loops are non-touching if they share no common nodes."""
+            return set(loop1).isdisjoint(set(loop2))
 
-            if all_loops:
-                l_num, l_den = compute_loop_gain(all_loops[0])
-                # TF = P / (1 - L)
-                # = (p_num * l_den) / (p_den * l_den - p_den * l_num)
-                tf_num = self._pmul(p_num, l_den)
-                tf_den = self._psub(
-                    self._pmul(p_den, l_den),
-                    self._pmul(p_den, l_num)
+        def compute_delta(loops: List[List[str]]) -> Tuple[np.ndarray, np.ndarray]:
+            """Compute graph determinant Δ from a set of loops.
+            Δ = 1 - Σ L_i + Σ (non-touching pairs) L_i·L_j - ...
+            Cap at triples for performance (sufficient for most diagrams).
+            """
+            # Start with Δ = 1
+            d_num = np.array([1.0])
+            d_den = np.array([1.0])
+
+            if not loops:
+                return d_num, d_den
+
+            # Precompute loop gains
+            loop_gains = [compute_loop_gain(lp) for lp in loops]
+            n_loops = len(loop_gains)
+
+            # Subtract individual loop gains: - Σ L_i
+            for ln, ld in loop_gains:
+                d_num = self._psub(
+                    self._pmul(d_num, ld),
+                    self._pmul(ln, d_den)
                 )
-            else:
-                tf_num = p_num
-                tf_den = p_den
-        else:
-            # General Mason's formula
-            # Δ = 1 - Σ L_i
-            delta_num = np.array([1.0])
-            delta_den = np.array([1.0])
+                d_den = self._pmul(d_den, ld)
 
-            for loop in all_loops:
-                l_num, l_den = compute_loop_gain(loop)
-                # delta = delta - L_i = (delta_num*l_den - l_num*delta_den) / (delta_den*l_den)
-                new_num = self._psub(
-                    self._pmul(delta_num, l_den),
-                    self._pmul(l_num, delta_den)
-                )
-                new_den = self._pmul(delta_den, l_den)
-                delta_num = new_num
-                delta_den = new_den
+            # Add non-touching pairs: + Σ L_i · L_j
+            if n_loops >= 2 and n_loops <= 20:
+                for i in range(n_loops):
+                    for j in range(i + 1, n_loops):
+                        if loops_are_non_touching(loops[i], loops[j]):
+                            pair_num = self._pmul(loop_gains[i][0], loop_gains[j][0])
+                            pair_den = self._pmul(loop_gains[i][1], loop_gains[j][1])
+                            d_num = self._padd(
+                                self._pmul(d_num, pair_den),
+                                self._pmul(pair_num, d_den)
+                            )
+                            d_den = self._pmul(d_den, pair_den)
 
-            # Numerator = Σ P_k * Δ_k (Δ_k ≈ 1 simplified)
-            total_num = np.array([0.0])
-            total_den = np.array([1.0])
-            for fp in forward_paths:
-                p_n, p_d = compute_path_gain(fp)
-                new_num = self._padd(
-                    self._pmul(total_num, p_d),
-                    self._pmul(p_n, total_den)
-                )
-                new_den = self._pmul(total_den, p_d)
-                total_num = new_num
-                total_den = new_den
+            # Subtract non-touching triples: - Σ L_i · L_j · L_k
+            if n_loops >= 3 and n_loops <= 20:
+                for i in range(n_loops):
+                    for j in range(i + 1, n_loops):
+                        if not loops_are_non_touching(loops[i], loops[j]):
+                            continue
+                        for k in range(j + 1, n_loops):
+                            if (loops_are_non_touching(loops[i], loops[k]) and
+                                    loops_are_non_touching(loops[j], loops[k])):
+                                tri_num = self._pmul(
+                                    self._pmul(loop_gains[i][0], loop_gains[j][0]),
+                                    loop_gains[k][0]
+                                )
+                                tri_den = self._pmul(
+                                    self._pmul(loop_gains[i][1], loop_gains[j][1]),
+                                    loop_gains[k][1]
+                                )
+                                d_num = self._psub(
+                                    self._pmul(d_num, tri_den),
+                                    self._pmul(tri_num, d_den)
+                                )
+                                d_den = self._pmul(d_den, tri_den)
 
-            # TF = (total_num * delta_den) / (total_den * delta_num)
-            tf_num = self._pmul(total_num, delta_den)
-            tf_den = self._pmul(total_den, delta_num)
+            return d_num, d_den
+
+        def path_touches_loop(path: List[str], loop: List[str]) -> bool:
+            """A forward path touches a loop if they share any node."""
+            return not set(path).isdisjoint(set(loop))
+
+        def compute_cofactor(path: List[str], loops: List[List[str]]) -> Tuple[np.ndarray, np.ndarray]:
+            """Compute Δ_k — the graph determinant using only loops that don't touch path k."""
+            non_touching = [lp for lp in loops if not path_touches_loop(path, lp)]
+            return compute_delta(non_touching)
+
+        # Compute full Δ
+        delta_num, delta_den = compute_delta(all_loops)
+
+        # Compute numerator: Σ P_k · Δ_k
+        total_num = np.array([0.0])
+        total_den = np.array([1.0])
+        for fp in forward_paths:
+            p_n, p_d = compute_path_gain(fp)
+            cofactor_num, cofactor_den = compute_cofactor(fp, all_loops)
+            # P_k · Δ_k = (p_n · cofactor_num) / (p_d · cofactor_den)
+            term_num = self._pmul(p_n, cofactor_num)
+            term_den = self._pmul(p_d, cofactor_den)
+            # Add to running total
+            total_num = self._padd(
+                self._pmul(total_num, term_den),
+                self._pmul(term_num, total_den)
+            )
+            total_den = self._pmul(total_den, term_den)
+
+        # TF = (total_num · delta_den) / (total_den · delta_num)
+        tf_num = self._pmul(total_num, delta_den)
+        tf_den = self._pmul(total_den, delta_num)
 
         # Clean up trailing near-zero coefficients
         tf_num = self._clean_poly(tf_num)
@@ -923,10 +1047,28 @@ class BlockDiagramSimulator(BaseSimulator):
         poles_formatted = self._format_roots(poles)
         zeros_formatted = self._format_roots(zeros)
 
-        if self.system_type == "dt":
-            is_stable = all(abs(complex(p)) < 1.0 for p in poles) if poles else True
+        # Three-state stability classification
+        EPS = 1e-6
+        if poles:
+            if self.system_type == "dt":
+                max_mag = max(abs(complex(p)) for p in poles)
+                if max_mag < 1.0 - EPS:
+                    stability = "stable"
+                elif max_mag > 1.0 + EPS:
+                    stability = "unstable"
+                else:
+                    stability = "marginally_stable"
+            else:
+                max_real = max(complex(p).real for p in poles)
+                if max_real < -EPS:
+                    stability = "stable"
+                elif max_real > EPS:
+                    stability = "unstable"
+                else:
+                    stability = "marginally_stable"
         else:
-            is_stable = all(complex(p).real < 0 for p in poles) if poles else True
+            stability = "stable"
+        is_stable = stability == "stable"
 
         return {
             "expression": f"H({op}) = {expression}",
@@ -937,6 +1079,7 @@ class BlockDiagramSimulator(BaseSimulator):
             "poles": poles_formatted,
             "zeros": zeros_formatted,
             "is_stable": is_stable,
+            "stability": stability,
             "num_forward_paths": len(forward_paths),
             "num_loops": len(all_loops),
         }
@@ -1487,11 +1630,14 @@ class BlockDiagramSimulator(BaseSimulator):
         """Get the default output port index (right side) for a block type.
 
         Port numbering: gain/delay/integrator: 0=left, 1=right.
-        Adder: 0=left, 1=bottom, 2=right. Input/output: 0 (single port).
+        Adder: 0=left, 1=bottom, 2=right. Junction: port 1 (first output).
+        Input/output: 0 (single port).
         """
         if block_type == "adder":
             return 2
         if block_type in ("gain", "delay", "integrator"):
+            return 1
+        if block_type == "junction":
             return 1
         return 0  # input, output
 
@@ -1509,16 +1655,16 @@ class BlockDiagramSimulator(BaseSimulator):
         - Each subsequent adder combines delayed numerator and denominator terms
         - Output is taken from the first adder (after the forward chain)
 
-        Direct Form II Transposed produces a clean cascaded layout:
+        Direct Form I produces a clean cascaded layout with separate
+        feedforward (numerator) and feedback (denominator) delay chains:
 
-          x ──[b0]──(+)──────────────────> y
-                     │                     ^
-                     v                     |
-                    [R]──[b1]──(+)──[-a1]──┘
-                               │
-                               v
-                              [R]──[b2]──(+)──[-a2]──┘
-                                          ...
+          x ──[b0]──┐
+          │         (+)──> y
+          [R]─[b1]──┘     │
+          │               [R]─[-a1]──┐
+          [R]─[b2]──┐     │         (+)
+                    (+)   [R]─[-a2]──┘
+                    ...
 
         All adders have exactly 2 inputs.
         """
@@ -1606,7 +1752,7 @@ class BlockDiagramSimulator(BaseSimulator):
             return
 
         # =====================================================================
-        # Direct Form II Transposed realization
+        # Direct Form I realization
         # =====================================================================
         #
         # The difference equation in DF-II transposed form is:

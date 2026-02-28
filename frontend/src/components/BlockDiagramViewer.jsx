@@ -24,6 +24,7 @@ const BLOCK_SIZES = {
   adder: { radius: 34 },
   delay: { width: 82, height: 54 },
   integrator: { width: 82, height: 54 },
+  junction: { radius: 6 },
 };
 
 const PORT_RADIUS = 8;
@@ -32,6 +33,11 @@ const CANVAS_HEIGHT = 650;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3.0;
 const ZOOM_STEP = 0.15;
+const GRID_SIZE = 24;
+
+function snapToGrid(val) {
+  return Math.round(val / GRID_SIZE) * GRID_SIZE;
+}
 
 // ============================================================================
 // SVG Block Components
@@ -154,7 +160,7 @@ function AdderBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMou
         onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 0); }}
       />
       <text
-        x={-(r + 3)} y={-12}
+        x={-(r + 13)} y={-14}
         textAnchor="middle" className="bd-sign-label"
         onClick={(e) => { e.stopPropagation(); onToggleSign(block.id, 0); }}
         style={{ cursor: 'pointer' }}
@@ -170,7 +176,7 @@ function AdderBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMou
         onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 1); }}
       />
       <text
-        x={14} y={r + 6}
+        x={-14} y={r + 17}
         textAnchor="middle" className="bd-sign-label"
         onClick={(e) => { e.stopPropagation(); onToggleSign(block.id, 1); }}
         style={{ cursor: 'pointer' }}
@@ -178,12 +184,11 @@ function AdderBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMou
         {signs[1]}
       </text>
 
-      {/* Port 2 (right) — bidirectional */}
+      {/* Port 2 (right) — output only */}
       <circle
         cx={r + 13} cy={0} r={PORT_RADIUS}
-        className="bd-port"
-        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 2, x + r + 13, y, 'right'); }}
-        onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 2); }}
+        className="bd-port bd-port-output"
+        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'output', 2, x + r + 13, y, 'right'); }}
       />
       {/* No sign label on output port (port 2) */}
     </g>
@@ -263,6 +268,59 @@ function IntegratorBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPo
   );
 }
 
+function JunctionBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMouseUp, connections = [] }) {
+  const { x, y } = block.position;
+  const r = BLOCK_SIZES.junction.radius;
+
+  // Find which output ports are in use
+  const usedOutputPorts = new Set();
+  connections.forEach(c => {
+    if (c.from_block === block.id) usedOutputPorts.add(c.from_port);
+  });
+  // Next available output port
+  const nextPort = Math.max(1, ...Array.from(usedOutputPorts)) + 1;
+
+  // Port positions: port 0 = input (left), ports 1+ = outputs (radially arranged)
+  const outputPorts = Array.from(usedOutputPorts).concat([nextPort]);
+  const portAngles = { 1: 0, 2: -Math.PI / 2, 3: Math.PI / 2, 4: Math.PI };
+  // Fallback: distribute evenly on right semicircle
+
+  return (
+    <g
+      className={`bd-block ${isSelected ? 'bd-block-selected' : ''}`}
+      onMouseDown={(e) => onMouseDown(e, block.id)}
+      transform={`translate(${x}, ${y})`}
+    >
+      <circle cx={0} cy={0} r={r} className="bd-junction-dot" />
+
+      {/* Port 0 (input) */}
+      <circle
+        cx={-(r + 8)} cy={0} r={PORT_RADIUS}
+        className="bd-port"
+        onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 0); }}
+      />
+
+      {/* Output ports */}
+      {outputPorts.map(pIdx => {
+        // Position: port 1 = right, port 2 = up, port 3 = down
+        let px, py, dir;
+        if (pIdx === 1) { px = r + 8; py = 0; dir = 'right'; }
+        else if (pIdx === 2) { px = 0; py = -(r + 8); dir = 'up'; }
+        else if (pIdx === 3) { px = 0; py = r + 8; dir = 'down'; }
+        else { px = r + 8; py = (pIdx - 3) * 16; dir = 'right'; }
+        return (
+          <circle
+            key={`jp-${pIdx}`}
+            cx={px} cy={py} r={PORT_RADIUS}
+            className="bd-port bd-port-output"
+            onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'output', pIdx, x + px, y + py, dir); }}
+          />
+        );
+      })}
+    </g>
+  );
+}
+
 // ============================================================================
 // Wire Component — adaptive Bezier curves
 // ============================================================================
@@ -333,15 +391,26 @@ function computeWirePath(startPos, endPos, startDir, endDir) {
     return P([[sx,sy],[sx+G,sy],[sx+G,detour],[ex-G,detour],[ex-G,ey],[ex,ey]]);
   }
 
-  // ── right → down (into adder bottom) ──
+  // ── right → down (into adder bottom or similar) ──
   if (sd === 'right' && ed === 'down') {
-    // Go right, then straight down to target
-    return P([[sx,sy],[ex,sy],[ex,ey]]);
+    if (sy < ey - G) {
+      // Source above target: go right then L-bend down
+      return P([[sx,sy],[ex,sy],[ex,ey]]);
+    }
+    // Source at same level or below target: detour right and above, then down
+    const topY = Math.min(sy, ey - G) - 30;
+    return P([[sx,sy],[sx+G,sy],[sx+G,topY],[ex,topY],[ex,ey]]);
   }
 
   // ── right → up ──
   if (sd === 'right' && ed === 'up') {
-    return P([[sx,sy],[ex,sy],[ex,ey]]);
+    if (sy > ey + G) {
+      // Source below target: go right then L-bend up
+      return P([[sx,sy],[ex,sy],[ex,ey]]);
+    }
+    // Source at same level or above target: detour right and below, then up
+    const botY = Math.max(sy, ey + G) + 30;
+    return P([[sx,sy],[sx+G,sy],[sx+G,botY],[ex,botY],[ex,ey]]);
   }
 
   // ── right → right ──
@@ -438,6 +507,16 @@ function getPortPosition(block, portType, portIndex) {
     if (portIndex === 0) return { x: x - (r + 13), y, dir: 'left' };
     if (portIndex === 1) return { x, y: y + r + 13, dir: 'down' };
     return { x: x + r + 13, y, dir: 'right' };
+  }
+
+  // Junction: port 0 = input (left), port 1 = right, port 2 = up, port 3 = down
+  if (type === 'junction') {
+    const r = BLOCK_SIZES.junction.radius;
+    if (portIndex === 0) return { x: x - (r + 8), y, dir: 'left' };
+    if (portIndex === 1) return { x: x + r + 8, y, dir: 'right' };
+    if (portIndex === 2) return { x, y: y - (r + 8), dir: 'up' };
+    if (portIndex === 3) return { x, y: y + r + 8, dir: 'down' };
+    return { x: x + r + 8, y: y + (portIndex - 3) * 16, dir: 'right' };
   }
 
   return { x, y, dir: 'right' };
@@ -631,9 +710,10 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     const noOverlap = (px, py) =>
       !existingPositions.some(p => Math.abs(p.x - px) < hClearance && Math.abs(p.y - py) < vClearance);
 
-    // Try center first
-    if (noOverlap(cx, cy)) {
-      callAction('add_block', { block_type: blockType, position: { x: cx, y: cy } });
+    // Try center first (snapped)
+    const scx = snapToGrid(cx), scy = snapToGrid(cy);
+    if (noOverlap(scx, scy)) {
+      callAction('add_block', { block_type: blockType, position: { x: scx, y: scy } });
       return;
     }
 
@@ -643,8 +723,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       const points = Math.max(8, ring * 6);
       for (let i = 0; i < points; i++) {
         const angle = (2 * Math.PI * i) / points;
-        const px = Math.round(cx + r * Math.cos(angle));
-        const py = Math.round(cy + r * Math.sin(angle));
+        const px = snapToGrid(cx + r * Math.cos(angle));
+        const py = snapToGrid(cy + r * Math.sin(angle));
         // Keep within canvas bounds
         if (px < 80 || px > CANVAS_WIDTH - 80 || py < 60 || py > CANVAS_HEIGHT - 60) continue;
         if (noOverlap(px, py)) {
@@ -679,8 +759,10 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     const { x: svgX, y: svgY } = getSvgCoords(e.clientX, e.clientY);
 
     if (dragging) {
-      const newX = Math.max(60, Math.min(CANVAS_WIDTH - 60, svgX - dragOffset.current.x));
-      const newY = Math.max(40, Math.min(CANVAS_HEIGHT - 40, svgY - dragOffset.current.y));
+      const rawX = Math.max(60, Math.min(CANVAS_WIDTH - 60, svgX - dragOffset.current.x));
+      const rawY = Math.max(40, Math.min(CANVAS_HEIGHT - 40, svgY - dragOffset.current.y));
+      const newX = snapToGrid(rawX);
+      const newY = snapToGrid(rawY);
       setBlocks(prev => ({
         ...prev,
         [dragging]: {
@@ -740,7 +822,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
          c.to_block === blockId && c.to_port === portIndex)
       );
       const isReverse = connections.some(c =>
-        c.from_block === blockId && c.to_block === wireStart.blockId
+        c.from_block === blockId && c.from_port === portIndex &&
+        c.to_block === wireStart.blockId && c.to_port === wireStart.portIndex
       );
       if (isDuplicate || isReverse) {
         if (targetPos) setConnectionFlash({ position: targetPos, success: false });
@@ -882,22 +965,17 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   }, []);
 
   // Wire branching — double-click to start a new connection from the same source
-  const handleWireDoubleClick = useCallback((e, connection) => {
+  const handleWireDoubleClick = useCallback((e, connIndex) => {
     e.stopPropagation();
     e.preventDefault();
     const { x: svgX, y: svgY } = getSvgCoords(e.clientX, e.clientY);
-    const fromBlock = blocks[connection.from_block];
-    if (!fromBlock) return;
-    const sourcePort = getPortPosition(fromBlock, 'output', connection.from_port);
-    setWireStart({
-      blockId: connection.from_block,
-      portIndex: connection.from_port,
-      x: svgX,
-      y: svgY,
-      dir: sourcePort.dir || 'right',
+    // Split wire: insert junction node at click position
+    callAction('split_wire', {
+      conn_index: connIndex,
+      position: { x: Math.round(svgX), y: Math.round(svgY) },
     });
     setSelectedWire(null);
-  }, [blocks, getSvgCoords]);
+  }, [getSvgCoords, callAction]);
 
   // Zoom handlers
   const handleZoomIn = useCallback(() => {
@@ -913,12 +991,33 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     setPanOffset({ x: 0, y: 0 });
   }, []);
 
-  // Mouse wheel zoom on canvas
+  // Mouse wheel zoom toward cursor position
   const handleWheel = useCallback((e) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-    setZoom(z => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + delta)));
-  }, []);
+    setZoom(prevZoom => {
+      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prevZoom + delta));
+      if (newZoom === prevZoom) return prevZoom;
+      // Adjust pan so the point under cursor stays fixed
+      const svg = svgRef.current;
+      if (svg) {
+        const rect = svg.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        // SVG point under cursor in old zoom
+        const svgX = (mx / prevZoom) + (CANVAS_WIDTH - rect.width / prevZoom) / 2 - panOffset.x;
+        const svgY = (my / prevZoom) + (CANVAS_HEIGHT - rect.height / prevZoom) / 2 - panOffset.y;
+        // Where that SVG point would appear in new zoom (without pan adjustment)
+        const newMx = (svgX - (CANVAS_WIDTH - rect.width / newZoom) / 2) * newZoom;
+        const newMy = (svgY - (CANVAS_HEIGHT - rect.height / newZoom) / 2) * newZoom;
+        // Delta to shift pan so point stays at cursor
+        const panDx = (mx - newMx) / newZoom;
+        const panDy = (my - newMy) / newZoom;
+        setPanOffset(prev => ({ x: prev.x + panDx, y: prev.y + panDy }));
+      }
+      return newZoom;
+    });
+  }, [panOffset]);
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -942,7 +1041,12 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     if (isPanning) {
       const dx = (e.clientX - panStart.current.x) / zoom;
       const dy = (e.clientY - panStart.current.y) / zoom;
-      setPanOffset({ x: panStart.current.ox + dx, y: panStart.current.oy + dy });
+      // Clamp pan to prevent canvas from going completely off-screen
+      const maxPan = CANVAS_WIDTH / (2 * zoom);
+      const maxPanY = CANVAS_HEIGHT / (2 * zoom);
+      const newX = Math.max(-maxPan, Math.min(maxPan, panStart.current.ox + dx));
+      const newY = Math.max(-maxPanY, Math.min(maxPanY, panStart.current.oy + dy));
+      setPanOffset({ x: newX, y: newY });
     }
   }, [isPanning, zoom]);
 
@@ -960,6 +1064,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   }, [zoom, panOffset]);
 
   // Compute branch points — output ports with multiple connections
+  // Offset dot 16px along wire direction (away from port, not sitting on it)
   const branchPoints = useMemo(() => {
     const portCounts = {};
     connections.forEach(conn => {
@@ -973,7 +1078,14 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
         const block = blocks[blockId];
         if (block) {
           const pos = getPortPosition(block, 'output', parseInt(portIdx));
-          points.push({ x: pos.x, y: pos.y });
+          // Offset 16px along the port's outgoing direction
+          const dir = pos.dir || 'right';
+          let ox = 0, oy = 0;
+          if (dir === 'right') ox = 16;
+          else if (dir === 'left') ox = -16;
+          else if (dir === 'down') oy = 16;
+          else if (dir === 'up') oy = -16;
+          points.push({ x: pos.x + ox, y: pos.y + oy });
         }
       }
     });
@@ -992,7 +1104,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     const dirs = {};
     Object.keys(blocks).forEach(blockId => {
       const block = blocks[blockId];
-      if (block.type === 'input' || block.type === 'output' || block.type === 'adder') {
+      if (block.type === 'input' || block.type === 'output' || block.type === 'adder' || block.type === 'junction') {
         dirs[blockId] = 'ltr'; // fixed direction
         return;
       }
@@ -1021,6 +1133,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     const base = ['input', 'output', 'gain', 'adder'];
     if (systemType === 'dt') base.push('delay');
     else base.push('integrator');
+    base.push('junction');
     return base;
   }, [systemType]);
 
@@ -1031,6 +1144,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     adder: 'Adder',
     delay: 'Delay',
     integrator: 'Integrator',
+    junction: 'Junction',
   };
 
   const blockIcons = {
@@ -1040,6 +1154,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     adder: '\u2295',
     delay: '\u25FB',
     integrator: '\u222B',
+    junction: '\u25CF',
   };
 
   // ========================================================================
@@ -1210,7 +1325,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
                 id="arrowhead"
                 markerWidth="10"
                 markerHeight="8"
-                refX="9"
+                refX="8"
                 refY="4"
                 orient="auto"
               >
@@ -1238,13 +1353,13 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
                 isNew={i === newWireIndex}
                 isSelected={i === selectedWire}
                 onWireClick={(e) => handleWireClick(e, i)}
-                onWireDoubleClick={(e) => handleWireDoubleClick(e, conn)}
+                onWireDoubleClick={(e) => handleWireDoubleClick(e, i)}
               />
             ))}
 
             {/* Branch point dots */}
             {branchPoints.map((pt, i) => (
-              <circle key={`branch-${i}`} cx={pt.x} cy={pt.y} r={4} className="bd-branch-dot" />
+              <circle key={`branch-${i}`} cx={pt.x} cy={pt.y} r={5} className="bd-branch-dot" />
             ))}
 
             {/* Wire in progress */}
@@ -1289,6 +1404,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
                   return <DelayBlock key={block.id} {...commonProps} flowDir={flowDir} />;
                 case 'integrator':
                   return <IntegratorBlock key={block.id} {...commonProps} flowDir={flowDir} />;
+                case 'junction':
+                  return <JunctionBlock key={block.id} {...commonProps} connections={connections} />;
                 default:
                   return null;
               }
