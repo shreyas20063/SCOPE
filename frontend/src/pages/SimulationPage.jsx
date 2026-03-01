@@ -5,11 +5,11 @@
  * Uses HTTP with debounced updates.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { useSimulation } from '../hooks/useSimulation';
 import SimulationViewer from '../components/SimulationViewer';
-import Spinner from '../components/Spinner';
+import SimulationLaunchAnimation from '../components/SimulationLaunchAnimation';
 import ErrorMessage from '../components/ErrorMessage';
 import { decodeParams } from '../utils/urlParams';
 
@@ -35,6 +35,17 @@ function SimulationPage() {
     setMetadata,
   } = useSimulation(id);
 
+  const [animationComplete, setAnimationComplete] = useState(false);
+
+  const handleAnimationComplete = useCallback(() => {
+    setAnimationComplete(true);
+  }, []);
+
+  // Reset animation when simulation changes
+  useEffect(() => {
+    setAnimationComplete(false);
+  }, [id]);
+
   // Load parameters from URL on mount
   useEffect(() => {
     if (simulation?.controls && location.search) {
@@ -57,16 +68,7 @@ function SimulationPage() {
     }
   }, [simulation?.controls, location.search, setParamsFromUrl]);
 
-  // Show loading state
-  if (isLoading && !simulation) {
-    return (
-      <div className="simulation-page">
-        <Spinner message="Loading simulation..." size="large" fullScreen />
-      </div>
-    );
-  }
-
-  // Show error state
+  // Show error state (only if catalog failed to load)
   if (error && !simulation) {
     return (
       <div className="simulation-page">
@@ -79,24 +81,37 @@ function SimulationPage() {
     );
   }
 
-  // Show simulation viewer
   return (
     <div className="simulation-page">
-      <SimulationViewer
-        simulation={simulation}
-        plots={plots}
-        metadata={metadata}
-        currentParams={currentParams}
-        onParamChange={updateParam}
-        onMetadataChange={setMetadata}
-        onReset={resetToDefaults}
-        onButtonClick={handleButtonAction}
-        onStepForward={stepForward}
-        onStepBackward={stepBackward}
-        isLoading={isLoading}
-        isUpdating={isUpdating}
-        isRunning={isRunning}
-      />
+      {/* Launch animation overlay */}
+      {!animationComplete && !error && (
+        <SimulationLaunchAnimation
+          simulationName={simulation?.name || null}
+          category={simulation?.category || null}
+          categoryColor={simulation?.category_info?.color || null}
+          isDataReady={!isLoading}
+          onComplete={handleAnimationComplete}
+        />
+      )}
+
+      {/* Simulation viewer (mounts behind overlay, visible after animation) */}
+      {simulation && (
+        <SimulationViewer
+          simulation={simulation}
+          plots={plots}
+          metadata={metadata}
+          currentParams={currentParams}
+          onParamChange={updateParam}
+          onMetadataChange={setMetadata}
+          onReset={resetToDefaults}
+          onButtonClick={handleButtonAction}
+          onStepForward={stepForward}
+          onStepBackward={stepBackward}
+          isLoading={isLoading}
+          isUpdating={isUpdating}
+          isRunning={isRunning}
+        />
+      )}
     </div>
   );
 }

@@ -1,0 +1,754 @@
+/* ============================================================
+   OSCILLOSCOPE BOOT-UP LAUNCH ANIMATION
+   Realistic Tektronix/Keysight-style digital oscilloscope
+   Layout: Screen (left) | Control Panel (right)
+   ============================================================ */
+
+/* ===== FULLSCREEN OVERLAY ===== */
+.launch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #040810;
+  opacity: 1;
+  transition: opacity 300ms ease-out, transform 300ms ease-out;
+}
+
+.launch-overlay.fade-out {
+  opacity: 0;
+  transform: scale(1.06);
+  pointer-events: none;
+}
+
+/* Scope device exit animation — brief brighten + shrink */
+.launch-overlay.fade-out .scope-device {
+  transform: scale(0.92);
+  opacity: 0;
+  filter: brightness(1.8);
+  transition: transform 250ms ease-in, opacity 200ms ease-in, filter 250ms ease-in;
+}
+
+/* Ambient glow behind scope */
+.launch-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(0, 255, 255, 0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 30% 25% at 40% 55%, rgba(255, 0, 255, 0.02) 0%, transparent 60%);
+  pointer-events: none;
+  animation: ambientPulse 6s ease-in-out infinite alternate;
+}
+
+@keyframes ambientPulse {
+  0% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* ===== OSCILLOSCOPE DEVICE ===== */
+.scope-device {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(880px, 94vw);
+  background: linear-gradient(170deg, #1c2235 0%, #131927 30%, #0e1420 60%, #151d30 100%);
+  border-radius: 16px;
+  padding: 14px 16px 10px;
+  animation: deviceBootIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 0 80px rgba(0, 255, 255, 0.06),
+    0 30px 60px rgba(0, 0, 0, 0.7),
+    0 10px 20px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes deviceBootIn {
+  from {
+    opacity: 0;
+    transform: scale(0.93) translateY(24px);
+    filter: brightness(0.3);
+  }
+  60% { filter: brightness(1.15); }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: brightness(1);
+  }
+}
+
+/* Metallic edge highlight */
+.scope-device::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background: linear-gradient(170deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.03) 30%,
+    rgba(0, 255, 255, 0.05) 60%,
+    rgba(255, 255, 255, 0.08) 100%
+  ) border-box;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Subtle sheen */
+.scope-device::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  background: linear-gradient(
+    125deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.018) 40%,
+    rgba(255, 255, 255, 0.035) 50%,
+    rgba(255, 255, 255, 0.018) 60%,
+    transparent 75%
+  );
+  pointer-events: none;
+}
+
+/* ===== HEADER BAR ===== */
+.scope-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 0 4px;
+}
+
+.scope-brand {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.28);
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-weight: 600;
+}
+
+.scope-model {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.5rem;
+  color: rgba(255, 255, 255, 0.15);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+/* ===== MAIN BODY (Screen + Controls) ===== */
+.scope-body {
+  display: flex;
+  gap: 14px;
+  flex: 1;
+}
+
+/* ===== LEFT: SCREEN AREA ===== */
+.scope-screen-area {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* CRT Screen */
+.scope-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #020508;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    inset 0 0 40px rgba(0, 0, 0, 0.6),
+    inset 0 0 6px rgba(0, 255, 255, 0.05),
+    0 0 30px rgba(0, 255, 255, 0.04);
+}
+
+/* Screen bezel effect */
+.scope-screen-bezel {
+  position: absolute;
+  inset: -2px;
+  border-radius: 8px;
+  border: 3px solid #1a2035;
+  background: linear-gradient(145deg, #252d42 0%, #1a2035 40%, #151c2c 100%);
+  z-index: -1;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* CRT Scanlines */
+.scope-screen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.07) 2px,
+    rgba(0, 0, 0, 0.07) 4px
+  );
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Vignette */
+.scope-screen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 80% 80% at 50% 50%,
+    transparent 40%,
+    rgba(0, 0, 0, 0.3) 75%,
+    rgba(0, 0, 0, 0.5) 100%
+  );
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Screen boot flicker */
+.scope-screen-flicker {
+  animation: screenFlicker 0.4s ease-out;
+}
+
+@keyframes screenFlicker {
+  0% { opacity: 0; }
+  8% { opacity: 0.8; }
+  12% { opacity: 0.05; }
+  20% { opacity: 0.9; }
+  25% { opacity: 0.15; }
+  35% { opacity: 1; }
+  40% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+.scope-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+/* Screen channel readout overlay */
+.scope-screen-readout {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  justify-content: space-between;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.scope-screen-ch {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.05em;
+  opacity: 0;
+  animation: readoutFadeIn 0.4s ease-out forwards;
+}
+
+.scope-screen-ch-1 {
+  color: rgba(0, 229, 255, 0.7);
+  animation-delay: 0.6s;
+}
+
+.scope-screen-ch-2 {
+  color: rgba(255, 111, 255, 0.4);
+  animation-delay: 0.8s;
+}
+
+@keyframes readoutFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ===== INFO BAR (below screen) ===== */
+.scope-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 0 2px;
+  min-height: 24px;
+  opacity: 0;
+  animation: infoFadeIn 0.4s ease-out forwards;
+  animation-delay: 0.7s;
+}
+
+@keyframes infoFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.scope-category {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: #000;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+
+.scope-sim-name {
+  margin: 0;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.8);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.scope-cursor {
+  display: inline-block;
+  color: #00ffff;
+  animation: cursorBlink 0.53s step-end infinite;
+  font-weight: 300;
+  margin-left: 1px;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ===== RIGHT: CONTROL PANEL ===== */
+.scope-controls-panel {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.008);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  opacity: 0;
+  animation: controlsFadeIn 0.5s ease-out forwards;
+  animation-delay: 0.4s;
+}
+
+@keyframes controlsFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Control section headers */
+.ctrl-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ctrl-section-label {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.42rem;
+  color: rgba(255, 255, 255, 0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Buttons row */
+.ctrl-btn-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.ctrl-btn {
+  padding: 3px 7px;
+  border-radius: 3px;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.42rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.1) 100%);
+  color: rgba(255, 255, 255, 0.35);
+  cursor: default;
+}
+
+.ctrl-btn-active {
+  border-color: rgba(0, 255, 136, 0.3);
+  color: #00ff88;
+  text-shadow: 0 0 6px rgba(0, 255, 136, 0.3);
+}
+
+.ctrl-btn-run {
+  border-color: rgba(0, 255, 136, 0.25);
+  color: #00ff88;
+  background: linear-gradient(180deg, rgba(0, 255, 136, 0.06) 0%, rgba(0, 0, 0, 0.1) 100%);
+}
+
+.ctrl-btn-stop {
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+}
+
+/* Knobs */
+.ctrl-knob-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.ctrl-knob-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.ctrl-knob {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #2a3248 0%, #181e2c 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  position: relative;
+  cursor: default;
+}
+
+/* Knob notch indicator */
+.ctrl-knob::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 2px;
+  height: 5px;
+  border-radius: 1px;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.ctrl-knob-cyan::after { background: rgba(0, 229, 255, 0.6); }
+.ctrl-knob-cyan { border-color: rgba(0, 229, 255, 0.12); }
+
+.ctrl-knob-magenta::after { background: rgba(255, 111, 255, 0.6); }
+.ctrl-knob-magenta { border-color: rgba(255, 111, 255, 0.12); }
+
+.ctrl-knob-label {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.38rem;
+  color: rgba(255, 255, 255, 0.2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Channel LEDs */
+.ctrl-ch-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.ctrl-ch-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ctrl-ch-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.ctrl-ch-led-cyan {
+  background: #00e5ff;
+  box-shadow: 0 0 6px #00e5ff, 0 0 12px rgba(0, 229, 255, 0.4);
+}
+
+.ctrl-ch-led-magenta {
+  background: #ff6fff;
+  box-shadow: 0 0 6px #ff6fff, 0 0 12px rgba(255, 111, 255, 0.3);
+  opacity: 0.4;
+}
+
+.ctrl-ch-label {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.4rem;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* BNC Ports */
+.ctrl-ports-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 2px;
+}
+
+.ctrl-port {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.ctrl-port-circle {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #2a3248 0%, #0e1420 80%);
+  border: 2px solid #3a4258;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.04);
+  position: relative;
+}
+
+/* BNC center pin */
+.ctrl-port-circle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: #5a6478;
+}
+
+.ctrl-port-label {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.35rem;
+  color: rgba(255, 255, 255, 0.18);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Status / power section */
+.ctrl-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.ctrl-power-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  transition: all 0.4s ease;
+}
+
+.ctrl-power-led-loading {
+  background: #ffaa00;
+  box-shadow: 0 0 6px #ffaa00, 0 0 12px rgba(255, 170, 0, 0.4);
+  animation: ledBlink 1s ease-in-out infinite;
+}
+
+.ctrl-power-led-on {
+  background: #00ff88;
+  box-shadow: 0 0 6px #00ff88, 0 0 14px rgba(0, 255, 136, 0.5);
+  animation: ledGlow 2s ease-in-out infinite;
+}
+
+@keyframes ledBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+@keyframes ledGlow {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+.ctrl-status-label {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.42rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: all 0.4s ease;
+}
+
+.ctrl-status-loading {
+  color: #ffaa00;
+  animation: statusPulse 1.5s ease-in-out infinite;
+}
+
+.ctrl-status-ready {
+  color: #00ff88;
+  text-shadow: 0 0 8px rgba(0, 255, 136, 0.3);
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ===== PROGRESS BAR ===== */
+.scope-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 0 0 16px 16px;
+  overflow: hidden;
+}
+
+.scope-progress-bar {
+  height: 100%;
+  width: 25%;
+  border-radius: 2px;
+  animation: progressSlide 1.2s ease-in-out infinite;
+}
+
+.scope-progress-bar.ready {
+  width: 100%;
+  animation: none;
+  transition: width 0.4s ease-out;
+  opacity: 0.5;
+}
+
+@keyframes progressSlide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(500%); }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .scope-device {
+    padding: 10px 12px 8px;
+    border-radius: 12px;
+  }
+
+  .scope-body {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .scope-controls-panel {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .ctrl-section {
+    flex: 1;
+    min-width: 80px;
+  }
+
+  .scope-sim-name {
+    font-size: 0.7rem;
+  }
+
+  .ctrl-ports-row {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .scope-device {
+    padding: 8px 10px 6px;
+    border-radius: 10px;
+  }
+
+  .scope-header {
+    margin-bottom: 6px;
+  }
+
+  .scope-info {
+    margin-top: 6px;
+    gap: 6px;
+  }
+
+  .scope-sim-name {
+    font-size: 0.6rem;
+  }
+
+  .scope-controls-panel {
+    padding: 6px;
+  }
+
+  .ctrl-section:nth-child(n+4) {
+    display: none;
+  }
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  .scope-device {
+    animation: none;
+    opacity: 1;
+  }
+
+  .scope-screen-flicker {
+    animation: none;
+  }
+
+  .scope-info {
+    animation: none;
+    opacity: 1;
+  }
+
+  .scope-controls-panel {
+    animation: none;
+    opacity: 1;
+  }
+
+  .launch-overlay {
+    transition: opacity 200ms ease-out;
+  }
+
+  .launch-overlay.fade-out {
+    transform: none;
+  }
+
+  .launch-overlay.fade-out .scope-device {
+    transition: opacity 150ms ease-in;
+  }
+
+  .ctrl-power-led-loading {
+    animation: none;
+  }
+
+  .ctrl-status-loading {
+    animation: none;
+  }
+
+  .scope-cursor {
+    animation: none;
+    opacity: 1;
+  }
+
+  .scope-screen-ch {
+    animation: none;
+    opacity: 1;
+  }
+}

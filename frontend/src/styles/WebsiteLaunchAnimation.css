@@ -1,0 +1,186 @@
+/* ═══════════════════════════════════════════════════
+   WebsiteLaunchAnimation — Full-viewport brand intro
+   Neon waveform + brand text + CRT shutdown
+   ═══════════════════════════════════════════════════ */
+
+/* ── Overlay ── */
+.website-launch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: #020508;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 400ms ease-out;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.website-launch-overlay.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Canvas (behind everything) ── */
+.website-launch-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* ── Brand text overlay ── */
+.website-launch-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Centered — waveform runs through/behind the text */
+  margin-bottom: 2vh;
+}
+
+.website-launch-title {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: clamp(2.2rem, 6vw, 4.8rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: rgba(241, 245, 249, 0);
+  text-shadow: none;
+  transition: color 0.8s ease, text-shadow 1s ease;
+  will-change: color, text-shadow;
+}
+
+.website-launch-title.visible {
+  color: rgba(241, 245, 249, 0.95);
+  text-shadow:
+    0 0 30px rgba(0, 255, 255, 0.35),
+    0 0 60px rgba(0, 255, 255, 0.12),
+    0 0 120px rgba(0, 255, 255, 0.05);
+}
+
+.website-launch-title.fade-out-text {
+  color: rgba(241, 245, 249, 0);
+  text-shadow: none;
+  transition: color 0.4s ease, text-shadow 0.4s ease;
+}
+
+.website-launch-subtitle {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: clamp(0.85rem, 1.8vw, 1.3rem);
+  font-weight: 300;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0);
+  transition: color 0.6s ease;
+  margin-top: 1rem;
+  will-change: color;
+}
+
+.website-launch-subtitle.visible {
+  color: rgba(148, 163, 184, 0.65);
+}
+
+.website-launch-subtitle.fade-out-text {
+  color: rgba(148, 163, 184, 0);
+  transition: color 0.35s ease;
+}
+
+/* ── Scanlines (subtle CRT feel) ── */
+.website-launch-scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.04) 0px,
+    rgba(0, 0, 0, 0.04) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ── Vignette ── */
+.website-launch-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(0, 0, 0, 0.4) 100%
+  );
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ── Skip hint ── */
+.website-launch-skip {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: rgba(100, 116, 139, 0);
+  transition: color 0.5s ease 0.3s;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.website-launch-skip.visible {
+  color: rgba(100, 116, 139, 0.4);
+}
+
+/* ── Boot flicker (brief flash on mount) ── */
+@keyframes websiteLaunchBoot {
+  0%   { opacity: 0; }
+  5%   { opacity: 0.6; }
+  10%  { opacity: 0.1; }
+  15%  { opacity: 0.8; }
+  25%  { opacity: 0.3; }
+  40%  { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+.website-launch-overlay {
+  animation: websiteLaunchBoot 0.6s ease-out;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .website-launch-content {
+    margin-bottom: 8vh;
+  }
+
+  .website-launch-subtitle {
+    letter-spacing: 0.1em;
+    margin-top: 0.75rem;
+  }
+
+  .website-launch-skip {
+    bottom: 1.5rem;
+  }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .website-launch-overlay {
+    animation: none;
+  }
+
+  .website-launch-title,
+  .website-launch-subtitle {
+    transition-duration: 0.1s;
+  }
+
+  .website-launch-overlay.fade-out {
+    transition-duration: 0.1s;
+  }
+}

@@ -1,21 +1,21 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 
-function SimulationCard({ id, name, description, category, categoryColor, thumbnail, animationDelay = 0 }) {
+function SimulationCard({ id, name, description, category, categoryColor, thumbnail }) {
+  const color = categoryColor || '#64748b'
+
   return (
     <Link
       to={`/simulation/${id}`}
       className="simulation-card"
-      style={{ animationDelay: `${animationDelay}ms` }}
+      style={{ '--card-accent': color }}
     >
+      <div className="card-accent-line" />
       <div className="card-header">
         <span className="card-thumbnail">{thumbnail}</span>
         <span
           className="category-badge"
-          style={{
-            backgroundColor: categoryColor || '#64748b',
-            boxShadow: `0 0 12px ${categoryColor || '#64748b'}40`
-          }}
+          style={{ backgroundColor: color }}
         >
           {category}
         </span>

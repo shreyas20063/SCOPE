@@ -172,6 +172,11 @@ def get_or_create_simulator(sim_id: str):
     if simulator_class is None:
         return None
 
+    # Recreate if class changed (e.g. after --reload)
+    if sim_id in active_simulators:
+        if type(active_simulators[sim_id]) is not simulator_class:
+            del active_simulators[sim_id]
+
     if sim_id not in active_simulators:
         simulator = simulator_class(sim_id)
         simulator.initialize()

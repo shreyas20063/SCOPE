@@ -288,10 +288,8 @@ class SignalOperationsSimulator(BaseSimulator):
 
     def _compute_metrics(self) -> Dict[str, Any]:
         """Compute signal properties for display."""
-        dt = (self.TIME_RANGE[1] - self.TIME_RANGE[0]) / self.NUM_SAMPLES
-
-        original_energy = float(np.trapz(np.abs(self._original) ** 2, dx=dt))
-        transformed_energy = float(np.trapz(np.abs(self._transformed) ** 2, dx=dt))
+        original_energy = float(np.trapz(np.abs(self._original) ** 2, self._t))
+        transformed_energy = float(np.trapz(np.abs(self._transformed) ** 2, self._t))
 
         original_peak = float(np.max(np.abs(self._original)))
         transformed_peak = float(np.max(np.abs(self._transformed)))
