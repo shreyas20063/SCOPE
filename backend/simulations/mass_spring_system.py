@@ -134,12 +134,14 @@ class MassSpringSimulator(BaseSimulator):
 
         elif input_type == "impulse":
             sigma = 0.02
+            # Normalize so the Gaussian area = A (matches unit impulse response)
+            scale = A / (sigma * np.sqrt(2.0 * np.pi))
 
             def x_func(t: float) -> float:
-                return float(A * np.exp(-0.5 * (t / sigma) ** 2))
+                return float(scale * np.exp(-0.5 * (t / sigma) ** 2))
 
             def xdot_func(t: float) -> float:
-                return float(-t / (sigma ** 2) * A * np.exp(-0.5 * (t / sigma) ** 2))
+                return float(-t / (sigma ** 2) * scale * np.exp(-0.5 * (t / sigma) ** 2))
 
         else:  # "none" — free response
             def x_func(t: float) -> float:
@@ -222,6 +224,7 @@ class MassSpringSimulator(BaseSimulator):
         return [
             self._create_response_plot(),
             self._create_phase_portrait(),
+            self._create_energy_plot(),
         ]
 
     def _get_base_layout(self) -> Dict[str, Any]:
@@ -234,11 +237,7 @@ class MassSpringSimulator(BaseSimulator):
 
     def _create_response_plot(self) -> Dict[str, Any]:
         sim_time = self.parameters["simulation_time"]
-        # Dynamic title
-        title = (
-            f"System Response | {self._damping_type} "
-            f"(\u03b6={self._zeta:.3f}, f\u2099={self._f_n:.2f} Hz)"
-        )
+        title = "System Response"
 
         # Auto-range with padding
         all_vals = np.concatenate([self._x, self._y])
@@ -334,6 +333,103 @@ class MassSpringSimulator(BaseSimulator):
 
         return {"id": "phase_portrait", "title": "Phase Portrait", "data": data, "layout": layout}
 
+    def _create_energy_plot(self) -> Dict[str, Any]:
+        """Kinetic, potential, dissipated, and total energy over time."""
+        m = float(self.parameters["mass"])
+        k = float(self.parameters["spring_constant"])
+        b = float(self.parameters["damping"])
+
+        ke = 0.5 * m * self._y_dot ** 2
+        pe = 0.5 * k * (self._y - self._x) ** 2
+
+        # Dissipated energy: cumulative integral of b*(y' - x')^2 dt
+        x_dot = np.gradient(self._x, self._time)
+        rel_vel = self._y_dot - x_dot
+        dt_arr = np.gradient(self._time)
+        dissipated = np.cumsum(b * rel_vel ** 2 * dt_arr)
+
+        total_e = ke + pe + dissipated
+
+        ymax = float(np.max(total_e)) if len(total_e) > 0 else 1.0
+        pad = max(0.01, ymax * 0.1)
+
+        data = [
+            {
+                "x": self._time.tolist(),
+                "y": ke.tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Kinetic (\u00bdmv\u00b2)",
+                "line": {"color": "#3b82f6", "width": 2},
+                "fill": "tozeroy",
+                "fillcolor": "rgba(59, 130, 246, 0.1)",
+            },
+            {
+                "x": self._time.tolist(),
+                "y": pe.tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Potential (\u00bdk\u03b4\u00b2)",
+                "line": {"color": "#f59e0b", "width": 2},
+                "fill": "tozeroy",
+                "fillcolor": "rgba(245, 158, 11, 0.1)",
+            },
+            {
+                "x": self._time.tolist(),
+                "y": dissipated.tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Dissipated (damper)",
+                "line": {"color": "#ef4444", "width": 2, "dash": "dash"},
+            },
+            {
+                "x": self._time.tolist(),
+                "y": total_e.tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": "KE + PE + Dissipated",
+                "line": {"color": "#10b981", "width": 2.5, "dash": "dot"},
+            },
+        ]
+
+        layout = {
+            **self._get_base_layout(),
+            "xaxis": {
+                "title": "Time (s)",
+                "showgrid": True,
+                "gridcolor": "rgba(148,163,184,0.1)",
+                "zerolinecolor": "rgba(148,163,184,0.3)",
+                "range": [0, float(self.parameters["simulation_time"])],
+            },
+            "yaxis": {
+                "title": "Energy (J)",
+                "showgrid": True,
+                "gridcolor": "rgba(148,163,184,0.1)",
+                "zerolinecolor": "rgba(148,163,184,0.3)",
+                "range": [0, ymax + pad],
+            },
+            "legend": {"orientation": "h", "y": 1.12, "x": 0.5, "xanchor": "center"},
+            "showlegend": True,
+        }
+
+        return {"id": "energy", "title": "Energy Analysis", "data": data, "layout": layout}
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _compute_steady_state(self) -> Optional[float]:
+        """Return the analytical steady-state value, or None if not applicable."""
+        input_type = self.parameters["input_type"]
+        if input_type == "step":
+            # Step: y_ss = x_ss = amplitude (spring force balances)
+            return round(float(self.parameters["input_amplitude"]), 4)
+        if input_type in ("none", "impulse"):
+            # Free/impulse: system returns to 0
+            return 0.0
+        # Sinusoidal: no static steady state
+        return None
+
     # ------------------------------------------------------------------
     # State + animation metadata
     # ------------------------------------------------------------------
@@ -351,12 +447,12 @@ class MassSpringSimulator(BaseSimulator):
         dt = float(sampled_time[1] - sampled_time[0]) if len(sampled_time) > 1 else 0.02
 
         # Damped frequency / period (only if underdamped)
-        omega_d = None
+        f_d = None
         period = None
         if self._zeta < 1.0:
             omega_d = self._omega_n * np.sqrt(1.0 - self._zeta ** 2)
             period = round(2.0 * np.pi / omega_d, 4) if omega_d > 0 else None
-            omega_d = round(omega_d / (2.0 * np.pi), 4)  # convert to Hz
+            f_d = round(omega_d / (2.0 * np.pi), 4)  # Hz
 
         return {
             "parameters": self.parameters.copy(),
@@ -377,11 +473,11 @@ class MassSpringSimulator(BaseSimulator):
                     "natural_frequency_rad": round(self._omega_n, 4),
                     "damping_ratio": round(self._zeta, 4),
                     "damping_type": self._damping_type,
-                    "damped_frequency_hz": omega_d,
+                    "damped_frequency_hz": f_d,
                     "period": period,
                     "input_type": self.parameters["input_type"],
                     "peak_output": round(float(np.max(np.abs(self._y))), 4),
-                    "steady_state": round(float(self._y[-1]), 4),
+                    "steady_state": self._compute_steady_state(),
                 },
             },
         }

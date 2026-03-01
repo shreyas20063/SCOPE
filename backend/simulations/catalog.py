@@ -626,11 +626,11 @@ SIMULATION_CATALOG = [
     # =========================================================================
     {
         "id": "signal_operations",
-        "name": "Signal Operations Playground",
-        "description": "Interactive canvas for exploring signal transformations: time-scaling, time-shifting, time-reversal, amplitude scaling, and DC offset. Apply chains of operations and see the original vs. transformed signal. Includes a quiz mode to test your understanding.",
+        "name": "Signal Operations Explorer",
+        "description": "Interactive canvas for exploring signal transformations: time-scaling, time-shifting, time-reversal, amplitude scaling, and DC offset. Apply chains of operations, view original vs. transformed signals with overlay mode, analyze signal metrics, and explore even/odd decomposition.",
         "category": "Signal Processing",
         "thumbnail": "🎛️",
-        "tags": ["signal operations", "time scaling", "time shifting", "time reversal", "amplitude", "transformations", "quiz"],
+        "tags": ["signal operations", "time scaling", "time shifting", "time reversal", "amplitude", "transformations", "even odd decomposition"],
         "has_simulator": True,
         "controls": [
             # Signal Selection
@@ -641,29 +641,22 @@ SIMULATION_CATALOG = [
                 {"value": "sawtooth", "label": "Sawtooth Wave"},
                 {"value": "unit_step", "label": "Unit Step u(t)"},
                 {"value": "impulse", "label": "Impulse δ(t)"},
+                {"value": "exponential_decay", "label": "Exponential Decay"},
+                {"value": "gaussian", "label": "Gaussian Pulse"},
+                {"value": "sinc", "label": "Sinc Function"},
+                {"value": "ramp", "label": "Ramp r(t)"},
             ], "default": "sine", "group": "Signal"},
-            {"type": "slider", "name": "frequency", "label": "Frequency", "min": 0.5, "max": 10.0, "step": 0.1, "default": 1.0, "unit": "Hz", "group": "Signal", "visible_when": {"signal_type": ["sine", "square", "triangle", "sawtooth"]}},
+            {"type": "slider", "name": "frequency", "label": "Frequency", "min": 0.5, "max": 10.0, "step": 0.1, "default": 1.0, "unit": "Hz", "group": "Signal", "visible_when": {"signal_type": ["sine", "square", "triangle", "sawtooth", "exponential_decay", "gaussian", "sinc"]}},
 
-            # Mode
-            {"type": "select", "name": "mode", "label": "Mode", "options": [
-                {"value": "explore", "label": "Explore"},
-                {"value": "quiz", "label": "Quiz"},
-            ], "default": "explore", "group": "Mode"},
+            # Transformations
+            {"type": "slider", "name": "amplitude", "label": "Amplitude A", "min": -3.0, "max": 3.0, "step": 0.1, "default": 1.0, "group": "Transformations", "description": "A in A·f(t)"},
+            {"type": "slider", "name": "time_scale", "label": "Time Scale a", "min": -3.0, "max": 3.0, "step": 0.1, "default": 1.0, "group": "Transformations", "description": "a in f(a·t)"},
+            {"type": "slider", "name": "time_shift", "label": "Time Shift t₀", "min": -5.0, "max": 5.0, "step": 0.1, "default": 0.0, "unit": "s", "group": "Transformations", "description": "t₀ in f(t - t₀)"},
+            {"type": "checkbox", "name": "time_reverse", "label": "Time Reverse f(−t)", "default": False, "group": "Transformations"},
+            {"type": "slider", "name": "dc_offset", "label": "DC Offset", "min": -2.0, "max": 2.0, "step": 0.1, "default": 0.0, "group": "Transformations"},
 
-            # Transformations (hidden in quiz mode)
-            {"type": "slider", "name": "amplitude", "label": "Amplitude A", "min": -3.0, "max": 3.0, "step": 0.1, "default": 1.0, "group": "Transformations", "description": "A in A·f(t)", "visible_when": {"mode": "explore"}},
-            {"type": "slider", "name": "time_scale", "label": "Time Scale a", "min": -3.0, "max": 3.0, "step": 0.1, "default": 1.0, "group": "Transformations", "description": "a in f(a·t)", "visible_when": {"mode": "explore"}},
-            {"type": "slider", "name": "time_shift", "label": "Time Shift t₀", "min": -5.0, "max": 5.0, "step": 0.1, "default": 0.0, "unit": "s", "group": "Transformations", "description": "t₀ in f(t - t₀)", "visible_when": {"mode": "explore"}},
-            {"type": "checkbox", "name": "time_reverse", "label": "Time Reverse f(−t)", "default": False, "group": "Transformations", "visible_when": {"mode": "explore"}},
-            {"type": "slider", "name": "dc_offset", "label": "DC Offset", "min": -2.0, "max": 2.0, "step": 0.1, "default": 0.0, "group": "Transformations", "visible_when": {"mode": "explore"}},
-
-            # Quiz Controls (visible only in quiz mode)
-            {"type": "select", "name": "quiz_difficulty", "label": "Difficulty", "options": [
-                {"value": "easy", "label": "Easy (1 op)"},
-                {"value": "medium", "label": "Medium (2 ops)"},
-                {"value": "hard", "label": "Hard (3 ops)"},
-            ], "default": "easy", "group": "Quiz", "visible_when": {"mode": "quiz"}},
-            {"type": "button", "name": "new_quiz", "label": "New Question", "group": "Quiz", "visible_when": {"mode": "quiz"}},
+            # Analysis
+            {"type": "checkbox", "name": "show_decomposition", "label": "Show Even/Odd Decomposition", "default": False, "group": "Analysis"},
         ],
         "default_params": {
             "signal_type": "sine",
@@ -673,13 +666,12 @@ SIMULATION_CATALOG = [
             "time_shift": 0.0,
             "time_reverse": False,
             "dc_offset": 0.0,
-            "mode": "explore",
-            "quiz_difficulty": "easy",
+            "show_decomposition": False,
         },
         "plots": [
             {"id": "original", "title": "Original Signal f(t)", "description": "Base signal before any transformations"},
             {"id": "transformed", "title": "Transformed Signal", "description": "Signal after applying all operations, with original ghost overlay"},
-            {"id": "quiz_challenge", "title": "Quiz Challenge", "description": "Mystery transformed signal — identify the operations applied"},
+            {"id": "decomposition", "title": "Even/Odd Decomposition", "description": "Even and odd components of the original signal"},
         ],
     },
     # =========================================================================
@@ -760,11 +752,11 @@ SIMULATION_CATALOG = [
         ],
     },
     # =========================================================================
-    # 17. MASS-SPRING SYSTEM VISUALIZER
+    # 17. SPRING MASS DAMPER SYSTEM
     # =========================================================================
     {
         "id": "mass_spring_system",
-        "name": "Mass-Spring System",
+        "name": "Spring Mass Damper System",
         "description": "Animated mass-spring-damper system showing how physical systems transform input signals. Watch the spring stretch and compress as base excitation x(t) becomes mass displacement y(t).",
         "category": "Control Systems",
         "thumbnail": "\U0001f529",
@@ -781,7 +773,7 @@ SIMULATION_CATALOG = [
                 {"value": "none", "label": "Free Response"},
             ], "default": "step", "group": "Input"},
             {"type": "slider", "name": "input_frequency", "label": "Input Frequency", "min": 0.1, "max": 10.0, "step": 0.1, "default": 1.0, "unit": "Hz", "group": "Input", "visible_when": {"input_type": "sinusoid"}},
-            {"type": "slider", "name": "input_amplitude", "label": "Amplitude", "min": 0.1, "max": 2.0, "step": 0.1, "default": 1.0, "unit": "m", "group": "Input"},
+            {"type": "slider", "name": "input_amplitude", "label": "Amplitude / Initial Disp.", "min": 0.1, "max": 2.0, "step": 0.1, "default": 1.0, "unit": "m", "group": "Input"},
             {"type": "slider", "name": "simulation_time", "label": "Duration", "min": 2, "max": 20, "step": 1, "default": 10, "unit": "s", "group": "Simulation"},
         ],
         "default_params": {
@@ -796,6 +788,7 @@ SIMULATION_CATALOG = [
         "plots": [
             {"id": "response", "title": "System Response", "description": "Input x(t) and output y(t) overlaid — the system as signal transformer"},
             {"id": "phase_portrait", "title": "Phase Portrait", "description": "y vs y\u2032 trajectory in phase plane"},
+            {"id": "energy", "title": "Energy Analysis", "description": "Kinetic, potential, dissipated (damper), and total energy over time"},
         ],
     },
     # =========================================================================

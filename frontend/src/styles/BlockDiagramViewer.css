@@ -604,9 +604,9 @@
    ============================================================================ */
 
 .bd-port {
-  fill: rgba(19, 27, 46, 0.95);
-  stroke: rgba(148, 163, 184, 0.45);
-  stroke-width: 1.8;
+  fill: rgba(19, 27, 46, 0.85);
+  stroke: rgba(148, 163, 184, 0.6);
+  stroke-width: 2;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -616,6 +616,7 @@
   stroke: var(--accent-color, #00d9ff);
   stroke-width: 2.5;
   r: 9;
+  filter: drop-shadow(0 0 4px rgba(0, 217, 255, 0.4));
 }
 
 .bd-port-output {
@@ -653,6 +654,8 @@
   fill: none;
   stroke: rgba(0, 217, 255, 0.55);
   stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   transition: stroke 0.15s ease, stroke-width 0.15s ease;
   pointer-events: none;
 }
@@ -677,7 +680,8 @@
 .bd-branch-dot {
   fill: var(--accent-color, #00d9ff);
   stroke: var(--surface-color, #131b2e);
-  stroke-width: 2;
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 3px rgba(0, 217, 255, 0.4));
 }
 
 /* New wire animation (flash on successful connection) */

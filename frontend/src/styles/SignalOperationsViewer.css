@@ -1,12 +1,15 @@
+/* ── Signal Operations Viewer ─────────────────────────────── */
+
 .signal-operations-viewer {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   width: 100%;
 }
 
-/* Formula display bar */
-.signal-ops-formula {
+/* ── Operation Chain Bar ─────────────────────────────────── */
+
+.sig-ops-chain-bar {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -14,113 +17,340 @@
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  flex-wrap: wrap;
 }
 
-.formula-label {
+.sig-ops-chain-bar.sig-ops-chain-identity {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+.sig-ops-chain-label {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   white-space: nowrap;
 }
 
-.formula-text {
-  color: var(--accent-color);
-  font-size: 1.05rem;
-  font-weight: 500;
-}
-
-/* Quiz panel */
-.quiz-panel {
-  padding: 16px;
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-}
-
-.quiz-prompt {
-  margin-bottom: 12px;
+.sig-ops-chain-formula {
+  color: var(--text-secondary);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
   font-size: 0.95rem;
 }
 
-.quiz-instruction {
-  color: var(--text-secondary);
-  font-weight: 500;
+.sig-ops-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.quiz-result {
+.sig-ops-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
   font-weight: 600;
-  font-size: 1rem;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--badge-color) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--badge-color) 40%, transparent);
+  color: var(--badge-color);
+  transition: all var(--transition-fast);
 }
 
-.quiz-result.correct {
-  color: var(--success-color);
+/* ── Formula Display ─────────────────────────────────────── */
+
+.sig-ops-formula-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glow);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
 }
 
-.quiz-result.incorrect {
-  color: var(--error-color);
+.sig-ops-formula-eq {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-.quiz-result.incorrect strong {
-  color: var(--success-color);
+.sig-ops-formula-expr {
+  color: var(--accent-color);
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
-/* Quiz option buttons */
-.quiz-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+/* ── Plots Section ───────────────────────────────────────── */
+
+.sig-ops-plots-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.quiz-option-btn {
-  padding: 12px 16px;
+.sig-ops-view-controls {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sig-ops-view-toggle {
+  display: inline-flex;
   background: var(--background-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
-  font-size: 0.9rem;
+  overflow: hidden;
+}
+
+.sig-ops-toggle-btn {
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all var(--transition-fast);
-  text-align: center;
+  font-family: inherit;
 }
 
-.quiz-option-btn:hover:not(:disabled) {
+.sig-ops-toggle-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.sig-ops-toggle-btn.active {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.sig-ops-plots-stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sig-ops-plot-card {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.sig-ops-plot-card:hover {
+  border-color: var(--border-hover);
+}
+
+.sig-ops-plot-title {
+  padding: 10px 14px 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Metrics Panel ───────────────────────────────────────── */
+
+.sig-ops-metrics {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+}
+
+.sig-ops-metrics-title {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+
+.sig-ops-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.sig-ops-metric-card {
+  padding: 8px 12px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.sig-ops-metric-label {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sig-ops-metric-value {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.sig-ops-metric-unit {
+  font-size: 0.72rem;
+  font-weight: 400;
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
+/* ── Preset Buttons ──────────────────────────────────────── */
+
+.sig-ops-presets {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sig-ops-presets-label {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.sig-ops-presets-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sig-ops-preset-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  background: var(--background-secondary);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.sig-ops-preset-btn:hover {
   border-color: var(--primary-color);
+  color: var(--primary-color);
   background: var(--primary-light);
 }
 
-.quiz-option-btn.correct {
-  border-color: var(--success-color);
-  background: var(--primary-light);
-  color: var(--success-color);
+.sig-ops-preset-btn:active {
+  transform: scale(0.97);
 }
 
-.quiz-option-btn:focus-visible {
+.sig-ops-preset-btn:focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: 2px;
 }
 
-.quiz-option-btn.disabled {
-  opacity: 0.4;
-  cursor: default;
+/* ── Responsive ──────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  .sig-ops-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
-.quiz-option-btn:disabled {
-  cursor: default;
-}
-
-/* Responsive */
 @media (max-width: 768px) {
-  .quiz-options {
+  .sig-ops-formula-display {
+    flex-wrap: wrap;
+    padding: 10px 14px;
+  }
+
+  .sig-ops-formula-expr {
+    font-size: 1.05rem;
+    word-break: break-all;
+  }
+
+  .sig-ops-metrics-grid {
     grid-template-columns: 1fr;
   }
 
-  .signal-ops-formula {
-    flex-wrap: wrap;
+  .sig-ops-presets-row {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
   }
 
-  .formula-text {
-    word-break: break-all;
-    font-size: 0.95rem;
+  .sig-ops-chain-bar {
+    padding: 8px 12px;
   }
+}
+
+/* ── Light Mode Overrides ────────────────────────────────── */
+
+[data-theme="light"] .sig-ops-chain-bar {
+  background: rgba(241, 245, 249, 0.8);
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .sig-ops-formula-display {
+  background: rgba(241, 245, 249, 0.8);
+  border-color: #e2e8f0;
+  box-shadow: 0 0 20px rgba(20, 184, 166, 0.1);
+}
+
+[data-theme="light"] .sig-ops-formula-expr {
+  color: #0d9488;
+}
+
+[data-theme="light"] .sig-ops-plot-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .sig-ops-metrics {
+  background: rgba(241, 245, 249, 0.8);
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .sig-ops-metric-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .sig-ops-view-toggle {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .sig-ops-toggle-btn.active {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+[data-theme="light"] .sig-ops-preset-btn {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+[data-theme="light"] .sig-ops-preset-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: rgba(20, 184, 166, 0.08);
 }

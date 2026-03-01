@@ -27,6 +27,135 @@ const BLOCK_SIZES = {
   junction: { radius: 6 },
 };
 
+const COLLISION_PAD = 12; // px clearance around blocks for collision avoidance
+
+// ============================================================================
+// Wire Routing Utilities
+// ============================================================================
+
+function pointsToPath(pts) {
+  // Deduplicate consecutive identical points, then build SVG path
+  const clean = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const [px, py] = pts[i], [cx, cy] = clean[clean.length - 1];
+    if (Math.abs(px - cx) > 0.5 || Math.abs(py - cy) > 0.5) clean.push(pts[i]);
+  }
+  let d = `M ${clean[0][0]} ${clean[0][1]}`;
+  for (let i = 1; i < clean.length; i++) d += ` L ${clean[i][0]} ${clean[i][1]}`;
+  return d;
+}
+
+function getBlockBounds(block) {
+  const { x, y } = block.position;
+  const type = block.type;
+  if (type === 'adder') {
+    const r = BLOCK_SIZES.adder.radius;
+    return { left: x - r - COLLISION_PAD, right: x + r + COLLISION_PAD,
+             top: y - r - COLLISION_PAD, bottom: y + r + COLLISION_PAD };
+  }
+  if (type === 'junction') {
+    const r = BLOCK_SIZES.junction.radius;
+    return { left: x - r - COLLISION_PAD, right: x + r + COLLISION_PAD,
+             top: y - r - COLLISION_PAD, bottom: y + r + COLLISION_PAD };
+  }
+  const size = BLOCK_SIZES[type] || { width: 100, height: 54 };
+  const hw = size.width / 2, hh = size.height / 2;
+  return { left: x - hw - COLLISION_PAD, right: x + hw + COLLISION_PAD,
+           top: y - hh - COLLISION_PAD, bottom: y + hh + COLLISION_PAD };
+}
+
+function hSegIntersectsRect(x1, x2, y, rect) {
+  const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+  return y >= rect.top && y <= rect.bottom && maxX > rect.left && minX < rect.right;
+}
+
+function vSegIntersectsRect(x, y1, y2, rect) {
+  const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+  return x >= rect.left && x <= rect.right && maxY > rect.top && minY < rect.bottom;
+}
+
+function avoidCollisions(points, allBlocks, excludeIds) {
+  // Post-process wire points to route around block bounding boxes
+  if (!allBlocks || Object.keys(allBlocks).length === 0) return points;
+
+  // Build list of bounding boxes to check against (exclude source/target blocks)
+  const obstacles = [];
+  Object.values(allBlocks).forEach(block => {
+    if (excludeIds.includes(block.id)) return;
+    obstacles.push({ id: block.id, bounds: getBlockBounds(block), center: block.position });
+  });
+  if (obstacles.length === 0) return points;
+
+  let result = [...points.map(p => [...p])];
+  // Iterate segments and check for collisions — up to 3 passes to handle cascading fixes
+  for (let pass = 0; pass < 3; pass++) {
+    let changed = false;
+    const newResult = [result[0]];
+
+    for (let i = 0; i < result.length - 1; i++) {
+      const [x1, y1] = result[i];
+      const [x2, y2] = result[i + 1];
+      const isHoriz = Math.abs(y1 - y2) < 0.5;
+      const isVert = Math.abs(x1 - x2) < 0.5;
+
+      let collisionFound = false;
+
+      if (isHoriz) {
+        // Check horizontal segment against all obstacles
+        for (const obs of obstacles) {
+          if (hSegIntersectsRect(x1, x2, y1, obs.bounds)) {
+            // Route around: go above or below the block
+            const blockCenterY = obs.center.y;
+            const newY = y1 <= blockCenterY ? obs.bounds.top - 2 : obs.bounds.bottom + 2;
+            // Clamp detour to just the block's X range
+            const segMinX = Math.min(x1, x2), segMaxX = Math.max(x1, x2);
+            const detourLeft = Math.max(segMinX, obs.bounds.left - 2);
+            const detourRight = Math.min(segMaxX, obs.bounds.right + 2);
+            // Insert detour points: approach block, shift Y, cross over, shift back
+            newResult.push([detourLeft, y1]);
+            newResult.push([detourLeft, newY]);
+            newResult.push([detourRight, newY]);
+            newResult.push([detourRight, y2]);
+            collisionFound = true;
+            changed = true;
+            break; // Handle one collision per segment per pass
+          }
+        }
+      } else if (isVert) {
+        // Check vertical segment against all obstacles
+        for (const obs of obstacles) {
+          if (vSegIntersectsRect(x1, y1, y2, obs.bounds)) {
+            // Route around: go left or right of the block
+            const blockCenterX = obs.center.x;
+            const newX = x1 <= blockCenterX ? obs.bounds.left - 2 : obs.bounds.right + 2;
+            const segMinY = Math.min(y1, y2), segMaxY = Math.max(y1, y2);
+            const detourTop = Math.max(segMinY, obs.bounds.top - 2);
+            const detourBot = Math.min(segMaxY, obs.bounds.bottom + 2);
+            newResult.push([x1, detourTop]);
+            newResult.push([newX, detourTop]);
+            newResult.push([newX, detourBot]);
+            newResult.push([x1, detourBot]);
+            collisionFound = true;
+            changed = true;
+            break;
+          }
+        }
+      }
+
+      if (!collisionFound) {
+        newResult.push([x2, y2]);
+      } else {
+        newResult.push([x2, y2]);
+      }
+    }
+
+    result = newResult;
+    if (!changed) break;
+  }
+
+  return result;
+}
+
 const PORT_RADIUS = 8;
 const CANVAS_WIDTH = 900;
 const CANVAS_HEIGHT = 650;
@@ -176,7 +305,7 @@ function AdderBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMou
         onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 1); }}
       />
       <text
-        x={-14} y={r + 17}
+        x={14} y={r + 17}
         textAnchor="middle" className="bd-sign-label"
         onClick={(e) => { e.stopPropagation(); onToggleSign(block.id, 1); }}
         style={{ cursor: 'pointer' }}
@@ -333,8 +462,10 @@ function Wire({ connection, blocks, isNew, isSelected, onWireClick, onWireDouble
   const startPos = getPortPosition(fromBlock, 'output', connection.from_port);
   const endPos = getPortPosition(toBlock, 'input', connection.to_port);
 
-  // Invert direction for the end port: 'left' port means wire enters from left, so endDir = 'left'
-  const d = computeWirePath(startPos, endPos, startPos.dir, endPos.dir);
+  // Compute wire points, run collision avoidance, convert to SVG path
+  const points = computeWirePoints(startPos, endPos, startPos.dir, endPos.dir);
+  const safePoints = avoidCollisions(points, blocks, [connection.from_block, connection.to_block]);
+  const d = pointsToPath(safePoints);
 
   return (
     <g className={`bd-wire-group ${isNew ? 'bd-wire-new' : ''} ${isSelected ? 'bd-wire-selected' : ''}`}>
@@ -355,125 +486,155 @@ function Wire({ connection, blocks, isNew, isSelected, onWireClick, onWireDouble
   );
 }
 
-function computeWirePath(startPos, endPos, startDir, endDir) {
-  // Clean orthogonal wire routing — minimal segments, no unnecessary loops
+function computeWirePoints(startPos, endPos, startDir, endDir) {
+  // Textbook-quality orthogonal wire routing.
+  // Returns array of [x,y] points (NOT SVG path string).
+  // Callers should run avoidCollisions() then pointsToPath() on the result.
   const sd = startDir || 'right';
   const ed = endDir || 'left';
-  const G = 18; // gap — small stub distance from port
+  const G = 20; // stub distance — wire goes straight this far before first turn
 
   const sx = startPos.x, sy = startPos.y;
   const ex = endPos.x, ey = endPos.y;
   const dx = ex - sx, dy = ey - sy;
 
-  const P = (pts) => {
-    // Deduplicate consecutive identical points, then build SVG path
-    const clean = [pts[0]];
-    for (let i = 1; i < pts.length; i++) {
-      const [px, py] = pts[i], [cx, cy] = clean[clean.length - 1];
-      if (Math.abs(px - cx) > 0.5 || Math.abs(py - cy) > 0.5) clean.push(pts[i]);
-    }
-    let d = `M ${clean[0][0]} ${clean[0][1]}`;
-    for (let i = 1; i < clean.length; i++) d += ` L ${clean[i][0]} ${clean[i][1]}`;
-    return d;
-  };
-
   // ── right → left (most common: forward path) ──
   if (sd === 'right' && ed === 'left') {
-    if (Math.abs(dy) < 1 && dx > 0) return P([[sx,sy],[ex,ey]]);
-    if (dx > G * 2) {
-      const mx = sx + dx / 2;
-      return P([[sx,sy],[mx,sy],[mx,ey],[ex,ey]]);
+    if (Math.abs(dy) < 1 && dx > 0) return [[sx,sy],[ex,ey]];
+    if (dx > 0) {
+      const mx = (sx + ex) / 2;
+      return [[sx,sy],[mx,sy],[mx,ey],[ex,ey]];
     }
-    // Backward: route around — prefer going above if same row, below if target is higher
-    const detour = (dy > 20)
-      ? Math.max(sy, ey) + 40   // target below: go below
-      : Math.min(sy, ey) - 40;  // same row or target above: go above
-    return P([[sx,sy],[sx+G,sy],[sx+G,detour],[ex-G,detour],[ex-G,ey],[ex,ey]]);
+    // Backward with large vertical offset: route via midpoint Y (avoids blocks at both rows)
+    if (Math.abs(dy) > 40) {
+      const midY = (sy + ey) / 2;
+      return [[sx,sy],[sx+G,sy],[sx+G,midY],[ex-G,midY],[ex-G,ey],[ex,ey]];
+    }
+    // Backward same-row: detour above
+    const detour = Math.min(sy, ey) - 80;
+    return [[sx,sy],[sx+G,sy],[sx+G,detour],[ex-G,detour],[ex-G,ey],[ex,ey]];
   }
 
-  // ── right → down (into adder bottom or similar) ──
+  // ── right → down ──
   if (sd === 'right' && ed === 'down') {
-    if (sy < ey - G) {
-      // Source above target: go right then L-bend down
-      return P([[sx,sy],[ex,sy],[ex,ey]]);
-    }
-    // Source at same level or below target: detour right and above, then down
-    const topY = Math.min(sy, ey - G) - 30;
-    return P([[sx,sy],[sx+G,sy],[sx+G,topY],[ex,topY],[ex,ey]]);
+    if (sy < ey - G && ex > sx) return [[sx,sy],[ex,sy],[ex,ey]];
+    if (sy < ey - G) return [[sx,sy],[sx+G,sy],[sx+G,ey-G],[ex,ey-G],[ex,ey]];
+    const approachY = ey + G;
+    return [[sx,sy],[sx+G,sy],[sx+G,approachY],[ex,approachY],[ex,ey]];
   }
 
   // ── right → up ──
   if (sd === 'right' && ed === 'up') {
-    if (sy > ey + G) {
-      // Source below target: go right then L-bend up
-      return P([[sx,sy],[ex,sy],[ex,ey]]);
-    }
-    // Source at same level or above target: detour right and below, then up
-    const botY = Math.max(sy, ey + G) + 30;
-    return P([[sx,sy],[sx+G,sy],[sx+G,botY],[ex,botY],[ex,ey]]);
+    if (sy > ey + G && ex > sx) return [[sx,sy],[ex,sy],[ex,ey]];
+    if (sy > ey + G && ex <= sx) return [[sx,sy],[sx+G,sy],[sx+G,ey+G],[ex,ey+G],[ex,ey]];
+    const topY = Math.min(sy, ey) - 60;
+    return [[sx,sy],[sx+G,sy],[sx+G,topY],[ex,topY],[ex,ey]];
   }
 
   // ── right → right ──
   if (sd === 'right' && ed === 'right') {
+    if (dx < 0 && Math.abs(dy) > 40) return [[sx,sy],[sx+G,sy],[sx+G,ey],[ex+G,ey],[ex,ey]];
+    if (dx < 0) {
+      const detourY = Math.min(sy, ey) - 60;
+      return [[sx,sy],[sx+G,sy],[sx+G,detourY],[ex+G,detourY],[ex+G,ey],[ex,ey]];
+    }
     const rx = Math.max(sx + G, ex + G);
-    return P([[sx,sy],[rx,sy],[rx,ey],[ex,ey]]);
+    return [[sx,sy],[rx,sy],[rx,ey],[ex,ey]];
   }
 
   // ── down → left ──
   if (sd === 'down' && ed === 'left') {
-    // Go straight down to target Y, then left
-    return P([[sx,sy],[sx,ey],[ex,ey]]);
+    if (sx >= ex && sy < ey) return [[sx,sy],[sx,ey],[ex,ey]];
+    if (sx < ex && sy < ey) return [[sx,sy],[sx,ey],[ex,ey]];
+    const botY = Math.max(sy + G, ey + G);
+    return [[sx,sy],[sx,botY],[ex-G,botY],[ex-G,ey],[ex,ey]];
   }
 
   // ── down → right ──
   if (sd === 'down' && ed === 'right') {
-    return P([[sx,sy],[sx,ey],[ex,ey]]);
+    if (sx <= ex && sy < ey) return [[sx,sy],[sx,ey],[ex,ey]];
+    if (sx > ex && sy < ey) return [[sx,sy],[sx,ey],[ex,ey]];
+    const botY = Math.max(sy + G, ey + G);
+    return [[sx,sy],[sx,botY],[ex+G,botY],[ex+G,ey],[ex,ey]];
   }
 
   // ── down → down ──
   if (sd === 'down' && ed === 'down') {
-    const by = Math.max(sy, ey) + 30;
-    return P([[sx,sy],[sx,by],[ex,by],[ex,ey]]);
+    if (Math.abs(dx) < 1) return [[sx,sy],[ex,ey]];
+    const by = Math.max(sy, ey) + 40;
+    return [[sx,sy],[sx,by],[ex,by],[ex,ey]];
   }
 
   // ── left → right (backward: feedback path) ──
   if (sd === 'left' && ed === 'right') {
-    if (Math.abs(dy) < 1 && dx < 0) return P([[sx,sy],[ex,ey]]);
-    if (dx < -G * 2) {
-      const mx = sx + dx / 2;
-      return P([[sx,sy],[mx,sy],[mx,ey],[ex,ey]]);
+    if (Math.abs(dy) < 1 && dx < 0) return [[sx,sy],[ex,ey]];
+    if (dx < 0) {
+      const mx = (sx + ex) / 2;
+      return [[sx,sy],[mx,sy],[mx,ey],[ex,ey]];
     }
-    const detour = dy >= 0
-      ? Math.max(sy, ey) + 40
-      : Math.min(sy, ey) - 40;
-    return P([[sx,sy],[sx-G,sy],[sx-G,detour],[ex+G,detour],[ex+G,ey],[ex,ey]]);
+    // Forward with large vertical offset: route via midpoint Y
+    if (Math.abs(dy) > 40) {
+      const midY = (sy + ey) / 2;
+      return [[sx,sy],[sx-G,sy],[sx-G,midY],[ex+G,midY],[ex+G,ey],[ex,ey]];
+    }
+    const detour = Math.min(sy, ey) - 80;
+    return [[sx,sy],[sx-G,sy],[sx-G,detour],[ex+G,detour],[ex+G,ey],[ex,ey]];
   }
 
   // ── left → left ──
   if (sd === 'left' && ed === 'left') {
+    if (Math.abs(dy) < 1 && dx < 0) return [[sx,sy],[ex,ey]];
     const lx = Math.min(sx - G, ex - G);
-    return P([[sx,sy],[lx,sy],[lx,ey],[ex,ey]]);
+    return [[sx,sy],[lx,sy],[lx,ey],[ex,ey]];
   }
 
   // ── left → down ──
   if (sd === 'left' && ed === 'down') {
-    return P([[sx,sy],[sx-G,sy],[sx-G,ey-G],[ex,ey-G],[ex,ey]]);
+    if (sy < ey && sx > ex) return [[sx,sy],[ex,sy],[ex,ey]];
+    if (sy < ey) return [[sx,sy],[sx-G,sy],[sx-G,ey-G],[ex,ey-G],[ex,ey]];
+    const approachY = ey + G;
+    return [[sx,sy],[sx-G,sy],[sx-G,approachY],[ex,approachY],[ex,ey]];
+  }
+
+  // ── left → up ──
+  if (sd === 'left' && ed === 'up') {
+    if (sy > ey && sx > ex) return [[sx,sy],[ex,sy],[ex,ey]];
+    const topY = Math.min(sy, ey) - 40;
+    return [[sx,sy],[sx-G,sy],[sx-G,topY],[ex,topY],[ex,ey]];
   }
 
   // ── up → left ──
   if (sd === 'up' && ed === 'left') {
-    return P([[sx,sy],[sx,ey],[ex,ey]]);
+    if (sy > ey) return [[sx,sy],[sx,ey],[ex,ey]];
+    const topY = Math.min(sy - G, ey);
+    return [[sx,sy],[sx,topY],[ex-G,topY],[ex-G,ey],[ex,ey]];
   }
 
   // ── up → right ──
   if (sd === 'up' && ed === 'right') {
-    return P([[sx,sy],[sx,ey],[ex,ey]]);
+    if (sy > ey) return [[sx,sy],[sx,ey],[ex,ey]];
+    const topY = Math.min(sy - G, ey);
+    return [[sx,sy],[sx,topY],[ex+G,topY],[ex+G,ey],[ex,ey]];
   }
 
-  // ── Fallback: simple L-bend ──
-  if (Math.abs(dy) < 1) return P([[sx,sy],[ex,ey]]);
+  // ── up → down ──
+  if (sd === 'up' && ed === 'down') {
+    if (Math.abs(dx) < 1) return [[sx,sy],[ex,ey]];
+    const topY = Math.min(sy, ey) - 40;
+    return [[sx,sy],[sx,topY],[ex,topY],[ex,ey]];
+  }
+
+  // ── up → up ──
+  if (sd === 'up' && ed === 'up') {
+    if (Math.abs(dx) < 1) return [[sx,sy],[ex,ey]];
+    const topY = Math.min(sy, ey) - 40;
+    return [[sx,sy],[sx,topY],[ex,topY],[ex,ey]];
+  }
+
+  // ── Fallback ──
+  if (Math.abs(dy) < 1) return [[sx,sy],[ex,ey]];
   const mx = (sx + ex) / 2;
-  return P([[sx,sy],[mx,sy],[mx,ey],[ex,ey]]);
+  return [[sx,sy],[mx,sy],[mx,ey],[ex,ey]];
 }
 
 function getPortPosition(block, portType, portIndex) {
@@ -528,7 +689,8 @@ function getPortPosition(block, portType, portIndex) {
 
 function WireInProgress({ startPos, mousePos }) {
   if (!startPos || !mousePos) return null;
-  const d = computeWirePath(startPos, mousePos, startPos.dir || 'right', 'left');
+  const points = computeWirePoints(startPos, mousePos, startPos.dir || 'right', 'left');
+  const d = pointsToPath(points);
   return <path d={d} className="bd-wire-in-progress" />;
 }
 
@@ -927,13 +1089,18 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     setSelectedWire(null);
     setTfResult(null);
     setError(null);
+    setZoom(1.0);
+    setPanOffset({ x: 0, y: 0 });
     if (onParamChange) onParamChange('system_type', newType);
   }, [callAction, onParamChange]);
 
   // Clear canvas
   const handleClear = useCallback(() => {
     callAction('clear', {});
+    setZoom(1.0);
+    setPanOffset({ x: 0, y: 0 });
     setSelectedBlock(null);
+    setSelectedWire(null);
     setTfResult(null);
     setError(null);
   }, [callAction]);
@@ -941,7 +1108,12 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   // Load preset
   const handleLoadPreset = useCallback((presetName) => {
     callAction('load_preset', { preset: presetName });
+    setZoom(1.0);
+    setPanOffset({ x: 0, y: 0 });
     setPresetOpen(false);
+    setSelectedBlock(null);
+    setSelectedWire(null);
+    setError(null);
   }, [callAction]);
 
   // Parse TF
@@ -991,33 +1163,12 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     setPanOffset({ x: 0, y: 0 });
   }, []);
 
-  // Mouse wheel zoom toward cursor position
+  // Mouse wheel zoom — simple center-based zoom (reliable, no drift)
   const handleWheel = useCallback((e) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-    setZoom(prevZoom => {
-      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prevZoom + delta));
-      if (newZoom === prevZoom) return prevZoom;
-      // Adjust pan so the point under cursor stays fixed
-      const svg = svgRef.current;
-      if (svg) {
-        const rect = svg.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-        // SVG point under cursor in old zoom
-        const svgX = (mx / prevZoom) + (CANVAS_WIDTH - rect.width / prevZoom) / 2 - panOffset.x;
-        const svgY = (my / prevZoom) + (CANVAS_HEIGHT - rect.height / prevZoom) / 2 - panOffset.y;
-        // Where that SVG point would appear in new zoom (without pan adjustment)
-        const newMx = (svgX - (CANVAS_WIDTH - rect.width / newZoom) / 2) * newZoom;
-        const newMy = (svgY - (CANVAS_HEIGHT - rect.height / newZoom) / 2) * newZoom;
-        // Delta to shift pan so point stays at cursor
-        const panDx = (mx - newMx) / newZoom;
-        const panDy = (my - newMy) / newZoom;
-        setPanOffset(prev => ({ x: prev.x + panDx, y: prev.y + panDy }));
-      }
-      return newZoom;
-    });
-  }, [panOffset]);
+    setZoom(prevZoom => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prevZoom + delta)));
+  }, []);
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -1041,10 +1192,10 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     if (isPanning) {
       const dx = (e.clientX - panStart.current.x) / zoom;
       const dy = (e.clientY - panStart.current.y) / zoom;
-      // Clamp pan to prevent canvas from going completely off-screen
-      const maxPan = CANVAS_WIDTH / (2 * zoom);
-      const maxPanY = CANVAS_HEIGHT / (2 * zoom);
-      const newX = Math.max(-maxPan, Math.min(maxPan, panStart.current.ox + dx));
+      // Tight pan limits — never lose the diagram
+      const maxPanX = 200;
+      const maxPanY = 150;
+      const newX = Math.max(-maxPanX, Math.min(maxPanX, panStart.current.ox + dx));
       const newY = Math.max(-maxPanY, Math.min(maxPanY, panStart.current.oy + dy));
       setPanOffset({ x: newX, y: newY });
     }
@@ -1325,7 +1476,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
                 id="arrowhead"
                 markerWidth="10"
                 markerHeight="8"
-                refX="8"
+                refX="12"
                 refY="4"
                 orient="auto"
               >

@@ -785,21 +785,21 @@ class LensOpticsSimulator(BaseSimulator):
             'star_field': 'Star Field'
         }
 
-        # Generate image data URLs for display
-        original_image_url = self._image_to_base64(self._original_image)
-        blurred_image_url = self._image_to_base64(self._blurred_image)
-        psf_image_url = self._psf_to_base64(self._psf)
+        # Generate image data URLs for display (optional, Plotly heatmaps are primary)
+        images = {}
+        try:
+            images["original"] = self._image_to_base64(self._original_image)
+            images["blurred"] = self._image_to_base64(self._blurred_image)
+            images["psf"] = self._psf_to_base64(self._psf)
+        except Exception:
+            pass  # Plotly heatmap plots serve as primary display
 
         base_state["metadata"] = {
             "simulation_type": "lens_optics",
             "sticky_controls": True,
 
-            # Images for display
-            "images": {
-                "original": original_image_url,
-                "blurred": blurred_image_url,
-                "psf": psf_image_url,
-            },
+            # Images for display (fallback, Plotly heatmaps are primary)
+            "images": images,
 
             # Current test pattern
             "test_pattern": pattern_labels.get(

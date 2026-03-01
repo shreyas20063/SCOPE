@@ -1709,6 +1709,8 @@ function SimulationViewer({
                 <SignalOperationsViewer
                   metadata={metadata}
                   plots={plots}
+                  currentParams={currentParams}
+                  onParamChange={onParamChange}
                   onButtonClick={onButtonClick}
                   isUpdating={isUpdating}
                 />
