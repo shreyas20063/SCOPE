@@ -1567,7 +1567,7 @@ function SimulationViewer({
             hasControls={parameters && parameters.length > 0}
           />
 
-          <div className={`viewer-content ${(!parameters || parameters.length === 0) ? 'no-controls' : ''}`}>
+          <div className={`viewer-content ${(!parameters || parameters.length === 0 || metadata?.simulation_type === 'block_diagram_builder') ? 'no-controls' : ''}`}>
             {/* Plots section */}
             <div
               className={`plots-section ${
@@ -1680,6 +1680,7 @@ function SimulationViewer({
                   <SamplingReconstructionViewer
                     metadata={metadata}
                     plots={plots}
+                    currentParams={currentParams}
                   />
                 </Suspense>
               ) : metadata?.simulation_type === 'mass_spring_system' ? (
@@ -1728,6 +1729,7 @@ function SimulationViewer({
                     plots={plots}
                     onButtonClick={onButtonClick}
                     isUpdating={isUpdating}
+                    isRunning={isRunning}
                   />
                 </Suspense>
               ) : metadata?.simulation_type === 'ct_impulse_response' ? (
@@ -1951,17 +1953,13 @@ function SimulationViewer({
               )}
             </div>
 
-            {/* Controls section - only show if there are parameters */}
-            {parameters && parameters.length > 0 && (
+            {/* Controls section - hide for block_diagram_builder (controls are inline in viewer) */}
+            {parameters && parameters.length > 0 && metadata?.simulation_type !== 'block_diagram_builder' && (
               <div
                 className={`controls-section ${
                   mobileActiveTab === 'controls' ? 'mobile-visible' : 'mobile-hidden'
                 }`}
               >
-                {/* Transfer Function display for block diagram builder */}
-                {metadata?.simulation_type === 'block_diagram_builder' && (
-                  <BlockDiagramTFPanel metadata={metadata} />
-                )}
                 <ControlPanel
                   parameters={parameters}
                   currentValues={currentParams}

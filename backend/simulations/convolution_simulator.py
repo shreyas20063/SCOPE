@@ -18,6 +18,9 @@ Math extracted from: convolution/core/convolution.py, convolution/core/signals.p
 import numpy as np
 from typing import Any, Dict, List, Optional, Callable, Tuple
 from .base_simulator import BaseSimulator
+
+# NumPy 2.0 renamed trapz -> trapezoid
+_trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz
 from .signal_parser import SignalParser
 
 
@@ -539,7 +542,7 @@ class ConvolutionSimulator(BaseSimulator):
         self._product = self._x_t * self._h_shifted
 
         # Compute convolution integral at t₀
-        self._current_y_value = float(np.trapz(self._product, self._tau))
+        self._current_y_value = float(_trapz(self._product, self._tau))
 
         # Compute full convolution for result plot
         self._compute_full_convolution_continuous(x_func, h_func)
@@ -606,7 +609,7 @@ class ConvolutionSimulator(BaseSimulator):
         for i, t_val in enumerate(t_range):
             h_shifted = h_func(t_val - self._tau)
             product = self._x_t * h_shifted
-            self._y_result[i] = np.trapz(product, self._tau)
+            self._y_result[i] = _trapz(product, self._tau)
 
     def _compute_full_convolution_discrete(
         self,

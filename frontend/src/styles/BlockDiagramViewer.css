@@ -343,7 +343,97 @@
 }
 
 /* ============================================================================
-   Main area (canvas + side panel)
+   Transfer Function bar (inline)
+   ============================================================================ */
+
+.bd-tf-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 1.25rem;
+  background: rgba(19, 27, 46, 0.7);
+  border-bottom: 1px solid rgba(0, 217, 255, 0.08);
+  min-height: 44px;
+  flex-wrap: wrap;
+}
+
+.bd-tf-bar-expr {
+  padding: 0.25rem 0.75rem;
+  background: rgba(0, 217, 255, 0.06);
+  border: 1px solid rgba(0, 217, 255, 0.12);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.bd-tf-bar-expr .katex {
+  font-size: 1.5rem;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.bd-tf-bar-eq {
+  font-size: 1.3rem;
+  color: var(--text-muted, #64748b);
+  padding: 0 0.1rem;
+}
+
+.bd-tf-bar-stability {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full, 9999px);
+  white-space: nowrap;
+}
+
+.bd-tf-bar-stability.stable {
+  color: var(--success-color, #10b981);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.bd-tf-bar-stability.marginally_stable {
+  color: var(--warning-color, #f59e0b);
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.bd-tf-bar-stability.unstable {
+  color: var(--error-color, #ef4444);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.bd-tf-bar-poles {
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+  font-family: 'Fira Code', monospace;
+  cursor: help;
+  border-bottom: 1px dotted var(--text-muted, #64748b);
+}
+
+.bd-tf-bar-warning {
+  font-size: 0.72rem;
+  color: var(--warning-color, #f59e0b);
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-sm, 6px);
+  cursor: help;
+}
+
+.bd-tf-bar-error {
+  font-size: 0.78rem;
+  color: var(--error-color, #ef4444);
+  word-break: break-word;
+}
+
+.bd-tf-bar-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+  font-style: italic;
+}
+
+/* ============================================================================
+   Main area (canvas)
    ============================================================================ */
 
 .bd-main-area {

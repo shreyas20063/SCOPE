@@ -551,7 +551,15 @@ export function useSimulation(simId) {
         // Check if this simulation has an active simulator
         if (simResult.data.has_simulator) {
           // Fetch current state (initializes simulator if needed)
-          const stateResult = await api.getSimulationState(simId);
+          let stateResult = await api.getSimulationState(simId);
+
+          // Retry once on failure (handles intermittent backend init errors)
+          if (!stateResult.success) {
+            console.warn('Initial state load failed, retrying...', stateResult.error);
+            await new Promise(r => setTimeout(r, 500));
+            if (!mountedRef.current) return;
+            stateResult = await api.getSimulationState(simId);
+          }
 
           if (!mountedRef.current) return;
 

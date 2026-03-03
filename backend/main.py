@@ -12,6 +12,7 @@ Optimized for 100 concurrent users with:
 import time
 import asyncio
 import logging
+import threading
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -164,6 +165,7 @@ executor = SimulationExecutor(timeout=30)
 
 # Active simulator instances
 active_simulators: Dict[str, Any] = {}
+_simulator_lock = threading.Lock()
 
 
 def get_or_create_simulator(sim_id: str):
@@ -172,15 +174,20 @@ def get_or_create_simulator(sim_id: str):
     if simulator_class is None:
         return None
 
-    # Recreate if class changed (e.g. after --reload)
-    if sim_id in active_simulators:
-        if type(active_simulators[sim_id]) is not simulator_class:
-            del active_simulators[sim_id]
+    with _simulator_lock:
+        # Recreate if class changed (e.g. after --reload)
+        if sim_id in active_simulators:
+            if type(active_simulators[sim_id]) is not simulator_class:
+                del active_simulators[sim_id]
 
-    if sim_id not in active_simulators:
-        simulator = simulator_class(sim_id)
-        simulator.initialize()
-        active_simulators[sim_id] = simulator
+        if sim_id not in active_simulators:
+            try:
+                simulator = simulator_class(sim_id)
+                simulator.initialize()
+                active_simulators[sim_id] = simulator
+            except Exception as e:
+                logger.error(f"Failed to initialize simulator '{sim_id}': {e}", exc_info=True)
+                return None
 
     return active_simulators[sim_id]
 
@@ -308,6 +315,7 @@ async def get_simulation_state(sim_id: str):
             "data": {
                 "parameters": simulation.get("default_params", {}),
                 "plots": [],
+                "metadata": {"simulation_type": sim_id},
             },
         }
 

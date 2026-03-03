@@ -18,6 +18,9 @@ import numpy as np
 
 from .base_simulator import BaseSimulator
 
+# NumPy 2.0 renamed trapz -> trapezoid
+_trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz
+
 
 class IVTFVTSimulator(BaseSimulator):
     """Simulator for Initial and Final Value Theorem visualization."""
@@ -292,7 +295,7 @@ class IVTFVTSimulator(BaseSimulator):
 
         # Numerical integral: sX(s) = integral_0^inf x(t) * s * e^{-st} dt
         # Use the unclipped product for accuracy
-        sXs_numerical = float(np.trapz(product, t))
+        sXs_numerical = float(_trapz(product, t))
 
         # Tail correction: if x(inf) is finite and known, add residual
         # integral_T^inf x(inf)*s*e^{-st}dt = x(inf)*e^{-sT}

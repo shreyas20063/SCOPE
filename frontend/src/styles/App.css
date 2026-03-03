@@ -117,7 +117,8 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1, 'liga' 1;
 }
 
 a {
@@ -184,7 +185,7 @@ a {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  text-shadow: 0 0 30px rgba(0, 217, 255, 0.3);
+  letter-spacing: -0.01em;
 }
 
 .nav-links {
@@ -195,6 +196,8 @@ a {
 .nav-links a {
   color: var(--text-secondary);
   font-weight: 500;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
   transition: color 0.2s;
 }
 
@@ -298,7 +301,7 @@ a {
   margin-bottom: 1rem;
   line-height: 1.15;
   position: relative;
-  background: linear-gradient(135deg, #e2e8f0 0%, #14b8a6 45%, #7c3aed 100%);
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 30%, #14b8a6 65%, #7c3aed 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -308,11 +311,11 @@ a {
   font-size: 1.05rem;
   font-weight: 400;
   color: var(--text-secondary);
-  max-width: 480px;
+  max-width: 500px;
   margin: 0 auto;
-  line-height: 1.65;
+  line-height: 1.7;
   position: relative;
-  letter-spacing: 0.005em;
+  letter-spacing: 0.01em;
 }
 
 .hero-accent {
@@ -367,7 +370,10 @@ a {
   border: none;
   outline: none;
   color: var(--text-primary);
-  font-size: 1rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
 }
 
 .search-bar input::placeholder {
@@ -400,14 +406,14 @@ a {
 }
 
 .category-btn {
-  padding: 0.45rem 1rem;
+  padding: 0.45rem 1.1rem;
   background: transparent;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-full);
   color: var(--text-muted);
   font-size: 0.8rem;
   font-weight: 500;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   cursor: pointer;
   transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
@@ -425,7 +431,9 @@ a {
 
 .results-info {
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
 }
 
 .no-results {
@@ -527,13 +535,13 @@ a {
 }
 
 .category-badge {
-  padding: 0.2rem 0.6rem;
+  padding: 0.2rem 0.65rem;
   border-radius: var(--radius-full);
   font-size: 0.65rem;
   font-weight: 500;
   color: white;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
@@ -554,11 +562,13 @@ a {
 .card-content p {
   color: var(--text-secondary);
   font-size: 0.85rem;
-  line-height: 1.55;
+  font-weight: 400;
+  line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  letter-spacing: 0.005em;
 }
 
 .card-footer {
@@ -574,7 +584,7 @@ a {
   color: white;
   font-weight: 500;
   font-size: 0.8rem;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   padding: 0.5rem 1.25rem;
   border-radius: var(--radius-xl);
   transition: transform 0.2s, box-shadow 0.2s;

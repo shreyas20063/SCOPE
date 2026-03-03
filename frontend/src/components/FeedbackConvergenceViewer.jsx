@@ -14,24 +14,28 @@ import '../styles/FeedbackConvergenceViewer.css';
  * SVG Block Diagram: X → (+) → Y with feedback Y → Delay → p₀ → (+)
  */
 function BlockDiagram({ p0, convergence, animationStep, animationActive }) {
-  const [pulseClass, setPulseClass] = useState('');
+  const [pathMode, setPathMode] = useState(''); // 'forward' | 'loop' | ''
   const prevStepRef = useRef(0);
 
-  // Trigger pulse animation when animation_step changes
+  // Trigger path highlight + pulse when animation_step changes
   useEffect(() => {
     if (animationActive && animationStep > prevStepRef.current) {
-      if (animationStep === 1) {
-        setPulseClass('active path-input');
-      } else {
-        setPulseClass('active path-loop');
-      }
-      const timer = setTimeout(() => setPulseClass(''), 1300);
+      const mode = animationStep === 1 ? 'forward' : 'loop';
+      setPathMode(mode);
+      const timer = setTimeout(() => setPathMode(''), 1400);
+      prevStepRef.current = animationStep;
+      return () => clearTimeout(timer);
+    }
+    // Also handle loopback (step went from num_samples back to 1)
+    if (animationActive && animationStep === 1 && prevStepRef.current > 1) {
+      setPathMode('loop');
+      const timer = setTimeout(() => setPathMode(''), 1400);
       prevStepRef.current = animationStep;
       return () => clearTimeout(timer);
     }
     if (!animationActive) {
       prevStepRef.current = 0;
-      setPulseClass('');
+      setPathMode('');
     }
   }, [animationStep, animationActive]);
 
@@ -40,16 +44,30 @@ function BlockDiagram({ p0, convergence, animationStep, animationActive }) {
     : '#f59e0b';
 
   const p0Display = p0 % 1 === 0 ? p0.toFixed(0) : p0.toFixed(2);
+  const isForward = pathMode === 'forward';
+  const isLoop = pathMode === 'loop';
 
   return (
     <div className="fc-svg-container">
       <svg viewBox="0 0 300 130" width="300" height="130" aria-label="Feedback loop block diagram">
-        {/* Arrow markers */}
+        {/* Defs: arrow markers + glow filter */}
         <defs>
           <marker id="fc-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
             <polygon points="0 0, 8 3, 0 6" className="arrow-head" />
           </marker>
+          <marker id="fc-arrow-glow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill={statusColor} />
+          </marker>
+          <filter id="fc-glow">
+            <feGaussianBlur stdDeviation="2.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
+
+        {/* ── Base diagram lines (always visible, dim) ── */}
 
         {/* Input X label */}
         <text x="8" y="54" className="signal-label">X</text>
@@ -75,13 +93,10 @@ function BlockDiagram({ p0, convergence, animationStep, animationActive }) {
         <rect x="195" y="80" width="50" height="28" className="block-rect" />
         <text x="220" y="98" textAnchor="middle" className="block-label">Delay</text>
 
-        {/* Arrow from Y-down into Delay */}
-        <line x1="245" y1="94" x2="245" y2="94" className="arrow-line" />
-
         {/* Feedback path: Delay → p₀ gain */}
         <line x1="195" y1="94" x2="145" y2="94" className="arrow-line" markerEnd="url(#fc-arrow)" />
 
-        {/* p₀ Gain block (triangle/trapezoid) */}
+        {/* p₀ Gain block (triangle) */}
         <polygon points="135,82 100,94 135,106" className="gain-triangle" />
         <text x="122" y="98" textAnchor="middle"
           style={{ fontSize: '11px', fontFamily: "'Fira Code', monospace", fill: statusColor, fontWeight: 600 }}>
@@ -98,8 +113,32 @@ function BlockDiagram({ p0, convergence, animationStep, animationActive }) {
         <line x1="100" y1="94" x2="62" y2="94" className="arrow-line" />
         <line x1="62" y1="94" x2="62" y2="61" className="arrow-line" markerEnd="url(#fc-arrow)" />
 
+        {/* ── Glow overlay: Forward path (X → Adder → Y) ── */}
+        <g className={`fc-path-overlay${isForward ? ' active' : ''}`} filter="url(#fc-glow)">
+          <line x1="24" y1="50" x2="50" y2="50" stroke={statusColor} strokeWidth="3" markerEnd="url(#fc-arrow-glow)" />
+          <line x1="73" y1="50" x2="260" y2="50" stroke={statusColor} strokeWidth="3" markerEnd="url(#fc-arrow-glow)" />
+        </g>
+
+        {/* ── Glow overlay: Feedback loop (Y → Delay → p₀ → Adder) ── */}
+        <g className={`fc-path-overlay${isLoop ? ' active' : ''}`} filter="url(#fc-glow)">
+          {/* Y down to feedback rail */}
+          <line x1="240" y1="50" x2="240" y2="95" stroke={statusColor} strokeWidth="3" />
+          {/* Through Delay */}
+          <line x1="245" y1="94" x2="195" y2="94" stroke={statusColor} strokeWidth="3" />
+          {/* Delay → Gain */}
+          <line x1="195" y1="94" x2="145" y2="94" stroke={statusColor} strokeWidth="3" markerEnd="url(#fc-arrow-glow)" />
+          {/* Gain → Adder up */}
+          <line x1="100" y1="94" x2="62" y2="94" stroke={statusColor} strokeWidth="3" />
+          <line x1="62" y1="94" x2="62" y2="61" stroke={statusColor} strokeWidth="3" markerEnd="url(#fc-arrow-glow)" />
+          {/* Then through adder to output */}
+          <line x1="73" y1="50" x2="260" y2="50" stroke={statusColor} strokeWidth="3" markerEnd="url(#fc-arrow-glow)" />
+        </g>
+
         {/* Signal pulse dot */}
-        <circle className={`fc-signal-pulse ${pulseClass}`} cx="20" cy="50" />
+        <circle
+          className={`fc-signal-pulse${isForward ? ' active path-input' : isLoop ? ' active path-loop' : ''}`}
+          cx="20" cy="50"
+        />
       </svg>
     </div>
   );
@@ -194,19 +233,56 @@ function CycleDescription({ metadata }) {
 }
 
 /**
+ * Preset selector for common p₀ values
+ */
+function PresetSelector({ presets, currentP0, onApplyPreset, isUpdating }) {
+  if (!presets || presets.length === 0) return null;
+
+  return (
+    <div className="fc-presets">
+      <span className="fc-presets-label">Presets:</span>
+      <div className="fc-presets-list">
+        {presets.map((preset, i) => {
+          const isActive = Math.abs(currentP0 - preset.params.p0) < 0.005;
+          return (
+            <button
+              key={i}
+              className={`fc-preset-btn${isActive ? ' active' : ''}`}
+              onClick={() => onApplyPreset(preset.params)}
+              disabled={isUpdating}
+              title={preset.label}
+            >
+              {preset.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Main FeedbackConvergenceViewer component
  */
-function FeedbackConvergenceViewer({ metadata, plots, onButtonClick, isUpdating }) {
-  const handleAnimateCycle = useCallback(() => {
-    if (onButtonClick) onButtonClick('animate_cycles', {});
+function FeedbackConvergenceViewer({ metadata, plots, onButtonClick, isUpdating, isRunning }) {
+  const handlePlayPause = useCallback(() => {
+    if (onButtonClick) onButtonClick('play_pause', {});
+  }, [onButtonClick]);
+
+  const handleStepForward = useCallback(() => {
+    if (onButtonClick) onButtonClick('step_forward', {});
+  }, [onButtonClick]);
+
+  const handleStepBack = useCallback(() => {
+    if (onButtonClick) onButtonClick('step_backward', {});
   }, [onButtonClick]);
 
   const handleResetAnimation = useCallback(() => {
     if (onButtonClick) onButtonClick('reset_animation', {});
   }, [onButtonClick]);
 
-  const handleStepBack = useCallback(() => {
-    if (onButtonClick) onButtonClick('step_backward', {});
+  const handleApplyPreset = useCallback((params) => {
+    if (onButtonClick) onButtonClick('apply_preset', params);
   }, [onButtonClick]);
 
   const p0 = metadata?.p0 ?? 0.5;
@@ -214,11 +290,20 @@ function FeedbackConvergenceViewer({ metadata, plots, onButtonClick, isUpdating 
   const animationStep = metadata?.animation_step ?? 0;
   const animationActive = metadata?.animation_active ?? false;
   const numSamples = metadata?.num_samples ?? 15;
+  const presets = metadata?.presets ?? [];
 
   return (
     <div className="feedback-convergence-viewer">
       {/* Info Panel */}
       <InfoPanel metadata={metadata} />
+
+      {/* Preset Selector */}
+      <PresetSelector
+        presets={presets}
+        currentP0={p0}
+        onApplyPreset={handleApplyPreset}
+        isUpdating={isUpdating}
+      />
 
       {/* Block Diagram Section */}
       <div className="fc-block-diagram-section">
@@ -234,29 +319,41 @@ function FeedbackConvergenceViewer({ metadata, plots, onButtonClick, isUpdating 
             <button
               className="fc-animate-btn"
               onClick={handleStepBack}
-              disabled={isUpdating || !animationActive || animationStep <= 0}
+              disabled={isUpdating || isRunning || animationStep <= 0}
               aria-label="Step backward"
+              title="Step backward"
             >
               ◀
             </button>
             <button
-              className="fc-animate-btn primary"
-              onClick={handleAnimateCycle}
-              disabled={isUpdating}
-              aria-label="Animate one cycle"
+              className={`fc-animate-btn primary${isRunning ? ' running' : ''}`}
+              onClick={handlePlayPause}
+              disabled={isUpdating && !isRunning}
+              aria-label={isRunning ? 'Pause animation' : 'Play animation'}
+              title={isRunning ? 'Pause' : 'Auto-play all cycles'}
             >
-              ▶ Cycle
+              {isRunning ? '⏸ Pause' : '▶ Play'}
+            </button>
+            <button
+              className="fc-animate-btn"
+              onClick={handleStepForward}
+              disabled={isUpdating || isRunning || animationStep >= numSamples}
+              aria-label="Step forward"
+              title="Step forward one cycle"
+            >
+              ▶▏
             </button>
             <span className="fc-step-counter">
-              {animationActive ? `${animationStep} / ${numSamples}` : '— / —'}
+              {animationActive || isRunning ? `${animationStep} / ${numSamples}` : '— / —'}
             </span>
             <button
               className="fc-animate-btn"
               onClick={handleResetAnimation}
-              disabled={isUpdating || !animationActive}
+              disabled={isUpdating || (!animationActive && !isRunning)}
               aria-label="Reset animation"
+              title="Reset to start"
             >
-              ↺ Reset
+              ↺
             </button>
           </div>
         </div>

@@ -20,6 +20,9 @@ import numpy as np
 
 from .base_simulator import BaseSimulator
 
+# NumPy 2.0 renamed trapz -> trapezoid
+_trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz
+
 # --- Constants ---
 NUM_SAMPLES = 2000
 T_MIN = -3.0
@@ -95,7 +98,7 @@ class ImpulseConstructionSimulator(BaseSimulator):
         height = 1.0 / (2.0 * eps)
         self._pulse = np.where(np.abs(self._t) <= eps, height, 0.0)
         self._height = height
-        self._area_numerical = float(np.trapz(self._pulse, self._t))
+        self._area_numerical = float(_trapz(self._pulse, self._t))
 
         if mode == "construction":
             self._integral = np.cumsum(self._pulse) * self._dt

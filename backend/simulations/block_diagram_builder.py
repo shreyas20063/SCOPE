@@ -386,6 +386,14 @@ class BlockDiagramSimulator(BaseSimulator):
             "to_block": to_block,
             "to_port": to_port,
         }
+        # Store visual branch point if provided (for rendering branch wires)
+        branch_point = params.get("branch_point")
+        if branch_point and isinstance(branch_point, dict):
+            connection["branch_point"] = {
+                "x": branch_point.get("x", 0),
+                "y": branch_point.get("y", 0),
+                "dir": branch_point.get("dir", "right"),
+            }
         self.connections.append(connection)
         self._recompute_tf()
 
@@ -471,6 +479,7 @@ class BlockDiagramSimulator(BaseSimulator):
         self._tf_result = None
         self._error = None
         self._next_block_id = 0
+        self.tf_input = ""
 
     def _action_load_preset(self, params: Dict[str, Any]) -> None:
         """Load a preset diagram."""
@@ -883,6 +892,18 @@ class BlockDiagramSimulator(BaseSimulator):
         if not forward_paths:
             raise ValueError("No forward path from Input to Output found.")
 
+        # ── Algebraic loop detection ──
+        # A loop is "algebraic" if it contains NO delay or integrator blocks,
+        # meaning it has direct feedthrough (instantaneous feedback).
+        algebraic_loops = []
+        for loop in all_loops:
+            has_memory = any(
+                self.blocks[bid]["type"] in ("delay", "integrator")
+                for bid in loop if bid in self.blocks
+            )
+            if not has_memory:
+                algebraic_loops.append(loop)
+
         def compute_path_gain(path: List[str]) -> Tuple[np.ndarray, np.ndarray]:
             """Compute gain along a path as product of block TFs."""
             num = np.array([1.0])
@@ -1040,6 +1061,22 @@ class BlockDiagramSimulator(BaseSimulator):
         tf_num = self._clean_poly(tf_num)
         tf_den = self._clean_poly(tf_den)
 
+        # Check for degenerate denominator (algebraic loop made Δ ≈ 0)
+        if len(tf_den) == 0 or np.all(np.abs(tf_den) < 1e-10):
+            raise ValueError(
+                "Algebraic loop detected: feedback path has no delay or "
+                "integrator, causing a degenerate transfer function. "
+                "Add a Delay (DT) or Integrator (CT) block in the feedback path."
+            )
+
+        # Check for NaN/Inf in numerator or denominator
+        if np.any(~np.isfinite(tf_num)) or np.any(~np.isfinite(tf_den)):
+            raise ValueError(
+                "Transfer function has invalid coefficients (NaN/Inf). "
+                "This is likely caused by an algebraic loop. "
+                "Add a Delay (DT) or Integrator (CT) block in the feedback path."
+            )
+
         # Normalize so constant term of denominator is 1 (if nonzero)
         if len(tf_den) > 0 and abs(tf_den[0]) > 1e-12:
             scale = tf_den[0]
@@ -1097,9 +1134,18 @@ class BlockDiagramSimulator(BaseSimulator):
             stability = "stable"
         is_stable = stability == "stable"
 
+        # LaTeX versions
+        latex_expr = self._poly_ratio_to_latex(tf_num, tf_den, op)
+        if self.system_type == "dt":
+            domain_latex = self._poly_ratio_to_latex(z_num, z_den, "z")
+        else:
+            domain_latex = self._poly_ratio_to_latex(s_num, s_den, "s")
+
         return {
             "expression": f"H({op}) = {expression}",
             "domain_expression": domain_expr,
+            "latex": f"H({op}) = {latex_expr}",
+            "domain_latex": domain_latex,
             "operator": op,
             "numerator": tf_num.tolist(),
             "denominator": tf_den.tolist(),
@@ -1109,6 +1155,10 @@ class BlockDiagramSimulator(BaseSimulator):
             "stability": stability,
             "num_forward_paths": len(forward_paths),
             "num_loops": len(all_loops),
+            "algebraic_loop_warning": (
+                "Warning: algebraic loop detected (feedback without delay/integrator). "
+                "Results may be approximate. Add a Delay or Integrator in the feedback path."
+            ) if algebraic_loops else None,
         }
 
     def _dfs_forward_paths(
@@ -1316,6 +1366,56 @@ class BlockDiagramSimulator(BaseSimulator):
         if abs(c - round(c)) < 1e-10:
             return str(int(round(c)))
         return f"{c:.4g}"
+
+    def _poly_to_latex(self, coeffs: np.ndarray, var: str) -> str:
+        """Convert polynomial coefficients to LaTeX string."""
+        if len(coeffs) == 0:
+            return "0"
+        if len(coeffs) == 1:
+            return self._format_coeff(coeffs[0])
+
+        high_power_first = var in ("z", "s")
+        terms = []
+        for i, c in enumerate(coeffs):
+            if abs(c) < 1e-10:
+                continue
+            power = (len(coeffs) - 1 - i) if high_power_first else i
+
+            if power == 0:
+                term = self._format_coeff(c)
+            elif power == 1:
+                if abs(c - 1.0) < 1e-10:
+                    term = var
+                elif abs(c + 1.0) < 1e-10:
+                    term = f"-{var}"
+                else:
+                    term = f"{self._format_coeff(c)}{var}"
+            else:
+                if abs(c - 1.0) < 1e-10:
+                    term = f"{var}^{{{power}}}"
+                elif abs(c + 1.0) < 1e-10:
+                    term = f"-{var}^{{{power}}}"
+                else:
+                    term = f"{self._format_coeff(c)}{var}^{{{power}}}"
+            terms.append(term)
+
+        if not terms:
+            return "0"
+        result = terms[0]
+        for t in terms[1:]:
+            if t.startswith("-"):
+                result += f" - {t[1:]}"
+            else:
+                result += f" + {t}"
+        return result if result else "0"
+
+    def _poly_ratio_to_latex(self, num: np.ndarray, den: np.ndarray, var: str) -> str:
+        """Convert polynomial ratio to LaTeX fraction."""
+        num_str = self._poly_to_latex(num, var)
+        den_str = self._poly_to_latex(den, var)
+        if den_str == "1":
+            return num_str
+        return f"\\frac{{{num_str}}}{{{den_str}}}"
 
     def _format_roots(self, roots: List) -> List[Dict[str, Any]]:
         """Format complex roots for display."""

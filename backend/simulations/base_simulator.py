@@ -95,8 +95,7 @@ class BaseSimulator(ABC):
         Returns:
             Updated state after reset
         """
-        self.parameters = self.DEFAULT_PARAMS.copy()
-        self._initialized = True
+        self.initialize()
         return self.get_state()
 
     def run(self, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:

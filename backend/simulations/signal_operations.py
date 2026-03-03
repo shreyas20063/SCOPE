@@ -13,6 +13,9 @@ from typing import Any, Dict, List, Optional
 
 from .base_simulator import BaseSimulator
 
+# NumPy 2.0 renamed trapz -> trapezoid
+_trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz
+
 
 class SignalOperationsSimulator(BaseSimulator):
     """Simulator for signal transformation operations."""
@@ -288,8 +291,8 @@ class SignalOperationsSimulator(BaseSimulator):
 
     def _compute_metrics(self) -> Dict[str, Any]:
         """Compute signal properties for display."""
-        original_energy = float(np.trapz(np.abs(self._original) ** 2, self._t))
-        transformed_energy = float(np.trapz(np.abs(self._transformed) ** 2, self._t))
+        original_energy = float(_trapz(np.abs(self._original) ** 2, self._t))
+        transformed_energy = float(_trapz(np.abs(self._transformed) ** 2, self._t))
 
         original_peak = float(np.max(np.abs(self._original)))
         transformed_peak = float(np.max(np.abs(self._transformed)))

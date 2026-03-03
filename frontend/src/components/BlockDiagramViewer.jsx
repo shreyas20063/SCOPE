@@ -11,7 +11,25 @@
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import api from '../services/api';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import '../styles/BlockDiagramViewer.css';
+
+// ============================================================================
+// LaTeX rendering helper
+// ============================================================================
+
+function LaTeX({ math, display = false, className = '' }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current && math) {
+      try {
+        katex.render(math, ref.current, { throwOnError: false, displayMode: display });
+      } catch { /* fallback handled by throwOnError: false */ }
+    }
+  }, [math, display]);
+  return <span ref={ref} className={className} />;
+}
 
 // ============================================================================
 // Constants
@@ -411,8 +429,6 @@ function JunctionBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPort
 
   // Port positions: port 0 = input (left), ports 1+ = outputs (radially arranged)
   const outputPorts = Array.from(usedOutputPorts).concat([nextPort]);
-  const portAngles = { 1: 0, 2: -Math.PI / 2, 3: Math.PI / 2, 4: Math.PI };
-  // Fallback: distribute evenly on right semicircle
 
   return (
     <g
@@ -431,7 +447,6 @@ function JunctionBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPort
 
       {/* Output ports */}
       {outputPorts.map(pIdx => {
-        // Position: port 1 = right, port 2 = up, port 3 = down
         let px, py, dir;
         if (pIdx === 1) { px = r + 8; py = 0; dir = 'right'; }
         else if (pIdx === 2) { px = 0; py = -(r + 8); dir = 'up'; }
@@ -454,13 +469,17 @@ function JunctionBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPort
 // Wire Component — adaptive Bezier curves
 // ============================================================================
 
-function Wire({ connection, blocks, isNew, isSelected, onWireClick, onWireDoubleClick }) {
+function Wire({ connection, blocks, autoBranch, isNew, isSelected, onWireClick, onWireMouseDown, onWireDoubleClick }) {
   const fromBlock = blocks[connection.from_block];
   const toBlock = blocks[connection.to_block];
   if (!fromBlock || !toBlock) return null;
 
-  const startPos = getPortPosition(fromBlock, 'output', connection.from_port);
+  const portStart = getPortPosition(fromBlock, 'output', connection.from_port);
   const endPos = getPortPosition(toBlock, 'input', connection.to_port);
+
+  // Always use auto-computed branch point (dynamic — updates when blocks move)
+  const bp = autoBranch;
+  const startPos = bp ? { x: bp.x, y: bp.y, dir: bp.dir || portStart.dir } : portStart;
 
   // Compute wire points, run collision avoidance, convert to SVG path
   const points = computeWirePoints(startPos, endPos, startPos.dir, endPos.dir);
@@ -474,6 +493,7 @@ function Wire({ connection, blocks, isNew, isSelected, onWireClick, onWireDouble
         d={d}
         className="bd-wire-hit"
         onClick={onWireClick}
+        onMouseDown={onWireMouseDown}
         onDoubleClick={onWireDoubleClick}
       />
       {/* Visible wire */}
@@ -760,7 +780,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       if (metadata.mode) setMode(metadata.mode);
       if (metadata.system_type) setSystemType(metadata.system_type);
       if (metadata.presets) setPresets(metadata.presets);
-      if (metadata.tf_input) setTfInput(metadata.tf_input);
+      if (metadata.tf_input !== undefined) setTfInput(metadata.tf_input);
     }
   }, [metadata]);
 
@@ -879,16 +899,14 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       return;
     }
 
-    // Spiral outward in concentric rings
-    for (let ring = 1; ring <= 8; ring++) {
+    // Spiral outward in concentric rings (no bounds — infinite canvas)
+    for (let ring = 1; ring <= 12; ring++) {
       const r = ring * step;
       const points = Math.max(8, ring * 6);
       for (let i = 0; i < points; i++) {
         const angle = (2 * Math.PI * i) / points;
         const px = snapToGrid(cx + r * Math.cos(angle));
         const py = snapToGrid(cy + r * Math.sin(angle));
-        // Keep within canvas bounds
-        if (px < 80 || px > CANVAS_WIDTH - 80 || py < 60 || py > CANVAS_HEIGHT - 60) continue;
         if (noOverlap(px, py)) {
           callAction('add_block', { block_type: blockType, position: { x: px, y: py } });
           return;
@@ -921,8 +939,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     const { x: svgX, y: svgY } = getSvgCoords(e.clientX, e.clientY);
 
     if (dragging) {
-      const rawX = Math.max(60, Math.min(CANVAS_WIDTH - 60, svgX - dragOffset.current.x));
-      const rawY = Math.max(40, Math.min(CANVAS_HEIGHT - 40, svgY - dragOffset.current.y));
+      const rawX = svgX - dragOffset.current.x;
+      const rawY = svgY - dragOffset.current.y;
       const newX = snapToGrid(rawX);
       const newY = snapToGrid(rawY);
       setBlocks(prev => ({
@@ -947,7 +965,13 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     // Actual cleanup (setDragging(null), setWireStart(null)) handled by global mouseup listener
   }, [wireStart, mousePos]);
 
+  const didPanRef = useRef(false);
   const handleCanvasClick = useCallback((e) => {
+    // Don't deselect after a pan drag — only on a true stationary click
+    if (didPanRef.current) {
+      didPanRef.current = false;
+      return;
+    }
     if (e.target === svgRef.current || e.target.classList.contains('bd-grid-bg')) {
       setSelectedBlock(null);
       setSelectedWire(null);
@@ -959,9 +983,11 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   const handlePortMouseDown = useCallback((e, blockId, portType, portIndex, portX, portY, portDir) => {
     e.preventDefault();
     e.stopPropagation();
+    // If already drawing a wire (e.g. from a branch), don't overwrite — let mouseUp complete it
+    if (wireStart) return;
     // Any port can be a wire source (output)
     setWireStart({ blockId, portIndex, x: portX, y: portY, dir: portDir || 'right' });
-  }, []);
+  }, [wireStart]);
 
   const handlePortMouseUp = useCallback((e, blockId, portType, portIndex) => {
     e.preventDefault();
@@ -999,12 +1025,17 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
         return;
       }
 
-      callAction('add_connection', {
+      const connParams = {
         from_block: wireStart.blockId,
         from_port: wireStart.portIndex,
         to_block: blockId,
         to_port: portIndex,
-      });
+      };
+      // If this wire was branched from a click point on another wire, store it
+      if (wireStart.branchPoint) {
+        connParams.branch_point = wireStart.branchPoint;
+      }
+      callAction('add_connection', connParams);
 
       // Show success flash
       if (targetPos) {
@@ -1030,7 +1061,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       handleUndo();
       return;
     }
-    if ((e.key === 'Delete' || e.key === 'Backspace') && !gainEditBlock) {
+    const isTyping = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !gainEditBlock && !isTyping) {
       e.preventDefault();
       if (selectedWire !== null) {
         callAction('remove_connection', { conn_index: selectedWire });
@@ -1103,6 +1135,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     setSelectedWire(null);
     setTfResult(null);
     setError(null);
+    setTfInput('');
   }, [callAction]);
 
   // Load preset
@@ -1136,18 +1169,63 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     setGainEditBlock(null);
   }, []);
 
-  // Wire branching — double-click to start a new connection from the same source
-  const handleWireDoubleClick = useCallback((e, connIndex) => {
+  // Wire branching — Ctrl+click (or double-click) a wire to branch from the click point
+  const handleWireBranch = useCallback((e, connIndex) => {
     e.stopPropagation();
     e.preventDefault();
-    const { x: svgX, y: svgY } = getSvgCoords(e.clientX, e.clientY);
-    // Split wire: insert junction node at click position
-    callAction('split_wire', {
-      conn_index: connIndex,
-      position: { x: Math.round(svgX), y: Math.round(svgY) },
+    const conn = connections[connIndex];
+    if (!conn) return;
+    const sourceBlock = blocks[conn.from_block];
+    const targetBlock = blocks[conn.to_block];
+    if (!sourceBlock || !targetBlock) return;
+
+    // Get click position in SVG coordinates
+    const { x: clickX, y: clickY } = getSvgCoords(e.clientX, e.clientY);
+
+    // Compute the wire path to find the closest point and its direction
+    const startPos = getPortPosition(sourceBlock, 'output', conn.from_port);
+    const endPos = getPortPosition(targetBlock, 'input', conn.to_port);
+    const pts = computeWirePoints(startPos, endPos, startPos.dir, endPos.dir);
+
+    // Find closest segment and snap to it
+    let bestDist = Infinity, bestX = clickX, bestY = clickY, bestDir = 'right';
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[i + 1];
+      // Project click onto segment
+      const dx = bx - ax, dy = by - ay;
+      const len2 = dx * dx + dy * dy;
+      if (len2 < 1) continue;
+      const t = Math.max(0, Math.min(1, ((clickX - ax) * dx + (clickY - ay) * dy) / len2));
+      const px = ax + t * dx, py = ay + t * dy;
+      const dist = (clickX - px) ** 2 + (clickY - py) ** 2;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestX = px;
+        bestY = py;
+        // Determine direction perpendicular to segment for branching
+        const isHorizontal = Math.abs(dy) < Math.abs(dx);
+        if (isHorizontal) bestDir = clickY < py ? 'up' : 'down';
+        else bestDir = clickX > px ? 'right' : 'left';
+      }
+    }
+
+    setWireStart({
+      blockId: conn.from_block,
+      portIndex: conn.from_port,
+      x: bestX,
+      y: bestY,
+      dir: bestDir,
+      branchPoint: { x: Math.round(bestX), y: Math.round(bestY), dir: bestDir },
     });
     setSelectedWire(null);
-  }, [getSvgCoords, callAction]);
+  }, [connections, blocks, getSvgCoords]);
+
+  // Ctrl+click on wire = branch; regular click = select
+  const handleWireMouseDown = useCallback((e, connIndex) => {
+    if (e.ctrlKey || e.metaKey) {
+      handleWireBranch(e, connIndex);
+    }
+  }, [handleWireBranch]);
 
   // Zoom handlers
   const handleZoomIn = useCallback(() => {
@@ -1178,10 +1256,10 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     }
   }, [handleWheel]);
 
-  // Middle-mouse or space+drag pan
+  // Pan: left-click on canvas background, middle-mouse, or Alt+left-click
   const handlePanStart = useCallback((e) => {
-    // Middle mouse button (button=1) or Alt+left-click to pan
-    if (e.button === 1 || (e.altKey && e.button === 0)) {
+    const isCanvasBg = e.target === svgRef.current || e.target.classList.contains('bd-grid-bg');
+    if (e.button === 1 || (e.altKey && e.button === 0) || (e.button === 0 && isCanvasBg)) {
       e.preventDefault();
       setIsPanning(true);
       panStart.current = { x: e.clientX, y: e.clientY, ox: panOffset.x, oy: panOffset.y };
@@ -1192,12 +1270,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     if (isPanning) {
       const dx = (e.clientX - panStart.current.x) / zoom;
       const dy = (e.clientY - panStart.current.y) / zoom;
-      // Tight pan limits — never lose the diagram
-      const maxPanX = 200;
-      const maxPanY = 150;
-      const newX = Math.max(-maxPanX, Math.min(maxPanX, panStart.current.ox + dx));
-      const newY = Math.max(-maxPanY, Math.min(maxPanY, panStart.current.oy + dy));
-      setPanOffset({ x: newX, y: newY });
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) didPanRef.current = true;
+      setPanOffset({ x: panStart.current.ox + dx, y: panStart.current.oy + dy });
     }
   }, [isPanning, zoom]);
 
@@ -1206,41 +1280,89 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   }, []);
 
   // Computed viewBox with zoom and pan
-  const viewBox = useMemo(() => {
+  const { viewBox, visibleRect } = useMemo(() => {
     const vw = CANVAS_WIDTH / zoom;
     const vh = CANVAS_HEIGHT / zoom;
     const vx = (CANVAS_WIDTH - vw) / 2 - panOffset.x;
     const vy = (CANVAS_HEIGHT - vh) / 2 - panOffset.y;
-    return `${vx} ${vy} ${vw} ${vh}`;
+    // Pad visible rect so grid extends beyond viewport edges
+    const pad = GRID_SIZE * 4;
+    const gx = Math.floor((vx - pad) / GRID_SIZE) * GRID_SIZE;
+    const gy = Math.floor((vy - pad) / GRID_SIZE) * GRID_SIZE;
+    const gw = Math.ceil((vw + pad * 2) / GRID_SIZE) * GRID_SIZE;
+    const gh = Math.ceil((vh + pad * 2) / GRID_SIZE) * GRID_SIZE;
+    return {
+      viewBox: `${vx} ${vy} ${vw} ${vh}`,
+      visibleRect: { x: gx, y: gy, width: gw, height: gh },
+    };
   }, [zoom, panOffset]);
 
   // Compute branch points — output ports with multiple connections
   // Offset dot 16px along wire direction (away from port, not sitting on it)
-  const branchPoints = useMemo(() => {
-    const portCounts = {};
-    connections.forEach(conn => {
-      const key = `${conn.from_block}:${conn.from_port}`;
-      portCounts[key] = (portCounts[key] || 0) + 1;
-    });
+  // Compute branch points and auto-branch map for wires sharing a source port
+  const { branchPoints, autoBranchMap } = useMemo(() => {
     const points = [];
-    Object.entries(portCounts).forEach(([key, count]) => {
-      if (count > 1) {
-        const [blockId, portIdx] = key.split(':');
-        const block = blocks[blockId];
-        if (block) {
-          const pos = getPortPosition(block, 'output', parseInt(portIdx));
-          // Offset 16px along the port's outgoing direction
-          const dir = pos.dir || 'right';
-          let ox = 0, oy = 0;
-          if (dir === 'right') ox = 16;
-          else if (dir === 'left') ox = -16;
-          else if (dir === 'down') oy = 16;
-          else if (dir === 'up') oy = -16;
-          points.push({ x: pos.x + ox, y: pos.y + oy });
+    const autoMap = {}; // connIndex → { x, y, dir }
+
+    // Group connections by source port
+    const portGroups = {};
+    connections.forEach((conn, idx) => {
+      const key = `${conn.from_block}:${conn.from_port}`;
+      if (!portGroups[key]) portGroups[key] = [];
+      portGroups[key].push(idx);
+    });
+
+    Object.entries(portGroups).forEach(([key, indices]) => {
+      if (indices.length < 2) return;
+
+      // First connection in the group is the "main" wire — others branch from it
+      const mainConn = connections[indices[0]];
+      const [blockId, portIdx] = key.split(':');
+      const block = blocks[blockId];
+      if (!block) return;
+
+      const portPos = getPortPosition(block, 'output', parseInt(portIdx));
+      const mainTarget = blocks[mainConn.to_block];
+      if (!mainTarget) return;
+
+      // Compute the main wire's path to find the branch point
+      const mainEnd = getPortPosition(mainTarget, 'input', mainConn.to_port);
+      const mainPts = computeWirePoints(portPos, mainEnd, portPos.dir, mainEnd.dir);
+
+      // Branch point = 20px along the first segment of the main wire
+      let bpX = portPos.x, bpY = portPos.y;
+      if (mainPts.length >= 2) {
+        const [ax, ay] = mainPts[0], [bx, by] = mainPts[1];
+        const segLen = Math.sqrt((bx - ax) ** 2 + (by - ay) ** 2);
+        const t = segLen > 0 ? Math.min(20 / segLen, 0.5) : 0;
+        bpX = ax + t * (bx - ax);
+        bpY = ay + t * (by - ay);
+      }
+
+      // Add the branch dot
+      points.push({ x: bpX, y: bpY });
+
+      // For each non-main connection, auto-compute branch point
+      for (let i = 1; i < indices.length; i++) {
+        const conn = connections[indices[i]];
+        // Determine direction perpendicular to the main wire's first segment
+        let branchDir = 'down';
+        if (mainPts.length >= 2) {
+          const [ax, ay] = mainPts[0], [bx, by] = mainPts[1];
+          const isHorizontal = Math.abs(by - ay) < Math.abs(bx - ax);
+          if (isHorizontal) {
+            const target = blocks[conn.to_block];
+            branchDir = target && target.position.y > bpY ? 'down' : 'up';
+          } else {
+            const target = blocks[conn.to_block];
+            branchDir = target && target.position.x > bpX ? 'right' : 'left';
+          }
         }
+        autoMap[indices[i]] = { x: bpX, y: bpY, dir: branchDir };
       }
     });
-    return points;
+
+    return { branchPoints: points, autoBranchMap: autoMap };
   }, [connections, blocks]);
 
   // ========================================================================
@@ -1284,7 +1406,6 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     const base = ['input', 'output', 'gain', 'adder'];
     if (systemType === 'dt') base.push('delay');
     else base.push('integrator');
-    base.push('junction');
     return base;
   }, [systemType]);
 
@@ -1455,6 +1576,42 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
         </div>
       )}
 
+      {/* Inline Transfer Function display */}
+      {(tfResult || error || Object.keys(blocks).length > 0) && (
+        <div className="bd-tf-bar">
+          {error ? (
+            <span className="bd-tf-bar-error">{error}</span>
+          ) : tfResult ? (
+            <>
+              <LaTeX math={tfResult.latex || tfResult.expression} className="bd-tf-bar-expr" />
+              {tfResult.domain_latex && (
+                <>
+                  <span className="bd-tf-bar-eq">=</span>
+                  <LaTeX math={`H(${systemType === 'dt' ? 'z' : 's'}) = ${tfResult.domain_latex}`} className="bd-tf-bar-expr" />
+                </>
+              )}
+              <span className={`bd-tf-bar-stability ${tfResult.stability}`}>
+                {tfResult.stability === 'stable' ? '\u2713 Stable'
+                 : tfResult.stability === 'marginally_stable' ? '\u25CB Marginal'
+                 : '\u2717 Unstable'}
+              </span>
+              {tfResult.poles && tfResult.poles.length > 0 && (
+                <span className="bd-tf-bar-poles" title={tfResult.poles.map(p => p.imag !== 0 ? `${p.real.toFixed(3)} \u00B1 ${Math.abs(p.imag).toFixed(3)}j` : p.real.toFixed(3)).join(', ')}>
+                  Poles: {tfResult.poles.length}
+                </span>
+              )}
+              {tfResult.algebraic_loop_warning && (
+                <span className="bd-tf-bar-warning" title={tfResult.algebraic_loop_warning}>
+                  {'\u26A0'} Algebraic Loop
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="bd-tf-bar-hint">Connect Input \u2192 blocks \u2192 Output to compute TF</span>
+          )}
+        </div>
+      )}
+
       <div className="bd-main-area">
         {/* SVG Canvas */}
         <div className="bd-canvas-container">
@@ -1487,10 +1644,12 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
               </pattern>
             </defs>
 
-            {/* Grid background */}
+            {/* Grid background — covers visible viewport for infinite canvas */}
             <rect
-              width={CANVAS_WIDTH}
-              height={CANVAS_HEIGHT}
+              x={visibleRect.x}
+              y={visibleRect.y}
+              width={visibleRect.width}
+              height={visibleRect.height}
               fill="url(#grid)"
               className="bd-grid-bg"
             />
@@ -1501,10 +1660,12 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
                 key={`${conn.from_block}-${conn.to_block}-${conn.to_port}`}
                 connection={conn}
                 blocks={blocks}
+                autoBranch={autoBranchMap[i]}
                 isNew={i === newWireIndex}
                 isSelected={i === selectedWire}
                 onWireClick={(e) => handleWireClick(e, i)}
-                onWireDoubleClick={(e) => handleWireDoubleClick(e, i)}
+                onWireMouseDown={(e) => handleWireMouseDown(e, i)}
+                onWireDoubleClick={(e) => handleWireBranch(e, i)}
               />
             ))}
 
@@ -1596,7 +1757,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
               <p className="bd-instructions-title">Block Diagram Builder</p>
               <p>Click a block type above to add it, or load a preset.</p>
               <p>Drag from ports to connect blocks. Double-click gain blocks to edit values.</p>
-              <p>Click a wire to select it. Press <kbd>Delete</kbd> to remove. Double-click a wire to branch.</p>
+              <p>Click a wire to select it. Press <kbd>Delete</kbd> to remove. <kbd>Ctrl</kbd>+click or double-click a wire to branch.</p>
               <p className="bd-instructions-hint"><kbd>Ctrl+Z</kbd> to undo. Click &plusmn; on adders to toggle sign.</p>
             </div>
           )}

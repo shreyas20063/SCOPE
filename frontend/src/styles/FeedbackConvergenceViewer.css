@@ -151,6 +151,16 @@
   background: var(--primary-hover);
 }
 
+.fc-animate-btn.primary.running {
+  background: var(--warning-color);
+  border-color: var(--warning-color);
+}
+
+.fc-animate-btn.primary.running:hover {
+  background: #d97706;
+  border-color: #d97706;
+}
+
 .fc-step-counter {
   font-size: 0.75rem;
   color: var(--text-muted);
@@ -217,6 +227,25 @@
   stroke-width: 1.5;
 }
 
+/* Path glow overlay */
+.fc-path-overlay {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  pointer-events: none;
+}
+
+.fc-path-overlay.active {
+  opacity: 1;
+  animation: fc-glow-fade 1.4s ease-in-out forwards;
+}
+
+@keyframes fc-glow-fade {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  75% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* Signal pulse animation */
 .fc-signal-pulse {
   r: 5;
@@ -270,6 +299,62 @@
 .fc-cycle-description .highlight {
   color: var(--accent-color);
   font-weight: 600;
+}
+
+/* ── Preset Selector ───────────────────────────────── */
+
+.fc-presets {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 1rem;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.fc-presets-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.fc-presets-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.fc-preset-btn {
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.fc-preset-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+.fc-preset-btn.active {
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+  color: white;
+}
+
+.fc-preset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ── Responsive ─────────────────────────────────────── */

@@ -40,6 +40,13 @@ class FeedbackConvergenceSimulator(BaseSimulator):
             "step": 1,
             "default": 15,
         },
+        "animation_speed": {
+            "type": "slider",
+            "min": 0.1,
+            "max": 4.0,
+            "step": 0.1,
+            "default": 0.1,
+        },
         "show_envelope": {
             "type": "checkbox",
             "default": True,
@@ -53,9 +60,22 @@ class FeedbackConvergenceSimulator(BaseSimulator):
     DEFAULT_PARAMS = {
         "p0": 0.5,
         "num_samples": 15,
+        "animation_speed": 0.1,
         "show_envelope": True,
         "show_unit_circle": False,
     }
+
+    PRESETS = [
+        {"label": "Slow Decay (p₀=0.5)", "params": {"p0": 0.5}},
+        {"label": "Fast Decay (p₀=0.2)", "params": {"p0": 0.2}},
+        {"label": "Alternating Decay (p₀=−0.7)", "params": {"p0": -0.7}},
+        {"label": "Marginal (p₀=1.0)", "params": {"p0": 1.0}},
+        {"label": "Alternating Marginal (p₀=−1.0)", "params": {"p0": -1.0}},
+        {"label": "Diverging (p₀=1.2)", "params": {"p0": 1.2}},
+        {"label": "Alternating Diverge (p₀=−1.3)", "params": {"p0": -1.3}},
+        {"label": "Near Unity (p₀=0.95)", "params": {"p0": 0.95}},
+        {"label": "Zero Gain (p₀=0)", "params": {"p0": 0.0}},
+    ]
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
@@ -82,8 +102,35 @@ class FeedbackConvergenceSimulator(BaseSimulator):
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
         if name in self.parameters:
             self.parameters[name] = self._validate_param(name, value)
-            # Reset animation when any parameter changes so plots refresh cleanly
-            self._animation_step = 0
+            # Reset animation when physics parameters change (not animation_speed)
+            if name != "animation_speed":
+                self._animation_step = 0
+                self._animation_active = False
+        return self.get_state()
+
+    def advance_frame(self) -> Dict[str, Any]:
+        """Advance animation by one frame (called by Play/Pause loop)."""
+        num_samples = int(self.parameters["num_samples"])
+        self._animation_active = True
+        if self._animation_step < num_samples:
+            self._animation_step += 1
+        else:
+            self._animation_step = 1  # loop back
+        return self.get_state()
+
+    def step_forward(self) -> Dict[str, Any]:
+        """Step forward one frame."""
+        num_samples = int(self.parameters["num_samples"])
+        self._animation_active = True
+        if self._animation_step < num_samples:
+            self._animation_step += 1
+        return self.get_state()
+
+    def step_backward(self) -> Dict[str, Any]:
+        """Step backward one frame."""
+        if self._animation_step > 0:
+            self._animation_step -= 1
+        if self._animation_step == 0:
             self._animation_active = False
         return self.get_state()
 
@@ -101,14 +148,17 @@ class FeedbackConvergenceSimulator(BaseSimulator):
             self._animation_step = 0
             self._animation_active = False
         elif action == "step_forward":
-            self._animation_active = True
-            if self._animation_step < num_samples:
-                self._animation_step += 1
+            return self.step_forward()
         elif action == "step_backward":
-            if self._animation_step > 0:
-                self._animation_step -= 1
-            if self._animation_step == 0:
-                self._animation_active = False
+            return self.step_backward()
+        elif action == "apply_preset":
+            # Apply preset params without resetting other params
+            preset_params = params or {}
+            for name, value in preset_params.items():
+                if name in self.parameters:
+                    self.parameters[name] = self._validate_param(name, value)
+            self._animation_step = 0
+            self._animation_active = False
 
         return self.get_state()
 
@@ -154,6 +204,7 @@ class FeedbackConvergenceSimulator(BaseSimulator):
                 "animation_active": self._animation_active,
                 "current_sample_value": float(current_sample_value),
                 "num_samples": num_samples,
+                "presets": self.PRESETS,
             },
         }
 

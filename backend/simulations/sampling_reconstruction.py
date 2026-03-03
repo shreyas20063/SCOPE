@@ -1,9 +1,10 @@
 """
 Sampling & Reconstruction Explorer
 
-Demonstrates time-domain sampling and reconstruction fidelity.
-Students compare zero-order hold, linear interpolation, and ideal sinc
-reconstruction to see how sampling rate affects signal recovery.
+Demonstrates time-domain sampling, frequency-domain spectral copies, and
+reconstruction fidelity. Students see the Nyquist criterion in action:
+sample fast enough and sinc reconstruction recovers the signal perfectly;
+too slow and spectral copies overlap, causing aliasing.
 """
 
 from typing import Any, Dict, List, Optional
@@ -17,9 +18,10 @@ class SamplingReconstructionSimulator(BaseSimulator):
     """
     Sampling & Reconstruction simulator.
 
-    Two-panel visualization:
-      Left: continuous signal with sample stems
-      Right: three reconstruction methods overlaid with optional original
+    Three-panel visualization:
+      1. Time domain — continuous signal with sample stems
+      2. Frequency domain — original spectrum + spectral copies from sampling
+      3. Reconstruction — ZOH / linear / sinc methods compared
     """
 
     NUM_CONTINUOUS = 2000  # High-resolution continuous signal points
@@ -49,7 +51,7 @@ class SamplingReconstructionSimulator(BaseSimulator):
             "min": 1.0,
             "max": 100.0,
             "step": 0.5,
-            "default": 10.0,
+            "default": 20.0,
         },
         "time_window": {
             "type": "slider",
@@ -58,8 +60,8 @@ class SamplingReconstructionSimulator(BaseSimulator):
             "step": 0.1,
             "default": 2.0,
         },
-        "show_zoh": {"type": "checkbox", "default": True},
-        "show_linear": {"type": "checkbox", "default": True},
+        "show_zoh": {"type": "checkbox", "default": False},
+        "show_linear": {"type": "checkbox", "default": False},
         "show_sinc": {"type": "checkbox", "default": True},
         "show_original": {"type": "checkbox", "default": True},
         "show_error": {"type": "checkbox", "default": False},
@@ -68,10 +70,10 @@ class SamplingReconstructionSimulator(BaseSimulator):
     DEFAULT_PARAMS = {
         "signal_type": "sum_of_sines",
         "signal_frequency": 3.0,
-        "sampling_frequency": 10.0,
+        "sampling_frequency": 20.0,
         "time_window": 2.0,
-        "show_zoh": True,
-        "show_linear": True,
+        "show_zoh": False,
+        "show_linear": False,
         "show_sinc": True,
         "show_original": True,
         "show_error": False,
@@ -93,6 +95,10 @@ class SamplingReconstructionSimulator(BaseSimulator):
         self._max_signal_freq: float = 0.0
         self._num_samples: int = 0
         self._is_above_nyquist: bool = False
+        # Spectrum data
+        self._freq_display: Optional[np.ndarray] = None
+        self._mag_original: Optional[np.ndarray] = None
+        self._mag_copies: Optional[np.ndarray] = None
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = self.DEFAULT_PARAMS.copy()
@@ -111,7 +117,11 @@ class SamplingReconstructionSimulator(BaseSimulator):
 
     def get_state(self) -> Dict[str, Any]:
         plots = self.get_plots()
-        fs = self.parameters["sampling_frequency"]
+        fs = float(self.parameters["sampling_frequency"])
+        fmax = self._max_signal_freq
+        nyquist = self._nyquist_freq
+        ratio = nyquist / fmax if fmax > 0 else float("inf")
+
         return {
             "parameters": self.parameters.copy(),
             "plots": plots,
@@ -120,16 +130,35 @@ class SamplingReconstructionSimulator(BaseSimulator):
                 "sampling_info": {
                     "sampling_frequency": round(fs, 2),
                     "sampling_interval": round(1.0 / fs, 4),
-                    "nyquist_frequency": round(self._nyquist_freq, 2),
-                    "max_signal_frequency": round(self._max_signal_freq, 2),
+                    "nyquist_frequency": round(nyquist, 2),
+                    "max_signal_frequency": round(fmax, 2),
                     "num_samples": self._num_samples,
                     "is_above_nyquist": self._is_above_nyquist,
                     "status": "FAITHFUL" if self._is_above_nyquist else "ALIASING",
+                    "nyquist_ratio": round(ratio, 2),
+                    "margin_hz": round(nyquist - fmax, 2),
                 },
                 "reconstruction_mse": {
                     "zoh": round(self._mse_zoh, 6),
                     "linear": round(self._mse_linear, 6),
                     "sinc": round(self._mse_sinc, 6),
+                },
+                "reconstruction_quality": {
+                    "zoh": {
+                        "mse": round(self._mse_zoh, 6),
+                        "label": "Staircase Hold",
+                        "quality": self._quality_label(self._mse_zoh),
+                    },
+                    "linear": {
+                        "mse": round(self._mse_linear, 6),
+                        "label": "Smooth Interpolation",
+                        "quality": self._quality_label(self._mse_linear),
+                    },
+                    "sinc": {
+                        "mse": round(self._mse_sinc, 6),
+                        "label": "Perfect (Band-limited)",
+                        "quality": self._quality_label(self._mse_sinc),
+                    },
                 },
             },
         }
@@ -140,6 +169,7 @@ class SamplingReconstructionSimulator(BaseSimulator):
 
         plots = [
             self._create_sampling_plot(),
+            self._create_spectrum_plot(),
             self._create_reconstruction_plot(),
         ]
 
@@ -189,6 +219,53 @@ class SamplingReconstructionSimulator(BaseSimulator):
         elif signal_type == "custom_multitone":
             return 9.0
         return f0
+
+    # -------------------------------------------------------------------------
+    # Helpers
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _quality_label(mse: float) -> str:
+        """Convert MSE to a human-readable quality label."""
+        if mse < 0.001:
+            return "Excellent"
+        elif mse < 0.01:
+            return "Good"
+        elif mse < 0.05:
+            return "Fair"
+        return "Poor"
+
+    def _get_component_frequencies(self) -> List[Dict[str, Any]]:
+        """Return individual frequency components of the current signal."""
+        signal_type = self.parameters["signal_type"]
+        f0 = float(self.parameters["signal_frequency"])
+
+        if signal_type == "sine":
+            return [{"freq": f0, "label": f"f\u2080 = {f0} Hz", "amplitude": 1.0}]
+        elif signal_type == "sum_of_sines":
+            return [
+                {"freq": f0, "label": f"f\u2081 = {f0} Hz", "amplitude": 0.7},
+                {"freq": f0 + 4, "label": f"f\u2082 = {f0 + 4} Hz", "amplitude": 0.3},
+            ]
+        elif signal_type == "custom_multitone":
+            return [
+                {"freq": 1.0, "label": "1 Hz", "amplitude": 0.5},
+                {"freq": 4.0, "label": "4 Hz", "amplitude": 0.3},
+                {"freq": 9.0, "label": "9 Hz", "amplitude": 0.2},
+            ]
+        elif signal_type in ("square", "triangle"):
+            harmonics = []
+            for k in range(1, 22, 2):  # odd harmonics up to 21st
+                amp = 1.0 / k if signal_type == "square" else 1.0 / (k * k)
+                harmonics.append({
+                    "freq": k * f0,
+                    "label": f"{k}f\u2080 = {k * f0} Hz",
+                    "amplitude": amp,
+                })
+            return harmonics
+        elif signal_type == "chirp":
+            return [{"freq": f0, "label": f"sweep {f0}\u2013{4 * f0} Hz", "amplitude": 1.0}]
+        return []
 
     # -------------------------------------------------------------------------
     # Reconstruction methods
@@ -269,6 +346,45 @@ class SamplingReconstructionSimulator(BaseSimulator):
         self._max_signal_freq = self._get_max_frequency(signal_type, f0)
         self._is_above_nyquist = fs >= 2.0 * self._max_signal_freq
 
+        # 6. Frequency spectrum
+        self._compute_spectrum()
+
+    def _compute_spectrum(self) -> None:
+        """Compute baseband spectrum and tiled spectral copies for visualization."""
+        fs = float(self.parameters["sampling_frequency"])
+        t_window = float(self.parameters["time_window"])
+        fmax = self._max_signal_freq
+
+        # FFT of continuous signal (windowed for cleaner spectrum)
+        N_fft = 4096
+        fs_effective = self.NUM_CONTINUOUS / t_window
+        window = np.hanning(self.NUM_CONTINUOUS)
+        X = np.fft.rfft(self._x_continuous * window, n=N_fft)
+        freqs_base = np.fft.rfftfreq(N_fft, d=1.0 / fs_effective)
+        mag_base = 2.0 * np.abs(X) / self.NUM_CONTINUOUS
+
+        # Display axis: 0 to enough to show first spectral copy
+        display_max = max(2.0 * fs, 2.5 * fmax, 30.0)
+        # Cap so we don't make the baseband invisible when fs is huge
+        display_max = min(display_max, 5.0 * fs)
+        num_display = 1500
+        freq_display = np.linspace(0, display_max, num_display)
+
+        # Original spectrum interpolated onto display grid
+        mag_original = np.interp(freq_display, freqs_base, mag_base, right=0)
+
+        # Spectral copies: sampling at fs tiles the spectrum at k*fs
+        mag_copies = np.zeros_like(freq_display)
+        num_copies = max(3, int(np.ceil(display_max / fs)) + 1)
+        for k in range(-num_copies, num_copies + 1):
+            shifted = np.abs(freq_display - k * fs)
+            contrib = np.interp(shifted, freqs_base, mag_base, right=0)
+            mag_copies += contrib
+
+        self._freq_display = freq_display
+        self._mag_original = mag_original
+        self._mag_copies = mag_copies
+
     # -------------------------------------------------------------------------
     # Plot builders
     # -------------------------------------------------------------------------
@@ -346,6 +462,131 @@ class SamplingReconstructionSimulator(BaseSimulator):
 
         return {"id": "sampling", "title": "Sampling", "data": data, "layout": layout}
 
+    def _create_spectrum_plot(self) -> Dict[str, Any]:
+        """Frequency domain: original spectrum + spectral copies from sampling."""
+        fs = float(self.parameters["sampling_frequency"])
+        fmax = self._max_signal_freq
+        nyquist = fs / 2.0
+        is_safe = self._is_above_nyquist
+
+        freq_list = self._freq_display.tolist()
+        mag_orig_list = self._mag_original.tolist()
+        mag_copies_list = self._mag_copies.tolist()
+
+        data = [
+            # Original spectrum (baseband)
+            {
+                "x": freq_list,
+                "y": mag_orig_list,
+                "type": "scatter",
+                "mode": "lines",
+                "fill": "tozeroy",
+                "name": "Original X(f)",
+                "line": {"color": "#3b82f6", "width": 2},
+                "fillcolor": "rgba(59, 130, 246, 0.15)",
+            },
+            # Spectral copies from sampling
+            {
+                "x": freq_list,
+                "y": mag_copies_list,
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Sampled copies",
+                "line": {
+                    "color": "#10b981" if is_safe else "#ef4444",
+                    "width": 1.5,
+                    "dash": "dot",
+                },
+                "fill": "tozeroy",
+                "fillcolor": "rgba(16, 185, 129, 0.06)" if is_safe else "rgba(239, 68, 68, 0.06)",
+            },
+        ]
+
+        # Vertical marker lines
+        shapes = [
+            # Nyquist frequency (fs/2)
+            {
+                "type": "line",
+                "x0": nyquist, "x1": nyquist,
+                "y0": 0, "y1": 1, "yref": "paper",
+                "line": {
+                    "color": "#10b981" if is_safe else "#ef4444",
+                    "width": 2,
+                    "dash": "dash",
+                },
+            },
+            # Max signal frequency
+            {
+                "type": "line",
+                "x0": fmax, "x1": fmax,
+                "y0": 0, "y1": 1, "yref": "paper",
+                "line": {"color": "#f59e0b", "width": 2, "dash": "dot"},
+            },
+            # Sampling frequency
+            {
+                "type": "line",
+                "x0": fs, "x1": fs,
+                "y0": 0, "y1": 1, "yref": "paper",
+                "line": {"color": "#8b5cf6", "width": 1.5, "dash": "dashdot"},
+            },
+        ]
+
+        # Aliasing zone shading
+        if not is_safe:
+            shapes.append({
+                "type": "rect",
+                "x0": 0, "x1": nyquist,
+                "y0": 0, "y1": 1, "yref": "paper",
+                "fillcolor": "rgba(239, 68, 68, 0.07)",
+                "line": {"width": 0},
+                "layer": "below",
+            })
+
+        annotations = [
+            {
+                "x": nyquist, "y": 1.05, "yref": "paper",
+                "text": f"fs/2 = {nyquist:.1f}",
+                "showarrow": False,
+                "font": {"color": "#10b981" if is_safe else "#ef4444", "size": 10},
+            },
+            {
+                "x": fmax, "y": 1.12, "yref": "paper",
+                "text": f"fmax = {fmax:.1f}",
+                "showarrow": False,
+                "font": {"color": "#f59e0b", "size": 10},
+            },
+            {
+                "x": fs, "y": 1.05, "yref": "paper",
+                "text": f"fs = {fs:.1f}",
+                "showarrow": False,
+                "font": {"color": "#8b5cf6", "size": 10},
+            },
+        ]
+
+        display_max = float(self._freq_display[-1])
+        layout = {
+            **self._get_base_layout(),
+            "xaxis": {
+                "title": "Frequency (Hz)",
+                "showgrid": True,
+                "gridcolor": "rgba(148,163,184,0.1)",
+                "zerolinecolor": "rgba(148,163,184,0.3)",
+                "range": [0, display_max],
+            },
+            "yaxis": {
+                "title": "Magnitude",
+                "showgrid": True,
+                "gridcolor": "rgba(148,163,184,0.1)",
+                "zerolinecolor": "rgba(148,163,184,0.3)",
+            },
+            "shapes": shapes,
+            "annotations": annotations,
+            "legend": {"orientation": "h", "y": 1.2, "x": 0.5, "xanchor": "center"},
+            "showlegend": True,
+        }
+
+        return {"id": "spectrum", "title": "Frequency Spectrum", "data": data, "layout": layout}
+
     def _create_reconstruction_plot(self) -> Dict[str, Any]:
         t_cont = self._t_continuous.tolist()
         data: List[Dict[str, Any]] = []
@@ -362,32 +603,35 @@ class SamplingReconstructionSimulator(BaseSimulator):
             })
 
         if self.parameters["show_zoh"]:
+            q = self._quality_label(self._mse_zoh)
             data.append({
                 "x": t_cont,
                 "y": self._x_zoh.tolist(),
                 "type": "scatter",
                 "mode": "lines",
-                "name": f"ZOH (MSE={self._mse_zoh:.4f})",
+                "name": f"ZOH \u2014 {q}",
                 "line": {"color": "#f59e0b", "width": 2},
             })
 
         if self.parameters["show_linear"]:
+            q = self._quality_label(self._mse_linear)
             data.append({
                 "x": t_cont,
                 "y": self._x_linear.tolist(),
                 "type": "scatter",
                 "mode": "lines",
-                "name": f"Linear (MSE={self._mse_linear:.4f})",
+                "name": f"Linear \u2014 {q}",
                 "line": {"color": "#10b981", "width": 2},
             })
 
         if self.parameters["show_sinc"]:
+            q = self._quality_label(self._mse_sinc)
             data.append({
                 "x": t_cont,
                 "y": self._x_sinc.tolist(),
                 "type": "scatter",
                 "mode": "lines",
-                "name": f"Sinc (MSE={self._mse_sinc:.4f})",
+                "name": f"Sinc \u2014 {q}",
                 "line": {"color": "#8b5cf6", "width": 2},
             })
 
