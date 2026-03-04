@@ -563,57 +563,64 @@
   filter: drop-shadow(0 0 8px rgba(0, 217, 255, 0.35));
 }
 
-/* Block shapes — thicker strokes for visibility */
+/* Block shapes — rounded rect, drop-shadow, professional visuals */
 .bd-block-shape {
-  fill: rgba(19, 27, 46, 0.95);
-  stroke: rgba(148, 163, 184, 0.35);
-  stroke-width: 1.8;
+  fill: var(--bd-block-fill, rgba(19, 27, 46, 0.95));
+  stroke: var(--bd-block-stroke, #2c7be5);
+  stroke-width: 2;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));
   transition: stroke 0.15s ease, fill 0.15s ease;
 }
 
 .bd-block:hover .bd-block-shape {
-  stroke: rgba(0, 217, 255, 0.45);
+  stroke: var(--accent-color, #00d9ff);
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.25));
 }
 
 .bd-block-io {
-  fill: rgba(20, 184, 166, 0.1);
-  stroke: rgba(20, 184, 166, 0.45);
+  fill: rgba(20, 184, 166, 0.12);
+  stroke: rgba(20, 184, 166, 0.55);
 }
 
 .bd-block-gain {
-  fill: rgba(59, 130, 246, 0.1);
-  stroke: rgba(59, 130, 246, 0.45);
+  fill: rgba(59, 130, 246, 0.12);
+  stroke: rgba(59, 130, 246, 0.55);
+}
+
+.bd-block-constant {
+  fill: rgba(16, 185, 129, 0.12);
+  stroke: rgba(16, 185, 129, 0.55);
 }
 
 .bd-block-adder {
-  fill: rgba(245, 158, 11, 0.1);
-  stroke: rgba(245, 158, 11, 0.45);
+  fill: rgba(245, 158, 11, 0.12);
+  stroke: rgba(245, 158, 11, 0.55);
 }
 
 .bd-block-delay {
-  fill: rgba(124, 58, 237, 0.1);
-  stroke: rgba(124, 58, 237, 0.45);
+  fill: rgba(124, 58, 237, 0.12);
+  stroke: rgba(124, 58, 237, 0.55);
 }
 
 .bd-block-integrator {
-  fill: rgba(236, 72, 153, 0.1);
-  stroke: rgba(236, 72, 153, 0.45);
+  fill: rgba(236, 72, 153, 0.12);
+  stroke: rgba(236, 72, 153, 0.55);
 }
 
-/* Block text */
+/* Block text — Courier New 14px bold per spec */
 .bd-block-label {
   fill: var(--text-primary, #f1f5f9);
-  font-size: 13px;
-  font-weight: 600;
-  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'Courier New', 'Fira Code', monospace;
   pointer-events: none;
   user-select: none;
 }
 
 .bd-block-sublabel {
   fill: var(--text-muted, #64748b);
-  font-size: 9.5px;
-  font-family: 'Fira Code', monospace;
+  font-size: 10px;
+  font-family: 'Courier New', 'Fira Code', monospace;
   pointer-events: none;
   user-select: none;
 }
@@ -622,7 +629,7 @@
   fill: var(--accent-color, #00d9ff);
   font-size: 14px;
   font-weight: 700;
-  font-family: 'Fira Code', monospace;
+  font-family: 'Courier New', 'Fira Code', monospace;
   pointer-events: none;
   user-select: none;
 }
@@ -705,16 +712,30 @@
   fill: rgba(0, 217, 255, 0.35);
   stroke: var(--accent-color, #00d9ff);
   stroke-width: 2.5;
-  r: 9;
-  filter: drop-shadow(0 0 4px rgba(0, 217, 255, 0.4));
+  r: 11;
+  filter: drop-shadow(0 0 6px rgba(0, 217, 255, 0.5));
 }
 
 .bd-port-output {
-  stroke: rgba(0, 217, 255, 0.45);
+  fill: rgba(59, 130, 246, 0.15);
+  stroke: var(--bd-port-output, #3b82f6);
+}
+
+.bd-port-output:hover {
+  fill: rgba(59, 130, 246, 0.4);
+  stroke: #60a5fa;
+  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.5));
 }
 
 .bd-port-input {
-  stroke: rgba(20, 184, 166, 0.45);
+  fill: rgba(239, 68, 68, 0.15);
+  stroke: var(--bd-port-input, #ef4444);
+}
+
+.bd-port-input:hover {
+  fill: rgba(239, 68, 68, 0.4);
+  stroke: #f87171;
+  filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.5));
 }
 
 .bd-junction-dot {
@@ -742,8 +763,8 @@
 
 .bd-wire {
   fill: none;
-  stroke: rgba(0, 217, 255, 0.55);
-  stroke-width: 2.2;
+  stroke: var(--bd-wire-color, #007acc);
+  stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
   transition: stroke 0.15s ease, stroke-width 0.15s ease;
@@ -752,7 +773,7 @@
 
 .bd-wire-group:hover .bd-wire {
   stroke: var(--accent-color, #00d9ff);
-  stroke-width: 3;
+  stroke-width: 3.5;
 }
 
 /* Selected wire — amber highlight with glow */
@@ -1245,12 +1266,12 @@
 }
 
 [data-theme="light"] .bd-block-shape {
-  fill: rgba(255, 255, 255, 0.97);
-  stroke: rgba(100, 116, 139, 0.35);
+  fill: #f8fbff;
+  stroke: #2c7be5;
 }
 
 [data-theme="light"] .bd-wire {
-  stroke: rgba(59, 130, 246, 0.55);
+  stroke: #007acc;
 }
 
 [data-theme="light"] .bd-side-panel {

@@ -37,6 +37,7 @@ class BlockDiagramSimulator(BaseSimulator):
         "input": {"inputs": 0, "outputs": 1, "label": "x[n]", "label_ct": "x(t)"},
         "output": {"inputs": 1, "outputs": 0, "label": "y[n]", "label_ct": "y(t)"},
         "gain": {"inputs": 1, "outputs": 1, "default_value": 2.0},
+        "constant": {"inputs": 0, "outputs": 1, "default_value": 1.0, "label": "K"},
         "adder": {"inputs": 2, "outputs": 1, "max_inputs": 2},
         "delay": {"inputs": 1, "outputs": 1, "label": "R", "system": "dt"},
         "integrator": {"inputs": 1, "outputs": 1, "label": "∫", "system": "ct"},
@@ -119,6 +120,7 @@ class BlockDiagramSimulator(BaseSimulator):
         self._error: Optional[str] = None
         self._next_block_id = 0
         self._history: List[Tuple[Dict, List, int]] = []
+        self._redo_history: List[Tuple[Dict, List, int]] = []
         self._max_history = 30
 
     def _gen_block_id(self) -> str:
@@ -135,6 +137,8 @@ class BlockDiagramSimulator(BaseSimulator):
         ))
         if len(self._history) > self._max_history:
             self._history.pop(0)
+        # Clear redo on new action
+        self._redo_history.clear()
 
     def _max_port_index(self, block_type: str, block_id: str = None) -> int:
         """Maximum valid port index for a given block type."""
@@ -148,7 +152,7 @@ class BlockDiagramSimulator(BaseSimulator):
             return 2   # ports 0=left, 1=bottom, 2=right
         if block_type in ("gain", "delay", "integrator"):
             return 1   # ports 0=left, 1=right
-        return 0       # input/output: single port (index 0)
+        return 0       # input/output/constant: single port (index 0)
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         """Initialize with default or given parameters."""
@@ -198,7 +202,9 @@ class BlockDiagramSimulator(BaseSimulator):
             "clear": self._action_clear,
             "load_preset": self._action_load_preset,
             "undo": self._action_undo,
+            "redo": self._action_redo,
             "split_wire": self._action_split_wire,
+            "auto_arrange": self._action_auto_arrange,
         }
 
         handler = action_map.get(action)
@@ -222,7 +228,7 @@ class BlockDiagramSimulator(BaseSimulator):
         """Add a new block to the diagram."""
         self._save_history()
         block_type = params.get("block_type", "gain")
-        position = params.get("position", {"x": 400, "y": 250})
+        position = params.get("position", {"x": 408, "y": 240})
         value = params.get("value")
 
         if block_type not in self.BLOCK_TYPES:
@@ -246,8 +252,8 @@ class BlockDiagramSimulator(BaseSimulator):
             "position": {"x": float(position.get("x", 400)), "y": float(position.get("y", 250))},
         }
 
-        # Set default value for gain blocks
-        if block_type == "gain":
+        # Set default value for gain and constant blocks
+        if block_type in ("gain", "constant"):
             block["value"] = float(value) if value is not None else type_def.get("default_value", 1.0)
         elif block_type == "adder":
             # Signs for each input port: default both positive
@@ -291,7 +297,7 @@ class BlockDiagramSimulator(BaseSimulator):
         if block_id not in self.blocks:
             raise ValueError(f"Block not found: {block_id}")
         block = self.blocks[block_id]
-        if block["type"] == "gain":
+        if block["type"] in ("gain", "constant"):
             block["value"] = float(value)
         self._recompute_tf()
 
@@ -335,9 +341,11 @@ class BlockDiagramSimulator(BaseSimulator):
         # Output blocks have no outgoing signals — they are sinks
         if from_block_data["type"] == "output":
             raise ValueError("Output blocks cannot be wire sources")
-        # Input blocks have no incoming signals — they are sources
+        # Input and constant blocks have no incoming signals — they are sources
         if to_block_data["type"] == "input":
             raise ValueError("Input blocks cannot be wire targets")
+        if to_block_data["type"] == "constant":
+            raise ValueError("Constant blocks cannot be wire targets")
 
         # --- 4. Exact duplicate prevention ---
         for conn in self.connections:
@@ -516,7 +524,29 @@ class BlockDiagramSimulator(BaseSimulator):
         """Undo the last mutating action by restoring previous state."""
         if not self._history:
             raise ValueError("Nothing to undo")
+        # Save current state to redo stack
+        self._redo_history.append((
+            copy.deepcopy(self.blocks),
+            copy.deepcopy(self.connections),
+            self._next_block_id,
+        ))
         blocks, connections, next_id = self._history.pop()
+        self.blocks = blocks
+        self.connections = connections
+        self._next_block_id = next_id
+        self._recompute_tf()
+
+    def _action_redo(self, params: Dict[str, Any]) -> None:
+        """Redo a previously undone action."""
+        if not self._redo_history:
+            raise ValueError("Nothing to redo")
+        # Save current state to undo stack (without clearing redo)
+        self._history.append((
+            copy.deepcopy(self.blocks),
+            copy.deepcopy(self.connections),
+            self._next_block_id,
+        ))
+        blocks, connections, next_id = self._redo_history.pop()
         self.blocks = blocks
         self.connections = connections
         self._next_block_id = next_id
@@ -530,7 +560,7 @@ class BlockDiagramSimulator(BaseSimulator):
           A → junction(port 0)  and  junction(port 1) → B
         The user can then draw more wires from the junction's output ports.
         """
-        self._save_undo()
+        self._save_history()
         conn_index = params.get("conn_index")
         position = params.get("position", {})
 
@@ -573,6 +603,225 @@ class BlockDiagramSimulator(BaseSimulator):
 
         self._recompute_tf()
 
+    def _action_auto_arrange(self, params: Dict[str, Any]) -> None:
+        """Auto-arrange using chain-traced layout.
+
+        1. Forward path: BFS input→output, laid out left→right
+        2. Feedback: trace chains from forward-path entry points, lay out below
+           mirroring forward path structure
+        """
+        if not self.blocks:
+            return
+        self._save_history()
+
+        GRID = 24
+        H_GAP = 192
+        MAIN_Y = 360
+        FB_Y = 576
+
+        block_ids = list(self.blocks.keys())
+        if not block_ids:
+            return
+
+        # --- Build full adjacency ---
+        outgoing = {bid: set() for bid in block_ids}
+        incoming = {bid: set() for bid in block_ids}
+        for conn in self.connections:
+            fb, tb = conn["from_block"], conn["to_block"]
+            if fb in self.blocks and tb in self.blocks:
+                outgoing[fb].add(tb)
+                incoming[tb].add(fb)
+
+        # --- Detect back-edges via iterative DFS ---
+        back_edges = set()
+        visited = set()
+        rec_stack = set()
+        dfs_stack = []
+
+        input_ids = [b for b in block_ids if self.blocks[b]["type"] == "input"]
+        output_ids = [b for b in block_ids if self.blocks[b]["type"] == "output"]
+
+        for start in input_ids + [b for b in block_ids if b not in input_ids]:
+            if start in visited:
+                continue
+            dfs_stack = [(start, iter(outgoing.get(start, set())))]
+            visited.add(start)
+            rec_stack.add(start)
+            while dfs_stack:
+                node, children = dfs_stack[-1]
+                try:
+                    child = next(children)
+                    if child in rec_stack:
+                        back_edges.add((node, child))
+                    elif child not in visited:
+                        visited.add(child)
+                        rec_stack.add(child)
+                        dfs_stack.append((child, iter(outgoing.get(child, set()))))
+                except StopIteration:
+                    rec_stack.discard(node)
+                    dfs_stack.pop()
+
+        # --- Build acyclic graph ---
+        acyclic_out = {bid: set() for bid in block_ids}
+        acyclic_in = {bid: set() for bid in block_ids}
+        for conn in self.connections:
+            fb, tb = conn["from_block"], conn["to_block"]
+            if fb in self.blocks and tb in self.blocks and (fb, tb) not in back_edges:
+                acyclic_out[fb].add(tb)
+                acyclic_in[tb].add(fb)
+
+        # --- Find forward path: blocks on ANY acyclic path from input to output ---
+        fwd_from_input = set(input_ids)
+        q = list(input_ids)
+        while q:
+            n = q.pop(0)
+            for nb in acyclic_out.get(n, set()):
+                if nb not in fwd_from_input:
+                    fwd_from_input.add(nb)
+                    q.append(nb)
+
+        bwd_from_output = set(output_ids)
+        q = list(output_ids)
+        while q:
+            n = q.pop(0)
+            for nb in acyclic_in.get(n, set()):
+                if nb not in bwd_from_output:
+                    bwd_from_output.add(nb)
+                    q.append(nb)
+
+        forward_set = fwd_from_input & bwd_from_output
+        feedback_set = set(block_ids) - forward_set
+
+        # --- Topological sort + level assignment for forward blocks ---
+        fw_in_deg = {b: 0 for b in forward_set}
+        fw_out = {b: set() for b in forward_set}
+        for conn in self.connections:
+            fb, tb = conn["from_block"], conn["to_block"]
+            if fb in forward_set and tb in forward_set and (fb, tb) not in back_edges:
+                fw_out[fb].add(tb)
+                fw_in_deg[tb] += 1
+
+        q = sorted([b for b in forward_set if fw_in_deg[b] == 0],
+                    key=lambda b: (0 if self.blocks[b]["type"] == "input" else 1, b))
+        fw_topo = []
+        while q:
+            n = q.pop(0)
+            fw_topo.append(n)
+            for nb in fw_out.get(n, set()):
+                fw_in_deg[nb] -= 1
+                if fw_in_deg[nb] == 0:
+                    q.append(nb)
+        for b in forward_set:
+            if b not in fw_topo:
+                fw_topo.append(b)
+
+        fw_level = {}
+        for bid in fw_topo:
+            mx = -1
+            for pred in acyclic_in.get(bid, set()):
+                if pred in fw_level:
+                    mx = max(mx, fw_level[pred])
+            fw_level[bid] = mx + 1
+
+        # --- Position forward blocks ---
+        fw_x = {}
+        start_x = 216
+        by_level = {}
+        for bid in fw_topo:
+            lv = fw_level[bid]
+            by_level.setdefault(lv, []).append(bid)
+
+        for lv in sorted(by_level.keys()):
+            bids = by_level[lv]
+            x = round((start_x + lv * H_GAP) / GRID) * GRID
+            for i, bid in enumerate(bids):
+                y_off = (i - len(bids) // 2) * 144
+                y = round((MAIN_Y + y_off) / GRID) * GRID
+                self.blocks[bid]["position"] = {"x": float(x), "y": float(y)}
+                fw_x[bid] = x
+
+        # --- Trace feedback chains using DIRECTED traversal, lay out RIGHT-to-LEFT ---
+        fb_positioned = set()
+
+        # Build directed adjacency within feedback set
+        fb_outgoing = {bid: [] for bid in feedback_set}
+        fb_incoming = {bid: [] for bid in feedback_set}
+        for conn in self.connections:
+            fb, tb = conn["from_block"], conn["to_block"]
+            if fb in feedback_set and tb in feedback_set:
+                fb_outgoing[fb].append(tb)
+                fb_incoming[tb].append(fb)
+
+        # Find chain ENTRY points: feedback blocks that RECEIVE from a forward block
+        # These are the start of each feedback chain (signal enters feedback here)
+        entry_points = []
+        for bid in feedback_set:
+            for conn in self.connections:
+                if conn["to_block"] == bid and conn["from_block"] in fw_x:
+                    # This block receives from forward path — it's an entry
+                    entry_x = fw_x[conn["from_block"]]
+                    entry_points.append((bid, entry_x))
+                    break
+
+        # Sort: rightmost entry first (output-side feedback chains first)
+        entry_points.sort(key=lambda t: -t[1])
+
+        # Trace each chain in signal-flow order and lay out RIGHT → LEFT
+        row_idx = 0
+        for entry_bid, entry_x in entry_points:
+            if entry_bid in fb_positioned:
+                continue
+
+            # Follow outgoing connections to build ordered chain
+            chain = []
+            current = entry_bid
+            visited_chain = set()
+            while current and current not in visited_chain and current in feedback_set:
+                visited_chain.add(current)
+                chain.append(current)
+                fb_positioned.add(current)
+                # Follow outgoing within feedback set
+                nexts = [n for n in fb_outgoing.get(current, []) if n not in visited_chain and n in feedback_set]
+                current = nexts[0] if nexts else None
+
+            if not chain:
+                continue
+
+            # Layout: entry block at rightmost x (near forward block it connects from)
+            # Each subsequent block goes H_GAP to the LEFT
+            chain_y = round((FB_Y + row_idx * 168) / GRID) * GRID
+            for i, bid in enumerate(chain):
+                x = round((entry_x - i * H_GAP) / GRID) * GRID
+                self.blocks[bid]["position"] = {"x": float(x), "y": float(chain_y)}
+            row_idx += 1
+
+        # Any remaining unpositioned feedback blocks — place below
+        remaining_fb = [b for b in feedback_set if b not in fb_positioned]
+        if remaining_fb:
+            remaining_y = round((FB_Y + row_idx * 168) / GRID) * GRID
+            for i, bid in enumerate(remaining_fb):
+                x = round((start_x + i * H_GAP) / GRID) * GRID
+                self.blocks[bid]["position"] = {"x": float(x), "y": float(remaining_y)}
+
+        # --- Overlap resolution: only push RIGHT within same row ---
+        for _pass in range(8):
+            moved = False
+            blist = sorted(self.blocks.values(), key=lambda b: b["position"]["x"])
+            for i in range(len(blist)):
+                for j in range(i + 1, len(blist)):
+                    bi, bj = blist[i], blist[j]
+                    dx = abs(bi["position"]["x"] - bj["position"]["x"])
+                    dy = abs(bi["position"]["y"] - bj["position"]["y"])
+                    if dx < 160 and dy < 100:
+                        # Push right
+                        bj["position"]["x"] = round((bi["position"]["x"] + 192) / GRID) * GRID
+                        moved = True
+            if not moved:
+                break
+
+        self._center_diagram()
+        self._recompute_tf()
+
     # =========================================================================
     # Preset builders
     # =========================================================================
@@ -580,27 +829,27 @@ class BlockDiagramSimulator(BaseSimulator):
     def _build_accumulator_preset(self) -> None:
         """y[n] = y[n-1] + x[n]: input → adder → output, delay feedback.
 
-        Layout:
-          x[n] ──→ (+) ──→ y[n]
+        Layout for 1400x800 canvas:
+          x[n] ──→ (+) ──────────→ y[n]
                     ↑
-                   [R]   (feedback below)
+                   [R◁]   (feedback below, RTL: port 1 in, port 0 out)
         """
         inp = self._gen_block_id()
-        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 100, "y": 160}}
+        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 264, "y": 360}}
 
         adder = self._gen_block_id()
-        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 300, "y": 160}, "signs": ["+", "+", "+"]}
+        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 504, "y": 360}, "signs": ["+", "+", "+"]}
 
         out = self._gen_block_id()
-        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 560, "y": 160}}
+        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 888, "y": 360}}
 
         delay = self._gen_block_id()
-        self.blocks[delay] = {"id": delay, "type": "delay", "position": {"x": 380, "y": 380}}
+        self.blocks[delay] = {"id": delay, "type": "delay", "position": {"x": 696, "y": 552}}
 
         self.connections = [
             {"from_block": inp, "from_port": 0, "to_block": adder, "to_port": 0},
             {"from_block": adder, "from_port": 2, "to_block": out, "to_port": 0},
-            # Feedback: adder right → delay RIGHT (RTL), delay LEFT → adder bottom
+            # Feedback RTL: adder right → delay RIGHT (port 1), delay LEFT (port 0) → adder bottom
             {"from_block": adder, "from_port": 2, "to_block": delay, "to_port": 1},
             {"from_block": delay, "from_port": 0, "to_block": adder, "to_port": 1},
         ]
@@ -608,25 +857,26 @@ class BlockDiagramSimulator(BaseSimulator):
     def _build_difference_preset(self) -> None:
         """y[n] = x[n] - x[n-1]: input splits to adder and delay→adder.
 
-        Layout:
+        Layout for 1400x800 canvas — feedforward (LTR):
           x[n] ─────────→ (+) ──→ y[n]
-                            ↑(-)
-                           [R]   (feedforward below)
+            |               ↑(-)
+            └──→ [R▷] ─────┘   (feedforward below, LTR: port 0 in, port 1 out)
         """
         inp = self._gen_block_id()
-        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 100, "y": 160}}
+        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 264, "y": 360}}
 
         delay = self._gen_block_id()
-        self.blocks[delay] = {"id": delay, "type": "delay", "position": {"x": 280, "y": 380}}
+        self.blocks[delay] = {"id": delay, "type": "delay", "position": {"x": 504, "y": 552}}
 
         adder = self._gen_block_id()
-        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 480, "y": 160}, "signs": ["+", "-", "+"]}
+        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 744, "y": 360}, "signs": ["+", "-", "+"]}
 
         out = self._gen_block_id()
-        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 680, "y": 160}}
+        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 984, "y": 360}}
 
         self.connections = [
             {"from_block": inp, "from_port": 0, "to_block": adder, "to_port": 0},
+            # Feedforward LTR: input → delay LEFT (port 0), delay RIGHT (port 1) → adder bottom
             {"from_block": inp, "from_port": 0, "to_block": delay, "to_port": 0},
             {"from_block": delay, "from_port": 1, "to_block": adder, "to_port": 1},
             {"from_block": adder, "from_port": 2, "to_block": out, "to_port": 0},
@@ -635,31 +885,31 @@ class BlockDiagramSimulator(BaseSimulator):
     def _build_first_order_dt_preset(self) -> None:
         """y[n] = x[n] + 0.5·y[n-1]: adder → output, with delay→gain(0.5) feedback.
 
-        Layout — rectangular feedback loop, both delay and gain RTL:
-          x[n] ──→ (+) ───────────────→ y[n]
-                    ↑                     |
-                    |                     ↓
-                  [0.5]◁ ──── ◁[R]  ◁───┘
+        Layout for 1400x800 canvas — feedback RTL:
+          x[n] ──→ (+) ─────────────────→ y[n]
+                    ↑                       |
+                    |                       ↓
+                  [0.5◁] ◁──── [◁R] ◁─────┘
         """
         inp = self._gen_block_id()
-        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 80, "y": 160}}
+        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 216, "y": 360}}
 
         adder = self._gen_block_id()
-        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 240, "y": 160}, "signs": ["+", "+", "+"]}
+        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 456, "y": 360}, "signs": ["+", "+", "+"]}
 
         out = self._gen_block_id()
-        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 580, "y": 160}}
+        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 936, "y": 360}}
 
         delay = self._gen_block_id()
-        self.blocks[delay] = {"id": delay, "type": "delay", "position": {"x": 440, "y": 380}}
+        self.blocks[delay] = {"id": delay, "type": "delay", "position": {"x": 744, "y": 552}}
 
         gain = self._gen_block_id()
-        self.blocks[gain] = {"id": gain, "type": "gain", "position": {"x": 240, "y": 380}, "value": 0.5}
+        self.blocks[gain] = {"id": gain, "type": "gain", "position": {"x": 504, "y": 552}, "value": 0.5}
 
         self.connections = [
             {"from_block": inp, "from_port": 0, "to_block": adder, "to_port": 0},
             {"from_block": adder, "from_port": 2, "to_block": out, "to_port": 0},
-            # Feedback: adder right → delay RIGHT (RTL), delay LEFT → gain RIGHT (RTL), gain LEFT → adder bottom
+            # Feedback RTL: output → delay port 1 (right), delay port 0 (left) → gain port 1 (right), gain port 0 (left) → adder bottom
             {"from_block": adder, "from_port": 2, "to_block": delay, "to_port": 1},
             {"from_block": delay, "from_port": 0, "to_block": gain, "to_port": 1},
             {"from_block": gain, "from_port": 0, "to_block": adder, "to_port": 1},
@@ -668,53 +918,51 @@ class BlockDiagramSimulator(BaseSimulator):
     def _build_second_order_dt_preset(self) -> None:
         """y[n] = x[n] + 1.6·y[n-1] - 0.63·y[n-2].
 
-        Dual-loop layout with symmetric feedback:
+        Layout for 1400x800 canvas — ALL feedback blocks use RTL convention:
           Forward:  x[n] → [adder1] ────────────── [adder2] → y[n]
                               ↑(+)                    ↑(-)
-                           [gain1◁]    [◁delay1]      |
-                                          |           |
-                                       [delay2▷] → [▷gain2]
-        gain1 RTL (left), gain2 LTR (right), delay1 RTL, delay2 LTR
+                           [◁1.6]  ◁──── [◁delay1] ◁──┘
+                                            |
+                                          [◁delay2] ◁── [◁0.63] ◁──┘
         """
         inp = self._gen_block_id()
-        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 80, "y": 140}}
+        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 168, "y": 312}}
 
         adder1 = self._gen_block_id()
-        self.blocks[adder1] = {"id": adder1, "type": "adder", "position": {"x": 260, "y": 140}, "signs": ["+", "+", "+"]}
+        self.blocks[adder1] = {"id": adder1, "type": "adder", "position": {"x": 432, "y": 312}, "signs": ["+", "+", "+"]}
 
         adder2 = self._gen_block_id()
-        self.blocks[adder2] = {"id": adder2, "type": "adder", "position": {"x": 580, "y": 140}, "signs": ["+", "-", "+"]}
+        self.blocks[adder2] = {"id": adder2, "type": "adder", "position": {"x": 840, "y": 312}, "signs": ["+", "-", "+"]}
 
         out = self._gen_block_id()
-        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 760, "y": 140}}
+        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 1104, "y": 312}}
 
-        # Middle row: gain1 (RTL, left) and delay1 (RTL, center)
-        gain1 = self._gen_block_id()
-        self.blocks[gain1] = {"id": gain1, "type": "gain", "position": {"x": 180, "y": 310}, "value": 1.6}
-
+        # Feedback row 1 (RTL): delay1 and gain1
         delay1 = self._gen_block_id()
-        self.blocks[delay1] = {"id": delay1, "type": "delay", "position": {"x": 420, "y": 310}}
+        self.blocks[delay1] = {"id": delay1, "type": "delay", "position": {"x": 720, "y": 504}}
 
-        # Bottom row: delay2 (LTR, center-left) and gain2 (LTR, right)
+        gain1 = self._gen_block_id()
+        self.blocks[gain1] = {"id": gain1, "type": "gain", "position": {"x": 480, "y": 504}, "value": 1.6}
+
+        # Feedback row 2 (RTL): delay2 and gain2
         delay2 = self._gen_block_id()
-        self.blocks[delay2] = {"id": delay2, "type": "delay", "position": {"x": 380, "y": 460}}
+        self.blocks[delay2] = {"id": delay2, "type": "delay", "position": {"x": 720, "y": 672}}
 
         gain2 = self._gen_block_id()
-        self.blocks[gain2] = {"id": gain2, "type": "gain", "position": {"x": 580, "y": 460}, "value": 0.63}
+        self.blocks[gain2] = {"id": gain2, "type": "gain", "position": {"x": 960, "y": 672}, "value": 0.63}
 
         self.connections = [
             # Forward path
             {"from_block": inp, "from_port": 0, "to_block": adder1, "to_port": 0},
             {"from_block": adder1, "from_port": 2, "to_block": adder2, "to_port": 0},
             {"from_block": adder2, "from_port": 2, "to_block": out, "to_port": 0},
-            # Output tap → delay1 RIGHT (RTL: input on right)
+            # FB1 RTL: output tap → delay1 port 1 (right in), delay1 port 0 (left out) → gain1 port 1 (right in), gain1 port 0 (left out) → adder1 bottom
             {"from_block": adder2, "from_port": 2, "to_block": delay1, "to_port": 1},
-            # FB1: delay1 LEFT → gain1 RIGHT (RTL), gain1 LEFT → adder1 bottom
             {"from_block": delay1, "from_port": 0, "to_block": gain1, "to_port": 1},
             {"from_block": gain1, "from_port": 0, "to_block": adder1, "to_port": 1},
-            # Delay chain: delay1 LEFT → delay2 LEFT (routes down via left side)
+            # Delay chain: delay1 port 0 (left out) → delay2 port 0 (left in, LTR)
             {"from_block": delay1, "from_port": 0, "to_block": delay2, "to_port": 0},
-            # FB2: delay2 RIGHT → gain2 LEFT (LTR), gain2 RIGHT → adder2 bottom
+            # FB2 LTR: delay2 port 1 (right out) → gain2 port 0 (left in), gain2 port 1 (right out) → adder2 bottom
             {"from_block": delay2, "from_port": 1, "to_block": gain2, "to_port": 0},
             {"from_block": gain2, "from_port": 1, "to_block": adder2, "to_port": 1},
         ]
@@ -722,30 +970,31 @@ class BlockDiagramSimulator(BaseSimulator):
     def _build_first_order_ct_preset(self) -> None:
         """dy/dt = -2y + x(t): input → adder → integrator → output, gain(2) feedback.
 
-        Layout:
+        Layout for 1400x800 canvas:
           x(t) ──→ (+) ──→ [∫] ──→ y(t)
                     ↑(-)
-                   [2]              (gain directly under adder)
+                   [◁2]              (gain RTL, below)
         """
         inp = self._gen_block_id()
-        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 100, "y": 160}}
+        self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 216, "y": 360}}
 
         adder = self._gen_block_id()
-        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 300, "y": 160}, "signs": ["+", "-", "+"]}
+        self.blocks[adder] = {"id": adder, "type": "adder", "position": {"x": 456, "y": 360}, "signs": ["+", "-", "+"]}
 
         integ = self._gen_block_id()
-        self.blocks[integ] = {"id": integ, "type": "integrator", "position": {"x": 480, "y": 160}}
+        self.blocks[integ] = {"id": integ, "type": "integrator", "position": {"x": 744, "y": 360}}
 
         out = self._gen_block_id()
-        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 680, "y": 160}}
+        self.blocks[out] = {"id": out, "type": "output", "position": {"x": 984, "y": 360}}
 
         gain = self._gen_block_id()
-        self.blocks[gain] = {"id": gain, "type": "gain", "position": {"x": 300, "y": 380}, "value": 2.0}
+        self.blocks[gain] = {"id": gain, "type": "gain", "position": {"x": 600, "y": 552}, "value": 2.0}
 
         self.connections = [
             {"from_block": inp, "from_port": 0, "to_block": adder, "to_port": 0},
             {"from_block": adder, "from_port": 2, "to_block": integ, "to_port": 0},
             {"from_block": integ, "from_port": 1, "to_block": out, "to_port": 0},
+            # Feedback RTL: integ port 1 (right out) → gain port 1 (right in), gain port 0 (left out) → adder bottom
             {"from_block": integ, "from_port": 1, "to_block": gain, "to_port": 1},
             {"from_block": gain, "from_port": 0, "to_block": adder, "to_port": 1},
         ]
@@ -869,6 +1118,9 @@ class BlockDiagramSimulator(BaseSimulator):
             if btype == "gain":
                 val = block.get("value", 1.0)
                 return (np.array([val]), np.array([1.0]))
+            elif btype == "constant":
+                val = block.get("value", 1.0)
+                return (np.array([val]), np.array([1.0]))
             elif btype in ("delay", "integrator"):
                 # R or A operator: [0, 1] = 0 + 1*R = R
                 return (np.array([0.0, 1.0]), np.array([1.0]))
@@ -923,7 +1175,7 @@ class BlockDiagramSimulator(BaseSimulator):
                         num = self._pscale(num, -1.0)
 
                 # Multiply by block's transfer function
-                if block["type"] not in ("input", "output", "adder", "junction"):
+                if block["type"] not in ("input", "output", "adder", "junction", "constant"):
                     bn, bd = block_tf(bid)
                     num = self._pmul(num, bn)
                     den = self._pmul(den, bd)
@@ -947,7 +1199,7 @@ class BlockDiagramSimulator(BaseSimulator):
                     if port_idx < len(signs) and signs[port_idx] == "-":
                         num = self._pscale(num, -1.0)
 
-                if block["type"] not in ("input", "output", "adder", "junction"):
+                if block["type"] not in ("input", "output", "adder", "junction", "constant"):
                     bn, bd = block_tf(bid)
                     num = self._pmul(num, bn)
                     den = self._pmul(den, bd)
@@ -1758,7 +2010,7 @@ class BlockDiagramSimulator(BaseSimulator):
 
         Port numbering: gain/delay/integrator: 0=left, 1=right.
         Adder: 0=left, 1=bottom, 2=right. Junction: port 1 (first output).
-        Input/output: 0 (single port).
+        Input/output/constant: 0 (single port).
         """
         if block_type == "adder":
             return 2
@@ -1766,7 +2018,7 @@ class BlockDiagramSimulator(BaseSimulator):
             return 1
         if block_type == "junction":
             return 1
-        return 0  # input, output
+        return 0  # input, output, constant
 
     def _generate_direct_form_diagram(
         self, num_coeffs: List[float], den_coeffs: List[float]
@@ -1828,34 +2080,51 @@ class BlockDiagramSimulator(BaseSimulator):
             num_coeffs = [c / scale for c in num_coeffs]
             den_coeffs = [c / scale for c in den_coeffs]
 
-        # Dynamic layout constants — scale with order, centered on 900×650 canvas
-        canvas_w, canvas_h = 900, 650
-        if order <= 2:
-            spacing_x = 160
-            delay_y_offset = 120
-        elif order <= 4:
-            spacing_x = 140
-            delay_y_offset = 105
-        else:
-            spacing_x = 120
-            delay_y_offset = 90
+        # Compute actual needed chain lengths — skip trailing zero coefficients
+        # This prevents creating orphan delay blocks with no signal output
+        ff_chain_len = 0  # how many feedforward delays actually needed
+        for k in range(order, 0, -1):
+            if abs(num_coeffs[k]) > 1e-10:
+                ff_chain_len = k
+                break
 
-        # Auto-shrink if diagram won't fit horizontally
-        total_w = (order + 4) * spacing_x
-        if total_w > canvas_w - 120:
-            spacing_x = max(110, (canvas_w - 120) // (order + 4))
+        fb_chain_len = 0  # how many feedback delays actually needed
+        for k in range(order, 0, -1):
+            if abs(den_coeffs[k]) > 1e-10:
+                fb_chain_len = k
+                break
 
-        main_y = canvas_h // 2  # 800 — centered vertically
+        # Dynamic layout — adaptive spacing to fit 1400x800 canvas
+        # Row 1 (top): feedforward delays, with gains stacked below them
+        # Row 2 (middle): main signal path — input, adders, output
+        # Row 3 (bottom): feedback delays, with gains stacked below them
+        GRID = 24
+
+        # Count how many columns we need: delays + adders + input + output
+        num_ff_signals = sum(1 for c in num_coeffs if abs(c) > 1e-10)
+        num_fb_signals = sum(1 for c in den_coeffs[1:] if abs(c) > 1e-10)
+        num_adders = max(0, num_ff_signals + num_fb_signals - 1)
+        max_chain = max(ff_chain_len, fb_chain_len)
+        total_columns = max_chain + num_adders + 2  # delays + adders + in/out
+
+        # Adaptive horizontal spacing: fit into ~1200px usable width
+        spacing_x = max(120, min(192, int(1200 / max(total_columns, 4) / GRID) * GRID))
+
+        # Row spacing — generous vertical separation
+        row_spacing = 192  # 8 grid cells between main path and delay rows
+
+        main_y = 384  # center of 800px canvas
+        start_x = 72  # 3 grid cells from left edge
 
         # Create input
         inp = self._gen_block_id()
         self.blocks[inp] = {
             "id": inp, "type": "input",
-            "position": {"x": 50, "y": main_y},
+            "position": {"x": start_x, "y": main_y},
         }
 
         # Create output
-        out_x = 50 + (order + 3) * spacing_x
+        out_x = start_x + (order + 3) * spacing_x
         out = self._gen_block_id()
         self.blocks[out] = {
             "id": out, "type": "output",
@@ -1869,7 +2138,7 @@ class BlockDiagramSimulator(BaseSimulator):
                 gain = self._gen_block_id()
                 self.blocks[gain] = {
                     "id": gain, "type": "gain",
-                    "position": {"x": 300, "y": main_y},
+                    "position": {"x": 288, "y": main_y},
                     "value": gain_val,
                 }
                 connect(inp, gain, 0)
@@ -1906,31 +2175,33 @@ class BlockDiagramSimulator(BaseSimulator):
         # Build these as signal sources, then cascade-add them with 2-input adders.
 
         # --- Build feedforward delay chain (from input) ---
-        ff_signals = []  # list of (block_id, sign) to be summed
+        # Signals: (block_id, sign, from_port) — from_port is which port to wire out of
+        ff_signals = []
 
         # b0 * x[n]: direct path
+        ff_row_y = main_y - row_spacing       # feedforward delay row
         if abs(num_coeffs[0]) > 1e-10:
             if abs(abs(num_coeffs[0]) - 1.0) < 1e-10:
                 sign = "+" if num_coeffs[0] > 0 else "-"
-                ff_signals.append((inp, sign))
+                ff_signals.append((inp, sign, self._output_port("input")))
             else:
                 g = self._gen_block_id()
                 self.blocks[g] = {
                     "id": g, "type": "gain",
-                    "position": {"x": 50 + spacing_x, "y": main_y - delay_y_offset - 65},
+                    "position": {"x": start_x + spacing_x, "y": ff_row_y - 96},
                     "value": abs(num_coeffs[0]),
                 }
                 connect(inp, g, 0)
                 sign = "+" if num_coeffs[0] > 0 else "-"
-                ff_signals.append((g, sign))
+                ff_signals.append((g, sign, 1))  # LTR gain: port 1 output
 
-        # Delayed feedforward: bk * R^k * x
+        # Delayed feedforward: bk * R^k * x (LTR: port 0 in, port 1 out)
         prev_ff_delay = None
-        for k in range(1, order + 1):
+        for k in range(1, ff_chain_len + 1):
             d = self._gen_block_id()
             self.blocks[d] = {
                 "id": d, "type": delay_type,
-                "position": {"x": 50 + k * spacing_x, "y": main_y - delay_y_offset},
+                "position": {"x": start_x + k * spacing_x, "y": ff_row_y},
             }
             source = prev_ff_delay if prev_ff_delay is not None else inp
             connect(source, d, 0)
@@ -1939,17 +2210,18 @@ class BlockDiagramSimulator(BaseSimulator):
             if abs(num_coeffs[k]) > 1e-10:
                 if abs(abs(num_coeffs[k]) - 1.0) < 1e-10:
                     sign = "+" if num_coeffs[k] > 0 else "-"
-                    ff_signals.append((d, sign))
+                    ff_signals.append((d, sign, 1))  # LTR delay: port 1 output
                 else:
                     g = self._gen_block_id()
                     self.blocks[g] = {
                         "id": g, "type": "gain",
-                        "position": {"x": 50 + k * spacing_x + 70, "y": main_y - delay_y_offset - 65},
+                        # Gain stacked BELOW its delay (same x, offset y)
+                        "position": {"x": start_x + k * spacing_x, "y": ff_row_y - 96},
                         "value": abs(num_coeffs[k]),
                     }
                     connect(d, g, 0)
                     sign = "+" if num_coeffs[k] > 0 else "-"
-                    ff_signals.append((g, sign))
+                    ff_signals.append((g, sign, 1))  # LTR gain: port 1 output
 
         # --- Build feedback delay chain (from output) ---
         # We will connect these from the output adder. The output adder
@@ -1965,47 +2237,56 @@ class BlockDiagramSimulator(BaseSimulator):
         #   then we subtract a negative = add, so sign = "+"
         # If den_coeffs[k] is positive, we subtract, so sign = "-"
 
-        fb_signals = []  # (block_id, sign) — block_id will be gain or delay
+        fb_signals = []  # (block_id, sign, from_port) — RTL: port 0 output
         fb_delays = []   # delay block ids in order, for chaining from output
 
         # We'll create the feedback blocks but connect them to the output later
         # (after we know which block is the output adder)
 
         fb_delay_blocks = []
-        fb_gain_info = []  # (delay_block, gain_block_or_none, sign, coeff)
+        fb_row_y = main_y + row_spacing       # feedback delay row
 
-        for k in range(1, order + 1):
+        for k in range(1, fb_chain_len + 1):
             d = self._gen_block_id()
             self.blocks[d] = {
                 "id": d, "type": delay_type,
-                "position": {"x": 50 + k * spacing_x, "y": main_y + delay_y_offset},
+                "position": {"x": start_x + k * spacing_x, "y": fb_row_y},
             }
             fb_delay_blocks.append(d)
 
-            # Chain delays left-to-right
+            # Chain feedback delays RTL: previous delay port 0 (left out) → next delay port 1 (right in)
             if k >= 2:
-                connect(fb_delay_blocks[k - 2], d, 0)
+                self.connections.append({
+                    "from_block": fb_delay_blocks[k - 2],
+                    "from_port": 0,  # left output (RTL)
+                    "to_block": d,
+                    "to_port": 1,    # right input (RTL)
+                })
 
             if abs(den_coeffs[k]) > 1e-10:
-                # Determine sign: we subtract den_coeffs[k]*R^k*y
-                # So if den_coeffs[k] > 0, the adder sign should be "-"
-                # If den_coeffs[k] < 0, sign is "+"
                 if abs(abs(den_coeffs[k]) - 1.0) < 1e-10:
                     sign = "-" if den_coeffs[k] > 0 else "+"
-                    fb_signals.append((d, sign))
+                    fb_signals.append((d, sign, 0))  # RTL: port 0 output
                 else:
                     g = self._gen_block_id()
                     self.blocks[g] = {
                         "id": g, "type": "gain",
+                        # Gain stacked BELOW its delay (same x, offset y)
                         "position": {
-                            "x": 50 + k * spacing_x + 70,
-                            "y": main_y + delay_y_offset + 65,
+                            "x": start_x + k * spacing_x,
+                            "y": fb_row_y + 96,
                         },
                         "value": abs(den_coeffs[k]),
                     }
-                    connect(d, g, 0)
+                    # RTL: delay port 0 (left out) → gain port 1 (right in)
+                    self.connections.append({
+                        "from_block": d,
+                        "from_port": 0,
+                        "to_block": g,
+                        "to_port": 1,
+                    })
                     sign = "-" if den_coeffs[k] > 0 else "+"
-                    fb_signals.append((g, sign))
+                    fb_signals.append((g, sign, 0))  # RTL gain: port 0 output
 
         # --- Cascade-add all signals using 2-input adders ---
         all_signals = ff_signals + fb_signals
@@ -2016,29 +2297,38 @@ class BlockDiagramSimulator(BaseSimulator):
             return
 
         if len(all_signals) == 1:
-            # Single signal path — just one wire (possibly with sign inversion)
-            sig_id, sig_sign = all_signals[0]
+            sig_id, sig_sign, sig_port = all_signals[0]
             if sig_sign == "-":
-                # Need a gain of -1
                 neg = self._gen_block_id()
                 self.blocks[neg] = {
                     "id": neg, "type": "gain",
                     "position": {"x": out_x - spacing_x, "y": main_y},
                     "value": -1.0,
                 }
-                connect(sig_id, neg, 0)
+                self.connections.append({
+                    "from_block": sig_id, "from_port": sig_port,
+                    "to_block": neg, "to_port": 0,
+                })
                 connect(neg, out, 0)
             else:
-                connect(sig_id, out, 0)
+                self.connections.append({
+                    "from_block": sig_id, "from_port": sig_port,
+                    "to_block": out, "to_port": 0,
+                })
 
-            # Connect feedback delays from output
+            # Connect feedback delays from output RTL: output → delay port 1 (right in)
             if fb_delay_blocks:
-                connect(sig_id, fb_delay_blocks[0], 0)
+                self.connections.append({
+                    "from_block": sig_id,
+                    "from_port": sig_port,
+                    "to_block": fb_delay_blocks[0],
+                    "to_port": 1,
+                })
             return
 
-        # Build a cascade of 2-input adders
-        adder_x_start = 50 + (order + 1) * spacing_x
-        adder_spacing = max(100, int(spacing_x * 0.6))
+        # Build a cascade of 2-input adders — use same spacing as delays for uniform rhythm
+        adder_x_start = start_x + (order + 1) * spacing_x
+        adder_spacing = spacing_x  # uniform with delay chain
         adders = []
 
         for i in range(len(all_signals) - 1):
@@ -2047,33 +2337,45 @@ class BlockDiagramSimulator(BaseSimulator):
             self.blocks[adder_id] = {
                 "id": adder_id, "type": "adder",
                 "position": {"x": adder_x, "y": main_y},
-                "signs": ["+", "+", "+"],  # default, will be set below
+                "signs": ["+", "+", "+"],
             }
             adders.append(adder_id)
 
-        # Wire the cascade
-        # First adder: port 0 (left) = first signal, port 1 (bottom) = second signal
-        sig0_id, sig0_sign = all_signals[0]
-        sig1_id, sig1_sign = all_signals[1]
+        # Wire the cascade using explicit from_port from signal tuples
+        sig0_id, sig0_sign, sig0_port = all_signals[0]
+        sig1_id, sig1_sign, sig1_port = all_signals[1]
 
-        connect(sig0_id, adders[0], 0)
-        connect(sig1_id, adders[0], 1)
+        self.connections.append({
+            "from_block": sig0_id, "from_port": sig0_port,
+            "to_block": adders[0], "to_port": 0,
+        })
+        self.connections.append({
+            "from_block": sig1_id, "from_port": sig1_port,
+            "to_block": adders[0], "to_port": 1,
+        })
         self.blocks[adders[0]]["signs"] = [sig0_sign, sig1_sign, "+"]
 
-        # Subsequent adders: port 0 (left) = previous adder output, port 1 (bottom) = next signal
         for i in range(1, len(adders)):
-            sig_id, sig_sign = all_signals[i + 1]
+            sig_id, sig_sign, sig_from_port = all_signals[i + 1]
             connect(adders[i - 1], adders[i], 0)
-            connect(sig_id, adders[i], 1)
+            self.connections.append({
+                "from_block": sig_id, "from_port": sig_from_port,
+                "to_block": adders[i], "to_port": 1,
+            })
             self.blocks[adders[i]]["signs"] = ["+", sig_sign, "+"]
 
         # Last adder output → output block
         last_adder = adders[-1]
         connect(last_adder, out, 0)
 
-        # Connect feedback delay chain from the last adder output (= y[n])
+        # Connect feedback delay chain RTL: last adder output → first delay port 1 (right in)
         if fb_delay_blocks:
-            connect(last_adder, fb_delay_blocks[0], 0)
+            self.connections.append({
+                "from_block": last_adder,
+                "from_port": self._output_port("adder"),
+                "to_block": fb_delay_blocks[0],
+                "to_port": 1,  # right input (RTL)
+            })
 
         # Reposition output to the right of the last adder
         last_adder_x = self.blocks[last_adder]["position"]["x"]
@@ -2083,29 +2385,85 @@ class BlockDiagramSimulator(BaseSimulator):
         self._center_diagram()
 
     def _center_diagram(self) -> None:
-        """Center all blocks within the 900×650 canvas."""
+        """Center all blocks on the canvas viewport center.
+
+        Snaps the centering offset to grid (24px) so all blocks remain
+        grid-aligned after centering.
+        """
         if not self.blocks:
             return
-        cw, ch = 900, 650
-        # Account for block dimensions (half-height margins)
-        block_margin = 40  # max half-height of largest block (gain triangle ~34)
+        GRID = 24
+        cw, ch = 1400, 800
+        center_x, center_y = cw / 2, ch / 2
+
         xs = [b["position"]["x"] for b in self.blocks.values()]
         ys = [b["position"]["y"] for b in self.blocks.values()]
         min_x, max_x = min(xs), max(xs)
         min_y, max_y = min(ys), max(ys)
 
-        offset_x = (cw - (max_x - min_x)) / 2 - min_x
-        offset_y = (ch - (max_y - min_y)) / 2 - min_y
-
-        # Clamp to keep within canvas with margins (accounting for block sizes)
-        margin_x = 80
-        margin_y = 60 + block_margin
-        offset_x = max(margin_x - min_x, min(offset_x, cw - margin_x - max_x))
-        offset_y = max(margin_y - min_y, min(offset_y, ch - margin_y - max_y))
+        diagram_cx = (min_x + max_x) / 2
+        diagram_cy = (min_y + max_y) / 2
+        # Snap offset to grid so all blocks stay grid-aligned
+        offset_x = round((center_x - diagram_cx) / GRID) * GRID
+        offset_y = round((center_y - diagram_cy) / GRID) * GRID
 
         for b in self.blocks.values():
             b["position"]["x"] += offset_x
             b["position"]["y"] += offset_y
+
+        self._resolve_overlaps()
+
+    def _resolve_overlaps(self) -> None:
+        """Detect and resolve overlapping blocks by shifting them apart.
+
+        Uses block bounding boxes with 48px padding (2 grid cells).
+        All shifted positions are snapped to grid.
+        """
+        GRID = 24
+        OVERLAP_PAD = 48  # 2 grid cells
+        block_list = list(self.blocks.values())
+
+        for _pass in range(3):
+            moved = False
+            for i in range(len(block_list)):
+                for j in range(i + 1, len(block_list)):
+                    bi, bj = block_list[i], block_list[j]
+                    wi = self._block_width(bi["type"]) + OVERLAP_PAD
+                    hi = self._block_height(bi["type"]) + OVERLAP_PAD
+                    wj = self._block_width(bj["type"]) + OVERLAP_PAD
+                    hj = self._block_height(bj["type"]) + OVERLAP_PAD
+
+                    xi, yi = bi["position"]["x"], bi["position"]["y"]
+                    xj, yj = bj["position"]["x"], bj["position"]["y"]
+
+                    if (abs(xi - xj) < (wi + wj) / 2 and
+                            abs(yi - yj) < (hi + hj) / 2):
+                        # Shift and snap to grid
+                        if xj >= xi:
+                            bj["position"]["x"] = round((xi + (wi + wj) / 2) / GRID) * GRID
+                        else:
+                            bi["position"]["x"] = round((xj + (wi + wj) / 2) / GRID) * GRID
+                        moved = True
+            if not moved:
+                break
+
+    @staticmethod
+    def _block_width(block_type: str) -> int:
+        """Get block width for overlap detection (synced with frontend BLOCK_SIZES)."""
+        sizes = {
+            "input": 80, "output": 80, "gain": 80, "constant": 80,
+            "adder": 60, "delay": 80, "integrator": 80, "junction": 12,
+        }
+        return sizes.get(block_type, 80)
+
+    @staticmethod
+    def _block_height(block_type: str) -> int:
+        """Get block height for overlap detection (synced with frontend BLOCK_SIZES)."""
+        sizes = {
+            "input": 60, "output": 60, "gain": 60, "constant": 60,
+            "adder": 60, "delay": 60, "integrator": 60, "junction": 12,
+        }
+        return sizes.get(block_type, 60)
 
     # =========================================================================
     # Plot generation
