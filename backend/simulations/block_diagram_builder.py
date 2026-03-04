@@ -534,6 +534,7 @@ class BlockDiagramSimulator(BaseSimulator):
         elif preset_name == "first_order_ct":
             self._build_first_order_ct_preset()
 
+        self._fix_port_directions()
         self._center_diagram()
         self._recompute_tf()
 
@@ -935,12 +936,14 @@ class BlockDiagramSimulator(BaseSimulator):
     def _build_second_order_dt_preset(self) -> None:
         """y[n] = x[n] + 1.6·y[n-1] - 0.63·y[n-2].
 
-        Layout for 1400x800 canvas — ALL feedback blocks use RTL convention:
+        Layout uses same conventions as the generic TF parser:
+        - All feedback blocks use RTL: port 1 (right) = input, port 0 (left) = output
+        - Delay chain flows right-to-left (delay1 rightmost, delay2 to its left)
+        - Gains stacked below their delays at the same x
+
           Forward:  x[n] → [adder1] ────────────── [adder2] → y[n]
                               ↑(+)                    ↑(-)
-                           [◁1.6]  ◁──── [◁delay1] ◁──┘
-                                            |
-                                          [◁delay2] ◁── [◁0.63] ◁──┘
+                           [◁1.6]    [◁0.63] ◁── [◁delay2] ◁── [◁delay1] ◁──┘
         """
         inp = self._gen_block_id()
         self.blocks[inp] = {"id": inp, "type": "input", "position": {"x": 168, "y": 312}}
@@ -954,34 +957,36 @@ class BlockDiagramSimulator(BaseSimulator):
         out = self._gen_block_id()
         self.blocks[out] = {"id": out, "type": "output", "position": {"x": 1104, "y": 312}}
 
-        # Feedback row 1 (RTL): delay1 and gain1
+        # Feedback row (RTL, right-to-left): delay1 near output, delay2 to its left
+        # Same convention as TF parser: all RTL, positioned right-to-left
         delay1 = self._gen_block_id()
-        self.blocks[delay1] = {"id": delay1, "type": "delay", "position": {"x": 720, "y": 504}}
+        self.blocks[delay1] = {"id": delay1, "type": "delay", "position": {"x": 840, "y": 552}}
 
-        gain1 = self._gen_block_id()
-        self.blocks[gain1] = {"id": gain1, "type": "gain", "position": {"x": 480, "y": 504}, "value": 1.6}
-
-        # Feedback row 2 (RTL): delay2 and gain2
         delay2 = self._gen_block_id()
-        self.blocks[delay2] = {"id": delay2, "type": "delay", "position": {"x": 720, "y": 672}}
+        self.blocks[delay2] = {"id": delay2, "type": "delay", "position": {"x": 600, "y": 552}}
+
+        # Gains below their delays (same x)
+        gain1 = self._gen_block_id()
+        self.blocks[gain1] = {"id": gain1, "type": "gain", "position": {"x": 840, "y": 696}, "value": 1.6}
 
         gain2 = self._gen_block_id()
-        self.blocks[gain2] = {"id": gain2, "type": "gain", "position": {"x": 960, "y": 672}, "value": 0.63}
+        self.blocks[gain2] = {"id": gain2, "type": "gain", "position": {"x": 600, "y": 696}, "value": 0.63}
 
         self.connections = [
             # Forward path
             {"from_block": inp, "from_port": 0, "to_block": adder1, "to_port": 0},
             {"from_block": adder1, "from_port": 2, "to_block": adder2, "to_port": 0},
             {"from_block": adder2, "from_port": 2, "to_block": out, "to_port": 0},
-            # FB1 RTL: output tap → delay1 port 1 (right in), delay1 port 0 (left out) → gain1 port 1 (right in), gain1 port 0 (left out) → adder1 bottom
+            # Feedback tap RTL: adder2 output → delay1 port 1 (right in)
             {"from_block": adder2, "from_port": 2, "to_block": delay1, "to_port": 1},
+            # Delay chain RTL: delay1 port 0 (left out) → delay2 port 1 (right in)
+            {"from_block": delay1, "from_port": 0, "to_block": delay2, "to_port": 1},
+            # FB1: delay1 port 0 (left out) → gain1 port 1 (right in), gain1 → adder1
             {"from_block": delay1, "from_port": 0, "to_block": gain1, "to_port": 1},
             {"from_block": gain1, "from_port": 0, "to_block": adder1, "to_port": 1},
-            # Delay chain: delay1 port 0 (left out) → delay2 port 0 (left in, LTR)
-            {"from_block": delay1, "from_port": 0, "to_block": delay2, "to_port": 0},
-            # FB2 LTR: delay2 port 1 (right out) → gain2 port 0 (left in), gain2 port 1 (right out) → adder2 bottom
-            {"from_block": delay2, "from_port": 1, "to_block": gain2, "to_port": 0},
-            {"from_block": gain2, "from_port": 1, "to_block": adder2, "to_port": 1},
+            # FB2: delay2 port 0 (left out) → gain2 port 1 (right in), gain2 → adder2
+            {"from_block": delay2, "from_port": 0, "to_block": gain2, "to_port": 1},
+            {"from_block": gain2, "from_port": 0, "to_block": adder2, "to_port": 1},
         ]
 
     def _build_first_order_ct_preset(self) -> None:
@@ -2140,10 +2145,11 @@ class BlockDiagramSimulator(BaseSimulator):
         total_columns = max_chain + num_adders + 2  # delays + adders + in/out
 
         # Adaptive horizontal spacing: fit into ~1200px usable width
-        spacing_x = max(120, min(192, int(1200 / max(total_columns, 4) / GRID) * GRID))
+        # Minimum 144px (6 grid cells) so blocks have room for vertical wires between them
+        spacing_x = max(144, min(192, int(1200 / max(total_columns, 4) / GRID) * GRID))
 
-        # Row spacing — generous vertical separation
-        row_spacing = 192  # 8 grid cells between main path and delay rows
+        # Row spacing — generous vertical separation for clean wire routing
+        row_spacing = 264  # 11 grid cells between main path and delay rows
 
         main_y = 384  # center of 800px canvas
         start_x = 72  # 3 grid cells from left edge
@@ -2220,7 +2226,7 @@ class BlockDiagramSimulator(BaseSimulator):
                 g = self._gen_block_id()
                 self.blocks[g] = {
                     "id": g, "type": "gain",
-                    "position": {"x": start_x + spacing_x, "y": ff_row_y - 96},
+                    "position": {"x": start_x + spacing_x, "y": ff_row_y - 120},
                     "value": abs(num_coeffs[0]),
                 }
                 connect(inp, g, 0)
@@ -2248,7 +2254,7 @@ class BlockDiagramSimulator(BaseSimulator):
                     self.blocks[g] = {
                         "id": g, "type": "gain",
                         # Gain stacked BELOW its delay (same x, offset y)
-                        "position": {"x": start_x + k * spacing_x, "y": ff_row_y - 96},
+                        "position": {"x": start_x + k * spacing_x, "y": ff_row_y - 120},
                         "value": abs(num_coeffs[k]),
                     }
                     connect(d, g, 0)
@@ -2276,13 +2282,15 @@ class BlockDiagramSimulator(BaseSimulator):
         # (after we know which block is the output adder)
 
         fb_delay_blocks = []
+        fb_gain_blocks = []   # (gain_id, delay_idx) pairs for repositioning
         fb_row_y = main_y + row_spacing       # feedback delay row
 
+        # Placeholder x positions — will be repositioned right-to-left after adder chain
         for k in range(1, fb_chain_len + 1):
             d = self._gen_block_id()
             self.blocks[d] = {
                 "id": d, "type": delay_type,
-                "position": {"x": start_x + k * spacing_x, "y": fb_row_y},
+                "position": {"x": 0, "y": fb_row_y},  # x set later
             }
             fb_delay_blocks.append(d)
 
@@ -2304,12 +2312,10 @@ class BlockDiagramSimulator(BaseSimulator):
                     self.blocks[g] = {
                         "id": g, "type": "gain",
                         # Gain stacked BELOW its delay (same x, offset y)
-                        "position": {
-                            "x": start_x + k * spacing_x,
-                            "y": fb_row_y + 96,
-                        },
+                        "position": {"x": 0, "y": fb_row_y + 120},  # x set later
                         "value": abs(den_coeffs[k]),
                     }
+                    fb_gain_blocks.append((g, k - 1))  # delay index 0-based
                     # RTL: delay port 0 (left out) → gain port 1 (right in)
                     self.connections.append({
                         "from_block": d,
@@ -2400,8 +2406,22 @@ class BlockDiagramSimulator(BaseSimulator):
         last_adder = adders[-1]
         connect(last_adder, out, 0)
 
-        # Connect feedback delay chain RTL: last adder output → first delay port 1 (right in)
+        # Reposition output to the right of the last adder
+        last_adder_x = self.blocks[last_adder]["position"]["x"]
+        self.blocks[out]["position"]["x"] = last_adder_x + spacing_x
+
+        # Reposition feedback delays RIGHT-TO-LEFT: fb_delay[0] near output, chain flows left
+        # This keeps the feedback tap wire short and avoids crossing the output wire.
         if fb_delay_blocks:
+            out_x_final = self.blocks[out]["position"]["x"]
+            for i, d_id in enumerate(fb_delay_blocks):
+                # fb_delay[0] directly below output, subsequent delays to the left
+                self.blocks[d_id]["position"]["x"] = out_x_final - (i + 1) * spacing_x
+            # Reposition associated gain blocks to match their delay's x
+            for g_id, delay_idx in fb_gain_blocks:
+                self.blocks[g_id]["position"]["x"] = self.blocks[fb_delay_blocks[delay_idx]]["position"]["x"]
+
+            # Connect feedback: last adder output → first delay port 1 (right in, RTL)
             self.connections.append({
                 "from_block": last_adder,
                 "from_port": self._output_port("adder"),
@@ -2409,12 +2429,85 @@ class BlockDiagramSimulator(BaseSimulator):
                 "to_port": 1,  # right input (RTL)
             })
 
-        # Reposition output to the right of the last adder
-        last_adder_x = self.blocks[last_adder]["position"]["x"]
-        self.blocks[out]["position"]["x"] = last_adder_x + spacing_x
+        # Fix gain/delay port directions based on actual spatial positions.
+        # After repositioning, some blocks may have their output port pointing
+        # away from their target. Flip port assignments so the output side
+        # faces the target block (shorter, cleaner wires).
+        self._fix_port_directions()
 
         # Center diagram on canvas
         self._center_diagram()
+
+    def _fix_port_directions(self) -> None:
+        """Fix gain/delay/integrator port directions based on actual block positions.
+
+        For each directional block (gain/delay/integrator), determines whether
+        its output should go left or right based on where its target blocks are.
+        Flips both incoming and outgoing connection ports so the block's
+        visual orientation matches the actual signal flow direction.
+
+        Only flips blocks where the MAJORITY of outgoing signal weight goes in
+        the opposite direction to current orientation. Skips blocks that have
+        mixed targets (some left, some right) to avoid breaking chain wiring.
+
+        Port convention:
+          LTR: port 0 (left) = input, port 1 (right) = output
+          RTL: port 0 (left) = output, port 1 (right) = input
+        """
+        directional_types = {"gain", "delay", "integrator"}
+
+        for block_id, block in self.blocks.items():
+            if block["type"] not in directional_types:
+                continue
+
+            bx = block["position"]["x"]
+
+            outgoing = [c for c in self.connections if c["from_block"] == block_id]
+            incoming = [c for c in self.connections if c["to_block"] == block_id]
+
+            if not outgoing:
+                continue
+
+            # Count how many outgoing targets are to the left vs right
+            # Only consider targets with significant horizontal offset
+            right_count = 0
+            left_count = 0
+            for conn in outgoing:
+                target = self.blocks.get(conn["to_block"])
+                if not target:
+                    continue
+                tx = target["position"]["x"]
+                dx = tx - bx
+                if dx > 24:  # target meaningfully to the right (> 1 grid cell)
+                    right_count += 1
+                elif dx < -24:  # target meaningfully to the left
+                    left_count += 1
+                # Targets at roughly same x: don't count (vertical connections)
+
+            # Skip if no clear horizontal preference (ambiguous or all vertical)
+            if right_count == 0 and left_count == 0:
+                continue
+            # Skip if mixed directions (would break some wires)
+            if right_count > 0 and left_count > 0:
+                continue
+
+            want_ltr = right_count > 0  # output should go right
+
+            # Check current direction from incoming connection port
+            if incoming:
+                current_input_port = incoming[0]["to_port"]
+                is_currently_ltr = (current_input_port == 0)
+            else:
+                is_currently_ltr = True
+
+            if want_ltr == is_currently_ltr:
+                continue  # Already correct
+
+            # Flip: swap port numbers on all connections involving this block
+            for conn in incoming:
+                conn["to_port"] = 1 - conn["to_port"]
+            for conn in outgoing:
+                conn["from_port"] = 1 - conn["from_port"]
 
     def _center_diagram(self) -> None:
         """Center all blocks on the canvas viewport center.

@@ -7,7 +7,7 @@
  *   2. Parse Mode — enter transfer function → generate block diagram
  *
  * Rendering Pipeline:
- *   1. analyzeSignalFlow() — determine LTR/RTL per block via connection topology
+ *   1. analyzeSignalFlow() — determine LTR/RTL per block via incoming port number
  *   2. computeAdderPorts() — dynamic port placement based on connection angles
  *   3. getPortPosition() — port coords (invariant: port 0=LEFT, port 1=RIGHT)
  *   4. routeWire() — geometric-first Manhattan routing with A* fallback
@@ -75,97 +75,17 @@ function snapToGrid(val) {
  * LTR: block on forward path (input→output) — triangle points RIGHT
  * RTL: block on feedback path (not on forward path) — triangle points LEFT
  *
- * Algorithm: replicate backend's forward/feedback detection.
- * 1. Detect back-edges via DFS (cycle detection)
- * 2. Build acyclic graph (remove back-edges)
- * 3. Forward set = reachable from input AND can reach output (in acyclic graph)
- * 4. Feedback = everything not in forward set → render RTL
- * 5. Forward blocks: use spatial check (source to the RIGHT → RTL)
+ * Algorithm: port-based direction detection.
+ * For gain/delay/integrator blocks, the incoming connection's to_port
+ * determines the direction:
+ *   - to_port 0 (left side) → LTR (signal enters from left, triangle points right)
+ *   - to_port 1 (right side) → RTL (signal enters from right, triangle points left)
+ * This matches the backend's port convention where port 0 = left, port 1 = right.
  */
 function analyzeSignalFlow(blocks, connections) {
   const dirs = {};
   const blockIds = Object.keys(blocks);
   if (blockIds.length === 0) return dirs;
-
-  // Build adjacency
-  const outgoing = {}, incoming = {};
-  blockIds.forEach(id => { outgoing[id] = []; incoming[id] = []; });
-  for (const c of connections) {
-    if (blocks[c.from_block] && blocks[c.to_block]) {
-      outgoing[c.from_block].push(c.to_block);
-      incoming[c.to_block].push(c.from_block);
-    }
-  }
-
-  const inputIds = blockIds.filter(id => blocks[id].type === 'input');
-  const outputIds = blockIds.filter(id => blocks[id].type === 'output');
-
-  // Detect back-edges via iterative DFS
-  const backEdges = new Set();
-  const visited = new Set();
-  const recStack = new Set();
-  const starts = [...inputIds, ...blockIds.filter(id => !inputIds.includes(id))];
-
-  for (const start of starts) {
-    if (visited.has(start)) continue;
-    const stack = [[start, 0]]; // [node, childIndex]
-    visited.add(start);
-    recStack.add(start);
-    while (stack.length > 0) {
-      const top = stack[stack.length - 1];
-      const [node, ci] = top;
-      const children = outgoing[node] || [];
-      if (ci < children.length) {
-        top[1]++; // advance child index
-        const child = children[ci];
-        if (recStack.has(child)) {
-          backEdges.add(`${node}->${child}`);
-        } else if (!visited.has(child)) {
-          visited.add(child);
-          recStack.add(child);
-          stack.push([child, 0]);
-        }
-      } else {
-        recStack.delete(node);
-        stack.pop();
-      }
-    }
-  }
-
-  // Build acyclic adjacency
-  const acyclicOut = {}, acyclicIn = {};
-  blockIds.forEach(id => { acyclicOut[id] = []; acyclicIn[id] = []; });
-  for (const c of connections) {
-    if (blocks[c.from_block] && blocks[c.to_block] && !backEdges.has(`${c.from_block}->${c.to_block}`)) {
-      acyclicOut[c.from_block].push(c.to_block);
-      acyclicIn[c.to_block].push(c.from_block);
-    }
-  }
-
-  // Forward reachable from inputs (use index-based queue instead of shift())
-  const fwdFromInput = new Set(inputIds);
-  let q = [...inputIds];
-  let qi = 0;
-  while (qi < q.length) {
-    const n = q[qi++];
-    for (const nb of (acyclicOut[n] || [])) {
-      if (!fwdFromInput.has(nb)) { fwdFromInput.add(nb); q.push(nb); }
-    }
-  }
-
-  // Backward reachable from outputs
-  const bwdFromOutput = new Set(outputIds);
-  q = [...outputIds];
-  qi = 0;
-  while (qi < q.length) {
-    const n = q[qi++];
-    for (const nb of (acyclicIn[n] || [])) {
-      if (!bwdFromOutput.has(nb)) { bwdFromOutput.add(nb); q.push(nb); }
-    }
-  }
-
-  // Forward set = intersection
-  const forwardSet = new Set([...fwdFromInput].filter(x => bwdFromOutput.has(x)));
 
   // Assign directions
   for (const blockId of blockIds) {
@@ -175,21 +95,17 @@ function analyzeSignalFlow(blocks, connections) {
       continue;
     }
 
-    if (!forwardSet.has(blockId)) {
-      // Feedback block → RTL (textbook convention: feedback flows right-to-left)
-      dirs[blockId] = 'rtl';
-    } else {
-      // Forward path block → LTR by default, RTL if source is spatially to the right
-      let sourceBlock = null;
-      for (const conn of connections) {
-        if (conn.to_block === blockId) {
-          sourceBlock = blocks[conn.from_block];
-          break;
-        }
+    // Port-based direction: if signal arrives at port 1 (right side) → RTL,
+    // if signal arrives at port 0 (left side) → LTR.
+    // This matches the backend's port convention for gain/delay/integrator blocks.
+    let inputPort = null;
+    for (const conn of connections) {
+      if (conn.to_block === blockId) {
+        inputPort = conn.to_port;
+        break;
       }
-      dirs[blockId] = (sourceBlock && sourceBlock.position.x > block.position.x)
-        ? 'rtl' : 'ltr';
     }
+    dirs[blockId] = (inputPort === 1) ? 'rtl' : 'ltr';
   }
 
   return dirs;
@@ -672,26 +588,54 @@ function tryGeometricRoutes(sx, sy, sd, ex, ey, ed, obsBlocks, bodyBlocks = []) 
   //   2. Source/target blocks: body-only padding (BODY_PAD=2) — blocks the physical
   //      block body while keeping ports accessible (ports are at PORT_DIST=48 from
   //      center, body half-width=40, so ports are 8px outside body edge)
+  // Split obsBlocks: real blocks are hard obstacles, wire zones are soft (prefer to avoid)
+  const realObs = obsBlocks.filter(b => !b._bounds);
+  const wireObs = obsBlocks.filter(b => b._bounds);
+
   const valid = [];
   for (const route of candidates) {
     const simplified = simplifyPath(route);
     if (simplified.length < 2) continue;
-    if (!routeClear(simplified, obsBlocks, COLLISION_PAD * 0.6)) continue;
+    // Hard-reject routes that hit real blocks
+    if (!routeClear(simplified, realObs, COLLISION_PAD * 0.6)) continue;
     if (!routeClearBody(simplified, bodyBlocks)) continue;
     valid.push(simplified);
   }
 
   if (valid.length === 0) return null;
 
+  // Count wire zone crossings for a route (soft penalty, not rejection)
+  const wireHitCount = (route) => {
+    let hits = 0;
+    for (let i = 0; i < route.length - 1; i++) {
+      for (const wb of wireObs) {
+        const b = wb._bounds;
+        const [x1, y1] = route[i], [x2, y2] = route[i + 1];
+        if (Math.abs(y1 - y2) < 1) {
+          // Horizontal segment
+          if (y1 >= b.top && y1 <= b.bottom && Math.max(x1, x2) >= b.left && Math.min(x1, x2) <= b.right) hits++;
+        } else if (Math.abs(x1 - x2) < 1) {
+          // Vertical segment
+          if (x1 >= b.left && x1 <= b.right && Math.max(y1, y2) >= b.top && Math.min(y1, y2) <= b.bottom) hits++;
+        }
+      }
+    }
+    return hits;
+  };
+
   // Score how well a route's first segment follows the port exit direction.
-  // Penalizes routes that go OPPOSITE to sd (cutting through source block body).
+  // When target is opposite to exit direction, don't heavily penalize going toward target.
+  const targetAligned = (sd === 'right' && ex >= sx) || (sd === 'left' && ex <= sx) ||
+                        (sd === 'down' && ey >= sy) || (sd === 'up' && ey <= sy);
   const exitScore = (route) => {
     if (route.length < 2) return 0;
     const dx = route[1][0] - route[0][0], dy = route[1][1] - route[0][1];
-    if (sd === 'right' && dx < -0.5) return -10;
-    if (sd === 'left' && dx > 0.5) return -10;
-    if (sd === 'down' && dy < -0.5) return -10;
-    if (sd === 'up' && dy > 0.5) return -10;
+    // When exit direction opposes target, use mild preference instead of strong penalty
+    const penalty = targetAligned ? -10 : -1;
+    if (sd === 'right' && dx < -0.5) return penalty;
+    if (sd === 'left' && dx > 0.5) return penalty;
+    if (sd === 'down' && dy < -0.5) return penalty;
+    if (sd === 'up' && dy > 0.5) return penalty;
     if (sd === 'right' && dx > 0.5) return 1;
     if (sd === 'left' && dx < -0.5) return 1;
     if (sd === 'down' && dy > 0.5) return 1;
@@ -699,8 +643,10 @@ function tryGeometricRoutes(sx, sy, sd, ex, ey, ed, obsBlocks, bodyBlocks = []) 
     return 0;
   };
 
-  // Pick best: fewest bends, shortest length, then prefer port-direction-following
+  // Pick best: fewest wire overlaps, then fewest bends, shortest, exit-direction
   valid.sort((a, b) => {
+    const wa = wireHitCount(a), wb = wireHitCount(b);
+    if (wa !== wb) return wa - wb;
     const ba = routeBends(a), bb = routeBends(b);
     if (ba !== bb) return ba - bb;
     const la = routeLength(a), lb = routeLength(b);
@@ -769,13 +715,16 @@ function astarRoute(sx, sy, sd, ex, ey, ed, allBlocks, excludeIds) {
 
   if (startX === endX && startY === endY) return [[startX, startY]];
 
-  // Build obstacle grid — real blocks are obstacles (skip wire zone pseudo-blocks)
-  // Source/target: body-only padding (ports stay accessible via bypass corridors)
-  // Other blocks: full airspace padding (COLLISION_PAD) — strict no-fly zone
+  // Build obstacle grid:
+  //   - Real blocks: fully blocked (cannot route through)
+  //   - Wire zones: soft penalty only (wires can freely cross other wires)
+  // Wires should NEVER be hard-blocked — only real blocks are walls.
+  // The crossing bridge arcs handle visual wire-over-wire intersections.
   const blocked = new Set();
+  const wirePenalty = new Set();
   for (const block of Object.values(allBlocks)) {
     if (block._bounds) {
-      // Wire zone pseudo-blocks: use their pre-computed bounds directly
+      // Wire zones: mild penalty to prefer spacing, but never block
       const b = block._bounds;
       const left = Math.floor(b.left / G) * G;
       const right = Math.ceil(b.right / G) * G;
@@ -783,7 +732,7 @@ function astarRoute(sx, sy, sd, ex, ey, ed, allBlocks, excludeIds) {
       const bottom = Math.ceil(b.bottom / G) * G;
       for (let gx = left; gx <= right; gx += G) {
         for (let gy = top; gy <= bottom; gy += G) {
-          blocked.add(`${gx},${gy}`);
+          wirePenalty.add(`${gx},${gy}`);
         }
       }
       continue;
@@ -857,8 +806,16 @@ function astarRoute(sx, sy, sd, ex, ey, ed, allBlocks, excludeIds) {
       else stepCost *= 2.5;
       // Prefer forward/down flow (natural signal direction)
       if (dirName === 'right' || dirName === 'down') stepCost *= 0.90;
-      // First move must match port exit direction
-      if (current.parent === null && dirName !== sd) stepCost *= 5.0;
+      // First move: prefer port exit direction, but only when target is roughly in that direction.
+      // When exit direction is OPPOSITE to target (e.g., exit left but target is right),
+      // allow the router freedom to pick the shortest path without heavy penalty.
+      if (current.parent === null && dirName !== sd) {
+        const targetAligned = (sd === 'right' && ex >= sx) || (sd === 'left' && ex <= sx) ||
+                              (sd === 'down' && ey >= sy) || (sd === 'up' && ey <= sy);
+        stepCost *= targetAligned ? 5.0 : 1.5;
+      }
+      // Strong penalty near existing wires — push wires to find alternate paths
+      if (wirePenalty.has(nKey)) stepCost *= 3.0;
 
       const ng = current.g + stepCost;
 
@@ -2066,7 +2023,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   //    avoids previously-routed wire paths (prevents overlapping wires)
   //    Also detects wire crossings and returns a per-wire crossing map.
   const { wireRoutes, wireCrossingMap } = useMemo(() => {
-    const WIRE_PAD = 6; // 6px exclusion zone around each routed wire segment
+    const WIRE_PAD = 20; // 20px exclusion zone — nearly one grid cell spacing between parallel wires
     const routes = [];
     const wireZoneBlocks = []; // Fake blocks representing previously-routed wire segments
 
