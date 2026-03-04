@@ -51,7 +51,7 @@ class SecondOrderSystemSimulator(BaseSimulator):
             "min": 1.0,
             "max": 100.0,
             "step": 0.5,
-            "default": 50.0,
+            "default": 10.0,
             "unit": "rad/s",
         },
         "Q_slider": {
@@ -66,7 +66,7 @@ class SecondOrderSystemSimulator(BaseSimulator):
     }
 
     DEFAULT_PARAMS = {
-        "omega_0": 50.0,
+        "omega_0": 10.0,
         "Q_slider": 50,  # Maps to Q=1.0
     }
 

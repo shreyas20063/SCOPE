@@ -240,7 +240,7 @@ class ConvolutionSimulator(BaseSimulator):
             "min": 0.1,
             "max": 4.0,
             "step": 0.1,
-            "default": 1.0,
+            "default": 0.5,
             "unit": "x",
             "label": "Animation Speed",
             "group": "Animation",
