@@ -599,11 +599,6 @@
   stroke: rgba(59, 130, 246, 0.55);
 }
 
-.bd-block-constant {
-  fill: rgba(16, 185, 129, 0.12);
-  stroke: rgba(16, 185, 129, 0.55);
-}
-
 .bd-block-adder {
   fill: rgba(245, 158, 11, 0.12);
   stroke: rgba(245, 158, 11, 0.55);

@@ -281,7 +281,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                 "latex_steps": [
                     {
                         "title": "Computation Error",
-                        "latex": f"\\text{{Error: }} {sp.latex(sp.Symbol(err_msg.replace(' ', '\\_')))}",
+                        "latex": "\\text{{Error: }} " + str(sp.latex(sp.Symbol(err_msg.replace(' ', '\\_')))),
                         "explanation": err_msg,
                     }
                 ],

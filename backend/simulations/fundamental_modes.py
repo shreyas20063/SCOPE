@@ -573,7 +573,7 @@ class FundamentalModesSimulator(BaseSimulator):
                 "text": [f"p{k+1}={p:.2f}"],
                 "textposition": "top center",
                 "textfont": {"color": self.MODE_COLORS[k], "size": 11},
-                "name": f"p{'\u2081\u2082\u2083\u2084'[k]}",
+                "name": f"p{chr(0x2081 + k)}",
                 "showlegend": False,
                 "hovertemplate": f"Pole {k+1}<br>p = {p:.4f}<br>|p| = {abs(p):.4f}<br>{status}<extra></extra>",
             })

@@ -40,8 +40,8 @@ function LaTeX({ math, display = false, className = '' }) {
 // ============================================================================
 
 const GRID_SIZE = 24;
-const CANVAS_WIDTH = 1400;
-const CANVAS_HEIGHT = 800;
+const CANVAS_WIDTH = 1800;
+const CANVAS_HEIGHT = 1100;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3.0;
 const ZOOM_STEP = 0.15;
@@ -52,11 +52,21 @@ const BLOCK_SIZES = {
   input:      { width: 80, height: 60 },
   output:     { width: 80, height: 60 },
   gain:       { width: 80, height: 60 },
-  constant:   { width: 80, height: 60 },
   adder:      { radius: 30 },
   delay:      { width: 80, height: 60 },
   integrator: { width: 80, height: 60 },
   junction:   { radius: 6 },
+};
+
+// Max wires per block type (synced with backend BLOCK_TYPES inputs/outputs)
+const MAX_WIRES = {
+  input:      { in: 0, out: 1 },
+  output:     { in: 1, out: 0 },
+  gain:       { in: 1, out: 1 },
+  adder:      { in: 2, out: 1 },
+  delay:      { in: 1, out: 1 },
+  integrator: { in: 1, out: 1 },
+  junction:   { in: 1, out: Infinity },
 };
 
 // Port distance from block center (all multiples of GRID_SIZE)
@@ -158,10 +168,6 @@ function getPortPosition(block, portType, portIndex, _flowDirMap, adderPortMap) 
   if (type === 'output') {
     return { x: x - PORT_DIST, y, dir: 'left' };
   }
-  if (type === 'constant') {
-    return { x: x + PORT_DIST, y, dir: 'right' };
-  }
-
   // Gain / Delay / Integrator: port 0 = LEFT, port 1 = RIGHT (always)
   if (type === 'gain' || type === 'delay' || type === 'integrator') {
     if (portIndex === 0) return { x: x - PORT_DIST, y, dir: 'left' };
@@ -604,19 +610,27 @@ function tryGeometricRoutes(sx, sy, sd, ex, ey, ed, obsBlocks, bodyBlocks = []) 
 
   if (valid.length === 0) return null;
 
-  // Count wire zone crossings for a route (soft penalty, not rejection)
+  // Count collinear wire overlaps (parallel segments sharing the same channel).
+  // Perpendicular crossings are fine (bridge arcs handle those visually).
   const wireHitCount = (route) => {
     let hits = 0;
     for (let i = 0; i < route.length - 1; i++) {
+      const [x1, y1] = route[i], [x2, y2] = route[i + 1];
+      const segIsH = Math.abs(y1 - y2) < 1;
+      const segIsV = Math.abs(x1 - x2) < 1;
       for (const wb of wireObs) {
         const b = wb._bounds;
-        const [x1, y1] = route[i], [x2, y2] = route[i + 1];
-        if (Math.abs(y1 - y2) < 1) {
-          // Horizontal segment
-          if (y1 >= b.top && y1 <= b.bottom && Math.max(x1, x2) >= b.left && Math.min(x1, x2) <= b.right) hits++;
-        } else if (Math.abs(x1 - x2) < 1) {
-          // Vertical segment
-          if (x1 >= b.left && x1 <= b.right && Math.max(y1, y2) >= b.top && Math.min(y1, y2) <= b.bottom) hits++;
+        if (segIsH) {
+          // Horizontal segment — only count if wire zone is also roughly horizontal
+          // (zone height ≤ zone width means it's a horizontal wire zone)
+          const zoneW = b.right - b.left, zoneH = b.bottom - b.top;
+          if (zoneH <= zoneW && y1 >= b.top && y1 <= b.bottom &&
+              Math.max(x1, x2) >= b.left && Math.min(x1, x2) <= b.right) hits++;
+        } else if (segIsV) {
+          // Vertical segment — only count if wire zone is also roughly vertical
+          const zoneW = b.right - b.left, zoneH = b.bottom - b.top;
+          if (zoneW <= zoneH && x1 >= b.left && x1 <= b.right &&
+              Math.max(y1, y2) >= b.top && Math.min(y1, y2) <= b.bottom) hits++;
         }
       }
     }
@@ -643,10 +657,15 @@ function tryGeometricRoutes(sx, sy, sd, ex, ey, ed, obsBlocks, bodyBlocks = []) 
     return 0;
   };
 
-  // Pick best: fewest wire overlaps, then fewest bends, shortest, exit-direction
-  valid.sort((a, b) => {
-    const wa = wireHitCount(a), wb = wireHitCount(b);
-    if (wa !== wb) return wa - wb;
+  // Prefer routes with zero collinear wire overlaps
+  // If clean routes exist (no collinear overlaps), use them
+  // Otherwise fall through to A* which can search for offset grid paths
+  const clean = valid.filter(route => wireHitCount(route) === 0);
+  const pool = clean.length > 0 ? clean : null;
+
+  if (!pool) return null; // Force A* to find an offset path
+
+  pool.sort((a, b) => {
     const ba = routeBends(a), bb = routeBends(b);
     if (ba !== bb) return ba - bb;
     const la = routeLength(a), lb = routeLength(b);
@@ -654,7 +673,7 @@ function tryGeometricRoutes(sx, sy, sd, ex, ey, ed, obsBlocks, bodyBlocks = []) 
     return exitScore(b) - exitScore(a);
   });
 
-  return valid[0];
+  return pool[0];
 }
 
 /**
@@ -814,8 +833,8 @@ function astarRoute(sx, sy, sd, ex, ey, ed, allBlocks, excludeIds) {
                               (sd === 'down' && ey >= sy) || (sd === 'up' && ey <= sy);
         stepCost *= targetAligned ? 5.0 : 1.5;
       }
-      // Strong penalty near existing wires — push wires to find alternate paths
-      if (wirePenalty.has(nKey)) stepCost *= 3.0;
+      // Heavy penalty near existing wires — push wires to find offset paths
+      if (wirePenalty.has(nKey)) stepCost *= 6.0;
 
       const ng = current.g + stepCost;
 
@@ -1114,35 +1133,6 @@ function GainBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMous
   );
 }
 
-function ConstantBlock({ block, isSelected, onMouseDown, onPortMouseDown, onGainDoubleClick }) {
-  const { x, y } = block.position;
-  const value = block.value ?? 1;
-  const w = BLOCK_SIZES.constant.width, h = BLOCK_SIZES.constant.height;
-  return (
-    <g
-      className={`bd-block ${isSelected ? 'bd-block-selected' : ''}`}
-      onMouseDown={(e) => onMouseDown(e, block.id)}
-      onDoubleClick={(e) => { e.stopPropagation(); onGainDoubleClick(block.id); }}
-      transform={`translate(${x}, ${y})`}
-    >
-      <rect x={-w/2} y={-h/2} width={w} height={h} rx={12} className="bd-block-shape bd-block-constant" />
-      <text x={-4} y={-8} textAnchor="middle" dominantBaseline="middle" className="bd-block-sublabel">K</text>
-      <text x={0} y={12} textAnchor="middle" dominantBaseline="middle" className="bd-block-value">
-        {typeof value === 'number' ? (Number.isInteger(value) ? value : value.toFixed(2)) : value}
-      </text>
-      <g className="bd-gain-edit-hint" transform="translate(28, -24)">
-        <rect x={-10} y={-10} width={20} height={20} rx={5} className="bd-gain-hint-bg" />
-        <text x={0} y={1} textAnchor="middle" dominantBaseline="middle" className="bd-gain-hint-icon">&#9998;</text>
-      </g>
-      <circle
-        cx={PORT_DIST} cy={0} r={PORT_RADIUS}
-        className="bd-port bd-port-output"
-        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'output', 0, x + PORT_DIST, y, 'right'); }}
-      />
-    </g>
-  );
-}
-
 function AdderBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMouseUp, onToggleSign, dynamicPorts }) {
   const { x, y } = block.position;
   const rawSigns = block.signs || ['+', '+', '+'];
@@ -1392,6 +1382,59 @@ function exportPNG(svgElement) {
   if (!svgElement) return;
   const clone = svgElement.cloneNode(true);
   clone.querySelectorAll('.bd-wire-hit, .bd-zoom-controls, .bd-instructions-overlay, .bd-gain-edit-hint').forEach(el => el.remove());
+
+  // Set explicit pixel dimensions — SVG rendered as <img> ignores width="100%"
+  clone.setAttribute('width', CANVAS_WIDTH);
+  clone.setAttribute('height', CANVAS_HEIGHT);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+  // Resolve all CSS variables used in the document into concrete values,
+  // then collect all .bd-* CSS rules and embed them as a <style> block.
+  // This is far more robust than walking the DOM tree to inline styles.
+  const rootStyle = getComputedStyle(document.documentElement);
+  const resolveVar = (value) => {
+    // Replace var(--name, fallback) with resolved value or fallback
+    return value.replace(/var\(\s*(--[^,)]+)(?:\s*,\s*([^)]+))?\s*\)/g, (_, varName, fallback) => {
+      const resolved = rootStyle.getPropertyValue(varName).trim();
+      return resolved || (fallback ? fallback.trim() : '');
+    });
+  };
+
+  // Extract all .bd-* rules from stylesheets
+  let cssText = '';
+  for (const sheet of document.styleSheets) {
+    try {
+      for (const rule of sheet.cssRules) {
+        if (rule.selectorText && rule.selectorText.includes('.bd-')) {
+          // Resolve CSS variables in the rule text
+          cssText += resolveVar(rule.cssText) + '\n';
+        }
+      }
+    } catch (e) {
+      // Cross-origin stylesheets can't be read — skip
+    }
+  }
+
+  // Inject <style> into the SVG clone's <defs>
+  const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+  styleEl.textContent = cssText;
+  const defs = clone.querySelector('defs');
+  if (defs) {
+    defs.insertBefore(styleEl, defs.firstChild);
+  } else {
+    clone.insertBefore(styleEl, clone.firstChild);
+  }
+
+  // Also resolve CSS variables in inline attributes (marker fill, pattern stroke)
+  clone.querySelectorAll('marker polygon').forEach(m => {
+    const fill = m.getAttribute('fill');
+    if (fill && fill.includes('var(')) m.setAttribute('fill', resolveVar(fill));
+  });
+  clone.querySelectorAll('pattern line').forEach(l => {
+    const stroke = l.getAttribute('stroke');
+    if (stroke && stroke.includes('var(')) l.setAttribute('stroke', resolveVar(stroke));
+  });
+
   const serializer = new XMLSerializer();
   const svgString = serializer.serializeToString(clone);
   const canvas = document.createElement('canvas');
@@ -1401,7 +1444,7 @@ function exportPNG(svgElement) {
   const ctx = canvas.getContext('2d');
   const img = new Image();
   img.onload = () => {
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--background-color').trim() || '#0a0e27';
+    ctx.fillStyle = rootStyle.getPropertyValue('--background-color').trim() || '#0a0e27';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     canvas.toBlob(blob => {
@@ -1668,8 +1711,10 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     e.preventDefault();
     e.stopPropagation();
     if (wireStart) return;
+    // Don't start a wire from a port already used as input (has incoming wire)
+    if (connections.some(c => c.to_block === blockId && c.to_port === portIndex)) return;
     setWireStart({ blockId, portIndex, x: portX, y: portY, dir: portDir || 'right' });
-  }, [wireStart]);
+  }, [wireStart, connections]);
 
   const handlePortMouseUp = useCallback((e, blockId, portType, portIndex) => {
     e.preventDefault();
@@ -1679,6 +1724,11 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       const targetPos = targetBlock ? getPortPosition(targetBlock, 'input', portIndex) : null;
       const sourceBlock = blocks[wireStart.blockId];
       if (wireStart.blockId === blockId) {
+        if (targetPos) setConnectionFlash({ position: targetPos, success: false });
+        setWireStart(null); return;
+      }
+      // Don't drop a wire on a port already used as output (has outgoing wire)
+      if (connections.some(c => c.from_block === blockId && c.from_port === portIndex)) {
         if (targetPos) setConnectionFlash({ position: targetPos, success: false });
         setWireStart(null); return;
       }
@@ -1694,7 +1744,18 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
         if (targetPos) setConnectionFlash({ position: targetPos, success: false });
         setWireStart(null); return;
       }
-      if (sourceBlock?.type === 'output' || targetBlock?.type === 'input' || targetBlock?.type === 'constant') {
+      if (sourceBlock?.type === 'output' || targetBlock?.type === 'input') {
+        if (targetPos) setConnectionFlash({ position: targetPos, success: false });
+        setWireStart(null); return;
+      }
+      // Enforce max wire limits per block type
+      const srcLimits = MAX_WIRES[sourceBlock?.type];
+      if (srcLimits && connections.filter(c => c.from_block === wireStart.blockId).length >= srcLimits.out) {
+        if (targetPos) setConnectionFlash({ position: targetPos, success: false });
+        setWireStart(null); return;
+      }
+      const tgtLimits = MAX_WIRES[targetBlock?.type];
+      if (tgtLimits && connections.filter(c => c.to_block === blockId).length >= tgtLimits.in) {
         if (targetPos) setConnectionFlash({ position: targetPos, success: false });
         setWireStart(null); return;
       }
@@ -1755,10 +1816,10 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     mutatingAction('toggle_adder_sign', { block_id: blockId, port_index: portIndex });
   }, [mutatingAction]);
 
-  // Gain/constant value editing
+  // Gain value editing
   const handleGainDoubleClick = useCallback((blockId) => {
     const block = blocks[blockId];
-    if (block?.type === 'gain' || block?.type === 'constant') {
+    if (block?.type === 'gain') {
       setGainEditBlock(blockId);
       setGainEditValue(String(block.value ?? 1));
       setSelectedBlock(blockId);
@@ -2096,19 +2157,19 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
 
   // Available block types
   const availableBlocks = useMemo(() => {
-    const base = ['input', 'output', 'gain', 'constant', 'adder'];
+    const base = ['input', 'output', 'gain', 'adder'];
     if (systemType === 'dt') base.push('delay');
     else base.push('integrator');
     return base;
   }, [systemType]);
 
   const blockLabels = {
-    input: 'Input', output: 'Output', gain: 'Gain', constant: 'Const',
+    input: 'Input', output: 'Output', gain: 'Gain',
     adder: 'Adder', delay: 'Delay', integrator: 'Integ', junction: 'Junct',
   };
 
   const blockIcons = {
-    input: '\u2192', output: '\u2190', gain: '\u25B7', constant: 'K',
+    input: '\u2192', output: '\u2190', gain: '\u25B7',
     adder: '\u2295', delay: '\u25FB', integrator: '\u222B', junction: '\u25CF',
   };
 
@@ -2335,8 +2396,6 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
                   return <OutputBlock key={block.id} {...commonProps} systemType={systemType} />;
                 case 'gain':
                   return <GainBlock key={block.id} {...commonProps} flowDir={flowDir} onGainDoubleClick={handleGainDoubleClick} />;
-                case 'constant':
-                  return <ConstantBlock key={block.id} {...commonProps} onGainDoubleClick={handleGainDoubleClick} />;
                 case 'adder':
                   return <AdderBlock key={block.id} {...commonProps} onToggleSign={handleToggleSign} dynamicPorts={adderPortMap[block.id]} />;
                 case 'delay':
@@ -2353,7 +2412,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
           {/* Gain/constant edit overlay */}
           {gainEditBlock && blocks[gainEditBlock] && gainEditPos && (
             <div className="bd-gain-edit-overlay" style={{ left: `${gainEditPos.left}px`, top: `${gainEditPos.top}px` }}>
-              <label className="bd-gain-edit-label">{blocks[gainEditBlock]?.type === 'constant' ? 'Constant' : 'Gain'} value</label>
+              <label className="bd-gain-edit-label">Gain value</label>
               <input
                 type="number" className="bd-gain-edit-input"
                 value={gainEditValue}
@@ -2370,7 +2429,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
               <div className="bd-instructions-icon">&#9881;</div>
               <p className="bd-instructions-title">Block Diagram Builder</p>
               <p>Click a block type above to add it, or load a preset.</p>
-              <p>Drag from ports to connect blocks. Double-click gain/constant blocks to edit values.</p>
+              <p>Drag from ports to connect blocks. Double-click gain blocks to edit values.</p>
               <p>Click a wire to select it. Press <kbd>Delete</kbd> to remove. <kbd>Ctrl</kbd>+click a wire to branch.</p>
               <p className="bd-instructions-hint"><kbd>Ctrl+Z</kbd> undo, <kbd>Ctrl+Shift+Z</kbd> redo. Hold <kbd>Ctrl</kbd> while dragging for free positioning.</p>
             </div>
