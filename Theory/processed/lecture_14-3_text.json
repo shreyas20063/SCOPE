@@ -1,0 +1,211 @@
+{
+  "lecture_number": 14,
+  "source_file": "d94cd6fe8241b36f1b8c8b043903da29_MIT6_003F11_lec14-3.pdf",
+  "page_count": 51,
+  "pages": [
+    {
+      "page": 1,
+      "text": "6.003: Signals and Systems \nFourier Representations \nOctober 27, 2011  \n1"
+    },
+    {
+      "page": 2,
+      "text": "Fourier Representations  \nFourier series represent signals in terms of sinusoids. \n\u2192 leads to a new representation for systems as \ufb01lters. \n2"
+    },
+    {
+      "page": 3,
+      "text": "Fourier Series  \nRepresenting signals by their harmonic components. \n\u03c9\n\u03c90\n2\u03c90 3\u03c90 4\u03c90 5\u03c90 6\u03c90\n0\n1\n2\n3\n4\n5\n6\n\u2190harmonic #\nDC \u2192\nfundamental \u2192\nsecond harmonic \u2192\nthird harmonic \u2192\nfourth harmonic \u2192\n\ufb01fth harmonic \u2192\nsixth harmonic \u2192\n3"
+    },
+    {
+      "page": 4,
+      "text": "Musical Instruments  \nHarmonic content is natural way to describe some kinds of signals.  \nEx: musical instruments (http://theremin.music.uiowa.edu/MIS\n)\n \npiano\nt\ncello\nt\nbassoon\nt\noboe\nt\nhorn\nt\naltosax\nt\nviolin\nt\nbassoon\nt\n1\n252 seconds\n4\n.html"
+    },
+    {
+      "page": 5,
+      "text": "Musical Instruments  \nHarmonic content is natural way to describe some kinds of signals.  \nEx: musical instruments (http://theremin.music.uiowa.edu/MIS\n)\n \npiano\nk\ncello\nk\nbassoon\nk\noboe\nk\nhorn\nk\naltosax\nk\nviolin\nk\n5\n.html"
+    },
+    {
+      "page": 6,
+      "text": "Musical Instruments  \nHarmonic content is natural way to describe some kinds of signals.  \nEx: musical instruments (http://theremin.music.uiowa.edu/MIS\n)\n \npiano\nt\npiano\nk\nviolin\nt\nviolin\nk\nbassoon\nt\nbassoon\nk\n6\n.html"
+    },
+    {
+      "page": 7,
+      "text": "Harmonics  \nHarmonic structure determines consonance and dissonance. \noctave (D+D\u2019) \n\ufb01fth (D+A) \nD+E \ntime(periods of \"D\")\nharmonics\n0 1 2 3 4 5 6 7 8 9 101112\n0 1 2 3 4 5 6 7 8 9 101112\n0 1 2 3 4 5 6 7 8 9 101112\n\u20131\n0\n1\nD\nD'\nD\nA\nD\nE\n0 1 2 3 4 5 6 7 8 9\n0 1 2 3 4 5 6 7 8 9\n0 1 2 3 4 5 6 7 8 9\n0 1 2 3 4 5 6 7 8 9\n0 1 2 3 4 5 6 7 8 9\n0\n1\n2\n3\n4\n5\n6\n7\n7"
+    },
+    {
+      "page": 8,
+      "text": "Harmonic Representations  \nWhat signals can be represented by sums of harmonic components? \n\u03c9\n\u03c90\n2\u03c90 3\u03c90 4\u03c90 5\u03c90 6\u03c90\nT= 2\u03c0\n\u03c90\nt\nT= 2\u03c0\n\u03c90\nt\nOnly periodic signals: all harmonics of \u03c90 are periodic in T = 2\u03c0/\u03c90. \n8"
+    },
+    {
+      "page": 9,
+      "text": "Harmonic Representations  \nIs it possible to represent ALL periodic signals with harmonics?  \nWhat about discontinuous signals?  \n2\u03c0\n\u03c90\nt\n2\u03c0\n\u03c90\nt\nFourier claimed YES \u2014 even though all harmonics are continuous!  \nLagrange ridiculed the idea that a discontinuous signal could be  \nwritten as a sum of continuous signals.  \nWe will assume the answer is YES and see if the answer makes sense.  \n9"
+    },
+    {
+      "page": 10,
+      "text": "Separating harmonic components  \nUnderlying properties. \n1. Multiplying two harmonics produces a new harmonic with the \nsame fundamental frequency: \njk\u03c90t \njl\u03c90t\nj(k+l)\u03c90t \ne \n\u00d7 e \n= e\n. \n2. The integral of a harmonic over any time interval with length \nequal to a period T is zero unless the harmonic is at DC:\n \n t0+T \n 0, k = 0 \n \njk\u03c90tdt \u2261\njk\u03c90tdt =\ne\ne \nt0 \nT \nT, k = 0 \n= T\u03b4[k] \n10"
+    },
+    {
+      "page": 11,
+      "text": "Separating harmonic components  \nAssume that x(t) is periodic in T and is composed of a weighted sum \nof harmonics of \u03c90 = 2\u03c0/T . \n\u221e\nj\u03c90kt \nx(t) = x(t + T ) = \nake \nThen \n\u221e\n\u2212\u221e\n=\nk\nf \nf \nx(t)e  \u2212jl\u03c90tdt = \nj\u03c90kt \u2212j\u03c90ltdt\ne\nake \nT\nT k=\u2212\u221e \n\u221e\nf\nj\u03c90(k\u2212l)tdt\n=  \nak \ne \nT\nk=\u2212\u221e \n\u221e\n= \nakT\u03b4[k \u2212 l] = Tal \nk=\u2212\u221e \nTherefore \nf \n1\n1 \n\u2212j 2\u03c0 kt\nak = \nx(t)e \u2212j\u03c90ktdt \n= \nx(t)e \nT \ndt \nT\nT\nT\nT \n11\nZ\nZ\nZ\nZ\nZ"
+    },
+    {
+      "page": 12,
+      "text": "Fourier Series  \nDetermining harmonic components of a periodic signal.  \n1 \n2\u03c0\n\u2212j \nkt\nx(t)e  \n(\u201canalysis\u201d equation)  \nak = \ndt \nT\nT \nT \n\u221e\nf \n2\u03c0\nj \nkt \nx(t)= x(t + T ) =  \n(\u201csynthesis\u201d equation)  \nT\nake \nk=\u2212\u221e \n12\nZ"
+    },
+    {
+      "page": 13,
+      "text": "Let ak represent the Fourier series coe\ufb03cients of the following \nsquare wave. \nt\n1\n2\n\u22121\n2\n0\n1\nCheck Yourself  \nHow many of the following statements are true? \n1. ak = 0 if k is even \n2. ak is real-valued \n3. |ak| decreases with k2 \n4. there are an in\ufb01nite number of non-zero ak \n5. all of the above \n13"
+    },
+    {
+      "page": 14,
+      "text": "\u0010 \n\u0011 \nCheck Yourself  \nLet ak represent the Fourier series coe\ufb03cients of the following square \nwave. \nt\n1\n2\n\u22121\n2\n0\n1\nak = \nx(t)e \u2212j 2\u03c0 \nT ktdt = \u2212 1 \n2 \n0 \n\u2212 1 \n2 \ne \u2212j2\u03c0ktdt + 1 \n2 \n1 \n2 \n0 \ne \u2212j2\u03c0ktdt \nT \n1 \nj\u03c0k \u2212 e \u2212j\u03c0k \n=\n2 \u2212 e \nj4\u03c0k \n\u23a7  \n\u23a8 1  ; \nif k is odd \n= \nj\u03c0k \n\u23a9 0 ; \notherwise \n14\nZ\nZ\nZ"
+    },
+    {
+      "page": 15,
+      "text": "Check Yourself  \nLet ak represent the Fourier series coe\ufb03cients of the following square \nwave. \n \n1 \n; \nif k is odd \nak =\nj\u03c0k  \n0 ; \notherwise  \nHow many of the following statements are true? \n\u221a \n1. ak = 0 if k is even \n2. ak is real-valued \nX \n3. |ak| decreases with k2 \nX \n\u221a \n4. there are an in\ufb01nite number of non-zero ak \n5. all of the above \nX \n15"
+    },
+    {
+      "page": 16,
+      "text": "Let ak represent the Fourier series coe\ufb03cients of the following \nsquare wave. \nt\n1\n2\n\u22121\n2\n0\n1\nCheck Yourself  \nHow many of the following statements are true? \n2 \n\u221a \n1. ak = 0 if k is even \n2. ak is real-valued \nX  \n3. |ak| decreases with k2 \nX  \n\u221a \n4. there are an in\ufb01nite number of non-zero ak \n5. all of the above \nX  \n16"
+    },
+    {
+      "page": 17,
+      "text": "Fourier Series Properties  \nIf a signal is di\ufb00erentiated in time, its Fourier coe\ufb03cients are multi\u00ad\nplied by j 2\u03c0 k.\nT \nProof: Let \n\u221e\nf \n2\u03c0 \nx(t) = x(t + T ) = \nake \nk=\u2212\u221e \nj \nkt \nT\nthen \n \n \nf\n\u221e\n2\u03c0 \n2\u03c0 \nx\u02d9(t) = x\u02d9(t + T ) = \nj  \nj \nkt \nk ak\ne\nT\nT  \nk=\u2212\u221e\n17"
+    },
+    {
+      "page": 18,
+      "text": "Let bk represent the Fourier series coe\ufb03cients of the following \ntriangle wave. \nt\n1\n8\n\u22121\n8\n0\n1\nCheck Yourself  \nHow many of the following statements are true? \n1. bk = 0 if k is even \n2. bk is real-valued \n3. |bk| decreases with k2 \n4. there are an in\ufb01nite number of non-zero bk \n5. all of the above \n18"
+    },
+    {
+      "page": 19,
+      "text": "Check Yourself  \nThe triangle waveform is the integral of the square wave. \nt\n1\n2\n\u22121\n2\n0\n1\nt\n1\n8\n\u22121\n8\n0\n1\nTherefore the Fourier coe\ufb03cients of the triangle waveform are \n1 \nj2\u03c0k \ntimes those of the square wave. \n1\n1 \n\u22121 \n= \n\u00d7 \n=\n; k odd \nbk \njk\u03c0 \nj2\u03c0k \n2k2\u03c02 \n19"
+    },
+    {
+      "page": 20,
+      "text": "Check Yourself  \nLet bk represent the Fourier series coe\ufb03cients of the following tri\u00ad\nangle wave. \n\u22121 \nbk =\n; k odd \n2k2\u03c02 \nHow many of the following statements are true? \n\u221a \n1. bk = 0 if k is even \u221a \n2. bk is real-valued \n\u221a \n3. |bk| decreases with k2 \n\u221a \n4. there are an in\ufb01nite number of non-zero bk\n\u221a \n5. all of the above \n20"
+    },
+    {
+      "page": 21,
+      "text": "Let bk represent the Fourier series coe\ufb03cients of the following \ntriangle wave. \nt\n1\n8\n\u22121\n8\n0\n1\nCheck Yourself  \nHow many of the following statements are true? \n5 \n\u221a \n1. bk = 0 if k is even \u221a \n2. bk is real-valued \n\u221a \n3. |bk| decreases with k2 \n\u221a \n4. there are an in\ufb01nite number of non-zero bk\n\u221a \n5. all of the above \n21"
+    },
+    {
+      "page": 22,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: triangle waveform \nt\n0\nX\nk = \u22120\nk odd\n\u22121\n2k2\u03c02 e j2\u03c0kt\n1\n8\n\u22121\n8\n0\n1\n22"
+    },
+    {
+      "page": 23,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: triangle waveform \nt\n1\nX\nk = \u22121\nk odd\n\u22121\n2k2\u03c02 e j2\u03c0kt\n1\n8\n\u22121\n8\n0\n1\n23"
+    },
+    {
+      "page": 24,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: triangle waveform \nt\n3\nX\nk = \u22123\nk odd\n\u22121\n2k2\u03c02 e j2\u03c0kt\n1\n8\n\u22121\n8\n0\n1\n24"
+    },
+    {
+      "page": 25,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: triangle waveform \nt\n5\nX\nk = \u22125\nk odd\n\u22121\n2k2\u03c02 e j2\u03c0kt\n1\n8\n\u22121\n8\n0\n1\n25"
+    },
+    {
+      "page": 26,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: triangle waveform \nt\n7\nX\nk = \u22127\nk odd\n\u22121\n2k2\u03c02 e j2\u03c0kt\n1\n8\n\u22121\n8\n0\n1\n26"
+    },
+    {
+      "page": 27,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: triangle waveform \nt\n9\nX\nk = \u22129\nk odd\n\u22121\n2k2\u03c02 e j2\u03c0kt\n1\n8\n\u22121\n8\n0\n1\n27"
+    },
+    {
+      "page": 28,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: triangle waveform \nt\n19\nX\nk = \u221219\nk odd\n\u22121\n2k2\u03c02 e j2\u03c0kt\n1\n8\n\u22121\n8\n0\n1\n28"
+    },
+    {
+      "page": 29,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: triangle waveform \nt\n29\nX\nk = \u221229\nk odd\n\u22121\n2k2\u03c02 e j2\u03c0kt\n1\n8\n\u22121\n8\n0\n1\n29"
+    },
+    {
+      "page": 30,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally \nadding terms. \nExample: triangle waveform \nt\n39\nX\nk = \u221239\nk odd\n\u22121\n2k2\u03c02 e j2\u03c0kt\n1\n8\n\u22121\n8\n0\n1\nFourier series representations of functions with discontinuous slopes \nconverge toward functions with discontinuous slopes. \n30"
+    },
+    {
+      "page": 31,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: square wave \nt\n0\nX\nk = \u22120\nk odd\n1\njk\u03c0 e j2\u03c0kt\n1\n2\n\u22121\n2\n0\n1\n31"
+    },
+    {
+      "page": 32,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: square wave \nt\n1\nX\nk = \u22121\nk odd\n1\njk\u03c0 e j2\u03c0kt\n1\n2\n\u22121\n2\n0\n1\n32"
+    },
+    {
+      "page": 33,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: square wave \nt\n3\nX\nk = \u22123\nk odd\n1\njk\u03c0 e j2\u03c0kt\n1\n2\n\u22121\n2\n0\n1\n33"
+    },
+    {
+      "page": 34,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: square wave \nt\n5\nX\nk = \u22125\nk odd\n1\njk\u03c0 e j2\u03c0kt\n1\n2\n\u22121\n2\n0\n1\n34"
+    },
+    {
+      "page": 35,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: square wave \nt\n7\nX\nk = \u22127\nk odd\n1\njk\u03c0 e j2\u03c0kt\n1\n2\n\u22121\n2\n0\n1\n35"
+    },
+    {
+      "page": 36,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: square wave \nt\n9\nX\nk = \u22129\nk odd\n1\njk\u03c0 e j2\u03c0kt\n1\n2\n\u22121\n2\n0\n1\n36"
+    },
+    {
+      "page": 37,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: square wave \nt\n19\nX\nk = \u221219\nk odd\n1\njk\u03c0 e j2\u03c0kt\n1\n2\n\u22121\n2\n0\n1\n37"
+    },
+    {
+      "page": 38,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: square wave \nt\n29\nX\nk = \u221229\nk odd\n1\njk\u03c0 e j2\u03c0kt\n1\n2\n\u22121\n2\n0\n1\n38"
+    },
+    {
+      "page": 39,
+      "text": "Fourier Series  \nOne can visualize convergence of the Fourier Series by incrementally  \nadding terms. \nExample: square wave \nt\n39\nX\nk = \u221239\nk odd\n1\njk\u03c0 e j2\u03c0kt\n1\n2\n\u22121\n2\n0\n1\n39"
+    },
+    {
+      "page": 40,
+      "text": "Fourier Series  \nPartial sums of Fourier series of discontinuous functions \u201cring\u201d near \ndiscontinuities: Gibb\u2019s phenomenon. \nThis ringing results because the magnitude of the Fourier coe\ufb03cients \nt\n1\n2\n\u22121\n2\n0\n1\n9%\n1\nis only decreasing as k \n1 (while they decreased as k2 for the triangle). \nYou can decrease (and even eliminate the ringing) by decreasing the \nmagnitudes of the Fourier coe\ufb03cients at higher frequencies. \n40"
+    },
+    {
+      "page": 41,
+      "text": "Fourier Series: Summary  \nFourier series represent periodic signals as sums of sinusoids. \n\u2022 valid for an extremely large class of periodic signals \n\u2022 valid even for discontinuous signals such as square wave  \nHowever, convergence as # harmonics increases can be complicated.  \n41"
+    },
+    {
+      "page": 42,
+      "text": "Filtering  \nThe output of an LTI system is a \u201c\ufb01ltered\u201d version of the input. \nInput: Fourier series \u2192 sum of complex exponentials. \n\u221e\nx(t) = x(t + T ) = \nake \nk=\u2212\u221e \nf \nj 2\u03c0 kt \nT\nComplex exponentials: eigenfunctions of LTI systems.  \n2\u03c0\nkt \u2192 H(j\nk)e j\n2\n2\n\u03c0\n\u03c0\nj \nkt \nT\nT\ne  \nT  \nOutput: same eigenfunctions, amplitudes/phases set by system. \n\u221e\n\u221e\nf\nf\n2\u03c0 \n2\n2\n\u03c0\n\u03c0\nj \nkt \u2192 y(t) = \nakH(j \nk)e  j \nkt \nx(t) =  \nT\nT\nake \nT  \nk=\u2212\u221e \nk=\u2212\u221e \n42"
+    },
+    {
+      "page": 43,
+      "text": "Filtering  \nNotion of a \ufb01lter.  \nLTI systems \n\u2022 cannot create new frequencies. \n\u2022 can scale magnitudes and shift phases of existing components. \nExample: Low-Pass Filtering with an RC circuit  \n+\n\u2212\nvi\n+\nvo\n\u2212\nR\nC\n43"
+    },
+    {
+      "page": 44,
+      "text": "0.01\n0.1\n1\n0.01\n0.1\n1\n10\n100\n\u03c9\n1/RC\n|H(j\u03c9)|\n0\n\u2212\u03c0\n2\n0.01\n0.1\n1\n10\n100\n\u03c9\n1/RC\n\u2220H(j\u03c9)|\nLowpass Filter  \nCalculate the frequency response of an RC circuit. \n+\n\u2212\nvi\n+\nvo\n\u2212\nR\nC\nKVL: \nvi(t)\n= Ri(t) + vo(t) \nC: \ni(t)\n= Cv\u02d9o(t) \nSolving: vi(t)\n= RC v\u02d9o(t) + vo(t) \nVi(s) = (1 + sRC)Vo(s) \nVo(s)\n1 \nH(s)\n= \n= \nVi(s) \n1 + sRC \n44"
+    },
+    {
+      "page": 45,
+      "text": "Lowpass Filtering \nx(t) = \nLet the input be a square wave. \nt\n1\n2\n\u22121\n2\n0\nT\nT \n\u03c0\n2\n=\n0\n\u03c9\n;\nkt \n0\nj\u03c9\ne \nj\u03c0k \n1 \nodd \nk \nf \n0.01\n0.1\n1\n0.01\n0.1\n1\n10\n100\n\u03c9\n1/RC\n|X(j\u03c9)|\n0\n\u2212\u03c0\n2\n0.01\n0.1\n1\n10\n100\n\u03c9\n1/RC\n\u2220X(j\u03c9)|\n45"
+    },
+    {
+      "page": 46,
+      "text": "Lowpass Filtering \nx(t) = \nLow frequency square wave: \u03c90 << 1/RC. \nt\n1\n2\n\u22121\n2\n0\nT\nT \n\u03c0\n2\n=\n0\n\u03c9\n;\nkt \n0\nj\u03c9\ne \nj\u03c0k \n1 \nodd \nk \nf \n0.01\n0.1\n1\n0.01\n0.1\n1\n10\n100\n\u03c9\n1/RC\n|H(j\u03c9)|\n0\n\u2212\u03c0\n2\n0.01\n0.1\n1\n10\n100\n\u03c9\n1/RC\n\u2220H(j\u03c9)|\n46"
+    },
+    {
+      "page": 47,
+      "text": "Lowpass Filtering \nx(t) = \nHigher frequency square wave: \u03c90 < 1/RC. \nt\n1\n2\n\u22121\n2\n0\nT\nT \n\u03c0\n2\n=\n0\n\u03c9\n;\nkt \n0\nj\u03c9\ne \nj\u03c0k \n1 \nodd \nk \nf \n0.01\n0.1\n1\n0.01\n0.1\n1\n10\n100\n\u03c9\n1/RC\n|H(j\u03c9)|\n0\n\u2212\u03c0\n2\n0.01\n0.1\n1\n10\n100\n\u03c9\n1/RC\n\u2220H(j\u03c9)|\n47"
+    },
+    {
+      "page": 48,
+      "text": "Lowpass Filtering \nx(t) = \nStill higher frequency square wave: \u03c90 = 1/RC. \nt\n1\n2\n\u22121\n2\n0\nT\nT \n\u03c0\n2\n=\n0\n\u03c9\n;\nkt \n0\nj\u03c9\ne \nj\u03c0k \n1 \nodd \nk \nf \n0.01\n0.1\n1\n0.01\n0.1\n1\n10\n100\n\u03c9\n1/RC\n|H(j\u03c9)|\n0\n\u2212\u03c0\n2\n0.01\n0.1\n1\n10\n100\n\u03c9\n1/RC\n\u2220H(j\u03c9)|\n48"
+    },
+    {
+      "page": 49,
+      "text": "Lowpass Filtering \nx(t) = \nHigh frequency square wave: \u03c90 > 1/RC. \nt\n1\n2\n\u22121\n2\n0\nT\nT \n\u03c0\n2\n=\n0\n\u03c9\n;\nkt \n0\nj\u03c9\ne \nj\u03c0k \n1 \nodd \nk \nf \n0.01\n0.1\n1\n0.01\n0.1\n1\n10\n100\n\u03c9\n1/RC\n|H(j\u03c9)|\n0\n\u2212\u03c0\n2\n0.01\n0.1\n1\n10\n100\n\u03c9\n1/RC\n\u2220H(j\u03c9)|\n49"
+    },
+    {
+      "page": 50,
+      "text": "Fourier Series: Summary  \nFourier series represent signals by their frequency content.  \nRepresenting a signal by its frequency content is useful for many  \nsignals, e.g., music.  \nFourier series motivate a new representation of a system as a \ufb01lter.  \n50"
+    },
+    {
+      "page": 51,
+      "text": "MIT OpenCourseWare\nhttp://ocw.mit.edu\n6.003 Signals and Systems\nFall 2011\nFor information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms."
+    }
+  ]
+}

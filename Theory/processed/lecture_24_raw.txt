@@ -1,0 +1,1159 @@
+
+============================================================
+PAGE 1
+============================================================
+6.003: Signals and Systems 
+Modulation 
+December 6, 2011  
+1
+
+============================================================
+PAGE 2
+============================================================
+Communications Systems  
+Signals are not always well matched to the media through which we 
+wish to transmit them. 
+signal 
+applications 
+audio 
+telephone, radio, phonograph, CD, cell phone, MP3 
+video 
+television, cinema, HDTV, DVD 
+internet 
+coax, twisted pair, cable TV, DSL, optical ﬁber, E/M 
+Modulation can improve match based on frequency.  
+2
+
+============================================================
+PAGE 3
+============================================================
+Amplitude Modulation  
+Amplitude modulation can be used to match audio frequencies to  
+radio frequencies. It allows parallel transmission of multiple channels.  
+x1(t)
+x2(t)
+x3(t)
+z1(t)
+z2(t)
+z(t)
+y(t)
+z3(t)
+cos w1t
+cos w2t
+cos wct
+cos w3t
+LPF
+3
+
+============================================================
+PAGE 4
+============================================================
+Superheterodyne Receiver  
+Edwin Howard Armstrong invented the superheterodyne receiver, 
+which made broadcast AM practical. 
+Edwin Howard Armstrong also invented and 
+patented the “regenerative” (positive feedback) 
+circuit for amplifying radio signals (while he was 
+a junior at Columbia University). He also in­
+vented wide-band FM. 
+4
+
+============================================================
+PAGE 5
+============================================================
+Amplitude, Phase, and Frequency Modulation  
+There are many ways to embed a “message” in a carrier.  
+ 
+ 
+Amplitude Modulation (AM) + carrier: y1(t) = x(t) + C cos(ωct) 
+Phase Modulation (PM): 
+y2(t) = cos(ωct + kx(t))
+ 
+ 
+ t
+Frequency Modulation (FM): 
+y3(t) = cos ωct + k
+−∞ x(τ )dτ
+PM: signal modulates instantaneous phase of the carrier. 
+y2(t) = cos(ωct + kx(t)) 
+FM: signal modulates instantaneous frequency of carrier. 
+ 
+ 
+t 
+ 
+y3(t) = cos ωct + k
+x(τ)dτ 
+' −∞v 
+" 
+φ(t)
+d 
+ωi(t) = ωc + 
+φ(t) = ωc + kx(t)
+dt 
+5
+
+============================================================
+PAGE 6
+============================================================
+Frequency Modulation  
+sin(ωmt)) 
+Advantages of FM: 
+• constant power 
+Compare AM to FM for x(t) = cos(ωmt). 
+AM: y1(t) = x(t) + C cos(ωct) = (cos(ωmt) + 1.1) cos(ωct) 
+t
+FM: y3(t) = cos ωct + k −∞ x(τ )dτ = cos(ωct +
+t 
+k 
+ωm 
+t
+• no need to transmit carrier (unless DC important) 
+• bandwidth? 
+6
+R
+
+============================================================
+PAGE 7
+============================================================
+Frequency Modulation  
+Early investigators thought that narrowband FM could have arbitrar­
+ily narrow bandwidth, allowing more channels than AM. 
+t 
+y3(t) = cos ωct + k
+x(τ)dτ 
+−∞
+'
+v 
+" 
+φ(t) 
+d 
+ωi(t) = ωc + 
+φ(t) = ωc + kx(t)
+dt 
+Small k → small bandwidth. Right? 
+7
+
+Z
+
+
+============================================================
+PAGE 8
+============================================================
+Frequency Modulation  
+Early investigators thought that narrowband FM could have arbitrar­
+ily narrow bandwidth, allowing more channels than AM. Wrong! 
+0 
+ 
+t 
+y3(t) = cos ωct + k
+x(τ)dτ
+−∞
+0
+ 
+0
+ 
+t
+t 
+= cos(ωct) × cos k
+x(τ)dτ
+− sin(ωct) × sin k
+x(τ )dτ
+−∞ 
+−∞ 
+If k → 0 then
+0 
+ 
+t 
+cos k
+x(τ)dτ
+→ 1 
+−∞
+0 
+ 
+t
+t 
+sin k
+x(τ )dτ
+→ k
+x(τ)dτ 
+−∞ 
+−∞0 
+ 
+t 
+y3(t) ≈ cos(ωct) − sin(ωct) × k
+x(τ)dτ
+−∞ 
+Bandwidth of narrowband FM is the same as that of AM! 
+(integration does not change the highest frequency in the signal) 
+8
+Z
+Z
+Z
+Z
+Z
+Z
+Z
+
+============================================================
+PAGE 9
+============================================================
+1
+0
+−1
+1 sin(ωmt)
+t
+1
+0
+−1
+cos(1 sin(ωmt))
+t
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π , therefore cos(m sin(ωmt)) is periodic in T .
+ωm 
+9
+
+============================================================
+PAGE 10
+============================================================
+2
+0
+−2
+2 sin(ωmt)
+t
+1
+0
+−1
+cos(2 sin(ωmt))
+t
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π , therefore cos(m sin(ωmt)) is periodic in T .
+ωm 
+10
+
+============================================================
+PAGE 11
+============================================================
+3
+0
+−3
+3 sin(ωmt)
+t
+1
+0
+−1
+cos(3 sin(ωmt))
+t
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π , therefore cos(m sin(ωmt)) is periodic in T .
+ωm 
+11
+
+============================================================
+PAGE 12
+============================================================
+4
+0
+−4
+4 sin(ωmt)
+t
+1
+0
+−1
+cos(4 sin(ωmt))
+t
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π , therefore cos(m sin(ωmt)) is periodic in T .
+ωm 
+12
+
+============================================================
+PAGE 13
+============================================================
+5
+0
+−5
+5 sin(ωmt)
+t
+1
+0
+−1
+cos(5 sin(ωmt))
+t
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π , therefore cos(m sin(ωmt)) is periodic in T .
+ωm 
+13
+
+============================================================
+PAGE 14
+============================================================
+6
+0
+−6
+6 sin(ωmt)
+t
+1
+0
+−1
+cos(6 sin(ωmt))
+t
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π , therefore cos(m sin(ωmt)) is periodic in T .
+ωm 
+14
+
+============================================================
+PAGE 15
+============================================================
+7
+0
+−7
+7 sin(ωmt)
+t
+1
+0
+−1
+cos(7 sin(ωmt))
+t
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π , therefore cos(m sin(ωmt)) is periodic in T .
+ωm 
+15
+
+============================================================
+PAGE 16
+============================================================
+8
+0
+−8
+8 sin(ωmt)
+t
+1
+0
+−1
+cos(8 sin(ωmt))
+t
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π , therefore cos(m sin(ωmt)) is periodic in T .
+ωm 
+16
+
+============================================================
+PAGE 17
+============================================================
+9
+0
+−9
+9 sin(ωmt)
+t
+1
+0
+−1
+cos(9 sin(ωmt))
+t
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π , therefore cos(m sin(ωmt)) is periodic in T .
+ωm 
+17
+
+============================================================
+PAGE 18
+============================================================
+10
+0
+−10
+10 sin(ωmt)
+t
+1
+0
+−1
+cos(10 sin(ωmt))
+t
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π , therefore cos(m sin(ωmt)) is periodic in T .
+ωm 
+18
+
+============================================================
+PAGE 19
+============================================================
+20
+0
+−20
+20 sin(ωmt)
+t
+1
+0
+−1
+cos(20 sin(ωmt))
+t
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π , therefore cos(m sin(ωmt)) is periodic in T .
+ωm 
+19
+
+============================================================
+PAGE 20
+============================================================
+50
+0
+−50
+50 sin(ωmt)
+t
+1
+0
+−1
+cos(50 sin(ωmt))
+t
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π , therefore cos(m sin(ωmt)) is periodic in T .
+ωm 
+20
+
+============================================================
+PAGE 21
+============================================================
+m
+0
+−m
+m sin(ωmt)
+t
+1
+0
+−1
+cos(m sin(ωmt))
+t
+increasing m
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π , therefore cos(m sin(ωmt)) is periodic in T .
+ωm 
+21
+
+============================================================
+PAGE 22
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore cos(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+cos(m sin(ωmt))
+t
+|ak|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 0
+22
+
+============================================================
+PAGE 23
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore cos(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+cos(m sin(ωmt))
+t
+|ak|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 1
+23
+
+============================================================
+PAGE 24
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore cos(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+cos(m sin(ωmt))
+t
+|ak|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 2
+24
+
+============================================================
+PAGE 25
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore cos(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+cos(m sin(ωmt))
+t
+|ak|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 5
+25
+
+============================================================
+PAGE 26
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore cos(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+cos(m sin(ωmt))
+t
+|ak|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 10
+26
+
+============================================================
+PAGE 27
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore cos(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+cos(m sin(ωmt))
+t
+|ak|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 20
+27
+
+============================================================
+PAGE 28
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore cos(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+cos(m sin(ωmt))
+t
+|ak|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 30
+28
+
+============================================================
+PAGE 29
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore cos(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+cos(m sin(ωmt))
+t
+|ak|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 40
+29
+
+============================================================
+PAGE 30
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore cos(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+cos(m sin(ωmt))
+t
+|ak|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 50
+30
+
+============================================================
+PAGE 31
+============================================================
+|Ya(jω)|
+ω
+ωc
+ωc
+100ωm
+m = 50
+Phase/Frequency Modulation  
+Fourier transform of ﬁrst part. 
+x(t) = sin(ωmt) 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt)))
+'
+v 
+" 
+ya(t) 
+31
+
+============================================================
+PAGE 32
+============================================================
+m
+0
+−m
+m sin(ωmt)
+t
+1
+0
+−1
+sin(m sin(ωmt))
+t
+increasing m
+increasing m
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π , therefore sin(m sin(ωmt)) is periodic in T .
+ωm 
+32
+
+============================================================
+PAGE 33
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore sin(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+sin(m sin(ωmt))
+t
+|bk|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 0
+33
+
+============================================================
+PAGE 34
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore sin(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+sin(m sin(ωmt))
+t
+|bk|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 1
+34
+
+============================================================
+PAGE 35
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore sin(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+sin(m sin(ωmt))
+t
+|bk|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 2
+35
+
+============================================================
+PAGE 36
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore sin(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+sin(m sin(ωmt))
+t
+|bk|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 5
+36
+
+============================================================
+PAGE 37
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore sin(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+sin(m sin(ωmt))
+t
+|bk|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 10
+37
+
+============================================================
+PAGE 38
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore sin(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+sin(m sin(ωmt))
+t
+|bk|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 20
+38
+
+============================================================
+PAGE 39
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore sin(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+sin(m sin(ωmt))
+t
+|bk|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 30
+39
+
+============================================================
+PAGE 40
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore sin(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+sin(m sin(ωmt))
+t
+|bk|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 40
+40
+
+============================================================
+PAGE 41
+============================================================
+Phase/Frequency Modulation  
+Find the Fourier transform of a PM/FM signal. 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt))) 
+x(t) is periodic in T = 2π 
+ωm , therefore sin(m sin(ωmt)) is periodic in T . 
+1
+0
+−1
+sin(m sin(ωmt))
+t
+|bk|
+k
+0
+10
+20
+30
+40
+50
+60
+m = 50
+41
+
+============================================================
+PAGE 42
+============================================================
+'
+v 
+"
+ya(t)
+|Yb(jω)|
+ω
+ωc
+ωc
+100ωm
+m = 50
+Phase/Frequency Modulation  
+Fourier transform of second part. 
+x(t) = sin(ωmt) 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt)))
+'
+v 
+" 
+yb(t) 
+42
+
+============================================================
+PAGE 43
+============================================================
+|Y (jω)|
+ω
+ωc
+ωc
+100ωm
+m = 50
+Phase/Frequency Modulation  
+Fourier transform. 
+x(t) = sin(ωmt) 
+y(t) = cos(ωct + mx(t)) = cos(ωct + m sin(ωmt)) 
+= cos(ωct) cos(m sin(ωmt))) − sin(ωct) sin(m sin(ωmt)))
+'
+v 
+"
+'
+v 
+" 
+ya(t) 
+yb(t) 
+43
+
+============================================================
+PAGE 44
+============================================================
+Frequency Modulation  
+Wideband FM is useful because it is robust to noise. 
+AM: y1(t) = (cos(ωmt) + 1.1) cos(ωct) 
+t
+FM: y3(t) = cos(ωct + m sin(ωmt)) 
+t
+FM generates a redundant signal that is resilient to additive noise. 
+44
+
+============================================================
+PAGE 45
+============================================================
+Summary  
+Modulation is useful for matching signals to media. 
+Examples: commercial radio (AM and FM) 
+Close with unconventional application of modulation – in microscopy. 
+45
+
+============================================================
+PAGE 46
+============================================================
+6.003 Microscopy  
+Dennis M. Freeman 
+Stanley S. Hong 
+Jekwan Ryu 
+Michael S. Mermelstein 
+Berthold K. P. Horn 
+46
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 47
+============================================================
+6.003 Model of a Microscope  
+microscope 
+Microscope = low-pass filter  
+47
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 48
+============================================================
+Phase-Modulated Microscopy  
+microscope 
+48
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 49
+============================================================
+49
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 50
+============================================================
+50
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 51
+============================================================
+51
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 52
+============================================================
+52
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 53
+============================================================
+53
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 54
+============================================================
+54
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 55
+============================================================
+55
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 56
+============================================================
+56
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 57
+============================================================
+57
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 58
+============================================================
+58
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 59
+============================================================
+59
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 60
+============================================================
+60
+Courtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission.
+
+============================================================
+PAGE 61
+============================================================
+MIT OpenCourseWare
+http://ocw.mit.edu
+6.003 Signals and Systems
+Fall 2011
+For information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms.

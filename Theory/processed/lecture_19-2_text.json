@@ -1,0 +1,179 @@
+{
+  "lecture_number": 19,
+  "source_file": "57963f2e8c8bcb3050d7cb87e9201fd2_MIT6_003F11_lec19-2.pdf",
+  "page_count": 43,
+  "pages": [
+    {
+      "page": 1,
+      "text": "6.003: Signals and Systems \nRelations among Fourier Representations \nNovember 15, 2011  \n1"
+    },
+    {
+      "page": 2,
+      "text": "Mid-term Examination #3  \nWednesday, November 16, 7:30-9:30pm, \nNo recitations on the day of the exam. \nCoverage: \nLectures 1\u201318 \nRecitations 1\u201316 \nHomeworks 1\u201310 \nHomework 10 will not be collected or graded. \nSolutions are posted. \nClosed book: 3 pages of notes (81\n2 \u00d7 11 inches; front and back). \nNo calculators, computers, cell phones, music players, or other aids. \nDesigned as 1-hour exam; two hours to complete. \nPrior term midterm exams have been posted on the 6.003 website. \n2"
+    },
+    {
+      "page": 3,
+      "text": "Fourier Representations  \nWe\u2019ve seen a variety of Fourier representations: \n\u2022 CT Fourier series \n\u2022 CT Fourier transform \n\u2022 DT Fourier series \n\u2022 DT Fourier transform \nToday: relations among the four Fourier representations. \n3"
+    },
+    {
+      "page": 4,
+      "text": "Four Fourier Representations  \nWe have discussed four closely related Fourier representations. \nDT Fourier Series\nCT Fourier Series\nDT Fourier transform\nCT Fourier transform\nak = ak+N = 1\nN\nX\nn=<N>\nx[n]e\u2212j 2\u03c0\nN kn\nx[n] = x[n + N] =\nX\nk=<N>\nake j 2\u03c0\nN kn\nak = 1\nT\nZ\nT\nx(t)e\u2212j 2\u03c0\nT ktdt\nx(t) = x(t + T) =\n\u221e\nX\nk=\u2212\u221e\nake j 2\u03c0\nT kt\nX(e j\u2126) =\n\u221e\nX\nn=\u2212\u221e\nx[n]e\u2212j\u2126n\nx[n] = 1\n2\u03c0\nZ\n<2\u03c0>\nX(e j\u2126)e j\u2126nd\u2126\nX(j\u03c9) =\nZ \u221e\n\u2212\u221e\nx(t)e\u2212j\u03c9tdt\nx(t) = 1\n2\u03c0\nZ \u221e\n\u2212\u221e\nX(j\u03c9)e j\u03c9td\u03c9\n4"
+    },
+    {
+      "page": 5,
+      "text": "Four Types of \u201cTime\u201d  \ndiscrete vs. continuous (t) and periodic vs aperiodic (\u2194)  \nDT Fourier Series\nCT Fourier Series\nDT Fourier transform\nCT Fourier transform\nn\nt\nn\nt\n5"
+    },
+    {
+      "page": 6,
+      "text": "Four Types of \u201cFrequency\u201d  \ndiscrete vs. continuous (\u2194) and periodic vs aperiodic (t)  \nDT Fourier Series\nCT Fourier Series\nDT Fourier transform\nCT Fourier transform\n2\u03c0\nN k\n2\u03c0\nT k\n\u2126\n\u03c9\n6"
+    },
+    {
+      "page": 7,
+      "text": "Relation between Fourier Series and Transform  \nA periodic signal can be represented by a Fourier series or by an \nequivalent Fourier transform. \nSeries: represent periodic signal as weighted sum of harmonics \n0\n\u221e\n2\u03c0\nj\u03c90kt \nx(t) = x(t + T ) = \nake\n; \n\u03c90 = T \nk=\u2212\u221e \nThe Fourier transform of a sum is the sum of the Fourier transforms: \n\u221e\n0 \nX(j\u03c9) = \n2\u03c0ak\u03b4(\u03c9 \u2212 k\u03c90) \nk=\u2212\u221e \nTherefore periodic signals can be equivalently represented as Fourier \ntransforms (with impulses!). \n7"
+    },
+    {
+      "page": 8,
+      "text": "Relation between Fourier Series and Transform  \nA periodic signal can be represented by a Fourier series or by an \nequivalent Fourier transform. \nx(t) = x(t + T) =\n\u221e\nX\nk=\u2212\u221e\nakej\u03c90kt\n\u03c9\nFourier Transform\n0 \u03c90\n2\u03c0a0\n2\u03c0a1\n2\u03c0a\u22121\n2\u03c0a2\n2\u03c0a\u22122\n2\u03c0a3\n2\u03c0a\u22123\n2\u03c0a4\n2\u03c0a\u22124\nk\nFourier Series\n0 1\na0 a1\na\u22121\na2\na\u22122\na3\na\u22123\na4\na\u22124\n\u2194\n8"
+    },
+    {
+      "page": 9,
+      "text": "Relations among Fourier Representations  \nExplore other relations among Fourier representations.  \nStart with an aperiodic CT signal. Determine its Fourier transform.  \nConvert the signal so that it can be represented by alternate Fourier  \nrepresentations and compare.  \nperiodic DT\nDTFS\naperiodic DT\nDTFT\nperiodic CT\nCTFS\naperiodic CT\nCTFT\nN \u2192\u221e\nperiodic extension\nT \u2192\u221e\nperiodic extension\ninterpolate\nsample\ninterpolate\nsample\n9"
+    },
+    {
+      "page": 10,
+      "text": "Start with the CT Fourier Transform  \nDetermine the Fourier transform of the following signal. \nt\nx(t)\n\u22121 0 1\n1\nCould calculate Fourier transform from the de\ufb01nition. \n \u221e \nj\u03c9tdt\nX(j\u03c9) =\nx(t)e\n\u2212\u221e \nEasier to calculate x(t) by convolution of two square pulses: \nt\ny(t)\n\u22121\n2\n1\n2\n1\nt\ny(t)\n\u22121\n2\n1\n2\n1\n\u2217\n10"
+    },
+    {
+      "page": 11,
+      "text": "Start with the CT Fourier Transform  \nsin(\u03c9/2) \nThe transform of y(t) is Y (j\u03c9) = \n\u03c9/2 \nt\ny(t)\n\u22121\n2\n1\n2\n1\n\u03c9\nY (j\u03c9)\n1\n2\u03c0\n\u22122\u03c0\n\u2194\nso the transform of x(t) = (y \u2217 y)(t) is X(j\u03c9) = Y (j\u03c9) \u00d7 Y (j\u03c9). \nt\nx(t)\n\u22121\n1\n1\n\u03c9\nX(j\u03c9)\n1\n2\u03c0\n\u22122\u03c0\n\u2194\n11"
+    },
+    {
+      "page": 12,
+      "text": "Relation between Fourier Transform and Series  \nWhat is the e\ufb00ect of making a signal periodic in time?  \nFind Fourier transform of periodic extension of x(t) to period T = 4. \nt\nz(t) =\n\u221e\nX\nk=\u2212\u221e\nx(t + 4k)\n\u22121\n1\n1\n4\n\u22124\nCould calculate Z(j\u03c9) for the de\ufb01nition ... ugly. \n12"
+    },
+    {
+      "page": 13,
+      "text": "Relation between Fourier Transform and Series  \nEasier to calculate z(t) by convolving x(t) with an impulse train. \nt\nz(t) =\n\u221e\nX\nk=\u2212\u221e\nx(t + 4k)\n\u22121\n1\n1\n4\n\u22124\nz(t) = \n\u221e\n0 \nx(t + 4k) = (x \u2217 p)(t) \nk=\u2212\u221e \nwhere \n\u221e\n0 \np(t) = \n\u03b4(t + 4k) \nk=\u2212\u221e \nThen \nZ(j\u03c9) = X(j\u03c9) \u00d7 P (j\u03c9) \n13"
+    },
+    {
+      "page": 14,
+      "text": "Check Yourself  \nWhat\u2019s the Fourier transform of an impulse train? \n\u00b7 \u00b7 \u00b7\n\u00b7 \u00b7 \u00b7\nx(t) =\n\u221e\nX\nk=\u2212\u221e\n\u03b4(t \u2212kT)\nt\n0\nT\n1\n14"
+    },
+    {
+      "page": 15,
+      "text": "Check Yourself  \nWhat\u2019s the Fourier transform of an impulse train?  \n\u00b7 \u00b7 \u00b7\n\u00b7 \u00b7 \u00b7\nx(t) =\n\u221e\nX\nk=\u2212\u221e\n\u03b4(t \u2212kT)\nt\n0\nT\n1\n\u00b7 \u00b7 \u00b7\n\u00b7 \u00b7 \u00b7\nak = 1\nT\n\u2200k\nk\n1\nT\n\u00b7 \u00b7 \u00b7\n\u00b7 \u00b7 \u00b7\nX(j\u03c9) =\n\u221e\nX\nk=\u2212\u221e\n2\u03c0\nT \u03b4(\u03c9 \u2212k2\u03c0\nT )\n\u03c9\n0\n2\u03c0\nT\n2\u03c0\nT\n15"
+    },
+    {
+      "page": 16,
+      "text": "Relation between Fourier Transform and Series  \nEasier to calculate z(t) by convolving x(t) with an impulse train. \nt\nz(t) =\n\u221e\nX\nk=\u2212\u221e\nx(t + 4k)\n\u22121\n1\n1\n4\n\u22124\nz(t) = \n\u221e\n0 \nx(t + 4k) = (x \u2217 p)(t) \nk=\u2212\u221e \nwhere \n\u221e\n0 \np(t) = \n\u03b4(t + 4k) \nk=\u2212\u221e \nThen \nZ(j\u03c9) = X(j\u03c9) \u00d7 P (j\u03c9) \n16"
+    },
+    {
+      "page": 17,
+      "text": "Relation between Fourier Transform and Series  \nConvolving in time corresponds to multiplying in frequency.  \n\u03c0/2\n\u03c9\nZ(j\u03c9)\n\u03c0\n2\n\u2212\u03c0\n2\n\u03c9\nX(j\u03c9)\n1\n2\u03c0\n\u22122\u03c0\n\u03c9\nP(j\u03c9)\n\u03c0\n2\n\u2212\u03c0\n2\n\u03c0\n2\n17"
+    },
+    {
+      "page": 18,
+      "text": "Relation between Fourier Transform and Series  \nThe Fourier transform of a periodically extended function is a dis\u00ad\ncrete function of frequency \u03c9. \nt\nz(t) =\n\u221e\nX\nk=\u2212\u221e\nx(t + 4k)\n\u22121\n1\n1\n4\n\u22124\n\u03c0/2\n\u03c9\nZ(j\u03c9)\n\u03c0\n2\n\u2212\u03c0\n2\n18"
+    },
+    {
+      "page": 19,
+      "text": "Relation between Fourier Transform and Series  \nThe weight (area) of each impulse in the Fourier transform of a  \nperiodically extended function is 2\u03c0 times the corresponding Fourier  \nseries coe\ufb03cient. \n\u03c0/2\n\u03c9\nZ(j\u03c9)\n\u03c0\n2\n\u2212\u03c0\n2\n1/4\nk\nak\n1\n\u22121\n19"
+    },
+    {
+      "page": 20,
+      "text": "Relation between Fourier Transform and Series  \nThe e\ufb00ect of periodic extension of x(t) to z(t) is to sample the  \nfrequency representation. \n\u03c9\nX(j\u03c9)\n1\n2\u03c0\n\u22122\u03c0\n\u03c0/2\n\u03c9\nZ(j\u03c9)\n\u03c0\n2\n\u2212\u03c0\n2\n1/4\nk\nak\n1\n\u22121\n20"
+    },
+    {
+      "page": 21,
+      "text": "Relation between Fourier Transform and Series  \nPeriodic extension of CT signal \u2192 discrete function of frequency. \nPeriodic extension \n= convolving with impulse train in time \n= multiplying by impulse train in frequency \n\u2192 sampling in frequency \nperiodic DT\nDTFS\naperiodic DT\nDTFT\nperiodic CT\nCTFS\naperiodic CT\nCTFT\nN \u2192\u221e\nperiodic extension\nT \u2192\u221e\n(sampling in frequency)\nperiodic extension\ninterpolate\nsample\ninterpolate\nsample\n21"
+    },
+    {
+      "page": 22,
+      "text": "Four Types of \u201cTime\u201d  \ndiscrete vs. continuous (t) and periodic vs aperiodic (\u2194)  \nDT Fourier Series\nCT Fourier Series\nDT Fourier transform\nCT Fourier transform\nn\nt\nn\nt\n22"
+    },
+    {
+      "page": 23,
+      "text": "Four Types of \u201cFrequency\u201d  \ndiscrete vs. continuous (\u2194) and periodic vs aperiodic (t)  \nDT Fourier Series\nCT Fourier Series\nDT Fourier transform\nCT Fourier transform\n2\u03c0\nN k\n2\u03c0\nT k\n\u2126\n\u03c9\n23"
+    },
+    {
+      "page": 24,
+      "text": "Relation between Fourier Transform and Series  \nPeriodic extension of CT signal \u2192 discrete function of frequency. \nPeriodic extension \n= convolving with impulse train in time \n= multiplying by impulse train in frequency \n\u2192 sampling in frequency \nperiodic DT\nDTFS\naperiodic DT\nDTFT\nperiodic CT\nCTFS\naperiodic CT\nCTFT\nN \u2192\u221e\nperiodic extension\nT \u2192\u221e\n(sampling in frequency)\nperiodic extension\ninterpolate\nsample\ninterpolate\nsample\n24"
+    },
+    {
+      "page": 25,
+      "text": "Relations among Fourier Representations  \nCompare to sampling in time.  \nperiodic DT\nDTFS\naperiodic DT\nDTFT\nperiodic CT\nCTFS\naperiodic CT\nCTFT\nN \u2192\u221e\nperiodic extension\nT \u2192\u221e\nperiodic extension\ninterpolate\nsample\ninterpolate\nsample\n25"
+    },
+    {
+      "page": 26,
+      "text": "Relations between CT and DT transforms  \nSampling a CT signal generates a DT signal.  \nx[n] = x(nT ) \nTake T = 1  \n2 .  \nt\nx(t)\n\u22121 0 1\n1\nn\nx[n]\n\u22121 1\nWhat is the e\ufb00ect on the frequency representation? \n26"
+    },
+    {
+      "page": 27,
+      "text": "Relations between CT and DT transforms  \nWe can generate a signal with the same shape by multiplying x(t) by \nan impulse train with T = 1  \n2 .  \n\u221e\n0 \nxp(t) = x(t) \u00d7 p(t) where p(t) = \n\u03b4(t + kT ) \nk=\u2212\u221e \nt\nx(t)\n\u22121 0 1\n1\nn\nx[n]\n\u22121 1\nt\nxp(t)\n\u22121\n1\n27"
+    },
+    {
+      "page": 28,
+      "text": "Relations between CT and DT transforms  \nWe can generate a signal with the same shape by multiplying x(t) by \n1\nan impulse train with T = 2 . \n\u221e\n0 \nxp(t) = x(t) \u00d7 p(t) where p(t) = \n\u03b4(t + kT ) \nk=\u2212\u221e \nt\nx(t)\n\u22121 0 1\n1\nt\nxp(t)\n\u22121\n1\n28"
+    },
+    {
+      "page": 29,
+      "text": "Relations between CT and DT transforms  \nMultiplying x(t) by an impulse train in time is equivalent to convolving  \nX(j\u03c9) by an impulse train in frequency (then \u00f72\u03c0).  \n\u03c9\nXp(j\u03c9)\n4\u03c0\n\u22124\u03c0\n2\n\u03c9\nX(j\u03c9)\n1\n2\u03c0\n\u22122\u03c0\n\u03c9\nP(j\u03c9)\n4\u03c0\n\u22124\u03c0\n4\u03c0\n29"
+    },
+    {
+      "page": 30,
+      "text": "Relations between CT and DT transforms  \nFourier transform of sampled signal xp(t) is periodic in \u03c9, period 4\u03c0. \nt\nxp(t)\n\u22121\n1\n\u03c9\nXp(j\u03c9)\n4\u03c0\n\u22124\u03c0\n2\n30"
+    },
+    {
+      "page": 31,
+      "text": "Relations between CT and DT transforms  \nFourier transform of sampled signal xp(t) has same shape as DT \nFourier transform of x[n]. \nn\nx[n]\n\u22121 1\n\u2126\nX(ej\u2126)\n2\u03c0\n\u22122\u03c0\n2\n31"
+    },
+    {
+      "page": 32,
+      "text": "DT Fourier transform  \nCT Fourier transform of sampled signal xp(t) = DT Fourier transform \n \nj\u03a9) \nof samples x[n] where \u03a9 = \u03c9T , i.e., X(j\u03c9) = X(e\n \n.\n\u03a9=\u03c9T \nt\nxp(t)\n\u22121\n1\n\u03c9\nXp(j\u03c9)\n4\u03c0\n\u22124\u03c0\n2\n\u2194\nn\nx[n]\n\u22121 1\n\u2126\nX(ej\u2126)\n2\u03c0\n\u22122\u03c0\n2\n\u2194\n\u03a9 = \u03c9T = 1 \n2 \u03c9 \n32"
+    },
+    {
+      "page": 33,
+      "text": "Relation between CT and DT Fourier Transforms  \nCompare the de\ufb01nitions: \n0 \nX(ej\u03a9) = \nx[n]e \u2212j\u03a9n  \nn  \n\u2212j\u03c9tdt\nXp(j\u03c9) = \nxp(t)e \n0 \n\u2212j\u03c9tdt\n= \nx[n]\u03b4(t \u2212 nT )e \nn \n0 \n\u2212j\u03c9tdt\n= \nx[n] \n\u03b4(t \u2212 nT )e \nn\n0 \n\u2212j\u03c9nT \n= \nx[n]e \nn \n\u03a9 = \u03c9T \n33\nZ\nZ\nZ"
+    },
+    {
+      "page": 34,
+      "text": "Relation Between DT Fourier Transform and Series  \nPeriodic extension of a DT signal is equivalent to convolution of the  \nsignal with an impulse train. \nn\nx[n]\n\u22121 1\nn\np[n]\n\u22128\n8\nn\nxp[n] = (x \u2217p)[n]\n\u22121 1\n\u22128\n8\n34"
+    },
+    {
+      "page": 35,
+      "text": "Relation Between DT Fourier Transform and Series  \nConvolution by an impulse train in time is equivalent to multiplication  \nby an impulse train in frequency. \n\u2126\nX(ej\u2126)\n2\u03c0\n\u22122\u03c0\n2\n\u2126\nP(ej\u2126)\n\u03c0\n4\n\u2126\nXp(ej\u2126)\n\u2212\u03c0\n4\n\u03c0\n4\n\u22122\u03c0\n2\u03c0\n\u03c0\n2\n35"
+    },
+    {
+      "page": 36,
+      "text": "Relation Between DT Fourier Transform and Series  \nPeriodic extension of a discrete signal (x[n]) results in a signal (xp[n]) \nthat is both periodic and discrete. Its transform (Xp(ej\u03a9)) is also \nperiodic and discrete. \nn\nxp[n] = (x \u2217p)[n]\n\u22121 1\n\u22128\n8\n\u2126\nXp(ej\u2126)\n\u2212\u03c0\n4\n\u03c0\n4\n\u22122\u03c0\n2\u03c0\n\u03c0\n2\n36"
+    },
+    {
+      "page": 37,
+      "text": "Relation Between DT Fourier Transform and Series  \nThe weight of each impulse in the Fourier transform of a periodi\u00ad\ncally extended function is 2\u03c0 times the corresponding Fourier series  \ncoe\ufb03cient. \n\u2126\nXp(ej\u2126)\n\u2212\u03c0\n4\n\u03c0\n4\n\u22122\u03c0\n2\u03c0\n\u03c0\n2\n\u2126\nak\n\u22121 1\n\u22128\n8\n1\n4\n37"
+    },
+    {
+      "page": 38,
+      "text": "Relation between Fourier Transforms and Series  \nThe e\ufb00ect of periodic extension was to sample the frequency repre\u00ad\nsentation. \n\u2126\nX(ej\u2126)\n2\u03c0\n\u22122\u03c0\n2\n\u2126\nak\n\u22121 1\n\u22128\n8\n1\n4\n38"
+    },
+    {
+      "page": 39,
+      "text": "Four Types of \u201cTime\u201d  \ndiscrete vs. continuous (t) and periodic vs aperiodic (\u2194)  \nDT Fourier Series\nCT Fourier Series\nDT Fourier transform\nCT Fourier transform\nn\nt\nn\nt\n39"
+    },
+    {
+      "page": 40,
+      "text": "Four Types of \u201cFrequency\u201d  \ndiscrete vs. continuous (\u2194) and periodic vs aperiodic (t)  \nDT Fourier Series\nCT Fourier Series\nDT Fourier transform\nCT Fourier transform\n2\u03c0\nN k\n2\u03c0\nT k\n\u2126\n\u03c9\n40"
+    },
+    {
+      "page": 41,
+      "text": "Relation between Fourier Transforms and Series  \nPeriodic extension of a DT signal produces a discrete function of \nfrequency. \nPeriodic extension \n= convolving with impulse train in time \n= multiplying by impulse train in frequency \n\u2192 sampling in frequency \nperiodic DT\nDTFS\naperiodic DT\nDTFT\nperiodic CT\nCTFS\naperiodic CT\nCTFT\nN \u2192\u221e\n(sampling in frequency)\nperiodic extension\nT \u2192\u221e\nperiodic extension\ninterpolate\nsample\ninterpolate\nsample\n41"
+    },
+    {
+      "page": 42,
+      "text": "Four Fourier Representations  \nUnderlying structure \u2192 view as one transform, not four. \nDT Fourier Series\nCT Fourier Series\nDT Fourier transform\nCT Fourier transform\nak = ak+N = 1\nN\nX\nn=<N>\nx[n]e\u2212j 2\u03c0\nN kn\nx[n] = x[n + N] =\nX\nk=<N>\nake j 2\u03c0\nN kn\nak = 1\nT\nZ\nT\nx(t)e\u2212j 2\u03c0\nT ktdt\nx(t) = x(t + T) =\n\u221e\nX\nk=\u2212\u221e\nake j 2\u03c0\nT kt\nX(e j\u2126) =\n\u221e\nX\nn=\u2212\u221e\nx[n]e\u2212j\u2126n\nx[n] = 1\n2\u03c0\nZ\n<2\u03c0>\nX(e j\u2126)e j\u2126nd\u2126\nX(j\u03c9) =\nZ \u221e\n\u2212\u221e\nx(t)e\u2212j\u03c9tdt\nx(t) = 1\n2\u03c0\nZ \u221e\n\u2212\u221e\nX(j\u03c9)e j\u03c9td\u03c9\n42"
+    },
+    {
+      "page": 43,
+      "text": "MIT OpenCourseWare\nhttp://ocw.mit.edu\n6.003 Signals and Systems\nFall 2011\nFor information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms."
+    }
+  ]
+}

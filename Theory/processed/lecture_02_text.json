@@ -1,0 +1,239 @@
+{
+  "lecture_number": 2,
+  "source_file": "64cf552631f0f5fdba1913309f3639e8_MIT6_003F11_lec02.pdf",
+  "page_count": 58,
+  "pages": [
+    {
+      "page": 1,
+      "text": "6.003: Signals and Systems \nDiscrete-Time Systems \nSeptember 13, 2011  \n1"
+    },
+    {
+      "page": 2,
+      "text": "Homework  \nDoing the homework is essential to understanding the content. \nWeekly Homework Assigments \n\u2022  \ntutor (exam-type) problems: \nanswers are automatically checked to provide quick feedback \n\u2022  \nengineering design (real-world) problems: \ngraded by a human \nLearning doesn\u2019t end when you have submitted your work! \n\u2022  \nsolutions will be posted on Wednesdays at 5pm \n\u2022  \nread solutions to \ufb01nd errors and to see alternative approaches \n\u2022  \nmark the errors in your previously submitted work \n\u2022  \nsubmit the markup by Friday at 5pm \n\u2022  \nidentify ALL errors and get back half of the points you lost! \n2"
+    },
+    {
+      "page": 3,
+      "text": "Discrete-Time Systems  \nWe start with discrete-time (DT) systems because they \n\u2022 \nare conceptually simpler than continuous-time systems \n\u2022 \nillustrate same important modes of thinking as continuous-time \n\u2022 \nare increasingly important (digital electronics and computation) \n3"
+    },
+    {
+      "page": 4,
+      "text": "Multiple Representations of Discrete-Time Systems  \nSystems can be represented in di\ufb00erent ways to more easily address \ndi\ufb00erent types of issues. \nVerbal description: \u2018To reduce the number of bits needed to store \na sequence of large numbers that are nearly equal, record the \ufb01rst \nnumber, and then record successive di\ufb00erences.\u2019 \nDi\ufb00erence equation: \ny[n] = x[n] \u2212 x[n \u2212 1] \nBlock diagram: \n\u22121\nDelay\n+\nx[n]\ny[n]\nWe will exploit particular strengths of each of these representations.  \n4"
+    },
+    {
+      "page": 5,
+      "text": "Di\ufb00erence Equations  \nDi\ufb00erence equations are mathematically precise and compact. \nExample: \ny[n] = x[n] \u2212 x[n \u2212 1] \nLet x[n] equal the \u201cunit sample\u201d signal \u03b4[n], \n 1, \nif n = 0; \n\u03b4[n] =\n0, \notherwise. \n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\nWe will use the unit sample as a \u201cprimitive\u201d (building-block signal) \nto construct more complex signals.  \n5"
+    },
+    {
+      "page": 6,
+      "text": "Check Yourself  \nSolve \ny[n] = x[n] \u2212 x[n \u2212 1] \ngiven \nx[n] = \u03b4[n] \nHow many of the following are true? \n1. y[2] > y[1] \n2. y[3] > y[2] \n3. y[2] = 0 \n4. y[n] \u2212 y[n\u22121] = x[n] \u2212 2x[n\u22121] + x[n\u22122] \n5. y[119] = 0 \n6"
+    },
+    {
+      "page": 7,
+      "text": "Step-By-Step Solutions  \nDi\ufb00erence equations are convenient for step-by-step analysis.  \n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\nFind y[n] given x[n] = \u03b4[n]:\ny[n] = x[n] \u2212x[n \u22121]\ny[\u22121] = x[\u22121] \u2212x[\u22122]\n= 0 \u22120 = 0\ny[0] = x[0] \u2212x[\u22121]\n= 1 \u22120 = 1\ny[1] = x[1] \u2212x[0]\n= 0 \u22121 = \u22121\ny[2] = x[2] \u2212x[1]\n= 0 \u22120 = 0\ny[3] = x[3] \u2212x[2]\n= 0 \u22120 = 0\n. . .\n7"
+    },
+    {
+      "page": 8,
+      "text": "Check Yourself  \nSolve \ny[n] = x[n] \u2212 x[n \u2212 1] \ngiven \nx[n] = \u03b4[n] \nHow many of the following are true? \n4 \n1. y[2] > y[1] \n\u221a \n2. y[3] > y[2] \nX \n3. y[2] = 0 \n\u221a \n4. y[n] \u2212 y[n\u22121] = x[n] \u2212 2x[n\u22121] + x[n\u22122] \n\u221a \n5. y[119] = 0 \n\u221a \n8"
+    },
+    {
+      "page": 9,
+      "text": "Step-By-Step Solutions  \nBlock diagrams are also useful for step-by-step analysis.  \nRepresent y[n] = x[n] \u2212 x[n \u2212 1] with a block diagram: start \u201cat rest\u201d  \n\u22121\nDelay\n+\nx[n]\ny[n]\n0\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\n9"
+    },
+    {
+      "page": 10,
+      "text": "Step-By-Step Solutions  \nBlock diagrams are also useful for step-by-step analysis.  \nRepresent y[n] = x[n] \u2212 x[n \u2212 1] with a block diagram: start \u201cat rest\u201d  \n\u22121\nDelay\n+\n1\n1\n\u22121\n0\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\n10"
+    },
+    {
+      "page": 11,
+      "text": "Step-By-Step Solutions  \nBlock diagrams are also useful for step-by-step analysis.  \nRepresent y[n] = x[n] \u2212 x[n \u2212 1] with a block diagram: start \u201cat rest\u201d  \n\u22121\nDelay\n+\n1 \u21920\n\u22121\n0 \u2192\u22121\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\n11"
+    },
+    {
+      "page": 12,
+      "text": "Step-By-Step Solutions  \nBlock diagrams are also useful for step-by-step analysis.  \nRepresent y[n] = x[n] \u2212 x[n \u2212 1] with a block diagram: start \u201cat rest\u201d  \n\u22121\nDelay\n+\n1 \u21920\n\u22121\n0\n0 \u2192\u22121\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\n12"
+    },
+    {
+      "page": 13,
+      "text": "Step-By-Step Solutions  \nBlock diagrams are also useful for step-by-step analysis.  \nRepresent y[n] = x[n] \u2212 x[n \u2212 1] with a block diagram: start \u201cat rest\u201d  \n\u22121\nDelay\n+\n0\n\u22121\n0\n\u22121\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\n13"
+    },
+    {
+      "page": 14,
+      "text": "Step-By-Step Solutions  \nBlock diagrams are also useful for step-by-step analysis.  \nRepresent y[n] = x[n] \u2212 x[n \u2212 1] with a block diagram: start \u201cat rest\u201d  \n\u22121\nDelay\n+\n0\n\u22121\n0\n\u22121 \u21920\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\n14"
+    },
+    {
+      "page": 15,
+      "text": "Step-By-Step Solutions  \nBlock diagrams are also useful for step-by-step analysis.  \nRepresent y[n] = x[n] \u2212 x[n \u2212 1] with a block diagram: start \u201cat rest\u201d  \n\u22121\nDelay\n+\n0\n0\n0\n\u22121 \u21920\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\n15"
+    },
+    {
+      "page": 16,
+      "text": "Step-By-Step Solutions  \nBlock diagrams are also useful for step-by-step analysis.  \nRepresent y[n] = x[n] \u2212 x[n \u2212 1] with a block diagram: start \u201cat rest\u201d  \n\u22121\nDelay\n+\n0\n0\n0\n0\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\n16"
+    },
+    {
+      "page": 17,
+      "text": "Step-By-Step Solutions  \nBlock diagrams are also useful for step-by-step analysis.  \nRepresent y[n] = x[n] \u2212 x[n \u2212 1] with a block diagram: start \u201cat rest\u201d  \n\u22121\nDelay\n+\n0\n0\n0\n0\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\n17"
+    },
+    {
+      "page": 18,
+      "text": "Check Yourself  \nDT systems can be described by di\ufb00erence equations and/or \nblock diagrams. \nDi\ufb00erence equation: \ny[n] = x[n] \u2212 x[n \u2212 1] \nBlock diagram: \n\u22121\nDelay\n+\nx[n]\ny[n]\nIn what ways are these representations di\ufb00erent? \n18"
+    },
+    {
+      "page": 19,
+      "text": "Check Yourself  \nIn what ways are di\ufb00erence equations di\ufb00erent from block diagrams? \nDi\ufb00erence equation: \ny[n] = x[n] \u2212 x[n \u2212 1] \nDi\ufb00erence equations are \u201cdeclarative.\u201d \nThey tell you rules that the system obeys. \nBlock diagram: \n\u22121\nDelay\n+\nx[n]\ny[n]\nBlock diagrams are \u201cimperative.\u201d \nThey tell you what to do. \nBlock diagrams contain more information than the corresponding \ndi\ufb00erence equation (e.g., what is the input? what is the output?) \n19"
+    },
+    {
+      "page": 20,
+      "text": "From Samples to Signals  \nLumping all of the (possibly in\ufb01nite) samples into a single object \u2014 \nthe signal \u2014 simpli\ufb01es its manipulation. \nThis lumping is an abstraction that is analogous to \n\u2022 representing coordinates in three-space as points \n\u2022 representing lists of numbers as vectors in linear algebra \n\u2022 creating an object in Python \n20"
+    },
+    {
+      "page": 21,
+      "text": "From Samples to Signals  \nOperators manipulate signals rather than individual samples. \n\u22121\nDelay\n+\nx[n]\ny[n]\nNodes represent whole signals (e.g., X and Y ). \nThe boxes operate on those signals: \n\u2022 \nDelay = shift whole signal to right 1 time step \n\u2022 \nAdd = sum two signals \n\u2022\n\u22121: multiply by \u22121 \nSignals are the primitives.  \nOperators are the means of combination.  \n21"
+    },
+    {
+      "page": 22,
+      "text": "Operator Notation  \nSymbols can now compactly represent diagrams. \nLet R represent the right-shift operator: \nY = R{X} \u2261RX \nwhere X represents the whole input signal (x[n] for all n) and Y \nrepresents the whole output signal (y[n] for all n) \nRepresenting the di\ufb00erence machine \n\u22121\nDelay\n+\nx[n]\ny[n]\nwith R leads to the equivalent representation \nY = X \u2212RX = (1 \u2212R) X  \n22"
+    },
+    {
+      "page": 23,
+      "text": "Operator Notation: Check Yourself  \nLet Y = RX. Which of the following is/are true: \n1. y[n] = x[n] for all n \n2. y[n + 1] = x[n] for all n \n3. y[n] = x[n + 1] for all n \n4. y[n \u2212 1] = x[n] for all n \n5. none of the above \n23"
+    },
+    {
+      "page": 24,
+      "text": "Check Yourself \nConsider a simple signal: \nThen \nClearly y[1] = x[0]. \n\u22121 0 1 2 3 4\nn\nX\n\u22121 0 1 2 3 4\nn\nY = RX\nEquivalently, if n = 0, then y[n + 1] = x[n]. \nThe same sort of argument works for all other n.  \n24"
+    },
+    {
+      "page": 25,
+      "text": "Operator Notation: Check Yourself  \nLet Y = RX. Which of the following is/are true: \n1. y[n] = x[n] for all n \n2. y[n + 1] = x[n] for all n \n3. y[n] = x[n + 1] for all n \n4. y[n \u2212 1] = x[n] for all n \n5. none of the above \n25"
+    },
+    {
+      "page": 26,
+      "text": "Operator Representation of a Cascaded System  \nSystem operations have simple operator representations. \nCascade systems \u2192 multiply operator expressions. \n\u22121\nDelay\n+\n\u22121\nDelay\n+\nX\nY1\nY2\nUsing operator notation: \nY1 = (1 \u2212R) X \nY2 = (1 \u2212R) Y1 \nSubstituting for Y1: \nY2 = (1 \u2212R)(1 \u2212R) X \n26"
+    },
+    {
+      "page": 27,
+      "text": "Operator Algebra  \nOperator expressions can be manipulated as polynomials. \n\u22121\nDelay\n+\n\u22121\nDelay\n+\nX\nY1\nY2\nUsing di\ufb00erence equations: \ny2[n] = y1[n] \u2212 y1[n \u2212 1] \n= (x[n] \u2212 x[n \u2212 1]) \u2212 (x[n \u2212 1] \u2212 x[n \u2212 2]) \n= x[n] \u2212 2x[n \u2212 1] + x[n \u2212 2] \nUsing operator notation: \nY2 = (1 \u2212R) Y1 = (1 \u2212R)(1 \u2212R) X  \n= (1 \u2212R)2X  \n= (1 \u2212 2R + R2) X  \n27"
+    },
+    {
+      "page": 28,
+      "text": "Operator Approach  \nApplies your existing expertise with polynomials to understand block \ndiagrams, and thereby understand systems. \n28"
+    },
+    {
+      "page": 29,
+      "text": "Operator Algebra  \nOperator notation facilitates seeing relations among systems.  \n\u201cEquivalent\u201d block diagrams (assuming both initially at rest): \n\u22121\nDelay\n+\n\u22121\nDelay\n+\nX\nY1\nY2\nDelay\nDelay\n\u22122\n+\nX\nY\nEquivalent operator expressions: \n(1 \u2212R)(1 \u2212R) = 1 \u2212 2R + R2 \nThe operator equivalence is much easier to see. \n29"
+    },
+    {
+      "page": 30,
+      "text": "Check Yourself  \nOperator expressions for these \u201cequivalent\u201d systems \n(if started \u201cat rest\u201d) obey what mathematical property? \nDelay\n\u22121\n+\nDelay\nX\nY\nDelay\nDelay\nDelay\n\u22121\n+\nX\nY\n1. commutate \n2. associative \n3. distributive \n4. transitive \n5. none of the above \n30"
+    },
+    {
+      "page": 31,
+      "text": "Delay\n\u22121\n+\nDelay\nX\nY\nCheck Yourself  \nY = R(1 \u2212R)X  \nDelay\nDelay\nDelay\n\u22121\n+\nX\nY\nY = (R \u2212 R2)X \nMultiplication by R distributes over addition.  \n31"
+    },
+    {
+      "page": 32,
+      "text": "Check Yourself  \nOperator expressions for these \u201cequivalent\u201d systems \n(if started \u201cat rest\u201d) obey what mathematical property? 3 \nDelay\n\u22121\n+\nDelay\nX\nY\nDelay\nDelay\nDelay\n\u22121\n+\nX\nY\n1. commutate \n2. associative \n3. distributive \n4. transitive \n5. none of the above \n32"
+    },
+    {
+      "page": 33,
+      "text": "Check Yourself  \nHow many of the following systems are equivalent to \nY = (4R2 + 4R + 1) X ? \nDelay\n2\n+\nDelay\n2\n+\nX\nY\nDelay\n+\nDelay\n4\n+\nX\nY\nDelay\n4\n+\nDelay\n+\nX\nY\n33"
+    },
+    {
+      "page": 34,
+      "text": "Check Yourself \nDelay\n2\n+\nDelay\n2\n+\nX\nY\nY = (2R + 1)(2R + 1) X \n\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2013 \nDelay\n+\nDelay\n4\n+\nX\nY\nY = (4R2 + 4R + 1) X \n\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2013 \nDelay\n4\n+\nDelay\n+\nX\nY\nY = (4R2 + 4R + 1) X \n\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2013 \nAll implement Y = (4R2 + 4R + 1) X \n34"
+    },
+    {
+      "page": 35,
+      "text": "Check Yourself  \nHow many of the following systems are equivalent to \nY = (4R2 + 4R + 1) X ? \n3 \nDelay\n2\n+\nDelay\n2\n+\nX\nY\nDelay\n+\nDelay\n4\n+\nX\nY\nDelay\n4\n+\nDelay\n+\nX\nY\n35"
+    },
+    {
+      "page": 36,
+      "text": "Operator Algebra: Explicit and Implicit Rules  \nRecipes versus constraints.  \nRecipe: subtract a right-shifted version of the input signal from a \ncopy of the input signal. \n\u22121\nDelay\n+\nX\nY\nY = (1 \u2212 R) X \nConstraint: the di\ufb00erence between Y and RY is X. \nDelay\n+\nX\nY\nY = RY + X \n(1 \u2212 R) Y = X \nBut how does one solve such a constraint? \n36"
+    },
+    {
+      "page": 37,
+      "text": "Example: Accumulator  \nTry step-by-step analysis: it always works. Start \u201cat rest.\u201d \n+\nDelay\nx[n]\ny[n]\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\nFind y[n] given x[n] = \u03b4[n]:\ny[n] = x[n] + y[n \u22121]\ny[0] = x[0] + y[\u22121]\n= 1 + 0 = 1\ny[1] = x[1] + y[0]\n= 0 + 1 = 1\ny[2] = x[2] + y[1]\n= 0 + 1 = 1\n. . .\n37"
+    },
+    {
+      "page": 38,
+      "text": "Example: Accumulator  \nTry step-by-step analysis: it always works. Start \u201cat rest.\u201d \n+\nDelay\nx[n]\ny[n]\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\nFind y[n] given x[n] = \u03b4[n]:\ny[n] = x[n] + y[n \u22121]\ny[0] = x[0] + y[\u22121]\n= 1 + 0 = 1\ny[1] = x[1] + y[0]\n= 0 + 1 = 1\ny[2] = x[2] + y[1]\n= 0 + 1 = 1\n. . .\nPersistent response to a transient input! \n38"
+    },
+    {
+      "page": 39,
+      "text": "Example: Accumulator  \nThe response of the accumulator system could also be generated by \na system with in\ufb01nitely many paths from input to output, each with \none unit of delay more than the previous. \nY = (1 + R + R2 + R3 + \u00b7 \u00b7 \u00b7) X \nDelay\nDelay\nDelay\nDelay\nDelay\nDelay\n+\n...\n...\nX\nY\n39"
+    },
+    {
+      "page": 40,
+      "text": "Example: Accumulator  \nThese systems are equivalent in the sense that if each is initially at \nrest, they will produce identical outputs from the same input. \n(1 \u2212R) Y1 = X1 \n\u21d4 ? \nY2 = (1 + R + R2 + R3 + \u00b7 \u00b7 \u00b7) X2 \nProof: Assume X2 = X1: \nY2 = (1 + R + R2 + R3 + \u00b7 \u00b7 \u00b7) X2  \n= (1 + R + R2 + R3 + \u00b7 \u00b7 \u00b7) X1  \n= (1 + R + R2 + R3 + \u00b7 \u00b7 \u00b7) (1 \u2212R) Y1  \n= ((1 + R + R2 + R3 + \u00b7 \u00b7 \u00b7) \u2212 (R + R2 + R3 + \u00b7 \u00b7 \u00b7)) Y1  \n= Y1  \nIt follows that Y2 = Y1. \nIt also follows that (1 \u2212R) and (1 + R + R2 + R3 + \u00b7 \u00b7 \u00b7) are reciprocals. \n40"
+    },
+    {
+      "page": 41,
+      "text": "Example: Accumulator  \nThe reciprocal of 1\u2212R can also be evaluated using synthetic division. \nTherefore \n1 +R +R2 +R3 + \u00b7 \u00b7 \u00b7\n1 \u2212R\n1\n1 \u2212R\nR\nR \u2212R2\nR2\nR2 \u2212R3\nR3\nR3 \u2212R4\n\u00b7 \u00b7 \u00b7\n1 \n= 1 + R + R2 + R3 + R4 + \u00b7 \u00b7 \u00b7 \n1 \u2212R \n41"
+    },
+    {
+      "page": 42,
+      "text": "Feedback  \nSystems with signals that depend on previous values of the same \nsignal are said to have feedback. \nExample: The accumulator system has feedback.  \nDelay\n+\nX\nY\nBy contrast, the di\ufb00erence machine does not have feedback. \n\u22121\nDelay\n+\nx[n]\ny[n]\n42"
+    },
+    {
+      "page": 43,
+      "text": "Cyclic Signal Paths, Feedback, and Modes  \nBlock diagrams help visualize feedback.  \nFeedback occurs when there is a cyclic signal \ufb02ow path. \nR\nR\n\u22122\n+\nX\nY\nDelay\n+\nX\nY\nacyclic \ncyclic \nAcyclic: all paths through system go from input to output with no \ncycles. \nCyclic: at least one cycle. \n43"
+    },
+    {
+      "page": 44,
+      "text": "Feedback, Cyclic Signal Paths, and Modes  \nThe e\ufb00ect of feedback can be visualized by tracing each cycle \nthrough the cyclic signal paths. \nDelay\n+\np0\nX\nY\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\nEach cycle creates another sample in the output. \n44"
+    },
+    {
+      "page": 45,
+      "text": "Feedback, Cyclic Signal Paths, and Modes  \nThe e\ufb00ect of feedback can be visualized by tracing each cycle \nthrough the cyclic signal paths. \nDelay\n+\np0\nX\nY\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\nEach cycle creates another sample in the output. \n45"
+    },
+    {
+      "page": 46,
+      "text": "Feedback, Cyclic Signal Paths, and Modes  \nThe e\ufb00ect of feedback can be visualized by tracing each cycle \nthrough the cyclic signal paths. \nDelay\n+\np0\nX\nY\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\nEach cycle creates another sample in the output. \n46"
+    },
+    {
+      "page": 47,
+      "text": "Feedback, Cyclic Signal Paths, and Modes  \nThe e\ufb00ect of feedback can be visualized by tracing each cycle \nthrough the cyclic signal paths. \nDelay\n+\np0\nX\nY\n\u22121 0 1 2 3 4\nn\nx[n] = \u03b4[n]\n\u22121 0 1 2 3 4\nn\ny[n]\nEach cycle creates another sample in the output. \nThe response will persist even though the input is transient.  \n47"
+    },
+    {
+      "page": 48,
+      "text": "Check Yourself  \nHow many of the following systems have cyclic signal \npaths? \nR\nR\n+\n+\nX\nY\n+\n+\nR\nR\nX\nY\nR\n+\n+\nX\nY\n+\n+\nR\nR\nX\nY\n48"
+    },
+    {
+      "page": 49,
+      "text": "Check Yourself  \nHow many of the following systems have cyclic signal \npaths? \n3 \nR\nR\n+\n+\nX\nY\n+\n+\nR\nR\nX\nY\nR\n+\n+\nX\nY\n+\n+\nR\nR\nX\nY\n49"
+    },
+    {
+      "page": 50,
+      "text": "Finite and In\ufb01nite Impulse Responses  \nThe impulse response of an acyclic system has \ufb01nite duration, while \nthat of a cyclic system can have in\ufb01nite duration. \n\u22121\nDelay\n+\nX\nY\nDelay\n+\nX\nY\n\u22121 0 1 2 3 4\nn\n\u22121 0 1 2 3 4\nn\n50"
+    },
+    {
+      "page": 51,
+      "text": "Analysis of Cyclic Systems: Geometric Growth  \nIf traversing the cycle decreases or increases the magnitude of the \nsignal, then the fundamental mode will decay or grow, respectively. \nIf the response decays toward zero, then we say that it converges. \nOtherwise, we it diverges. \n51"
+    },
+    {
+      "page": 52,
+      "text": "Check Yourself  \nHow many of these systems have divergent unit-sample \nresponses? \nDelay\n0.5\n+\nX\nY\nDelay\n1.2\n+\nX\nY\nDelay\n0.5\n+\n1.2\nDelay\nX\nY\n52"
+    },
+    {
+      "page": 53,
+      "text": "Check Yourself \nDelay\n0.5\n+\nX\nY\n\u22121 0 1 2 3 4\nn\ny[n]\nDelay\n1.2\n+\nX\nY\n\u22121 0 1 2 3 4\nn\ny[n]\nDelay\n0.5\n+\n1.2\nDelay\nX\nY\n\u22121 0 1 2 3 4\nn\ny[n]\n53"
+    },
+    {
+      "page": 54,
+      "text": "X \n\u221a \nX  \nCheck Yourself \nDelay\n0.5\n+\nX\nY\n\u22121 0 1 2 3 4\nn\ny[n]\nDelay\n1.2\n+\nX\nY\n\u22121 0 1 2 3 4\nn\ny[n]\nDelay\n0.5\n+\n1.2\nDelay\nX\nY\n\u22121 0 1 2 3 4\nn\ny[n]\n54"
+    },
+    {
+      "page": 55,
+      "text": "Check Yourself  \nHow many of these systems have divergent unit-sample \nresponses? \n1 \nDelay\n0.5\n+\nX\nY\nX \nDelay\n1.2\n+\nX\nY\n\u221a \nDelay\n0.5\n+\n1.2\nDelay\nX\nY\nX \n55"
+    },
+    {
+      "page": 56,
+      "text": "Cyclic Systems: Geometric Growth  \nIf traversing the cycle decreases or increases the magnitude of the \nsignal, then the fundamental mode will decay or grow, respectively. \nDelay\n0.5\n+\nX\nY\nDelay\n1.2\n+\nX\nY\n\u22121 0 1 2 3 4\nn\ny[n]\n\u22121 0 1 2 3 4\nn\ny[n]\nThese are geometric sequences: y[n] = (0.5)n and (1.2)n for n \u2265 0. \nThese geometric sequences are called fundamental modes. \n56"
+    },
+    {
+      "page": 57,
+      "text": "Multiple Representations of Discrete-Time Systems  \nNow you know four representations of discrete-time systems. \nVerbal descriptions: preserve the rationale. \n\u201cTo reduce the number of bits needed to store a sequence of \nlarge numbers that are nearly equal, record the \ufb01rst number, \nand then record successive di\ufb00erences.\u201d \nDi\ufb00erence equations: mathematically compact. \ny[n] = x[n] \u2212 x[n \u2212 1] \nBlock diagrams: illustrate signal \ufb02ow paths. \n\u22121\nDelay\n+\nx[n]\ny[n]\nOperator representations: analyze systems as polynomials. \nY = (1 \u2212R) X  \n57"
+    },
+    {
+      "page": 58,
+      "text": "MIT OpenCourseWare\nhttp://ocw.mit.edu\n6.003 Signals and Systems\nFall 2011\nFor information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms."
+    }
+  ]
+}

@@ -88,7 +88,7 @@ class SimulationExecutor:
                     except Exception as e:
                         execution_error[0] = e
 
-                thread = threading.Thread(target=target)
+                thread = threading.Thread(target=target, daemon=True)
                 thread.start()
                 thread.join(timeout=self.timeout)
 

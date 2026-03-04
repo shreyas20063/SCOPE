@@ -28,6 +28,7 @@ from .block_diagram_builder import BlockDiagramSimulator
 from .cyclic_path_detector import CyclicPathDetectorSimulator
 from .feedback_convergence import FeedbackConvergenceSimulator
 from .signal_operations import SignalOperationsSimulator
+from .state_space_analyzer import StateSpaceAnalyzerSimulator
 from .sampling_reconstruction import SamplingReconstructionSimulator
 from .mass_spring_system import MassSpringSimulator
 from .polynomial_multiplication import PolynomialMultiplicationSimulator
@@ -76,6 +77,7 @@ SIMULATOR_REGISTRY = {
     "feedback_convergence": FeedbackConvergenceSimulator,
     "fundamental_modes": FundamentalModesSimulator,
     "signal_operations": SignalOperationsSimulator,
+    "state_space_analyzer": StateSpaceAnalyzerSimulator,
     "sampling_reconstruction": SamplingReconstructionSimulator,
     "mass_spring_system": MassSpringSimulator,
     "polynomial_multiplication": PolynomialMultiplicationSimulator,
@@ -161,6 +163,7 @@ __all__ = [
     "FeedbackConvergenceSimulator",
     "FundamentalModesSimulator",
     "SignalOperationsSimulator",
+    "StateSpaceAnalyzerSimulator",
     "SamplingReconstructionSimulator",
     "MassSpringSimulator",
     "PolynomialMultiplicationSimulator",

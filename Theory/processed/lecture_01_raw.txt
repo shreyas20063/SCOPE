@@ -1,0 +1,918 @@
+
+============================================================
+PAGE 1
+============================================================
+6.003: Signals and Systems 
+Signals and Systems 
+September 8, 2011  
+1
+
+============================================================
+PAGE 2
+============================================================
+6.003: Signals and Systems  
+Today’s handouts: Single package containing 
+• Slides for Lecture 1 
+• Subject Information & Calendar 
+Lecturer: 
+Instructors: 
+TAs: 
+Denny Freeman 
+Elfar Adalsteinsson
+Russ Tedrake
+Phillip Nadeau
+Wenbang Xu 
+Website: mit.edu/6.003 
+Text: Signals and Systems – Oppenheim and Willsky 
+2
+
+============================================================
+PAGE 3
+============================================================
+6.003: Homework  
+Doing the homework is essential for understanding the content. 
+• 
+where subject matter is/isn’t learned 
+• 
+equivalent to “practice” in sports or music 
+Weekly Homework Assignments 
+• 
+Conventional Homework Problems plus 
+• 
+Engineering Design Problems (Python/Matlab) 
+Open Oﬃce Hours ! 
+• 
+Stata Basement 
+• 
+Mondays and Tuesdays, afternoons and early evenings 
+3
+
+============================================================
+PAGE 4
+============================================================
+6.003: Signals and Systems  
+Collaboration Policy 
+•  
+Discussion of concepts in homework is encouraged 
+•  
+Sharing of homework or code is not permitted and will be re­
+ported to the COD 
+Firm Deadlines 
+•  
+Homework must be submitted by the published due date 
+•  
+Each student can submit one late homework assignment without 
+penalty. 
+•  
+Grades on other late assignments will be multiplied by 0.5 (unless 
+excused by an Instructor, Dean, or Medical Oﬃcial). 
+4
+
+============================================================
+PAGE 5
+============================================================
+6.003 At-A-Glance 
+Sep 6
+Registration Day:
+No Classes
+R1: Continuous &
+Discrete Systems
+L1: Signals and
+Systems
+R2: Diﬀerence
+Equations
+Sep 13
+L2: Discrete-Time
+Systems
+HW1
+due
+R3: Feedback,
+Cycles, and Modes
+L3: Feedback,
+Cycles, and Modes
+R4: CT Systems
+Sep 20
+L4: CT Operator
+Representations
+HW2
+due
+Student Holiday:
+No Recitation
+L5: Laplace
+Transforms
+R5: Laplace
+Transforms
+Sep 27
+L6: Z Transforms
+HW3
+due
+R6: Z Transforms
+L7: Transform
+Properties
+R7: Transform
+Properties
+Oct 4
+L8: Convolution;
+Impulse Response
+EX4
+Exam 1
+No Recitation
+L9: Frequency
+Response
+R8: Convolution
+and Freq. Resp.
+Oct 11
+Columbus Day:
+No Lecture
+HW5
+due
+R9: Bode Diagrams L10: Bode
+Diagrams
+R10: Feedback and
+Control
+Oct 18
+L11: DT Feedback
+and Control
+HW6
+due
+R11: CT Feedback
+and Control
+L12: CT Feedback
+and Control
+R12: CT Feedback
+and Control
+Oct 25
+L13: CT Feedback
+and Control
+HW7
+Exam 2
+No Recitation
+L14: CT Fourier
+Series
+R13: CT Fourier
+Series
+Nov 1
+L15: CT Fourier
+Series
+EX8
+due
+R14: CT Fourier
+Series
+L16: CT Fourier
+Transform
+R15: CT Fourier
+Transform
+Nov 8
+L17: CT Fourier
+Transform
+HW9
+due
+R16: DT Fourier
+Transform
+L18: DT Fourier
+Transform
+Veterans Day:
+No Recitation
+Nov 15
+L19: DT Fourier
+Transform
+HW10 Exam 3
+No Recitation
+L20: Fourier
+Relations
+R17: Fourier
+Relations
+Nov 22
+L21: Sampling
+EX11
+due
+R18: Fourier
+Transforms
+Thanksgiving:
+No Lecture
+Thanksgiving:
+No-Recitation
+Nov 29
+L22: Sampling
+HW12
+due
+R19: Modulation
+L23: Modulation
+R20: Modulation
+Dec 6
+L24: Modulation
+EX13
+R21: Review
+L25: Applications
+of 6.003
+Study Period
+Dec 13
+Breakfast with
+Staﬀ
+EX13
+R22: Review
+Study Period:
+No Lecture
+Final Exams:
+No-Recitation
+Dec 20
+ﬁnals
+ﬁnals
+ﬁnals
+ﬁnals
+ﬁnals
+Tuesday
+Wednesday
+Thursday
+Friday
+Final Examinations: No Classes
+5
+
+============================================================
+PAGE 6
+============================================================
+6.003: Signals and Systems  
+Weekly meetings with class representatives 
+• 
+help staﬀ understand student perspective 
+• 
+learn about teaching 
+Tentatively meet on Thursday afternoon 
+Interested? ... 
+6
+
+============================================================
+PAGE 7
+============================================================
+The Signals and Systems Abstraction  
+Describe a system (physical, mathematical, or computational) by 
+the way it transforms an input signal into an output signal. 
+system
+signal
+in
+signal
+out
+7
+
+============================================================
+PAGE 8
+============================================================
+Example: Mass and Spring 
+x(t)
+y(t)
+mass &
+spring
+system
+x(t)
+y(t)
+t
+t
+8
+
+============================================================
+PAGE 9
+============================================================
+Example: Tanks 
+r0(t)
+r1(t)
+r2(t)
+h1(t)
+h2(t)
+tank
+system
+r0(t)
+r2(t)
+t
+t
+9
+
+============================================================
+PAGE 10
+============================================================
+Example: Cell Phone System 
+sound in
+sound out
+cell
+phone
+system
+sound in
+sound out
+t
+t
+10
+
+============================================================
+PAGE 11
+============================================================
+Signals and Systems: Widely Applicable  
+The Signals and Systems approach has broad application: electrical,  
+mechanical, optical, acoustic, biological, ﬁnancial, ... 
+mass &
+spring
+system
+x(t)
+y(t)
+t
+t
+r0(t)
+r1(t)
+r2(t)
+h1(t)
+h2(t)
+tank
+system
+r0(t)
+r2(t)
+t
+t
+cell
+phone
+system
+sound in
+sound out
+t
+t
+11
+
+============================================================
+PAGE 12
+============================================================
+Signals and Systems: Modular  
+The representation does not depend upon the physical substrate. 
+sound in
+sound out
+cell
+phone
+tower
+tower
+cell
+phone
+sound
+in
+E/M
+optic
+ﬁber
+E/M
+sound
+out
+focuses on the ﬂow of information, abstracts away everything else  
+12
+
+============================================================
+PAGE 13
+============================================================
+Signals and Systems: Hierarchical  
+Representations of component systems are easily combined. 
+Example: cascade of component systems 
+cell
+phone
+tower
+tower
+cell
+phone
+sound
+in
+E/M
+optic
+ﬁber
+E/M
+sound
+out
+Composite system 
+cell phone system
+sound
+in
+sound
+out
+Component and composite systems have the same form, and are 
+analyzed with same methods. 
+13
+
+============================================================
+PAGE 14
+============================================================
+Signals and Systems  
+Signals are mathematical functions. 
+• 
+independent variable = time 
+• 
+dependent variable = voltage, ﬂow rate, sound pressure 
+mass &
+spring
+system
+x(t)
+y(t)
+t
+t
+tank
+system
+r0(t)
+r2(t)
+t
+t
+cell
+phone
+system
+sound in
+sound out
+t
+t
+14
+
+============================================================
+PAGE 15
+============================================================
+Signals and Systems  
+continuous “time” (CT) and discrete “time” (DT) 
+t
+x(t)
+0
+2
+4
+6
+8
+10
+n
+x[n]
+0
+2
+4
+6
+8
+10
+Signals from physical systems often functions of continuous time. 
+•  mass and spring 
+•  leaky tank 
+Signals from computation systems often functions of discrete time. 
+•  state machines: given the current input and current state, what 
+is the next output and next state. 
+15
+
+============================================================
+PAGE 16
+============================================================
+Signals and Systems  
+Sampling: converting CT signals to DT  
+t
+x(t)
+0T
+2T
+4T
+6T
+8T 10T
+n
+x[n] = x(nT)
+0
+2
+4
+6
+8
+10
+T = sampling interval 
+Important for computational manipulation of physical data. 
+• 
+digital representations of audio signals (e.g., MP3) 
+• 
+digital representations of images (e.g., JPEG) 
+16
+
+============================================================
+PAGE 17
+============================================================
+Signals and Systems  
+Reconstruction: converting DT signals to CT 
+zero-order hold 
+n
+x[n]
+0
+2
+4
+6
+8
+10
+t
+x(t)
+0
+2T
+4T
+6T
+8T 10T
+T = sampling interval 
+commonly used in audio output devices such as CD players  
+17
+
+============================================================
+PAGE 18
+============================================================
+Signals and Systems  
+Reconstruction: converting DT signals to CT 
+piecewise linear 
+n
+x[n]
+0
+2
+4
+6
+8
+10
+t
+x(t)
+0
+2T
+4T
+6T
+8T 10T
+T = sampling interval 
+commonly used in rendering images  
+18
+
+============================================================
+PAGE 19
+============================================================
+Check Yourself  
+Computer generated speech (by Robert Donovan) 
+t
+f(t)
+Listen to the following four manipulated signals: 
+f1(t), f2(t), f3(t), f4(t). 
+How many of the following relations are true? 
+• f1(t) = f(2t) 
+• f2(t) = −f(t) 
+• f3(t) = f(2t) 
+• f4(t) = 1 
+3 f(t) 
+19
+
+============================================================
+PAGE 20
+============================================================
+Check Yourself  
+Computer generated speech (by Robert Donovan) 
+t
+f(t)
+Listen to the following four manipulated signals: 
+f1(t), f2(t), f3(t), f4(t). 
+How many of the following relations are true? 
+2 
+• f1(t) = f(2t) 
+√ 
+• f2(t) = −f(t) 
+X 
+• f3(t) = f(2t) 
+X 
+• f4(t) = 1 
+3 f(t) 
+√ 
+20
+
+============================================================
+PAGE 21
+============================================================
+−250
+0
+250
+−250
+0
+250
+y
+x
+f1(x, y)=f(2x, y) ?
+−250
+0
+250
+−250
+0
+250
+y
+x
+f2(x, y)=f(2x−250, y) ?
+−250
+0
+250
+−250
+0
+250
+y
+x
+f3(x, y)=f(−x−250, y) ?
+−250
+0
+250
+−250
+0
+250
+y
+x
+f(x, y)
+How many images match the expressions beneath them?
+Check Yourself  
+21
+
+============================================================
+PAGE 22
+============================================================
+−250
+0
+250
+−250
+0
+250
+y
+x
+f(x, y)
+−250
+0
+250
+−250
+0
+250
+y
+x
+f1(x, y) = f(2x, y) ?
+−250
+0
+250
+−250
+0
+250
+y
+x
+f2(x, y) = f(2x−250, y) ?
+−250
+0
+250
+−250
+0
+250
+y
+x
+f3(x, y) = f(−x−250, y) ?
+Check Yourself  
+√ 
+x = 0 
+→ f1(0, y) = f(0, y) 
+x = 250 → f1(250, y) = f(500, y) 
+X 
+√ 
+x = 0 
+→ f2(0, y) = f(−250, y) 
+√ 
+x = 250 → f2(250, y) = f(250, y) 
+x = 0 
+→ f3(0, y) = f(−250, y) 
+X 
+x = 250 → f3(250, y) = f(−500, y) 
+X 
+22
+
+============================================================
+PAGE 23
+============================================================
+−250
+0
+250
+−250
+0
+250
+y
+x
+f1(x, y)=f(2x, y) ?
+−250
+0
+250
+−250
+0
+250
+y
+x
+f2(x, y)=f(2x−250, y) ?
+−250
+0
+250
+−250
+0
+250
+y
+x
+f3(x, y)=f(−x−250, y) ?
+−250
+0
+250
+−250
+0
+250
+y
+x
+f(x, y)
+How many images match the expressions beneath them?
+Check Yourself  
+23
+
+============================================================
+PAGE 24
+============================================================
+The Signals and Systems Abstraction  
+Describe a system (physical, mathematical, or computational) by 
+the way it transforms an input signal into an output signal. 
+system
+signal
+in
+signal
+out
+24
+
+============================================================
+PAGE 25
+============================================================
+Example System: Leaky Tank  
+Formulate a mathematical description of this system. 
+What determines the leak rate? 
+r0(t)
+r1(t)
+h1(t)
+25
+
+============================================================
+PAGE 26
+============================================================
+Check Yourself  
+The holes in each of the following tanks have equal size. 
+Which tank has the largest leak rate r1(t)? 
+3.
+4.
+1.
+2.
+26
+
+============================================================
+PAGE 27
+============================================================
+Check Yourself  
+The holes in each of the following tanks have equal size. 
+Which tank has the largest leak rate r1(t)? 
+2 
+3.
+4.
+1.
+2.
+27
+
+============================================================
+PAGE 28
+============================================================
+Example System: Leaky Tank  
+Formulate a mathematical description of this system. 
+r0(t)
+r1(t)
+h1(t)
+Assume linear leaking: 
+r1(t) ∝ h1(t) 
+What determines the height h1(t)? 
+28
+
+============================================================
+PAGE 29
+============================================================
+Example System: Leaky Tank  
+Formulate a mathematical description of this system. 
+r0(t)
+r1(t)
+h1(t)
+Assume linear leaking:  
+r1(t) ∝ h1(t) 
+dh1(t)
+Assume water is conserved: 
+∝ r0(t) − r1(t)
+dt 
+dr1(t)
+Solve:  
+∝ r0(t) − r1(t)
+dt 
+29
+
+============================================================
+PAGE 30
+============================================================
+Check Yourself  
+What are the dimensions of constant of proportionality C? 
+dr1(t) 
+dt 
+= C 
+ 
+r0(t) − r1(t) 
+ 
+30
+
+============================================================
+PAGE 31
+============================================================
+
+
+Check Yourself  
+What are the dimensions of constant of proportionality C? 
+inverse time (to match dimensions of dt) 
+dr1(t) 
+dt 
+= C r0(t) − r1(t) 
+31
+
+
+
+============================================================
+PAGE 32
+============================================================
+Analysis of the Leaky Tank  
+Call the constant of proportionality 1/τ.  
+Then τ is called the time constant of the system.  
+dr1(t) 
+r0(t) 
+r1(t)
+= 
+− 
+dt 
+τ
+τ 
+32
+
+============================================================
+PAGE 33
+============================================================
+Check Yourself  
+Which tank has the largest time constant τ? 
+3.
+4.
+1.
+2.
+33
+
+============================================================
+PAGE 34
+============================================================
+Check Yourself  
+Which tank has the largest time constant τ? 
+4 
+3.
+4.
+1.
+2.
+34
+
+============================================================
+PAGE 35
+============================================================
+Analysis of the Leaky Tank  
+Call the constant of proportionality 1/τ.  
+Then τ is called the time constant of the system.  
+dr1(t) 
+r0(t) 
+r1(t)
+= 
+− 
+dt 
+τ
+τ 
+Assume that the tank is initially empty, and then water enters at a 
+constant rate r0(t) = 1. Determine the output rate r1(t). 
+time (seconds)
+r1(t)
+1
+2
+3
+Explain the shape of this curve mathematically. 
+Explain the shape of this curve physically. 
+35
+
+============================================================
+PAGE 36
+============================================================
+Leaky Tanks and Capacitors  
+Although derived for a leaky tank, this sort of model can be used to 
+represent a variety of physical systems. 
+Water accumulates in a leaky tank. 
+r0(t)
+r1(t)
+h1(t)
+Charge accumulates in a capacitor. 
+C
+v
++
+−
+ii
+io
+dv 
+dt = ii − io 
+C 
+∝ ii − io 
+analogous to 
+dh 
+dt ∝ r0 − r1 
+36
+
+============================================================
+PAGE 37
+============================================================
+MIT OpenCourseWare 
+http://ocw.mit.edu 
+6.003 Signals and Systems 
+Fall 2011 
+For information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms.

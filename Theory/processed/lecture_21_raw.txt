@@ -1,0 +1,1263 @@
+
+============================================================
+PAGE 1
+============================================================
+6.003: Signals and Systems 
+Sampling 
+November 22, 2011  
+1
+
+============================================================
+PAGE 2
+============================================================
+Sampling  
+Conversion of a continuous-time signal to discrete time.  
+t
+x(t)
+0
+2
+4
+6
+8
+10
+n
+x[n]
+0
+2
+4
+6
+8
+10
+We have used sampling a number of times before.  
+Today: new insights from Fourier representations.  
+2
+
+============================================================
+PAGE 3
+============================================================
+Sampling  
+Sampling allows the use of modern digital electronics to process, 
+record, transmit, store, and retrieve CT signals. 
+• 
+audio: MP3, CD, cell phone 
+• 
+pictures: digital camera, printer 
+• 
+video: DVD 
+• 
+everything on the web 
+3
+
+============================================================
+PAGE 4
+============================================================
+Sampling  
+Sampling is pervasive.  
+Example: digital cameras record sampled images.  
+x
+y
+I(x, y)
+m
+n
+I[m, n]
+4
+
+============================================================
+PAGE 5
+============================================================
+Sampling  
+Photographs in newsprint are “half-tone” images. 
+Each point is 
+black or white and the average conveys brightness. 
+5
+
+============================================================
+PAGE 6
+============================================================
+Sampling  
+Zoom in to see the binary pattern.  
+6
+
+============================================================
+PAGE 7
+============================================================
+Sampling  
+Even high-quality photographic paper records discrete images. When 
+AgBr crystals (0.04 − 1.5µm) are exposed to light, some of the Ag 
+is reduced to metal. During “development” the exposed grains are 
+completely reduced to metal and unexposed grains are removed. 
+7
+Images of discrete grains in photographic paper removed due to copyright restrictions.
+
+============================================================
+PAGE 8
+============================================================
+Sampling  
+Every image that we see is sampled by the retina, which contains ≈ 
+100 million rods and 6 million cones (average spacing ≈ 3µm) which 
+act as discrete sensors. 
+8
+http://webvision.med.utah.edu/imageswv/sagschem.jpeg
+Courtesy of Helga Kolb, Eduardo Fernandez, and Ralph Nelson. Used with permission.
+
+============================================================
+PAGE 9
+============================================================
+Check Yourself  
+Your retina is sampling this slide, which is composed of 1024×768 
+pixels. 
+Is the spatial sampling done by your rods and cones ade­
+quate to resolve individual pixels in this slide? 
+9
+
+============================================================
+PAGE 10
+============================================================
+Check Yourself  
+The spacing of rods and cones limits the angular resolution of your 
+retina to approximately 
+rod/cone spacing 
+3 × 10−6 m 
+θeye = 
+≈
+≈ 10−4 radians 
+diameter of eye 
+3 cm 
+The angle between pixels viewed from the center of the classroom 
+is approximately 
+screen size / 1024 
+3 m/1024 
+≈
+≈ 3 × 10−4 radians
+θpixels = distance to screen 
+10 m 
+Light from a single pixel falls upon multiple rods and cones. 
+10
+
+============================================================
+PAGE 11
+============================================================
+Sampling  
+How does sampling aﬀect the information contained in a signal?  
+11
+
+============================================================
+PAGE 12
+============================================================
+Sampling  
+We would like to sample in a way that preserves information, which 
+may not seem possible. 
+t
+x(t)
+Information between samples is lost. Therefore, the same samples 
+can represent multiple signals. 
+t
+cos 7π
+3 n?
+cos π
+3 n?
+12
+
+============================================================
+PAGE 13
+============================================================
+Sampling and Reconstruction  
+To determine the eﬀect of sampling, compare the original signal x(t) 
+to the signal xp(t) that is reconstructed from the samples x[n]. 
+Uniform sampling (sampling interval T ). 
+t
+n
+x[n] = x(nT)
+Impulse reconstruction. 
+t
+n
+xp(t) =
+X
+n
+x[n]δ(t −nT)
+13
+
+============================================================
+PAGE 14
+============================================================
+Reconstruction  
+Impulse reconstruction maps samples x[n] (DT) to xp(t) (CT). 
+∞
+xp(t) = 
+x[n]δ(t − nT ) 
+n=−∞ 
+0 
+∞
+= 
+x(nT )δ(t − nT ) 
+n=−∞ 
+0 
+∞
+= 
+x(t)δ(t − nT ) 
+n=−∞ 
+0 
+∞
+= x(t) 
+δ(t − nT ) 
+0 
+n=−∞ ,,
+≡ p(t) 
+-
+"  
+Resulting reconstruction xp(t) is equivalent to multiplying x(t) by 
+impulse train. 
+14
+
+============================================================
+PAGE 15
+============================================================
+Sampling  
+Multiplication by an impulse train in time is equivalent to convolution 
+by an impulse train in frequency. 
+→ generates multiple copies of original frequency content. 
+ω
+X(jω)
+−W W
+1
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+ωs= 2π
+T
+1
+T
+15
+
+============================================================
+PAGE 16
+============================================================
+Check Yourself  
+What is the relation between the DTFT of x[n] = x(nT ) 
+and the CTFT of xp(t) =  x[n]δ(t − nT ) for X(jω) below. 
+ω
+X(jω)
+−W W
+1
+1. Xp(jω) = X(e jΩ)|Ω=ω 
+2. Xp(jω) = X(e jΩ)|Ω= ω 
+T 
+3. Xp(jω) = X(e jΩ)|Ω=ωT 
+4. none of the above 
+16
+
+============================================================
+PAGE 17
+============================================================
+Check Yourself  
+DTFT  
+∞
+x[n]e 
+n=−∞ 
+(t) 
+0 
+X(e jΩ) = 
+CTFT of xp
+−jΩn 
+∞
+−jωtdt
+Xp(jω) =
+x[n]δ(t − nT )e 
+−∞ n=−∞ 
+0
+ ∞ 
+ ∞
+∞
+−jωtdt
+= 
+x[n]
+δ(t − nT )e 
+−∞
+n=−∞ 
+0 
+∞
+−jωnT 
+= 
+x[n]e 
+n=−∞ 
+0 
+= X(ejΩ) 
+Ω=ωT 
+17
+
+============================================================
+PAGE 18
+============================================================
+Check Yourself  
+Xp(jω) = X(e jΩ) 
+ω
+X(jω)
+−W W
+1
+Ω=ωT 
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+ωs= 2π
+T
+1
+T
+Ω
+X(ejΩ) = Xp(jω)
+
+ω= Ω
+T
+−2π
+2π
+1
+T
+18
+
+============================================================
+PAGE 19
+============================================================
+Check Yourself  
+What is the relation between the DTFT of x[n] = x(nT ) 
+and the CTFT of xp(t) = 
+x[n]δ(t − nT ) for X(jω) below. 
+ω
+X(jω)
+−W W
+1
+1. Xp(jω) = X(e jΩ)|Ω=ω 
+2. Xp(jω) = X(e jΩ)|Ω= ω 
+T 
+3. Xp(jω) = X(e jΩ)|Ω=ωT 
+4. none of the above 
+19
+
+============================================================
+PAGE 20
+============================================================
+Sampling  
+The high frequency copies can be removed with a low-pass ﬁlter 
+(also multiply by T to undo the amplitude scaling). 
+Impulse reconstruction followed by ideal low-pass ﬁltering is called 
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+1
+T
+−ωs
+2
+ωs
+2
+T
+bandlimited reconstruction. 
+20
+
+============================================================
+PAGE 21
+============================================================
+The Sampling Theorem  
+If signal is bandlimited → sample without loosing information. 
+If x(t) is bandlimited so that 
+X(jω) = 0 for |ω| > ωm 
+then x(t) is uniquely determined by its samples x(nT ) if 
+2π 
+ωs = 
+> 2ωm. 
+T 
+The minimum sampling frequency, 2ωm, is called the “Nyquist rate.” 
+21
+
+============================================================
+PAGE 22
+============================================================
+−ωs
+2
+ωs
+2
+ω
+T
+x[n]
+xr(t)
+Impulse
+Reconstruction
+xp(t) =
+P x[n]δ(t −nT)
+LPF
+Summary  
+Three important ideas. 
+Sampling 
+x(t) → x[n] = x(nT ) 
+ 
+ 
+2π 
+Bandlimited Reconstruction
+ωs = T
+ωs
+Sampling Theorem: If X(jω) = 0 ∀|ω| > 
+then xr(t) = x(t).
+2 
+22
+
+============================================================
+PAGE 23
+============================================================
+Check Yourself  
+We can hear sounds with frequency components between 20 Hz 
+and 20 kHz. 
+What is the maximum sampling interval T that can be used 
+to sample a signal without loss of audible information? 
+1. 100 µs 
+2. 50 µs 
+3. 25 µs 
+4. 100π µs 
+5. 50π µs 
+6. 25π µs 
+23
+
+============================================================
+PAGE 24
+============================================================
+Check Yourself  
+ωs 
+2π
+2πfm = ωm < 
+= 
+2
+2T 
+1
+1 
+T < 
+= 
+= 25 µs
+2fm 
+2 × 20 kHz 
+24
+
+============================================================
+PAGE 25
+============================================================
+Check Yourself  
+We can hear sounds with frequency components between 20 Hz 
+and 20 kHz. 
+What is the maximum sampling interval T that can be used 
+to sample a signal without loss of audible information? 
+1. 100 µs 
+2. 50 µs 
+3. 25 µs 
+4. 100π µs 
+5. 50π µs 
+6. 25π µs 
+25
+
+============================================================
+PAGE 26
+============================================================
+CT Model of Sampling and Reconstruction  
+Sampling followed by bandlimited reconstruction is equivalent to 
+multiplying by an impulse train and then low-pass ﬁltering. 
+−ωs
+2
+ωs
+2
+ω
+T
+×
+x(t)
+p(t)
+xr(t)
+xp(t)
+LPF
+t
+p(t) = ”sampling function”
+0 T
+26
+
+============================================================
+PAGE 27
+============================================================
+Aliasing  
+What happens if X contains frequencies |ω| > π 
+T ? 
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+27
+
+============================================================
+PAGE 28
+============================================================
+Aliasing  
+What happens if X contains frequencies |ω| > π 
+T ? 
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+28
+
+============================================================
+PAGE 29
+============================================================
+Aliasing  
+What happens if X contains frequencies |ω| > π 
+T ? 
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+29
+
+============================================================
+PAGE 30
+============================================================
+Aliasing  
+What happens if X contains frequencies |ω| > π 
+T ? 
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+30
+
+============================================================
+PAGE 31
+============================================================
+Aliasing  
+The eﬀect of aliasing is to wrap frequencies.  
+ω
+−ωs
+2
+ωs
+2
+1
+T
+ω
+ω
+X(jω)
+Input frequency
+Output frequency
+ωs
+2
+ωs
+2
+31
+
+============================================================
+PAGE 32
+============================================================
+Aliasing  
+The eﬀect of aliasing is to wrap frequencies.  
+ω
+−ωs
+2
+ωs
+2
+1
+T
+ω
+ω
+X(jω)
+Input frequency
+Output frequency
+ωs
+2
+ωs
+2
+32
+
+============================================================
+PAGE 33
+============================================================
+Aliasing  
+The eﬀect of aliasing is to wrap frequencies.  
+ω
+−ωs
+2
+ωs
+2
+1
+T
+ω
+ω
+X(jω)
+Input frequency
+Output frequency
+ωs
+2
+ωs
+2
+33
+
+============================================================
+PAGE 34
+============================================================
+Aliasing  
+The eﬀect of aliasing is to wrap frequencies.  
+ω
+−ωs
+2
+ωs
+2
+1
+T
+ω
+ω
+X(jω)
+Input frequency
+Output frequency
+ωs
+2
+ωs
+2
+34
+
+============================================================
+PAGE 35
+============================================================
+Check Yourself  
+A periodic signal, period of 0.1 ms, is sampled at 44 kHz. 
+To what frequency does the third harmonic alias? 
+1. 18 kHz 
+2. 16 kHz 
+3. 14 kHz 
+4. 
+8 kHz 
+5. 
+6 kHz 
+0. none of the above 
+35
+
+============================================================
+PAGE 36
+============================================================
+Check Yourself 
+Input frequency (kHz)
+Output frequency (kHz)
+22 44 66 88
+22
+44
+88
+36
+
+============================================================
+PAGE 37
+============================================================
+Check Yourself 
+Input frequency (kHz)
+Output frequency (kHz)
+22 44 66 88
+22
+44
+88
+Harmonic 
+Alias 
+10 kHz 
+10 kHz 
+20 kHz 
+20 kHz 
+30 kHz 
+44 kHz-30 kHz =14 kHz 
+37
+
+============================================================
+PAGE 38
+============================================================
+Check Yourself  
+A periodic signal, period of 0.1 ms, is sampled at 44 kHz. 
+To what frequency does the third harmonic alias? 
+3 
+1. 18 kHz 
+2. 16 kHz 
+3. 14 kHz 
+4. 
+8 kHz 
+5. 
+6 kHz 
+0. none of the above 
+38
+
+============================================================
+PAGE 39
+============================================================
+Check Yourself 
+Input frequency (kHz)
+Output frequency (kHz)
+22 44 66 88
+22
+44
+88
+Harmonic 
+Alias 
+10 kHz 
+10 kHz 
+20 kHz 
+20 kHz 
+30 kHz 
+44 kHz-30 kHz =14 kHz 
+40 kHz 
+44 kHz-40 kHz = 4 kHz 
+50 kHz 
+50 kHz-44 kHz = 6 kHz 
+60 kHz 
+60 kHz-44 kHz =16 kHz 
+70 kHz 
+88 kHz-70 kHz =18 kHz 
+80 kHz 
+88 kHz-80 kHz = 8 kHz 
+39
+
+============================================================
+PAGE 40
+============================================================
+Check Yourself  
+Scrambled harmonics.  
+ω
+ω
+40
+
+============================================================
+PAGE 41
+============================================================
+Aliasing  
+High frequency components of complex signals also wrap.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+1
+41
+
+============================================================
+PAGE 42
+============================================================
+Aliasing  
+High frequency components of complex signals also wrap.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+1
+42
+
+============================================================
+PAGE 43
+============================================================
+Aliasing  
+High frequency components of complex signals also wrap.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+1
+43
+
+============================================================
+PAGE 44
+============================================================
+Aliasing  
+High frequency components of complex signals also wrap.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+1
+44
+
+============================================================
+PAGE 45
+============================================================
+Aliasing  
+Aliasing increases as the sampling rate decreases.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+1
+45
+
+============================================================
+PAGE 46
+============================================================
+Aliasing  
+Aliasing increases as the sampling rate decreases.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+1
+46
+
+============================================================
+PAGE 47
+============================================================
+Aliasing  
+Aliasing increases as the sampling rate decreases.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+1
+47
+
+============================================================
+PAGE 48
+============================================================
+Aliasing  
+Aliasing increases as the sampling rate decreases.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+1
+48
+
+============================================================
+PAGE 49
+============================================================
+Aliasing Demonstration  
+Sampling Music  
+2π 
+ωs = 
+= 2πfs
+T 
+• fs = 44.1 kHz 
+• fs = 22 kHz 
+• fs = 11 kHz 
+• fs = 5.5 kHz 
+• fs = 2.8 kHz 
+J.S. Bach, Sonata No. 1 in G minor Mvmt. IV. Presto 
+Nathan Milstein, violin 
+49
+
+============================================================
+PAGE 50
+============================================================
+Aliasing  
+Aliasing increases as the sampling rate decreases.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+1
+50
+
+============================================================
+PAGE 51
+============================================================
+Aliasing  
+Aliasing increases as the sampling rate decreases.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+1
+51
+
+============================================================
+PAGE 52
+============================================================
+Aliasing  
+Aliasing increases as the sampling rate decreases.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+1
+52
+
+============================================================
+PAGE 53
+============================================================
+Aliasing  
+Aliasing increases as the sampling rate decreases.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+1
+53
+
+============================================================
+PAGE 54
+============================================================
+Anti-Aliasing Filter  
+To avoid aliasing, remove frequency components that alias before 
+sampling. 
+−ωs
+2
+ωs
+2
+ω
+1
+×
+−ωs
+2
+ωs
+2
+ω
+T
+x(t)
+p(t)
+xr(t)
+xp(t)
+Reconstruction
+Filter
+Anti-aliasing
+Filter
+54
+
+============================================================
+PAGE 55
+============================================================
+Aliasing  
+Aliasing increases as the sampling rate decreases.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+X(jω)
+1
+55
+
+============================================================
+PAGE 56
+============================================================
+Aliasing  
+Aliasing increases as the sampling rate decreases.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+Anti-aliased X(jω)
+56
+
+============================================================
+PAGE 57
+============================================================
+Aliasing  
+Aliasing increases as the sampling rate decreases.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+Anti-aliased X(jω)
+57
+
+============================================================
+PAGE 58
+============================================================
+Aliasing  
+Aliasing increases as the sampling rate decreases.  
+ω
+Xp(jω) = 1
+2π (X(j · ) ∗P(j · ))(ω)
+−ωs
+2
+ωs
+2
+1
+T
+ω
+P(jω)
+−ωs
+ωs
+2π
+T
+ω
+Anti-aliased X(jω)
+58
+
+============================================================
+PAGE 59
+============================================================
+Anti-Aliasing Demonstration  
+Sampling Music  
+2π 
+ωs = 
+= 2πfs
+T 
+• fs = 11 kHz without anti-aliasing 
+• fs = 11 kHz with anti-aliasing 
+• fs = 5.5 kHz without anti-aliasing 
+• fs = 5.5 kHz with anti-aliasing 
+• fs = 2.8 kHz without anti-aliasing 
+• fs = 2.8 kHz with anti-aliasing 
+J.S. Bach, Sonata No. 1 in G minor Mvmt. IV. Presto 
+Nathan Milstein, violin 
+59
+
+============================================================
+PAGE 60
+============================================================
+Sampling: Summary  
+Eﬀects of sampling are easy to visualize with Fourier representations. 
+Signals that are bandlimited in frequency (e.g., −W <ω <W ) can be 
+sampled without loss of information. 
+The minimum sampling frequency for sampling without loss of in­
+formation is called the Nyquist rate. The Nyquist rate is twice the 
+highest frequency contained in a bandlimited signal. 
+Sampling at frequencies below the Nyquist rate causes aliasing. 
+Aliasing can be eliminated by pre-ﬁltering to remove frequency com­
+ponents that would otherwise alias. 
+60
+
+============================================================
+PAGE 61
+============================================================
+MIT OpenCourseWare
+http://ocw.mit.edu
+6.003 Signals and Systems
+Fall 2011
+For information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms.

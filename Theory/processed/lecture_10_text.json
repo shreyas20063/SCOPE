@@ -1,0 +1,235 @@
+{
+  "lecture_number": 10,
+  "source_file": "05005fd58267b483b50d145b8e23e085_MIT6_003F11_lec10.pdf",
+  "page_count": 57,
+  "pages": [
+    {
+      "page": 1,
+      "text": "6.003: Signals and Systems \nFeedback and Control \nOctober 13, 2011  \n1"
+    },
+    {
+      "page": 2,
+      "text": "2\nCourtesy of Jason Dorfman MIT / CSAIL. Used with permission."
+    },
+    {
+      "page": 3,
+      "text": "Example: Perching  \nCan we make a \ufb01xed-wing UAV land on a perch like a bird?  \n3"
+    },
+    {
+      "page": 4,
+      "text": "The \u201cPerching\u201d Problem  \n4\nCourtesy of Leon van Dommelen and Szu-Chuan Wang. Used with permission.\nPhoto from Naval Historical Center Aircraft Data Series.\nPhoto of a cardinal landing on a branch removed due to copyright restrictions."
+    },
+    {
+      "page": 5,
+      "text": "Dimensionless Analysis  \n\u2022 Bird or plane... \n\u2022 with mass m, wing area S, operating in a \ufb02uid with density \u03c1 \n\u2022 which requires a distance x to slow from V0 to Vf \n\u2022 Distance-averaged drag coef\ufb01cient, CD: \n2m \n\uffff V0 \n\uffff\n\uffffCD\uffff = \nln \n\u03c1Sx \nVf \n\u2022 A few (very preliminary) reference points: \nVehicle \nAverage CD \nBoeing 747 \n0.16 \nX-31 \n0.3 \nCornell Perching Plane \n0.25 \nCommon Pigeon \n10 \n5\nPhoto of the Boeing 747-400ER removed due to copyright restrictions.\nU.S. Navy photo by James Darcy.\nPhotos of Cornell perching plane and landing pigeon removed due to copyright restrictions."
+    },
+    {
+      "page": 6,
+      "text": "6\nImage removed due to copyright restrictions. Please see SlowMoHighSpeed. \"Photron SA2 Camera - Eagle Owl in Flight.\"\nOctober 27, 2008. YouTube. Accessed September 25, 2012. http://www.youtube.com/watch?v=LA6XSrM0V_0"
+    },
+    {
+      "page": 7,
+      "text": "Experiment Design  \n\u2022 Glider (no propellor) \n\u2022 Flat plate wings \n\u2022 Dihedral (passive roll stability)  \n\u2022 Offboard sensing and control  \n7"
+    },
+    {
+      "page": 8,
+      "text": "System Identi\ufb01cation  \n\u2022 Nonlinear rigid-body vehicle model \n\u2022 Linear actuator model (+ saturations, delay)  \n\u2022 Real \ufb02ight data (no wind tunnel) \n8"
+    },
+    {
+      "page": 9,
+      "text": "System Identi\ufb01cation  \nLift Coef\ufb01cient \nDrag Coef\ufb01cient \n1 \n1.5 \nGlider Data \nFlat Plate Theory \n \n3 \n3.5 \nGlider Data \nFlat Plate Theory \n \n2.5 \n0.5 \n2 \nCl\n0  \nCd\n1.5  \n1  \n\u22120.5 \n0.5 \n\u22121 \n0 \n\u221220\n\u22121.5  \n0 \n20 \n40 \n60 \n80 \nAngle of Attack \n100 \n120 \n140 \n160 \n\u221220\n\u22120.5  \n0 \n20 \n40 \n60 \n80 \nAngle of Attack \n100 \n120 \n140 \n160 \n9"
+    },
+    {
+      "page": 10,
+      "text": "A Dynamic Model  \n(x, z)\nm, I \n!\nF \nF \ng \nw \ne \nl \nlw \nel\n\u2022 Planar dynamics \n\u2022 Aerodynamics \ufb01t from data \n\u2022 State: x = [x, y, \u03b8, \u03c6, x,\u02d9 y,\u02d9 \u03b8\u02d9]\n\u2022 Actuator: u = \u03c6\u02d9\n10"
+    },
+    {
+      "page": 11,
+      "text": "Perching Results  \n\u2022 Enters motion capture @ 6m/s \n\u2022 Perch in < 3.5m away \nRequires separation!  \n\u2022 Entire trajectory < 1s \n11"
+    },
+    {
+      "page": 12,
+      "text": "Flow visualization  \n12\nCourtesy of Jason Dorfman MIT / CSAIL. Used with permission."
+    },
+    {
+      "page": 13,
+      "text": "Dimensionless Analysis  \nVehicle \nAverage CD \nBoeing 747 \n0.16 \nX-31 \n0.3 \nCornell Perching Plane \n0.25 \nCommon Pigeon \n10 \nOur glider \n1.1 \nCobra maneuver (Mig) \n0.9 \n13"
+    },
+    {
+      "page": 14,
+      "text": "Feedback is essential...  \n\u2022  to compensate for initial condition errors, disturbances, and imperfect \nmodel \n\u2022  agile airplanes are open loop unstable \nopen loop  \nfeedback  \n14"
+    },
+    {
+      "page": 15,
+      "text": "Today\u2019s goal  \nUse systems theory to gain insight into how to control a system.  \n15"
+    },
+    {
+      "page": 16,
+      "text": "Example: wallFinder System  \nApproach a wall, stopping a desired distance di in front of it. \ndi = desiredFront\ndo = distanceFront\nt\ndo\nK = \u22120.5\nt\ndo\nK = \u22121\nt\ndo\nK = \u22122\nt\ndo\nK = \u22128\nWhat causes these di\ufb00erent types of responses?  \n16"
+    },
+    {
+      "page": 17,
+      "text": "Structure of a Control Problem  \n(Simple) Control systems have three parts.  \nThe plant is the system to be controlled.  \nThe sensor measures the output of the plant.  \nThe controller speci\ufb01es a command C to the plant based on the  \ndi\ufb00erence between the input X and sensor output S.  \n+\n\u2212\nX\nY\nE\nS\nC\ncontroller\nplant\nsensor\n17"
+    },
+    {
+      "page": 18,
+      "text": "Analysis of wallFinder System \nCast wallFinder problem into control structure. \n+\n\u2212\nX\nY\nE\nS\nC\ncontroller\nplant\nsensor\ndi = desiredFront\ndo = distanceFront\nproportional controller: v[n] = Ke[n] = K\n \ndi[n] \u2212 ds[n]\n \nlocomotion: do[n] = do[n \u2212 1] \u2212 Tv[n \u2212 1] \nsensor with no delay: ds[n] = do[n] \n18"
+    },
+    {
+      "page": 19,
+      "text": "Analysis of wallFinder System: Block Diagram  \nVisualize as block diagram. \ndi = desiredFront\ndo = distanceFront\nproportional controller: v[n] = Ke[n] = K di[n] \u2212 ds[n]  \nlocomotion: do[n] = do[n \u2212 1] \u2212 Tv[n \u2212 1]  \nsensor with no delay: ds[n] = do[n] \n+\nK\n\u2212T\n+\nR\nDi\nDo\n\u2212\nV\n19\n\u0000\u0001"
+    },
+    {
+      "page": 20,
+      "text": "Analysis of wallFinder System: System Function  \nSolve. \ndi = desiredFront\ndo = distanceFront\n+\nK\n\u2212T\n+\nR\nDi\nDo\n\u2212\nV\n\u2212KT R \nDo \n1 \u2212R \n\u2212KT R\n\u2212KT R \n=\n= \n= \nDi \n1 \u2212R \u2212 KT R \n1 \u2212 (1 + KT )R\n1 + \u2212KT R \n1 \u2212R \n20"
+    },
+    {
+      "page": 21,
+      "text": "Analysis of wallFinder System: Poles  \nThe system function contains a single pole at z = 1 + KT . \nDo \n\u2212KT R \n= \nDi \n1 \u2212 (1 + KT )R \nUnit-sample response for KT = \u22120.2: \n0\nn\nh[n]\n0.2\nUnit-step response s[n] for KT = \u22120.2: \n1\n0\nn\nWhat determines the speed of the response? Could it be faster? \n21"
+    },
+    {
+      "page": 22,
+      "text": "Check Yourself  \nFind KT for fastest convergence of unit-sample response. \nDo \nDi \n= \n\u2212KT R \n1 \u2212 (1 + KT )R \n1. KT = \u22122 \n2. KT = \u22121 \n3. KT = 0 \n4. KT = 1 \n5. KT = 2 \n0. none of the above \n22"
+    },
+    {
+      "page": 23,
+      "text": "Check Yourself  \nFind KT for fastest convergence of unit-sample response. \nDo \n\u2212KT R \n= \nDi \n1 \u2212 (1 + KT )R \nIf KT = \u22121 then the pole is at z = 0. \nDo \n\u2212KT R \n=\n= R \nDi \n1 \u2212 (1 + KT )R \nUnit-sample response has a single non-zero output sample, at n = 1. \n23"
+    },
+    {
+      "page": 24,
+      "text": "Analysis of wallFinder System: Poles  \nThe poles of the system function provide insight for choosing K. \nDo \n\u2212KT R \n(1 \u2212 po)R \nDi \n= 1 \u2212 (1 + KT )R = 1 \u2212 poR ; \np0 = 1 + KT \n1 Re z\nIm z\n0 < p0 < 1\n\u22121 < KT < 0\nmonotonic\nconverging\n1 Re z\nIm z\n\u22121 < p0 < 0\n\u22122 < KT < \u22121\nalternating\nconverging\n1 Re z\nIm z\np0 < \u22121\nKT < \u22122\nalternating\ndiverging\n24"
+    },
+    {
+      "page": 25,
+      "text": "Check Yourself  \nFind KT for fastest convergence of unit-sample response. \nDo \nDi \n= \n\u2212KT R \n1 \u2212 (1 + KT )R \n1. KT = \u22122 \n2. KT = \u22121 \n3. KT = 0 \n4. KT = 1 \n5. KT = 2 \n0. none of the above \n25"
+    },
+    {
+      "page": 26,
+      "text": "Analysis of wallFinder System  \nThe optimum gain K moves robot to desired position in one step. \ndi = desiredFront=1 m\ndo = distanceFront=2 m\nKT = \u22121  \n1\n1  \nK = \u2212 \n= \u2212 \n= \u221210 \nT \n1/10 \nv[n] = K di[n] \u2212 do[n] = \u221210 1 \u2212 2 = 10 m/s \nexactly the right speed to get there in one step! \n26\n\u0000\u0001\n\u0000\u0001"
+    },
+    {
+      "page": 27,
+      "text": "Analyzing wallFinder: Space-Time Diagram  \nThe optimum gain K moves robot to desired position in one step.  \ndi = desiredFront\ndo = distanceFront\nposition\ntime\nv = 10\n27"
+    },
+    {
+      "page": 28,
+      "text": "Analyzing wallFinder: Space-Time Diagram  \nThe optimum gain K moves robot to desired position in one step.  \ndi = desiredFront\ndo = distanceFront\nposition\ntime\nv = 10\nv = 0\n28"
+    },
+    {
+      "page": 29,
+      "text": "Analyzing wallFinder: Space-Time Diagram  \nThe optimum gain K moves robot to desired position in one step.  \ndi = desiredFront\ndo = distanceFront\nposition\ntime\nv = 10\nv = 0\nv = 0\nv = 0\nv = 0\nv = 0\nv = 0\n29"
+    },
+    {
+      "page": 30,
+      "text": "Analysis of wallFinder System: Adding Sensor Delay  \nAdding delay tends to destabilize control systems. \ndi = desiredFront\ndo = distanceFront\nproportional controller: v[n] = Ke[n] = K di[n] \u2212 ds[n]  \nlocomotion: do[n] = do[n \u2212 1] \u2212 Tv[n \u2212 1]  \nsensor with delay: ds[n] = do[n \u2212 1]  \n30\n\u0000\u0001"
+    },
+    {
+      "page": 31,
+      "text": "Analysis of wallFinder System: Adding Sensor Delay  \nAdding delay tends to destabilize control systems. \ndi = desiredFront\ndo = distanceFront\nposition\ntime\nv = 10\n31"
+    },
+    {
+      "page": 32,
+      "text": "Analysis of wallFinder System: Adding Sensor Delay  \nAdding delay tends to destabilize control systems. \ndi = desiredFront\ndo = distanceFront\nposition\ntime\nv = 10\nv = 0\n32"
+    },
+    {
+      "page": 33,
+      "text": "Analysis of wallFinder System: Adding Sensor Delay  \nAdding delay tends to destabilize control systems. \ndi = desiredFront\ndo = distanceFront\nposition\ntime\nv = 10\nv = 0\nv = \u221210\n33"
+    },
+    {
+      "page": 34,
+      "text": "Analysis of wallFinder System: Adding Sensor Delay  \nAdding delay tends to destabilize control systems. \ndi = desiredFront\ndo = distanceFront\nposition\ntime\nv = 10\nv = 0\nv = \u221210\nv = \u221210\n34"
+    },
+    {
+      "page": 35,
+      "text": "Analysis of wallFinder System: Adding Sensor Delay  \nAdding delay tends to destabilize control systems. \ndi = desiredFront\ndo = distanceFront\nposition\ntime\nv = 10\nv = 0\nv = \u221210\nv = \u221210\nv = 0\n35"
+    },
+    {
+      "page": 36,
+      "text": "Analysis of wallFinder System: Block Diagram  \nIncorporating sensor delay in block diagram. \ndi = desiredFront\ndo = distanceFront\nproportional controller: v[n] = Ke[n] = K di[n] \u2212 ds[n]  \nlocomotion: do[n] = do[n \u2212 1] \u2212 Tv[n \u2212 1]  \nsensor with no delay: ds[n] = do[n \u2212 1] \n+\nK\n\u2212T\n+\nR\nR\nDi\nDo\n\u2212\nV\n36\n\u0000\u0001\nsensor with delay:"
+    },
+    {
+      "page": 37,
+      "text": "Check Yourself  \nFind the system function H = Do \nDi \n. \n+\nK\n\u2212T\n+\nR\nR\nDi\nDo\n\u2212\nV\n1. KT R \n1 \u2212 R \n2. \n\u2212KT R \n1 + R \u2212 KT R2 \n3. KT R \n1 \u2212 R \u2212 KT R \n4. \n\u2212KT R \n1 \u2212 R \u2212 KT R2 \n5. none of the above \n37"
+    },
+    {
+      "page": 38,
+      "text": "Check Yourself  \nDo \nDo \nDi \n1 \u2212R \u2212 KT R2 \n1 + \u2212KT R2 \nFind the system function H = Di \n. \n+\nK\n\u2212T\n+\nR\nR\nDi\nDo\n\u2212\nV\nReplace accumulator with equivalent block diagram. \n+\nK\n\u2212T\nR\n1 \u2212R\nR\nDi\nDo\n\u2212\n= \n\u2212KT R \n1 \u2212 R \n= \n\u2212KT R \n1 \u2212R \n38"
+    },
+    {
+      "page": 39,
+      "text": "Check Yourself  \nFind the system function H = Do \nDi \n. \n+\nK\n\u2212T\n+\nR\nR\nDi\nDo\n\u2212\nV\n1. KT R \n1 \u2212 R \n2. \n\u2212KT R \n1 + R \u2212 KT R2 \n3. KT R \n1 \u2212 R \u2212 KT R \n4. \n\u2212KT R \n1 \u2212 R \u2212 KT R2 \n5. none of the above \n39"
+    },
+    {
+      "page": 40,
+      "text": "Analyzing wallFinder: Poles  \n1 \nSubstitute R \u2192 \nin the system functional to \ufb01nd the poles. \nz  \nDo \n\u2212KT R\n\u2212KT 1 \n\u2212KTz  \nz\n= \n=\n= \nDi \n1 \u2212R \u2212 KT R2 \n1 \u2212 1 \nz \u2212 KT 1 \n2 \nz2 \u2212 z \u2212 KT \nz\nThe poles are then the roots of the denominator. \na  2\n1\n1 \nz =\n+ KT \n2 \u00b1 \n2\n40"
+    },
+    {
+      "page": 41,
+      "text": "q  \nq  \nFeedback and Control: Poles  \nIf KT is small, the poles are at z \u2248\u2212KT and z \u2248 1 + KT .  \n2+ KT \u22481\n2 \u00b1 \n+ KT 2 = 1 + KT, \u2212KT \n1\n2\n1\nRe z\nIm z\nz-plane\nKT \u22480\nPole near 0 generates fast response. \nz = 1\n2 \u00b1 \n1\n2 \nPole near 1 generates slow response.  \nSlow mode (pole near 1) dominates the response.  \n41"
+    },
+    {
+      "page": 42,
+      "text": "q  \nq  \nFeedback and Control: Poles  \nAs KT becomes more negative, the poles move toward each other  \nand collide at z = \nwhen KT = \u2212 .  \n1\n2\n1\n4\nz = 1\n2 \u00b1  \n2\n1\n2\n+ KT = 1\n2 \u00b1\n1\n2\n\u2212\n=\n, \n1\n4 \n1\n2\n1\n2 \n2\n1\nRe z\nIm z\nz-plane\nKT = \u22121\n4\nPersistent responses decay. The system is stable. \n2 \n42\n\u0000 \u0001\n\u0000 \u0001"
+    },
+    {
+      "page": 43,
+      "text": "q  \nq  \nFeedback and Control: Poles  \nIf KT < \u22121/4, the poles are complex.  \n2 + KT = 1\n2 \u00b1 j \n\u2212KT \u2212\n1\n2 \n1\nRe z\nIm z\nz-plane\nKT = \u22121\nComplex poles \u2192 oscillations. \nz = 1\n2 \u00b1 \n1\n2  \n2  \n43\n\u0000 \u0001\n\u0000 \u0001"
+    },
+    {
+      "page": 44,
+      "text": "Same oscillation we saw earlier!  \nAdding delay tends to destabilize control systems. \ndi = desiredFront\ndo = distanceFront\nposition\ntime\nv = 10\nv = 0\nv = \u221210\nv = \u221210\nv = 0\n44"
+    },
+    {
+      "page": 45,
+      "text": "Check Yourself  \n1\nRe z\nIm z\nz-plane\nKT = \u22121\nWhat is the period of the oscillation? \n1. 1 \n2. 2 \n3. 3 \n4. 4 \n5. 6 \n0. none of above \n45"
+    },
+    {
+      "page": 46,
+      "text": "Check Yourself \n1\nRe z\nIm z\nz-plane\nKT = \u22121\n\u221a\n1\n3 \n\u00b1j\u03c0/3 \np0 = 2 \u00b1 j \n= e\n2 \nn\n\u00b1j\u03c0n/3 \np = e\n0 \n\u00b1j0\u03c0/3 \n\u00b1j\u03c0/3 \n\u00b1j2\u03c0/3 \n\u00b1j3\u03c0/3 \n\u00b1j4\u03c0/3 \n\u00b1j5\u03c0/3 \n\u00b1j6\u03c0/3 \ne \n, e\n, e \n, e \n, e \n, e \n, e\ne -v \" \ne -v \" \n1 \ne\u00b1j2\u03c0=1 \n46"
+    },
+    {
+      "page": 47,
+      "text": "Check Yourself  \n1\nRe z\nIm z\nz-plane\nKT = \u22121\nWhat is the period of the oscillation? \n1. 1 \n2. 2 \n3. 3 \n4. 4 \n5. 6 \n0. none of above \n47"
+    },
+    {
+      "page": 48,
+      "text": "Feedback and Control: Poles  \nIf KT : 0 \u2192 \u2212\u221e: \nThe closed loop poles depend on the gain. \n1\nRe z\nIm z\nz-plane\nthen z1, z2 : 0, 1 \u2192 1 \n2 , 2 \u2192 1 \n2 \u00b1 j\u221e\n1 \n48"
+    },
+    {
+      "page": 49,
+      "text": "Check Yourself  \nFind KT for fastest response. \n1\nRe z\nIm z\nz-plane\nclosed-loop poles\n1\n2 \u00b1\ns\u00121\n2\n\u00132\n+ KT\n1. 0 \n2. \u22121\n4\n3. \u22121\n2 \n4. \u22121 \n5. \u2212\u221e \n0. none of above \n49"
+    },
+    {
+      "page": 50,
+      "text": "Check Yourself  \na  \n2 \n1 \n1 \n+ KT  \nz =  \u00b1 \n2 \n2  \nThe dominant pole always has a magnitude that is \u2265  .  \n1  \n2 . \nIt is smallest when there is a double pole at z =  \nTherefore, KT = \u2212  1  \n4 .  \n1  \n2 \n50\n\u0012 \u0013"
+    },
+    {
+      "page": 51,
+      "text": "Check Yourself  \nFind KT for fastest response. \n1\nRe z\nIm z\nz-plane\nclosed-loop poles\n1\n2 \u00b1\ns\u00121\n2\n\u00132\n+ KT\n1. 0 \n2. \u22121\n4\n3. \u22121\n2 \n4. \u22121 \n5. \u2212\u221e \n0. none of above \n51"
+    },
+    {
+      "page": 52,
+      "text": "Destabilizing E\ufb00ect of Delay  \nAdding delay in the feedback loop makes it more di\ufb03cult to stabilize. \nIdeal sensor: ds[n] = do[n] \nMore realistic sensor (with delay): ds[n] = do[n \u2212 1] \n1\nRe z\nIm z\n1\nRe z\nIm z\nFastest response without delay: single pole at z = 0. \n1 \nFastest response with delay: double pole at z = \nmuch slower! \n2. \n52"
+    },
+    {
+      "page": 53,
+      "text": "Destabilizing E\ufb00ect of Delay  \nAdding more delay in the feedback loop is even worse. \nMore realistic sensor (with delay): ds[n] = do[n \u2212 1] \nEven more delay: ds[n] = do[n \u2212 2] \n1\nRe z\nIm z\n2\n1\nRe z\nIm z\nFastest response with delay: double pole at z = 1 \n2. \nFastest response with more delay: double pole at z = 0.682. \n\u2192 even slower \n53"
+    },
+    {
+      "page": 54,
+      "text": "Feedback and Control: Summary  \nFeedback is an elegant way to design a control system.  \nStability of a feedback system is determined by its dominant pole.  \nDelays tend to decrease the stability of a feedback system.  \n54"
+    },
+    {
+      "page": 55,
+      "text": "55\nPhoto from Naval Historical Center Aircraft Data Series."
+    },
+    {
+      "page": 56,
+      "text": "56\nBlock diagram of the F-14 control system as modeled in Simulink\u00ae removed due to copyright restrictions. Please see \"F-14 Longitudinal Flight Control.\" The MathWorks, Inc."
+    },
+    {
+      "page": 57,
+      "text": "MIT OpenCourseWare\nhttp://ocw.mit.edu\n6.003 Signals and Systems\nFall 2011\nFor information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms."
+    }
+  ]
+}

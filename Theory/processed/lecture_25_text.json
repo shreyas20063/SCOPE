@@ -1,0 +1,319 @@
+{
+  "lecture_number": 25,
+  "source_file": "cec15838d7bd8a41660860e458fa26a0_MIT6_003F11_lec25.pdf",
+  "page_count": 78,
+  "pages": [
+    {
+      "page": 1,
+      "text": "6.003:  Signals  and  Systems  \nFrom  LPs  to  CDs  \u2013  \nand  how  6.003  helps  get  you  there  \nDecember  8,  2011    \n1"
+    },
+    {
+      "page": 2,
+      "text": "\":;' \n\u2022 \nEdison\u2019s Phonograph  \n2"
+    },
+    {
+      "page": 3,
+      "text": "Edison\u2019s Phonograph    \n3"
+    },
+    {
+      "page": 4,
+      "text": "Edison\u2019s Phonograph    \n4"
+    },
+    {
+      "page": 5,
+      "text": "Edison\u2019s Phonograph  \n5"
+    },
+    {
+      "page": 6,
+      "text": "Edison\u2019s Phonograph    \n6\nImage by Infrogmation on Wikimedia Commons."
+    },
+    {
+      "page": 7,
+      "text": "Edison\u2019s Phonograph    \n7\nPhoto of Pioneer record player removed due to copyright restrictions."
+    },
+    {
+      "page": 8,
+      "text": "Edison\u2019s Phonograph    \n8"
+    },
+    {
+      "page": 9,
+      "text": "Edison\u2019s Phonograph    \n9\nPhoto of Grado phono cartridge removed due to copyright restrictions."
+    },
+    {
+      "page": 10,
+      "text": "Edison\u2019s Phonograph  \nLPs: 100 years of optimization \u2192 good \ufb01delity, but \n\u2022 fragile: easily scratched \n\u2022 lots of distortions: e.g., wow and \ufb02utter \n\u2022 expensive \nCDs: much higher \ufb01delity \n\u2022 nearly indestructible \n\u2022 very low distortion \n\u2022 inexpensive \n\u2192 many of these advantages made possible by concepts from Signals \nand Systems! \n10"
+    },
+    {
+      "page": 11,
+      "text": "Edison\u2019s Phonograph    \n11\nImage by Dante Alighieri on Wikimedia Commons."
+    },
+    {
+      "page": 12,
+      "text": "What\u2019s on a CD?    \n12\n0.83-3.56 Jlm \nk\"'\" protective layer (plus label) \nreflective layer (typically aluminum) \npolycarbonate (injection molded) \n~~------~ +--\n~~------~ +--\nImage by Dante Alighieri\non Wikimedia Commons."
+    },
+    {
+      "page": 13,
+      "text": "Edison\u2019s Phonograph    \nLPs: 100 years of optimization \u2192 good \ufb01delity, but \n\u2022 fragile: easily scratched \n\u2022 lots of distortions: e.g., wow and \ufb02utter \n\u2022 expensive \nCDs: much higher \ufb01delity \n\u221a \n\u2022 nearly indestructible \n\u2022 very low distortion \n\u2022 inexpensive \n\u2192 many of these advantages made possible by concepts from Signals \nand Systems! \n13"
+    },
+    {
+      "page": 14,
+      "text": "What\u2019s on a CD?    \n14\n0.83-3.56 Jlm \nk\"'\" protective layer (plus label) \nreflective layer (typically aluminum) \npolycarbonate (injection molded) \n~~------~ +--\n~~------~ +--\nImage by Dante Alighieri\non Wikimedia Commons."
+    },
+    {
+      "page": 15,
+      "text": "What\u2019s on a CD?    \nContinuous signal (audio) \nDiscrete storage (pits and lands) \n\u2192 sampling! \n15"
+    },
+    {
+      "page": 16,
+      "text": "\u2022 \u2022 \n... \nWhat\u2019s on a CD?    \n0\n20\n40\n60\n80\n100\n120\n10\n100\n1000\n10000\n100000\nThreshold (dB SPL)\nFrequency (Hz)\nDadson & King, 1952\nYeowart, Brian, &\n    Tempest, 1967\nGreen, Kidd, &\n  Stevens, 1987\n16"
+    },
+    {
+      "page": 17,
+      "text": "is = 44.1kHz \n! \nXm Ct) Anti-aliasing x Ct) Sample and x Ct) \nAnalog-to-\nx [n) \ndigital \nCT filter \nhold \nconverter \nWhat\u2019s on a CD?    \n17"
+    },
+    {
+      "page": 18,
+      "text": "Xm(f) \nIdeal \nanti-al iasi ng \nfilter \n-20 \n20 f (kHz) \nWhat\u2019s on a CD?    \n18"
+    },
+    {
+      "page": 19,
+      "text": "XU) \nJMM IM M(\no \n44.1 f (kHz) \nX(!) \nJ (\\ 11 (\\ 111(\\ (JI(\\ l1i(\no 20t 44.1 f (kHz) \n24.1 \n \nWithout \nanti-aliasing \nfilter \n \nWith ideal \nanti-aliasing \nfilter \nWhat\u2019s on a CD?    \n19"
+    },
+    {
+      "page": 20,
+      "text": "----\n0 \nco \n\"0 \n-20 \n1 \n---\n<l> \n\"0 \n-40 \n:::J -c \n-60 \n0> \nco \n-80 \n~ \n0 \n----\n0> \n<l> \n\"0 --- -500 \n<l> \n0> \nC \u00ab -1000 \n1 0\u00b0 \n1 0 \n1 \n1 0\n2 \nFrequency (kHz) \nWhat\u2019s on a CD?  \n20"
+    },
+    {
+      "page": 21,
+      "text": "jm \nWhat\u2019s on a CD?    \n21"
+    },
+    {
+      "page": 22,
+      "text": "----\n0 \nco \n\"0 \n-20 \n1 \n---\n<l> \n\"0 \n-40 \n:::J -c \n-60 \n0> \nco \n-80 \n~ \n0 \n----\n0> \n<l> \n\"0 --- -500 \n<l> \n0> \nC \u00ab -1000 \n1 0\u00b0 \n1 0 \n1 \n1 0\n2 \nFrequency (kHz) \nWhat\u2019s on a CD?    \n22"
+    },
+    {
+      "page": 23,
+      "text": "Is = 176.4kHz \nWhat\u2019s on a CD?    \n23"
+    },
+    {
+      "page": 24,
+      "text": "0 \n176.4 \nf (kHz) \nXU) \n, \n, \n~ \n, \n, \n~ \n~ \n~ A \n0 \n176.4 \nf (kHz) \nWhat\u2019s on a CD?    \n24"
+    },
+    {
+      "page": 25,
+      "text": "Q) \n-g \n-40 \n-c \n0) \n~ -80 ~~~~~--~~~~~~~~~ \n~ \n0 \n-\nr=~~~~-:~~-:~~ \n0) \nQ) \n::s.-200 \nQ) \n0) \n~ -400 ~~~~~~~ \n____ ~;::::::~~~ \n10\u00b0 \n10\n1 \n10\n2 \n10\n3 \nFrequency (kHz) \nWhat\u2019s on a CD?    \n25"
+    },
+    {
+      "page": 26,
+      "text": "Is = 176.4kHz \nWhat\u2019s on a CD?    \n26"
+    },
+    {
+      "page": 27,
+      "text": "o \nQ) \n-40 \n\"0 \n::::l \n.~ -80 \n0) \n20. r 24.1 kHz \n88.2 kHz. \n~ -120 L-~~-!---+.L.....UJL...1...-~LJ.J..:..~'..LL..----1L~..L.l.l.':\"'-\nO ~~~~~~~--~~~--~-\n!-40N \n0) -80 \n\"'v..----------\nc \n: \n\u00ab -120 L-~~-'-'--~~~ \n__ ~~~ \n__ ~_ \no \nO. \n0.2 \n0.3 \n0.4 \n0.5 \nDT frequency, Q /21t \nWhat\u2019s on a CD?  \n27"
+    },
+    {
+      "page": 28,
+      "text": "t:: \nco \n0.. \n>. \n1 \n~o \nc \nen \nco \nE \n-1 \n-1 \n24.1 = 0.1366 \n176.4 \n20 \n..cfIII/J-......... / / \n= 0.1134 \no \n, \n176.4 \n1 \nReal part \n2 \no \n3 \nWhat\u2019s on a CD?  \n28"
+    },
+    {
+      "page": 29,
+      "text": "<J.) \n'\"d \n;::I \n0.2 \n~ 0.1 \np, \nS \n<r; \nn \nWhat\u2019s on a CD?    \n29"
+    },
+    {
+      "page": 30,
+      "text": "X(Q) \nn m \nm\nOT m fl \nOT signal \nafter sampling \n_\nfilter \nat 176 kHz \n0 \n27t \nQ \nY(Q) \n~ \nffi \n& \nffi \nn \nAfter \nfiltering with \nOT filter \n0 \n27t \nQ \nYdown(Q) \nJ (\\ 11 (\\ 111(\\ 11(\\ l1i[ down~~~Pling \n0 \n27t \nQ \nWhat\u2019s on a CD?  \n30"
+    },
+    {
+      "page": 31,
+      "text": "LPs: 100 years of optimization, good fidelity, but \n\u2022 fragile: easily scratched \n\u2022 lots of distortions: e.g., wow and flutter \n\u2022 expensive \nCDs: much higher fidelity / \n\u2022 nearly indestructible \nv / \n\u2022 very low distortion \nv \n\u2022 very cheap \n~ many of these advantages made possible by \nconcepts from Signals and Systems! \nWhat\u2019s on a CD?    \n31"
+    },
+    {
+      "page": 32,
+      "text": "What\u2019s on a CD?    \nAudio --7 bits: \n\u2022 sampling \n\u2022 filtering \n\u2022 DT processing of CT signals \n\u2022 downsampling \nNext issue: how to you build a player? \n32"
+    },
+    {
+      "page": 33,
+      "text": "YdownCQ) \nWhat\u2019s on a CD?  \n33"
+    },
+    {
+      "page": 34,
+      "text": "J {\\ 11 {\\ 111{\\ 11 {\\ 11 ( \nSpectrum \nof samples \non CD \nUpsampled \n4 X O \nAfter \nfiltering with \nDT filter \no \n211: \nQ \nDT filter \n.. ... . \u00b7 m\u00b7\u00b7\u00b7 \u00b7 .... \nnffiffiffimffiffiffi ffiffiffiffiffiffiffifl \no \n211: \nQ \n~ \nill \nffi \nffi \n~ \no \n211: \nQ \nWhat\u2019s on a CD?  \n34"
+    },
+    {
+      "page": 35,
+      "text": "What\u2019s on a CD?    \n35\n0.83-3.56 Jlm \nk\"'\" protective layer (plus label) \nreflective layer (typically aluminum) \npolycarbonate (injection molded) \n~~------~ +--\n~~------~ +--\nImage by Dante Alighieri\non Wikimedia Commons."
+    },
+    {
+      "page": 36,
+      "text": "What\u2019s on a CD?  \n36"
+    },
+    {
+      "page": 37,
+      "text": "What\u2019s on a CD?  \n37"
+    },
+    {
+      "page": 38,
+      "text": "Interferometric sensing: 6.003 explanation \nmirror \na ~ f\\ f\\ f\\ f\\ f\\ [t \nVVVVVV \nII: 11 \nb \nWhat\u2019s on a CD?  \n38"
+    },
+    {
+      "page": 39,
+      "text": "Interferometric sensing: 6.003 explanation \nmirror \na ~ f\\ f\\ f\\ f\\ f\\ [t \nVVVVVV \n\u2022 12 \nb \nWhat\u2019s on a CD?  \n39"
+    },
+    {
+      "page": 40,
+      "text": "Interferometric sensing: 6.003 explanation \nmirror \na ~ f\\ f\\ f\\ f\\ f\\ [t \nVVVVVV \nII: 11 \nb \nWhat\u2019s on a CD?  \n40"
+    },
+    {
+      "page": 41,
+      "text": "Interferometric sensing: 6.003 explanation \nmirror \na ~ f\\ f\\ f\\ f\\ f\\ [t \nVVVVVV \n\u2022 12 \nb \nWhat\u2019s on a CD?  \n41"
+    },
+    {
+      "page": 42,
+      "text": "Interferometric sensing: 6.003 explanation \nmirror \nbl \nf\\!\\!\\!\\[ \nVVVV \nb \nWhat\u2019s on a CD?  \n42"
+    },
+    {
+      "page": 43,
+      "text": "Focusing with feedback control \nfront view \nof quadrant \ndetector \nWhat\u2019s on a CD?  \n43"
+    },
+    {
+      "page": 44,
+      "text": "Focusing with feedback control \nquadrant \ndetector \nfront view \nof quadrant \ndetector \nWhat\u2019s on a CD?  \n44"
+    },
+    {
+      "page": 45,
+      "text": "Focusing with feedback control \nquadrant \ndetector \nfront view \nof quadrant \ndetector \nWhat\u2019s on a CD?  \n45"
+    },
+    {
+      "page": 46,
+      "text": "Focusing with feedback control \nfront view \nof quadrant \ndetector \nWhat\u2019s on a CD?  \n46"
+    },
+    {
+      "page": 47,
+      "text": "Focusing with feedback control \nquadrant \ndetector \nfront view \nof quadrant \ndetector \nWhat\u2019s on a CD?  \n47"
+    },
+    {
+      "page": 48,
+      "text": "Focusing with feedback control \nquadrant \ndetector \nfront view \nof quadrant \ndetector \nWhat\u2019s on a CD?  \n48"
+    },
+    {
+      "page": 49,
+      "text": "Focusing with feedback control \nelectromagnetic positioner \nfront view \nof quadrant \ndetector \nA+C-8- D \nWhat\u2019s on a CD?  \n49"
+    },
+    {
+      "page": 50,
+      "text": "What\u2019s on a CD?    \n50\nImage removed due to copyright restrictions. Please see Brain, Marshall.\n\"How CDs Work: CD Player Components.\" HowStuffWorks, April 2000."
+    },
+    {
+      "page": 51,
+      "text": "Focusing with feedback \n+ \ncontroller ~ \nfocusing \n\u2022 \nmagnet \n7' \n1'-\nA+C-8-0 quadrature \nsensor \nWhat\u2019s on a CD?  \n51"
+    },
+    {
+      "page": 52,
+      "text": "Translating pits to bits \nWhat\u2019s on a CD?  \n52"
+    },
+    {
+      "page": 53,
+      "text": "Translating pits to bits \nWhat\u2019s on a CD?  \n53"
+    },
+    {
+      "page": 54,
+      "text": "Translating pits to bits \nWhat\u2019s on a CD?  \n54"
+    },
+    {
+      "page": 55,
+      "text": "Translating pits to bits \nWhat\u2019s on a CD?  \n55"
+    },
+    {
+      "page": 56,
+      "text": "Translating pits to bits \nWhat\u2019s on a CD?  \n56"
+    },
+    {
+      "page": 57,
+      "text": "Translating pits to bits \nWhat\u2019s on a CD?  \n57"
+    },
+    {
+      "page": 58,
+      "text": "Translating pits to bits \nWhat\u2019s on a CD?  \n58"
+    },
+    {
+      "page": 59,
+      "text": "Translating pits to bits \nWhat\u2019s on a CD?  \n59"
+    },
+    {
+      "page": 60,
+      "text": "Translating pits to bits \nWhat\u2019s on a CD?  \n60"
+    },
+    {
+      "page": 61,
+      "text": "Translating pits to bits \nWhat\u2019s on a CD?  \n61"
+    },
+    {
+      "page": 62,
+      "text": "Translating pits to bits \nWhat\u2019s on a CD?    \n62"
+    },
+    {
+      "page": 63,
+      "text": "Tracking with feedback control \nWhat\u2019s on a CD?    \n63"
+    },
+    {
+      "page": 64,
+      "text": "What\u2019s on a CD?    \nTracking with feedback control \n64"
+    },
+    {
+      "page": 65,
+      "text": "What\u2019s on a CD?    \nTracking with feedback control \n65"
+    },
+    {
+      "page": 66,
+      "text": "What\u2019s on a CD?    \nTracking with feedback control \n66"
+    },
+    {
+      "page": 67,
+      "text": "What\u2019s on a CD?    \nTracking with feedback control \n67"
+    },
+    {
+      "page": 68,
+      "text": "Tracking with feedback control \nWhat\u2019s on a CD?  \n68"
+    },
+    {
+      "page": 69,
+      "text": "Tracking with feedback control \nWhat\u2019s on a CD?  \n69"
+    },
+    {
+      "page": 70,
+      "text": "Tracking with feedback control \nWhat\u2019s on a CD?  \n70"
+    },
+    {
+      "page": 71,
+      "text": "What\u2019s on a CD?    \nTracking with feedback control \n71"
+    },
+    {
+      "page": 72,
+      "text": "E-F-t?-\npositioner \nWhat\u2019s on a CD?    \nTracking with feedback control \n72"
+    },
+    {
+      "page": 73,
+      "text": "What\u2019s on a CD?    \n73\nImage removed due to copyright restrictions. Please see Brain, Marshall.\n\"How CDs Work: CD Player Components.\" HowStuffWorks, April 2000."
+    },
+    {
+      "page": 74,
+      "text": "Tracking the tracks with feedback \ndesired \nC71 \ntrack --+. \nlocation \n+ \n~-\ncontroller ~ \ntrack drive \nmotor \nE-F \ndifferential \nsensor \n\u2022 , \nWhat\u2019s on a CD?  \n74"
+    },
+    {
+      "page": 75,
+      "text": "What\u2019s on a CD?    \nLPs: 100 years of optimization, good fidelity, but \n\u2022 fragile: easily scratched \n\u2022 lots of distortions: e.g., wow and flutter \n\u2022 expensive \nCDs: much higher fidelity / \n\u2022 nearly indestructible \nv / \n\u2022 very low distortion \nv/ \n\u2022 very cheap \nv \n~ many of these advantages made possible by \nconcepts from Signals and Systems! \n75"
+    },
+    {
+      "page": 76,
+      "text": "From LPs to CDs -\nand how 6.003 helps get you there \nf , = 176.4kHz \nSampling \ni~ 1 \nS I \ni200~ \nI \n\u00ab.4rX.:O\"~\n~--:';:'O ~--'3\"?---;;\n1 0' \nFrequency (kHz) \nFiltering \n'\"\"l_\nii~\n_ \n=--.~ .~ \nFeedback \n., \n, \nReal part \nDT processing of CT signals \nWhat\u2019s on a CD?  \n76"
+    },
+    {
+      "page": 77,
+      "text": "What\u2019s on a CD? \nReferences: \n\u201cThe history of the Edison Cylinder Phonograph\u201d \nhttp://memory.loc.gov/ammem/edhtml/edcyldr.html\n\u201cAudio Compact Disk \u2013 An Introduction\u201d by Kelin J. Kuhn\nhttp://audio18.stormloader.com/Audio/compact_disc/audioCD.htm\n\u201cHow CDs Work\u201d by Marshall Brain \nhttp://electronics.howstuffworks.com/cd.htm"
+    },
+    {
+      "page": 78,
+      "text": "MIT OpenCourseWare\nhttp://ocw.mit.edu\n6.003 Signals and Systems\nFall 2011\nFor information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms."
+    }
+  ]
+}

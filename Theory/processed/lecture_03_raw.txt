@@ -1,0 +1,1199 @@
+
+============================================================
+PAGE 1
+============================================================
+6.003: Signals and Systems 
+Feedback, Poles, and Fundamental Modes 
+September 15, 2011  
+1
+
+============================================================
+PAGE 2
+============================================================
+Homework  
+Doing the homework is essential to understanding the content. 
+Weekly Homework Assigments 
+•  
+tutor (exam-type) problems: 
+answers are automatically checked to provide quick feedback 
+•  
+engineering design (real-world) problems: 
+graded by a human 
+Learning doesn’t end when you have submitted your work! 
+•  
+solutions will be posted on Wednesdays at 5pm 
+•  
+read solutions to ﬁnd errors and to see alternative approaches 
+•  
+mark the errors in your previously submitted work 
+•  
+submit the markup by Friday at 5pm 
+•  
+identify ALL errors and get back half of the points you lost! 
+2
+
+============================================================
+PAGE 3
+============================================================
+Last Time: Multiple Representations of DT Systems  
+Verbal descriptions: preserve the rationale. 
+“To reduce the number of bits needed to store a sequence of 
+large numbers that are nearly equal, record the ﬁrst number, 
+and then record successive diﬀerences.” 
+Diﬀerence equations: mathematically compact. 
+y[n] = x[n] − x[n − 1] 
+Block diagrams: illustrate signal ﬂow paths. 
+−1
+Delay
++
+x[n]
+y[n]
+Operator representations: analyze systems as polynomials. 
+Y = (1 −R) X  
+3
+
+============================================================
+PAGE 4
+============================================================
+Last Time: Feedback, Cyclic Signal Paths, and Modes  
+Systems with signals that depend on previous values of the same 
+signal are said to have feedback. 
+Example: The accumulator system has feedback. 
+Delay
++
+X
+Y
+−1
+Delay
++
+X
+Y
+By contrast, the diﬀerence machine does not have feedback. 
+4
+
+============================================================
+PAGE 5
+============================================================
+Last Time: Feedback, Cyclic Signal Paths, and Modes  
+The eﬀect of feedback can be visualized by tracing each cycle 
+through the cyclic signal paths. 
+Delay
++
+p0
+X
+Y
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+Each cycle creates another sample in the output. 
+5
+
+============================================================
+PAGE 6
+============================================================
+Last Time: Feedback, Cyclic Signal Paths, and Modes  
+The eﬀect of feedback can be visualized by tracing each cycle 
+through the cyclic signal paths. 
+Delay
++
+p0
+X
+Y
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+Each cycle creates another sample in the output. 
+6
+
+============================================================
+PAGE 7
+============================================================
+Last Time: Feedback, Cyclic Signal Paths, and Modes  
+The eﬀect of feedback can be visualized by tracing each cycle 
+through the cyclic signal paths. 
+Delay
++
+p0
+X
+Y
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+Each cycle creates another sample in the output. 
+7
+
+============================================================
+PAGE 8
+============================================================
+Last Time: Feedback, Cyclic Signal Paths, and Modes  
+The eﬀect of feedback can be visualized by tracing each cycle 
+through the cyclic signal paths. 
+Delay
++
+p0
+X
+Y
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+Each cycle creates another sample in the output. 
+The response will persist even though the input is transient.  
+8
+
+============================================================
+PAGE 9
+============================================================
+−1 0 1 2 3 4
+n
+y[n]
+Geometric Growth: Poles  
+These unit-sample responses can be characterized by a single number 
+— the pole — which is the base of the geometric sequence. 
+Delay
++
+p0
+X
+Y
+y[n] =
+ pn
+0 , 
+if n >= 0; 
+0, 
+otherwise. 
+−1 0 1 2 3 4
+n
+y[n]
+−1 0 1 2 3 4
+n
+y[n]
+p0 = 0.5 
+p0 = 1 
+p0 = 1.2 
+9
+
+============================================================
+PAGE 10
+============================================================
+Check Yourself  
+How many of the following unit-sample responses can be 
+represented by a single pole? 
+n
+n
+n
+n
+n
+10
+
+============================================================
+PAGE 11
+============================================================
+Check Yourself  
+How many of the following unit-sample responses can be 
+represented by a single pole? 
+3 
+n
+n
+n
+n
+n
+11
+
+============================================================
+PAGE 12
+============================================================
+Geometric Growth  
+The value of p0 determines the rate of growth. 
+y[n]
+y[n]
+y[n]
+y[n]
+−1
+0
+1
+z
+p0 < −1: 
+magnitude diverges, alternating sign 
+−1 < p0 < 0: 
+magnitude converges, alternating sign  
+0 < p0 < 1: 
+magnitude converges monotonically  
+p0 > 1: 
+magnitude diverges monotonically  
+12
+
+============================================================
+PAGE 13
+============================================================
+Second-Order Systems  
+The unit-sample responses of more complicated cyclic systems are 
+more complicated. 
+R
+R
+1.6
+−0.63
++
+X
+Y
+−1 0 1 2 3 4 5 6 7 8
+n
+y[n]
+Not geometric. This response grows then decays. 
+13
+
+============================================================
+PAGE 14
+============================================================
+Factoring Second-Order Systems  
+Factor the operator expression to break the system into two simpler 
+systems (divide and conquer). 
+R
+R
+1.6
+−0.63
++
+X
+Y
+Y = X + 1.6RY − 0.63R2Y 
+(1 − 1.6R + 0.63R2) Y = X 
+(1 − 0.7R)(1 − 0.9R) Y = X  
+14
+
+============================================================
+PAGE 15
+============================================================
+Factoring Second-Order Systems  
+The factored form corresponds to a cascade of simpler systems. 
+(1 − 0.7R)(1 − 0.9R) Y = X 
++
+0.7
+R
++
+0.9
+R
+X
+Y
+Y2
+(1 − 0.7R) Y2 = X 
+(1 − 0.9R) Y = Y2 
++
+0.9
+R
++
+0.7
+R
+X
+Y
+Y1
+(1 − 0.9R) Y1 = X 
+(1 − 0.7R) Y = Y1 
+The order doesn’t matter (if systems are initially at rest).  
+15
+
+============================================================
+PAGE 16
+============================================================
+Factoring Second-Order Systems  
+The unit-sample response of the cascaded system can be found by 
+multiplying the polynomial representations of the subsystems. 
+Y 
+1 
+1
+1 
+=
+= 
+× 
+X 
+(1 − 0.7R)(1 − 0.9R) 
+(1 − 0.7R)
+(1 − 0.9R)
+ 
+  
+_
+ 
+  
+_ 
+ 
+_ 
+ 
+ 
+_ 
+ 
+= (1 + 0.7R + 0.72R2 + 0.73R3 + · · ·) × (1 + 0.9R + 0.92R2 + 0.93R3 + · · ·) 
+Multiply, then collect terms of equal order: 
+Y = 1 + (0.7 + 0.9)R + (0.72 + 0.7 × 0.9 + 0.92)R2 
+X 
++ (0.73 + 0.72 × 0.9 + 0.7 × 0.92 + 0.93)R3 + · · · 
+16
+
+============================================================
+PAGE 17
+============================================================
+Multiplying Polynomial  
+Graphical representation of polynomial multiplication. 
+Y 
+Y 
+X = (1 + aR + a 2R2 + a 3R3 + · · ·) × (1 + bR + b2R2 + b3R3 + · · ·) 
+1
+a
+R
+a2
+R2
+a3
+R3
++
+1
+b
+R
+b2
+R2
+b3
+R3
++
+...
+...
+...
+...
+X
+Y
+Collect terms of equal order: 
+= 1 + (a + b)R + (a 2 + ab + b2)R2 + (a 3 + a 2b + ab2 + b3)R3 + · · · 
+X 
+17
+
+============================================================
+PAGE 18
+============================================================
+−1 0 1 2 3 4 5 6 7 8
+n
+y[n]
+Multiplying Polynomials  
+Tabular representation of polynomial multiplication. 
+(1 + aR + a 2R2 + a 3R3 + · · ·) × (1 + bR + b2R2 + b3R3 + · · ·) 
+1 
+bR 
+b2R2 
+b3R3 
+· · · 
+1 
+1 
+bR 
+b2R2 
+b3R3 
+· · · 
+aR 
+aR 
+abR2 
+ab2R3 
+ab3R4 
+· · · 
+a2R2 
+a2R2 
+a2bR3 
+a2b2R4 
+a2b3R5 
+· · · 
+a3R3 
+a3R3 
+a3bR4 
+a3b2R5 
+a3b3R6 
+· · · 
+· · · 
+· · · 
+· · · 
+· · · 
+· · · 
+· · · 
+Group same powers of R by following reverse diagonals: 
+Y = 1 + (a + b)R + (a 2 + ab + b2)R2 + (a 3 + a 2b + ab2 + b3)R3 + · · · 
+X 
+18
+
+============================================================
+PAGE 19
+============================================================
+Partial Fractions  
+Use partial fractions to rewrite as a sum of simpler parts.  
+R
+R
+1.6
+−0.63
++
+X
+Y
+Y 
+1 
+1
+4.5
+3.5 
+=
+= 
+= 
+− 
+X 
+1 − 1.6R + 0.63R2 
+(1 − 0.9R)(1 − 0.7R)
+1 − 0.9R 
+1 − 0.7R 
+19
+
+============================================================
+PAGE 20
+============================================================
+Second-Order Systems: Equivalent Forms  
+The sum of simpler parts suggests a parallel implementation.  
+Y 
+X = 
+4.5 
+1 − 0.9R − 
+3.5 
+1 − 0.7R 
++
+0.9
+R
+4.5
++
+−3.5
+R
+0.7
++
+X
+Y
+Y1
+Y2
+If x[n] = δ[n] then y1[n] = 0.9n and y2[n] = 0.7n for n ≥ 0. 
+Thus, y[n] = 4.5(0.9)n − 3.5(0.7)n for n ≥ 0. 
+20
+
+============================================================
+PAGE 21
+============================================================
+Partial Fractions  
+Graphical representation of the sum of geometric sequences. 
+−1 0 1 2 3 4 5 6 7 8
+n
+y1[n] = 0.9n for n ≥0
+−1 0 1 2 3 4 5 6 7 8
+n
+y2[n] = 0.7n for n ≥0
+−1 0 1 2 3 4 5 6 7 8
+n
+y[n] = 4.5(0.9)n −3.5(0.7)n
+for n ≥0
+21
+
+============================================================
+PAGE 22
+============================================================
+Partial Fractions 
+Partial fractions provides a remarkable equivalence. 
+R
+R
+1.6
+−0.63
++
+X
+Y
++
+0.9
+R
+4.5
++
+−3.5
+R
+0.7
++
+X
+Y
+Y1
+Y2
+→ follows from thinking about system as polynomial (factoring). 
+22
+
+============================================================
+PAGE 23
+============================================================
+Poles  
+The key to simplifying a higher-order system is identifying its poles. 
+Poles are the roots of the denominator of the system functional 
+when R → 1 . 
+z 
+Start with system functional: 
+Y 
+1
+1 
+1 
+=
+= 
+= 
+X 
+1 − 1.6R+0.63R2 
+(1−p0R)(1−p1R) 
+(1−0.7R) (1−0.9R) 
+p0=0.7 
+p1=0.9 
+1 
+Substitute R → 
+and ﬁnd roots of denominator: 
+z 
+2
+2
+Y 
+1 
+z
+z
+=
+= 
+= 
+X 
+1.6
+0.63 
+z2 −1.6z+0.63 
+(z−0.7) (z−0.9)
+1 − 
++ 
+z
+z2 
+z0=0.7 
+z1=0.9 
+The poles are at 0.7 and 0.9. 
+23
+|
+{z
+} |
+{z
+}
+|
+{z
+} |
+{z
+}
+
+============================================================
+PAGE 24
+============================================================
+Check Yourself  
+Consider the system described by 
+y[n] = − 1 
+4y[n − 1] + 1 
+8y[n − 2] + x[n − 1] − 1 
+2x[n − 2] 
+How many of the following are true? 
+1. The unit sample response converges to zero. 
+2. There are poles at z = 1
+2 and z = 1
+4. 
+3. There is a pole at z = 1
+2. 
+4. There are two poles. 
+5. None of the above 
+24
+
+============================================================
+PAGE 25
+============================================================
+ 
+ 
+ 
+ 
+   
+   
+  
+Check Yourself  
+1
+1 
+1  
+y[n] = −4y[n − 1] + 8y[n − 2] + x[n − 1] − 2x[n − 2] 
+1
+1 
+1 
+1 + 4R − 8R2 Y = R − 2R2 X  
+1
+2 R2
+R − 
+H(R) = Y = 
+X 
+1
+4 
+1
+8 R2
+1 + R − 
+1 
+1
+2  
+1 
+1
+2  
+1
+2 
+− 
+z − 
+z − 
+2 
+z 
+z
+= 
+=  
+=  
+1
+4  
+1 
+1
+8  
+1 
+2 + 1
+4 
+1
+8  
+1
+2 
+1 + 
+z + 
+− 
+z − 
+z − 
+2 
+z
+z 
+z
+1. The unit sample response converges to zero.  
+1
+2 and z = 1
+4 . 
+2. There are poles at z = 
+1
+2 . 
+3. There is a pole at z = 
+4. There are two poles. 
+5. None of the above 
+25
+1
+4
+
+============================================================
+PAGE 26
+============================================================
+
+
+
+
+  
+Check Yourself  
+1
+1 
+1  
+y[n] = −4y[n − 1] + 8y[n − 2] + x[n − 1] − 2x[n − 2] 
+1
+1 
+1 
+1 + 4R − 8R2 Y = R − 2R2 X  
+1
+2 R2
+R − 
+H(R) = Y = 
+X 
+1
+4 
+1
+8 R2
+1 + R − 
+1 
+1
+2  
+1 
+1
+2  
+1
+2 
+− 
+z − 
+z − 
+2 
+z 
+z
+=  
+=  
+=  
+1
+4  
+1 
+1
+8  
+1 
+2 + 1
+4 
+1
+8  
+1
+2 
+1
+4 
+1 + 
+z + 
+− 
+z − 
+z − 
+2 
+z
+z 
+z
+√ 
+1. The unit sample response converges to zero. 
+1
+2 and z = 1
+4 .
+X 
+2. There are poles at z = 
+1
+2 .
+X 
+√
+3. There is a pole at z = 
+4. There are two poles. 
+5. None of the above 
+X  
+26
+
+
+
+
+  
+
+============================================================
+PAGE 27
+============================================================
+Check Yourself  
+Consider the system described by 
+y[n] = − 1 
+4y[n − 1] + 1 
+8y[n − 2] + x[n − 1] − 1 
+2x[n − 2] 
+How many of the following are true? 
+2 
+1. The unit sample response converges to zero. 
+2. There are poles at z = 1
+2 and z = 1
+4. 
+3. There is a pole at z = 1
+2. 
+4. There are two poles. 
+5. None of the above 
+27
+
+============================================================
+PAGE 28
+============================================================
+Population Growth 
+28
+
+============================================================
+PAGE 29
+============================================================
+Population Growth 
+29
+
+============================================================
+PAGE 30
+============================================================
+Population Growth 
+30
+
+============================================================
+PAGE 31
+============================================================
+Population Growth 
+31
+
+============================================================
+PAGE 32
+============================================================
+Population Growth 
+32
+
+============================================================
+PAGE 33
+============================================================
+Check Yourself  
+What are the pole(s) of the Fibonacci system? 
+1. 1 
+2. 1 and −1 
+3. −1 and −2 
+4. 1.618 . . . and −0.618 . . . 
+5. none of the above 
+33
+
+============================================================
+PAGE 34
+============================================================
+Check Yourself  
+What are the pole(s) of the Fibonacci system? 
+Diﬀerence equation for Fibonacci system: 
+y[n] = x[n] + y[n − 1] + y[n − 2] 
+System functional: 
+Y 
+1 
+H =
+= 
+X 
+1 −R −R2 
+Denominator is second order → 2 poles. 
+34
+
+============================================================
+PAGE 35
+============================================================
+Check Yourself  
+Find the poles by substituting R → 1/z in system functional. 
+2
+Y 
+1
+1 
+z
+H =
+= 
+= 
+X 
+1 −R −R2 → 
+1 − 1 − 1 
+z2 − z − 1 
+z 
+2
+z
+Poles are at 
+√
+1 ± 
+5
+1 
+z =
+= 
+φ or 
+−
+2 
+φ 
+where φ represents the “golden ratio” 
+√
+1 + 
+5 
+φ = 
+≈ 1.618
+2 
+The two poles are at 
+1 
+z0 = φ ≈ 1.618 
+and 
+z1 = − 
+≈−0.618 
+φ 
+35
+
+============================================================
+PAGE 36
+============================================================
+Check Yourself  
+What are the pole(s) of the Fibonacci system? 
+4 
+1. 1 
+2. 1 and −1 
+3. −1 and −2 
+4. 1.618 . . . and −0.618 . . . 
+5. none of the above 
+36
+
+============================================================
+PAGE 37
+============================================================
+Example: Fibonacci’s Bunnies  
+Each pole corresponds to a fundamental mode.  
+1 
+φ ≈ 1.618 
+and 
+− 
+≈−0.618 
+φ 
+One mode diverges, one mode oscillates! 
+−1 0 1 2 3 4
+n
+φn
+−1 0 1 2 3 4
+n
+
+−1
+φ
+n
+37
+
+============================================================
+PAGE 38
+============================================================
+Example: Fibonacci’s Bunnies  
+The unit-sample response of the Fibonacci system can be written 
+as a weighted sum of fundamental modes. 
+φ
+1  
+Y 
+1 
+√
+5 
+φ 
+√
+5 
+H =
+= 
+=
++ 
+X 
+1 −R −R2 
+1 − φR 
+1 + 1 R
+φ 
+φ 
+1 
+h[n] = √φn + √(−φ)−n ; 
+n ≥ 0
+5
+φ 5
+But we already know that h[n] is the Fibonacci sequence f: 
+f : 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, . . . 
+Therefore we can calculate f[n] without knowing f[n − 1] or f[n − 2] ! 
+38
+
+============================================================
+PAGE 39
+============================================================
+Complex Poles  
+What if a pole has a non-zero imaginary part?  
+Example:  
+Y 
+1 
+= 
+X 
+1 − R + R2 
+1 
+z2 
+= 
+= 
+1 − 1 
+z + 1 
+z2 
+z2 − z + 1 
+1 
+√
+3 
+±jπ/3
+Poles are z = 2 ± 2 j = e
+.  
+What are the implications of complex poles?  
+39
+
+============================================================
+PAGE 40
+============================================================
+! 
+Complex Poles  
+Partial fractions work even when the poles are complex. 
+jπ/3 
+−jπ/3
+Y 
+1 
+1
+1 
+e
+e
+= 
+× 
+= √
+− 
+jπ/3R 
+−jπ/3R 
+jπ/3R 
+−jπ/3R
+X 
+1 − e 
+1 − e
+j 3
+1 − e 
+1 − e
+There are two fundamental modes (both geometric sequences): 
+e jnπ/3 = cos(nπ/3) + j sin(nπ/3) and e −jnπ/3 = cos(nπ/3) − j sin(nπ/3) 
+n
+n
+40
+
+============================================================
+PAGE 41
+============================================================
+Complex Poles  
+Complex modes are easier to visualize in the complex plane. 
+e jnπ/3 = cos(nπ/3) + j sin(nπ/3) 
+Re
+Im
+e j0π/3
+e j1π/3
+e j2π/3
+e j3π/3
+e j4π/3
+e j5π/3
+Re
+Im
+e j0π/3
+e j5π/3
+e j4π/3
+e j3π/3
+e j2π/3
+e j1π/3
+n
+e−jnπ/3 = cos(nπ/3) − j sin(nπ/3) 
+n
+41
+
+============================================================
+PAGE 42
+============================================================
+!
+Complex Poles  
+The output of a “real” system has real values. 
+y[n] = x[n] + y[n − 1] − y[n − 2]  
+Y 
+1  
+H =
+= 
+X 
+1 −R + R2 
+1
+1 
+= 
+jπ/3R
+× 
+−jπ/3R
+1 − e 
+1 − e
+jπ/3 
+−jπ/3
+1 
+e
+e
+= j 
+√
+3
+1 − e jπ/3R
+− 
+1 − e−jπ/3R 
+ 
+ 
+1 
+h[n] = √
+j 3
+e j(n+1)π/3 − e −j(n+1)π/3
+= √sin
+2 
+(n + 1)π 
+3 
+3 
+1
+−1
+n
+h[n]
+42
+ 
+!
+
+============================================================
+PAGE 43
+============================================================
+Check Yourself  
+Unit-sample response of a system with poles at z = re ±jΩ . 
+n
+Which of the following is/are true? 
+1. r < 0.5 and Ω ≈ 0.5 
+2. 0.5 < r < 1 and Ω ≈ 0.5 
+3. r < 0.5 and Ω ≈ 0.08 
+4. 0.5 < r < 1 and Ω ≈ 0.08 
+5. none of the above 
+43
+
+============================================================
+PAGE 44
+============================================================
+Check Yourself  
+Unit-sample response of a system with poles at z = re ±jΩ . 
+n
+Which of the following is/are true? 
+2 
+1. r < 0.5 and Ω ≈ 0.5 
+2. 0.5 < r < 1 and Ω ≈ 0.5 
+3. r < 0.5 and Ω ≈ 0.08 
+4. 0.5 < r < 1 and Ω ≈ 0.08 
+5. none of the above 
+44
+
+============================================================
+PAGE 45
+============================================================
+Check Yourself 
+R
+R
+R
++
+X
+Y
+How many of the following statements are true? 
+1. This system has 3 fundamental modes. 
+2. All of the fundamental modes can be written as geometrics. 
+3. Unit-sample response is y[n] : 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1 . . . 
+4. Unit-sample response is y[n] : 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1 . . . 
+5. One of the fundamental modes of this system is the unit 
+step. 
+45
+
+============================================================
+PAGE 46
+============================================================
+Check Yourself 
+R
+R
+R
++
+X
+Y
+How many of the following statements are true? 4 
+1. This system has 3 fundamental modes. 
+2. All of the fundamental modes can be written as geometrics. 
+3. Unit-sample response is y[n] : 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1 . . . 
+4. Unit-sample response is y[n] : 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1 . . . 
+5. One of the fundamental modes of this system is the unit 
+step. 
+46
+
+============================================================
+PAGE 47
+============================================================
+Summary  
+Systems composed of adders, gains, and delays can be characterized 
+by their poles. 
+The poles of a system determine its fundamental modes. 
+The unit-sample response of a system can be expressed as a weighted 
+sum of fundamental modes. 
+These properties follow from a polynomial interpretation of the sys­
+tem functional. 
+47
+
+============================================================
+PAGE 48
+============================================================
+MIT OpenCourseWare
+http://ocw.mit.edu
+6.003 Signals and Systems
+Fall 2011
+For information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms.

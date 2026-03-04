@@ -1,0 +1,167 @@
+{
+  "lecture_number": 16,
+  "source_file": "d74bab2dfa6e465d61fed45763d50528_MIT6_003F11_lec16-2.pdf",
+  "page_count": 40,
+  "pages": [
+    {
+      "page": 1,
+      "text": "6.003: Signals and Systems \nFourier Transform \nNovember 3, 2011  \n1"
+    },
+    {
+      "page": 2,
+      "text": "Last Time: Fourier Series  \nRepresenting periodic signals as sums of sinusoids. \n\u2192 new representations for systems as \ufb01lters. \nToday: generalize for aperiodic signals. \n2"
+    },
+    {
+      "page": 3,
+      "text": "Fourier Transform  \nAn aperiodic signal can be thought of as periodic with in\ufb01nite period. \nLet x(t) represent an aperiodic signal. \nx(t)\nt\n\u2212S\nS\n\u221e\n0 \n\u201cPeriodic extension\u201d: xT (t) = \nx(t + kT ) \nk=\u2212\u221e \nxT (t)\nt\n\u2212S\nS\nT\nThen x(t) = lim xT (t). \nT \u2192\u221e \n3"
+    },
+    {
+      "page": 4,
+      "text": "2 sin \u03c9S\n\u03c9\n\u03c90 = 2\u03c0/T\n\u03c9 = k\u03c90 = k2\u03c0\nT\nTak\nk\n\u03c9\nFourier Transform  \nRepresent xT (t) by its Fourier series. \nxT (t)\nt\n\u2212S\nS\nT\nak = 1 \nT\n T/2 \n\u2212T/2 \nxT (t)e \u2212j 2\u03c0 \nT ktdt = 1 \nT\n S \n\u2212S \ne \u2212j 2\u03c0 \nT ktdt = sin 2\u03c0kS \nT \n\u03c0k \n= 2 \nT \nsin \u03c9S \n\u03c9 \n4"
+    },
+    {
+      "page": 5,
+      "text": "2 sin \u03c9S\n\u03c9\n\u03c90 = 2\u03c0/T\n\u03c9 = k\u03c90 = k2\u03c0\nT\nTak\nk\n\u03c9\nFourier Transform  \nDoubling period doubles # of harmonics in given frequency interval. \nxT (t)\nt\n\u2212S\nS\nT\nak = 1 \nT \nT/2 \n\u2212T/2 \nxT (t)e \u2212j 2\u03c0 \nT ktdt = 1 \nT \nS \n\u2212S \ne \u2212j 2\u03c0 \nT ktdt = sin 2\u03c0kS \nT \n\u03c0k \n= 2 \nT \nsin \u03c9S \n\u03c9 \n5\nZ\nZ"
+    },
+    {
+      "page": 6,
+      "text": "2 sin \u03c9S\n\u03c9\n\u03c90 = 2\u03c0/T\n\u03c9 = k\u03c90 = k2\u03c0\nT\nTak\nk\n\u03c9\n \nFourier Transform  \nAs T \u2192 \u221e, discrete harmonic amplitudes \u2192 a continuum E(\u03c9). \nxT (t)\nt\n\u2212S\nS\nT\nak = 1 \nT \nT/2 \n\u2212T/2 \nxT (t)e \u2212j 2\u03c0 \nT ktdt = 1 \nT \nS \n\u2212S \ne \u2212j 2\u03c0 \nT ktdt = sin 2\u03c0kS \nT \n\u03c0k \n= 2 \nT \nsin \u03c9S \n\u03c9 \nlim \nT \u2192\u221e T ak = lim \nT \u2192\u221e \nT /2 \n\u2212T /2 \nx(t)e \u2212j\u03c9tdt = 2 \n\u03c9 sin \u03c9S = E(\u03c9) \n6\nZ\nZ\nZ"
+    },
+    {
+      "page": 7,
+      "text": "| {z }  \nFourier Transform  \nAs T \u2192 \u221e, synthesis sum \u2192 integral. \nxT (t)\nt\n\u2212S\nS\nT\n2 sin \u03c9S\n\u03c9\n\u03c90 = 2\u03c0/T\n\u03c9 = k\u03c90 = k2\u03c0\nT\nTak\nk\n\u03c9\nlim \nT \u2192\u221e T ak = lim \nT \u2192\u221e \nT /2 \n\u2212T /2 \nx(t)e \u2212j\u03c9tdt = 2 \n\u03c9 sin \u03c9S = E(\u03c9) \n\u221e\n1 \n\u221e\n0\n0 \u03c90 \n1  \n\u221e\n2\u03c0 \nx(t) = \nE(\u03c9)  e j T kt =  \n2\u03c0  E(\u03c9)e j\u03c9t \u2192 \nE(\u03c9)e j\u03c9td\u03c9\n2\u03c0  \u2212\u221e\nT \nk=\u2212\u221e \nk=\u2212\u221e \nak \n7\nZ\nZ"
+    },
+    {
+      "page": 8,
+      "text": "Fourier Transform  \nReplacing E(\u03c9) by X(j\u03c9) yields the Fourier transform relations. \nE(\u03c9) = X(j\u03c9) \nFourier transform \n\u221e \n\u2212j\u03c9tdt\nX(j\u03c9)= \nx(t)e \n(\u201canalysis\u201d equation) \n\u2212\u221e \n1 \n\u221e \nj\u03c9td\u03c9\nx(t)= \nX(j\u03c9)e\n(\u201csynthesis\u201d equation) \n2\u03c0 \u2212\u221e \nForm is similar to that of Fourier series \n\u2192 provides alternate view of signal. \n8\nZ\nZ"
+    },
+    {
+      "page": 9,
+      "text": "Relation between Fourier and Laplace Transforms  \nIf the Laplace transform of a signal exists and if the ROC includes the \nj\u03c9 axis, then the Fourier transform is equal to the Laplace transform \nevaluated on the j\u03c9 axis. \nLaplace transform: \n\u221e \nX(s) = \nx(t)e \u2212stdt \n\u2212\u221e \nFourier transform: \n\u221e \nX(j\u03c9) = \nx(t)e \u2212j\u03c9tdt = X(s)|s=j\u03c9 \n\u2212\u221e \n9\nZ\nZ"
+    },
+    {
+      "page": 10,
+      "text": "Relation between Fourier and Laplace Transforms  \nFourier transform \u201cinherits\u201d properties of Laplace transform.  \nProperty \nx(t) \nX(s) \nX(j\u03c9)  \nLinearity \nax1(t) + bx2(t) \naX1(s) + bX2(s) \naX1(j\u03c9) + bX2(j\u03c9) \n\u2212st0 X(s) \n\u2212j\u03c9t0 X(j\u03c9)\nTime shift \nx(t \u2212 t0) \ne\ne\n \n \n  \n1 \ns \n1 \nj\u03c9 \nTime scale \nx(at) \nX\nX\n|a| \na\n|a| \na\ndx(t)\nDi\ufb00erentiation \nsX(s) \nj\u03c9X(j\u03c9)\ndt \nd \n1 d \nMultiply by t \ntx(t) \n\u2212 \nX(s) \n\u2212 \nX(j\u03c9)\nds \nj d\u03c9 \nConvolution \nx1(t) \u2217 x2(t) \nX1(s) \u00d7 X2(s) \nX1(j\u03c9) \u00d7 X2(j\u03c9) \n10"
+    },
+    {
+      "page": 11,
+      "text": "Relation between Fourier and Laplace Transforms  \nThere are also important di\ufb00erences. \n\u2212t\nx(t)\nt\nCompare Fourier and Laplace transforms of x(t) = e\nu(t). \nLaplace transform  \n\u221e\n\u221e \n\u2212t \n\u2212(s+1)tdt =\n1 \nX(s) = \ne\nu(t)e \u2212stdt = \ne \n; Re(s) > \u22121 \n\u2212\u221e \n0 \n1 + s \na complex-valued function of complex domain. \nFourier transform \n\u221e\n\u221e \n\u2212t \n\u2212j\u03c9tdt = \n\u2212(j\u03c9+1)tdt =\n1 \nX(j\u03c9) = \ne\nu(t)e\ne \n\u2212\u221e \n0 \n1 + j\u03c9 \na complex-valued function of real domain.  \n11\nZ\nZ\nZ\nZ"
+    },
+    {
+      "page": 12,
+      "text": "Laplace Transform  \nThe Laplace transform maps a function of time t to a complex-valued  \nfunction of complex-valued domain s. \nx(t)\nt\n-1\n0\n1\n-1\n0\n1\n0\n10\nReal(s)\nImaginary(s)\nMagnitude\n|X(s)| =\n\f\f\f\f\n1\n1 + s\n\f\f\f\f\n12"
+    },
+    {
+      "page": 13,
+      "text": "Fourier Transform  \nThe Fourier transform maps a function of time t to a complex-valued \nfunction of real-valued domain \u03c9. \nx(t)\nt\n0\n1\n\f\fX(j )\n\f\f =\n\f\f\f\f\n1\n1 + j\u03c9\n\f\f\f\f\n\u03c9\n\u03c9\nFrequency plots provide intuition that is di\ufb03cult to otherwise obtain. \n13"
+    },
+    {
+      "page": 14,
+      "text": "Check Yourself  \nFind the Fourier transform of the following square pulse. \n\u22121\n1\nx1(t)\n1\nt\n1. X1(j\u03c9) = 1 \n\u03c9\n \ne \u03c9 \u2212 e \u2212\u03c9 \n2. X1(j\u03c9) = 1 \n\u03c9 sin \u03c9 \n3. X1(j\u03c9) = 2 \n\u03c9\n \ne \u03c9 \u2212 e \u2212\u03c9 \n4. X1(j\u03c9) = 2 \n\u03c9 sin \u03c9 \n5. none of the above \n14"
+    },
+    {
+      "page": 15,
+      "text": "Fourier Transform  \nCompare the Laplace and Fourier transforms of a square pulse.  \n\u22121\n1\nx1(t)\n1\nt\nLaplace transform:  \nX1(s) = \n1 \ne  \n\u2212st\ne\n\u2212stdt = \u2212s\n\u22121 \n     \n1 \n=  1  \ns \u2212 e \u2212s \n[function of s = \u03c3 + j\u03c9] \ne  \n\u22121 \ns \nFourier transform  \n     \n1\n1 \n\u2212j\u03c9t \ne\n\u2212j\u03c9tdt = \n2 sin \u03c9  \nX1(j\u03c9) = \n[function of \u03c9] \n= \ne  \n\u2212j\u03c9 \n\u03c9 \n\u22121 \n\u22121 \n15\nZ\nZ"
+    },
+    {
+      "page": 16,
+      "text": "Check Yourself  \nFind the Fourier transform of the following square pulse. 4 \n\u22121\n1\nx1(t)\n1\nt\n1. X1(j\u03c9) = 1 \n\u03c9 e \u03c9 \u2212 e \u2212\u03c9 \n2. X1(j\u03c9) = 1 \n\u03c9 sin \u03c9 \n3. X1(j\u03c9) = 2 \n\u03c9 e \u03c9 \u2212 e \u2212\u03c9 \n4. X1(j\u03c9) = 2 \n\u03c9 sin \u03c9 \n5. none of the above \n16\n\u0000\u0001\n\u0000\u0001"
+    },
+    {
+      "page": 17,
+      "text": "Laplace Transform  \nLaplace transform: complex-valued function of complex domain. \n\u22121\n1\nx1(t)\n1\nt\n-5\n0\n5\n-5\n0\n5\n0\n10\n20\n30\n|X(s)| =\n\f\f\f\f\n1\ns(es \u2212e\u2212s)\n\f\f\f\f\n17"
+    },
+    {
+      "page": 18,
+      "text": "Fourier Transform  \nThe Fourier transform is a function of real domain: frequency \u03c9. \nTime representation: \n\u22121\n1\nx1(t)\n1\nt\nFrequency representation: \n2\n\u03c0\nX1(j\u03c9) = 2 sin \u03c9\n\u03c9\n\u03c9\n18"
+    },
+    {
+      "page": 19,
+      "text": "Check Yourself  \nSignal x2(t) and its Fourier transform X2(j\u03c9) are shown below. \n\u22122\n2\nx2(t)\n1\nt\nb\n\u03c90\nX2(j\u03c9)\n\u03c9\nWhich is true? \n1. b = 2 and \u03c90 = \u03c0/2 \n2. b = 2 and \u03c90 = 2\u03c0 \n3. b = 4 and \u03c90 = \u03c0/2 \n4. b = 4 and \u03c90 = 2\u03c0 \n5. none of the above \n19"
+    },
+    {
+      "page": 20,
+      "text": "Check Yourself  \nFind the Fourier transform. \n2\n2 \n\u2212j\u03c9t \ne\n2 sin 2\u03c9 \n4 sin 2\u03c9\n\u2212j\u03c9tdt = \n=\n=\nX2(j\u03c9) = \n\u22122 \ne \n\u2212j\u03c9 \u22122 \n\u03c9 \n2\u03c9 \n4\n\u03c0/2\n\u03c9\n20\nZ"
+    },
+    {
+      "page": 21,
+      "text": "Check Yourself  \nSignal x2(t) and its Fourier transform X2(j\u03c9) are shown below. \n\u22122\n2\nx2(t)\n1\nt\nb\n\u03c90\nX2(j\u03c9)\n\u03c9\nWhich is true? \n3 \n1. b = 2 and \u03c90 = \u03c0/2 \n2. b = 2 and \u03c90 = 2\u03c0 \n3. b = 4 and \u03c90 = \u03c0/2 \n4. b = 4 and \u03c90 = 2\u03c0 \n5. none of the above \n21"
+    },
+    {
+      "page": 22,
+      "text": "Fourier Transforms  \nStretching time compresses frequency. \n\u22121\n1\nx1(t)\n1\nt\n2\n\u03c0\nX1(j\u03c9) = 2 sin \u03c9\n\u03c9\n\u03c9\n\u22122\n2\nx2(t)\n1\nt\n4\n\u03c0/2\nX2(j\u03c9) = 4 sin 2\u03c9\n2\u03c9\n\u03c9\n22"
+    },
+    {
+      "page": 23,
+      "text": "Check Yourself  \nStretching time compresses frequency. \nFind a general scaling rule. \nLet x2(t) = x1(at). \nIf time is stretched in going from x1 to x2, is a > 1 or a < 1? \n23"
+    },
+    {
+      "page": 24,
+      "text": "Check Yourself  \nStretching time compresses frequency.  \nFind a general scaling rule.  \nLet x2(t) = x1(at).  \nIf time is stretched in going from x1 to x2, is a > 1 or a < 1?  \nx2(2) = x1(1)  \nx2(t) = x1(at)  \nTherefore a = 1/2, or more generally, a < 1. \n24"
+    },
+    {
+      "page": 25,
+      "text": "Check Yourself  \nStretching time compresses frequency. \nFind a general scaling rule. \nLet x2(t) = x1(at). \nIf time is stretched in going from x1 to x2, is a > 1 or a < 1? \na < 1 \n25"
+    },
+    {
+      "page": 26,
+      "text": "Fourier Transforms  \nFind a general scaling rule. \nLet x2(t) = x1(at). \n\u221e\n\u221e \n\u2212j\u03c9tdt = \n\u2212j\u03c9tdt\nX2(j\u03c9) = \nx2(t)e\nx1(at)e \n\u2212\u221e \n\u2212\u221e \nLet \u03c4 = at (a > 0). \n\u221e \n\u2212j\u03c9\u03c4/a 1\n1 \nj\u03c9 \nX2(j\u03c9) = \nx1(\u03c4)e \nd\u03c4 = X1 \na\na\na\n\u2212\u221e \nIf a < 0 the sign of d\u03c4 would change along with the limits of integra\u00ad\ntion. In general, \n1 \nj\u03c9 \nx1(at) \u2194 \nX1 \n. \n|a| \na \nIf time is stretched (a < 1) then frequency is compressed and ampli\u00ad\ntude increases (preserving area). \n26\nZ\nZ\nZ\n\u0012\n\u0013\n\u0012\n\u0013"
+    },
+    {
+      "page": 27,
+      "text": "Moments  \nThe value of X(j\u03c9) at \u03c9 = 0 is the integral of x(t) over time t. \n\u221e \n\u221e\n\u221e \n\u2212j\u03c9tdt =\nX(j\u03c9)|\u03c9=0 = \nx(t)e\nx(t)ej0tdt = \nx(t) dt \n\u2212\u221e \n\u2212\u221e\n\u2212\u221e \n\u22121\n1\nx1(t)\n1\nt\narea = 2\n2\n\u03c0\nX1(j\u03c9) = 2 sin \u03c9\n\u03c9\n\u03c9\n27\nZ\nZ\nZ"
+    },
+    {
+      "page": 28,
+      "text": "Moments  \nThe value of x(0) is the integral of X(j\u03c9) divided by 2\u03c0. \n1 \n\u221e \n1 \n\u221e \nj\u03c9td\u03c9 =\nx(0) = \nX(j\u03c9) e\nX(j\u03c9) d\u03c9\n2\u03c0 \u2212\u221e \n2\u03c0 \u2212\u221e \n\u22121\n1\nx1(t)\n1\nt\n+\n+\n\u2212\n\u2212\n+\n+\n\u2212\n\u2212\n2\n\u03c0\nX1(j\u03c9) = 2 sin \u03c9\n\u03c9\n\u03c9\narea\n2\u03c0\n= 1\n28\nZ\nZ"
+    },
+    {
+      "page": 29,
+      "text": "Moments  \nThe value of x(0) is the integral of X(j\u03c9) divided by 2\u03c0. \n1 \n\u221e \n1 \n\u221e \nj\u03c9td\u03c9 =\nx(0) = \nX(j\u03c9) e\nX(j\u03c9) d\u03c9\n2\u03c0 \u2212\u221e \n2\u03c0 \u2212\u221e \n\u22121\n1\nx1(t)\n1\nt\n+\n+\n\u2212\n\u2212\n+\n+\n\u2212\n\u2212\n2\n\u03c0\nX1(j\u03c9) = 2 sin \u03c9\n\u03c9\n\u03c9\narea\n2\u03c0\n= 1\n2\n\u03c0\n\u03c9\nequal areas !\n29\nZ\nZ"
+    },
+    {
+      "page": 30,
+      "text": "Stretching to the Limit  \nStretching time compresses frequency and increases amplitude \n(preserving area). \n\u22121\n1\nx1(t)\n1\nt\n2\n\u03c0\nX1(j\u03c9) = 2 sin \u03c9\n\u03c9\n\u03c9\n\u22122\n2\n1\nt\n4\n\u03c0\n\u03c9\n1\nt\n2\u03c0\n\u03c9\nNew way to think about an impulse! \n30"
+    },
+    {
+      "page": 31,
+      "text": "Fourier Transform  \nOne of the most useful features of the Fourier transform (and Fourier \nseries) is the simple \u201cinverse\u201d Fourier transform. \n\u221e \n\u2212j\u03c9tdt\nX(j\u03c9)= \nx(t)e \n(Fourier transform) \n\u2212\u221e \n1 \n\u221e \nj\u03c9td\u03c9\nx(t)= \nX(j\u03c9)e\n(\u201cinverse\u201d Fourier transform) \n2\u03c0 \u2212\u221e \n31\nZ\nZ"
+    },
+    {
+      "page": 32,
+      "text": "Inverse Fourier Transform  \nsin \u03c90t \n= \n\u03c0t \n\u2212\u03c90 \nFind the impulse reponse of an \u201cideal\u201d low pass \ufb01lter. \n\u2212\u03c90\n\u03c90\nH(j\u03c9)\n1\n\u03c9\nh(t) = 1 \n2\u03c0 \n\u221e \n\u2212\u221e \nH(j\u03c9)ej\u03c9td\u03c9 = 1 \n2\u03c0 \n\u03c90 \n\u2212\u03c90 \nej\u03c9td\u03c9 = 1 \n2\u03c0 \nej\u03c9t \njt \n\u03c90 \n\u03c90/\u03c0\n\u03c0\n\u03c90\nh(t)\nt\nThis result is not so easily obtained without inverse relation. \n32\nZ\nZ"
+    },
+    {
+      "page": 33,
+      "text": "Fourier Transform  \nThe Fourier transform and its inverse have very similar forms.  \n\u221e \n\u2212j\u03c9tdt\nX(j\u03c9)= \nx(t)e \n(Fourier transform) \n\u2212\u221e \n1 \n\u221e \nj\u03c9td\u03c9\nx(t)= \nX(j\u03c9)e\n(\u201cinverse\u201d Fourier transform) \n2\u03c0 \u2212\u221e \nConvert one to the other by \n\u2022 t \u2192 \u03c9 \n\u2022 \u03c9 \u2192\u2212t \n\u2022 scale by 2\u03c0 \n33\nZ\nZ"
+    },
+    {
+      "page": 34,
+      "text": "Duality  \nThe Fourier transform and its inverse have very similar forms.  \n\u221e \n\u2212j\u03c9tdt\nX(j\u03c9) = \nx(t)e \n\u2212\u221e  \n1 \n\u221e  \nj\u03c9td\u03c9\nx(t) = \nX(j\u03c9)e\n2\u03c0 \u2212\u221e \nTwo di\ufb00erences: \n\u2022 \nminus sign: \ufb02ips time axis (or equivalently, frequency axis) \n\u2022 \ndivide by 2\u03c0 (or multiply in the other direction) \nx1(t) = f(t) \u2194X1(j\u03c9) = g(\u03c9)\nx2(t) = g(t) \u2194X2(j\u03c9) = 2\u03c0f(\u2212\u03c9)\n\u03c9 \u2192t\nt \u2192\u03c9 ;\n\ufb02ip ;\n\u00d72\u03c0\n34\nZ\nZ"
+    },
+    {
+      "page": 35,
+      "text": "Duality  \nUsing duality to \ufb01nd new transform pairs. \nx1(t) = f(t) \u2194X1(j\u03c9) = g(\u03c9)\nx2(t) = g(t) \u2194X2(j\u03c9) = 2\u03c0f(\u2212\u03c9)\n\u03c9 \u2192t\nt \u2192\u03c9 ;\n\ufb02ip ;\n\u00d72\u03c0\nf(t) = \u03b4(t)\nt\n1\ng(\u03c9) = 1\n\u03c9\n\u2194\ng(t) = 1\nt\n2\u03c0f(\u2212\u03c9) = 2\u03c0\u03b4(\u03c9)\n\u03c9\n2\u03c0\n\u2194\n\u2193\nThe function g(t) = 1 does not have a Laplace transform! \n35"
+    },
+    {
+      "page": 36,
+      "text": "More Impulses  \nFourier transform of delayed impulse: \u03b4(t \u2212 T ) \u2194 e\u2212j\u03c9T . \nx(t) = \u03b4(t \u2212T)\nt\nT\n1\nX(j\u03c9) =\nR \u221e\n\u2212\u221e\u03b4(t \u2212T)e\u2212j\u03c9tdt = e\u2212j\u03c9T\n\f\fX(j\u03c9)\n\f\f = 1\n\u03c9\n1\n\u2220X(j\u03c9) = \u2212\u03c9T\n\u03c9\n\u2212T\n36"
+    },
+    {
+      "page": 37,
+      "text": "Eternal Sinusoids  \nUsing duality to \ufb01nd the Fourier transform of an eternal sinusoid.  \n\u03b4(t \u2212T)\ne\u2212jtT\ne\u2212j\u03c90t\n\u2194\n\u2194\n\u2194\ne\u2212j\u03c9T\n2\u03c0\u03b4(\u03c9 + T)\n2\u03c0\u03b4(\u03c9 + \u03c90)\nT \u2192\u03c90 :\n\u03c9 \u2192t\nt \u2192\u03c9 ;\n\ufb02ip ;\n\u00d72\u03c0\n\u221e\nk=\u2212\u221e \n0 \nake\n2\nCTFS \n\u03c0\nj \nkt \nx(t) = x(t + T ) =  \n{ak}\nT\n\u2190\u2192  \n2\u03c0  k  \n2\nCTFT \n\u03c0\nj \nkt \nx(t) = x(t + T ) =  \n2\u03c0ak\u03b4\n\u03c9 \u2212 \n0\n\u221e\n\u221e\nk=\u2212\u221e \nk=\u2212\u221e \n0 \nake\nT\n\u2190\u2192  \nT  \n37"
+    },
+    {
+      "page": 38,
+      "text": "\u00b7 \u00b7 \u00b7\n\u00b7 \u00b7 \u00b7\nx(t) =\n\u221e\nX\nk=\u2212\u221e\nxp(t \u2212kT)\nt\n0\nT\n\u00b7 \u00b7 \u00b7\n\u00b7 \u00b7 \u00b7\nak\nk\n\u00b7 \u00b7 \u00b7\n\u00b7 \u00b7 \u00b7\nX(j\u03c9) =\n\u221e\nX\nk=\u2212\u221e\n2\u03c0 ak \u03b4(\u03c9 \u2212k2\u03c0\nT )\n\u03c9\n0\n2\u03c0\nT\nRelation between Fourier Transform and Fourier Series \nEach term in the Fourier series is replaced by an impulse. \n38"
+    },
+    {
+      "page": 39,
+      "text": "Summary  \nFourier transform generalizes ideas from Fourier series to aperiodic \nsignals. \nFourier transform is strikingly similar to Laplace transform \n\u2022 \nsimilar properties (linearity, di\ufb00erentiation, ...) \n\u2022 \nbut has a simple inverse (great for computation!) \nNext time \u2013 applications (demos) of Fourier transforms \n39"
+    },
+    {
+      "page": 40,
+      "text": "MIT OpenCourseWare\nhttp://ocw.mit.edu\n6.003 Signals and Systems\nFall 2011\nFor information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms."
+    }
+  ]
+}

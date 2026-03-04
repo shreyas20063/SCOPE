@@ -1,12 +1,16 @@
 /**
- * BlockDiagramViewer Component — Full Rewrite
+ * BlockDiagramViewer Component — Clean Rewrite
  *
- * Interactive SVG-based block diagram builder with A* wire routing.
+ * Interactive SVG-based block diagram builder with Manhattan wire routing.
  * Two modes:
  *   1. Build Mode — drag/drop blocks, draw wires → compute transfer function
  *   2. Parse Mode — enter transfer function → generate block diagram
  *
- * Block types: Input, Output, Gain, Constant, Adder, Delay (DT), Integrator (CT), Junction
+ * Rendering Pipeline:
+ *   1. analyzeSignalFlow() — determine LTR/RTL per block via connection topology
+ *   2. computeAdderPorts() — dynamic port placement based on connection angles
+ *   3. getPortPosition() — port coords (invariant: port 0=LEFT, port 1=RIGHT)
+ *   4. routeWire() — geometric-first Manhattan routing with A* fallback
  */
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
@@ -42,8 +46,7 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3.0;
 const ZOOM_STEP = 0.15;
 const PORT_RADIUS = 10;
-const COLLISION_PAD = 48; // 2 grid cells clearance around blocks
-const RELAXED_PAD = 12;  // Reduced padding for adaptive routing (feedback wires)
+const COLLISION_PAD = 36; // 1.5 grid cells clearance around blocks
 
 const BLOCK_SIZES = {
   input:      { width: 80, height: 60 },
@@ -56,65 +59,386 @@ const BLOCK_SIZES = {
   junction:   { radius: 6 },
 };
 
-// Port offsets — all multiples of GRID_SIZE for grid alignment
-const PORT_OFFSETS = {
-  input:      { output: 48 },
-  output:     { input: 48 },
-  gain:       { left: 48, right: 48 },
-  constant:   { output: 48 },
-  delay:      { left: 48, right: 48 },
-  integrator: { left: 48, right: 48 },
-  adder:      { left: 48, bottom: 48, right: 48 },
-  junction:   { d: 24 },
-};
+// Port distance from block center (all multiples of GRID_SIZE)
+const PORT_DIST = 48;
 
 function snapToGrid(val) {
   return Math.round(val / GRID_SIZE) * GRID_SIZE;
 }
 
 // ============================================================================
-// A* Wire Router — THE CRITICAL FIX
+// Signal Flow Analysis — graph topology, not heuristics
 // ============================================================================
 
-function getInflatedBounds(block) {
+/**
+ * For each gain/delay/integrator, determine signal flow direction.
+ * LTR: block on forward path (input→output) — triangle points RIGHT
+ * RTL: block on feedback path (not on forward path) — triangle points LEFT
+ *
+ * Algorithm: replicate backend's forward/feedback detection.
+ * 1. Detect back-edges via DFS (cycle detection)
+ * 2. Build acyclic graph (remove back-edges)
+ * 3. Forward set = reachable from input AND can reach output (in acyclic graph)
+ * 4. Feedback = everything not in forward set → render RTL
+ * 5. Forward blocks: use spatial check (source to the RIGHT → RTL)
+ */
+function analyzeSignalFlow(blocks, connections) {
+  const dirs = {};
+  const blockIds = Object.keys(blocks);
+  if (blockIds.length === 0) return dirs;
+
+  // Build adjacency
+  const outgoing = {}, incoming = {};
+  blockIds.forEach(id => { outgoing[id] = []; incoming[id] = []; });
+  for (const c of connections) {
+    if (blocks[c.from_block] && blocks[c.to_block]) {
+      outgoing[c.from_block].push(c.to_block);
+      incoming[c.to_block].push(c.from_block);
+    }
+  }
+
+  const inputIds = blockIds.filter(id => blocks[id].type === 'input');
+  const outputIds = blockIds.filter(id => blocks[id].type === 'output');
+
+  // Detect back-edges via iterative DFS
+  const backEdges = new Set();
+  const visited = new Set();
+  const recStack = new Set();
+  const starts = [...inputIds, ...blockIds.filter(id => !inputIds.includes(id))];
+
+  for (const start of starts) {
+    if (visited.has(start)) continue;
+    const stack = [[start, 0]]; // [node, childIndex]
+    visited.add(start);
+    recStack.add(start);
+    while (stack.length > 0) {
+      const top = stack[stack.length - 1];
+      const [node, ci] = top;
+      const children = outgoing[node] || [];
+      if (ci < children.length) {
+        top[1]++; // advance child index
+        const child = children[ci];
+        if (recStack.has(child)) {
+          backEdges.add(`${node}->${child}`);
+        } else if (!visited.has(child)) {
+          visited.add(child);
+          recStack.add(child);
+          stack.push([child, 0]);
+        }
+      } else {
+        recStack.delete(node);
+        stack.pop();
+      }
+    }
+  }
+
+  // Build acyclic adjacency
+  const acyclicOut = {}, acyclicIn = {};
+  blockIds.forEach(id => { acyclicOut[id] = []; acyclicIn[id] = []; });
+  for (const c of connections) {
+    if (blocks[c.from_block] && blocks[c.to_block] && !backEdges.has(`${c.from_block}->${c.to_block}`)) {
+      acyclicOut[c.from_block].push(c.to_block);
+      acyclicIn[c.to_block].push(c.from_block);
+    }
+  }
+
+  // Forward reachable from inputs
+  const fwdFromInput = new Set(inputIds);
+  let q = [...inputIds];
+  while (q.length > 0) {
+    const n = q.shift();
+    for (const nb of (acyclicOut[n] || [])) {
+      if (!fwdFromInput.has(nb)) { fwdFromInput.add(nb); q.push(nb); }
+    }
+  }
+
+  // Backward reachable from outputs
+  const bwdFromOutput = new Set(outputIds);
+  q = [...outputIds];
+  while (q.length > 0) {
+    const n = q.shift();
+    for (const nb of (acyclicIn[n] || [])) {
+      if (!bwdFromOutput.has(nb)) { bwdFromOutput.add(nb); q.push(nb); }
+    }
+  }
+
+  // Forward set = intersection
+  const forwardSet = new Set([...fwdFromInput].filter(x => bwdFromOutput.has(x)));
+
+  // Assign directions
+  for (const blockId of blockIds) {
+    const block = blocks[blockId];
+    if (!['gain', 'delay', 'integrator'].includes(block.type)) {
+      dirs[blockId] = 'ltr';
+      continue;
+    }
+
+    if (!forwardSet.has(blockId)) {
+      // Feedback block → LTR (cleaner wiring with auto_arrange layout)
+      dirs[blockId] = 'ltr';
+    } else {
+      // Forward path block → LTR by default, RTL if source is spatially to the right
+      let sourceBlock = null;
+      for (const conn of connections) {
+        if (conn.to_block === blockId) {
+          sourceBlock = blocks[conn.from_block];
+          break;
+        }
+      }
+      dirs[blockId] = (sourceBlock && sourceBlock.position.x > block.position.x)
+        ? 'rtl' : 'ltr';
+    }
+  }
+
+  return dirs;
+}
+
+// ============================================================================
+// Block bounding box for obstacle detection
+// ============================================================================
+
+function getBlockBounds(block, padding = COLLISION_PAD) {
+  // Wire zone blocks have pre-computed bounds (padding already baked in)
+  if (block._bounds) return block._bounds;
+
   const { x, y } = block.position;
   const type = block.type;
-  const pad = arguments.length > 1 ? arguments[1] : COLLISION_PAD;
+
   if (type === 'adder') {
     const r = BLOCK_SIZES.adder.radius;
-    return { left: x - r - pad, right: x + r + pad,
-             top: y - r - pad, bottom: y + r + pad };
+    return { left: x - r - padding, right: x + r + padding,
+             top: y - r - padding, bottom: y + r + padding };
   }
   if (type === 'junction') {
-    const r = BLOCK_SIZES.junction.radius;
-    return { left: x - r - pad, right: x + r + pad,
-             top: y - r - pad, bottom: y + r + pad };
+    const r = BLOCK_SIZES.junction.radius + 4;
+    return { left: x - r - padding, right: x + r + padding,
+             top: y - r - padding, bottom: y + r + padding };
   }
   const size = BLOCK_SIZES[type] || { width: 80, height: 60 };
   const hw = size.width / 2, hh = size.height / 2;
-  return { left: x - hw - pad, right: x + hw + pad,
-           top: y - hh - pad, bottom: y + hh + pad };
+  return { left: x - hw - padding, right: x + hw + padding,
+           top: y - hh - padding, bottom: y + hh + padding };
 }
 
-function buildObstacleSet(blocks, excludeIds = [], pad = COLLISION_PAD) {
-  const blocked = new Set();
-  Object.values(blocks).forEach(block => {
-    if (excludeIds.includes(block.id)) return;
-    const bounds = getInflatedBounds(block, pad);
-    const left = Math.floor(bounds.left / GRID_SIZE) * GRID_SIZE;
-    const right = Math.ceil(bounds.right / GRID_SIZE) * GRID_SIZE;
-    const top = Math.floor(bounds.top / GRID_SIZE) * GRID_SIZE;
-    const bottom = Math.ceil(bounds.bottom / GRID_SIZE) * GRID_SIZE;
-    for (let gx = left; gx <= right; gx += GRID_SIZE) {
-      for (let gy = top; gy <= bottom; gy += GRID_SIZE) {
-        blocked.add(`${gx},${gy}`);
+// ============================================================================
+// Port position computation
+// ============================================================================
+
+/**
+ * Get the physical position and wire direction for a port.
+ * INVARIANT: port 0 = LEFT side, port 1 = RIGHT side (gain/delay/integrator).
+ * The backend reverses input/output semantics for RTL blocks, but
+ * physical positions NEVER change. This is the critical rule.
+ */
+function getPortPosition(block, portType, portIndex, _flowDirMap, adderPortMap) {
+  const { x, y } = block.position;
+  const type = block.type;
+
+  if (type === 'input') {
+    return { x: x + PORT_DIST, y, dir: 'right' };
+  }
+  if (type === 'output') {
+    return { x: x - PORT_DIST, y, dir: 'left' };
+  }
+  if (type === 'constant') {
+    return { x: x + PORT_DIST, y, dir: 'right' };
+  }
+
+  // Gain / Delay / Integrator: port 0 = LEFT, port 1 = RIGHT (always)
+  if (type === 'gain' || type === 'delay' || type === 'integrator') {
+    if (portIndex === 0) return { x: x - PORT_DIST, y, dir: 'left' };
+    return { x: x + PORT_DIST, y, dir: 'right' };
+  }
+
+  // Adder: use dynamic port map if available
+  if (type === 'adder') {
+    const dynPorts = adderPortMap && adderPortMap[block.id];
+    if (dynPorts && dynPorts[portIndex]) {
+      const dp = dynPorts[portIndex];
+      return { x: x + dp.dx, y: y + dp.dy, dir: dp.dir };
+    }
+    // Fallback: port 0=left, port 1=bottom, port 2=right
+    if (portIndex === 0) return { x: x - PORT_DIST, y, dir: 'left' };
+    if (portIndex === 1) return { x, y: y + PORT_DIST, dir: 'down' };
+    return { x: x + PORT_DIST, y, dir: 'right' };
+  }
+
+  // Junction: multi-port branch point
+  if (type === 'junction') {
+    const d = GRID_SIZE;
+    if (portIndex === 0) return { x: x - d, y, dir: 'left' };
+    if (portIndex === 1) return { x: x + d, y, dir: 'right' };
+    if (portIndex === 2) return { x, y: y - d, dir: 'up' };
+    if (portIndex === 3) return { x, y: y + d, dir: 'down' };
+    return { x: x + d, y: y + (portIndex - 3) * GRID_SIZE, dir: 'right' };
+  }
+
+  return { x, y, dir: 'right' };
+}
+
+// ============================================================================
+// Dynamic adder port computation
+// ============================================================================
+
+/**
+ * For each adder, compute optimal port positions based on connected block angles.
+ * Output port (port 2) gets priority placement, then input ports.
+ */
+function computeAdderPorts(blocks, connections) {
+  const map = {};
+
+  for (const block of Object.values(blocks)) {
+    if (block.type !== 'adder') continue;
+
+    // Gather port→connected block info
+    const portInfo = {};
+    for (const conn of connections) {
+      if (conn.to_block === block.id) {
+        const src = blocks[conn.from_block];
+        if (src) {
+          portInfo[conn.to_port] = {
+            dx: src.position.x - block.position.x,
+            dy: src.position.y - block.position.y,
+            isOutput: false,
+          };
+        }
+      }
+      if (conn.from_block === block.id) {
+        const tgt = blocks[conn.to_block];
+        if (tgt) {
+          const tdx = tgt.position.x - block.position.x;
+          const tdy = tgt.position.y - block.position.y;
+          if (portInfo[conn.from_port] && portInfo[conn.from_port].isOutput) {
+            // Multiple targets: keep the most horizontal one (forward path priority)
+            const curHoriz = Math.abs(portInfo[conn.from_port].dy) <= Math.abs(portInfo[conn.from_port].dx);
+            const newHoriz = Math.abs(tdy) <= Math.abs(tdx);
+            if (newHoriz && !curHoriz) {
+              portInfo[conn.from_port].dx = tdx;
+              portInfo[conn.from_port].dy = tdy;
+            }
+          } else {
+            portInfo[conn.from_port] = { dx: tdx, dy: tdy, isOutput: true };
+          }
+        }
       }
     }
-  });
-  return blocked;
+
+    if (Object.keys(portInfo).length === 0) continue;
+
+    // Cardinal directions
+    const cardinals = [
+      { dir: 'left',  dx: -PORT_DIST, dy: 0 },
+      { dir: 'right', dx: PORT_DIST,  dy: 0 },
+      { dir: 'up',    dx: 0, dy: -PORT_DIST },
+      { dir: 'down',  dx: 0, dy: PORT_DIST },
+    ];
+
+    // Sort: output port first (priority), then inputs
+    const entries = Object.entries(portInfo).sort((a, b) => {
+      if (a[1].isOutput && !b[1].isOutput) return -1;
+      if (!a[1].isOutput && b[1].isOutput) return 1;
+      return 0;
+    });
+
+    const usedDirs = new Set();
+    const portPositions = {};
+
+    for (const [portIdx, info] of entries) {
+      const angle = Math.atan2(info.dy, info.dx);
+      let bestCard = null;
+      let bestScore = Infinity;
+
+      for (const card of cardinals) {
+        if (usedDirs.has(card.dir)) continue;
+        const cardAngle = Math.atan2(card.dy, card.dx);
+        let diff = Math.abs(angle - cardAngle);
+        if (diff > Math.PI) diff = 2 * Math.PI - diff;
+        if (diff < bestScore) {
+          bestScore = diff;
+          bestCard = card;
+        }
+      }
+
+      if (bestCard) {
+        usedDirs.add(bestCard.dir);
+        portPositions[portIdx] = {
+          dx: bestCard.dx,
+          dy: bestCard.dy,
+          dir: bestCard.dir,
+        };
+      }
+    }
+
+    if (Object.keys(portPositions).length > 0) {
+      map[block.id] = portPositions;
+    }
+  }
+
+  return map;
 }
 
-function pathLength(pts) {
+// ============================================================================
+// Wire Routing — Geometric-first Manhattan routing with A* fallback
+// ============================================================================
+
+/**
+ * Check if a Manhattan segment (horizontal or vertical) is clear of obstacles.
+ */
+function segmentClear(x1, y1, x2, y2, obsBlocks, padding = COLLISION_PAD) {
+  for (const block of obsBlocks) {
+    const b = getBlockBounds(block, padding);
+    // Horizontal segment
+    if (Math.abs(y1 - y2) < 1) {
+      const yy = y1;
+      const xMin = Math.min(x1, x2), xMax = Math.max(x1, x2);
+      if (yy >= b.top && yy <= b.bottom && xMax >= b.left && xMin <= b.right) {
+        return false;
+      }
+    }
+    // Vertical segment
+    else if (Math.abs(x1 - x2) < 1) {
+      const xx = x1;
+      const yMin = Math.min(y1, y2), yMax = Math.max(y1, y2);
+      if (xx >= b.left && xx <= b.right && yMax >= b.top && yMin <= b.bottom) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+/**
+ * Check if an entire route (array of [x,y] points) is clear of obstacles.
+ */
+function routeClear(points, obsBlocks, padding = COLLISION_PAD) {
+  for (let i = 0; i < points.length - 1; i++) {
+    if (!segmentClear(points[i][0], points[i][1], points[i+1][0], points[i+1][1], obsBlocks, padding)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Check that a route doesn't cut through excluded (source/target) block bodies.
+ * Uses minimal padding (just the physical block, not full airspace) so ports
+ * at PORT_DIST from center remain accessible while the body is blocked.
+ */
+function routeClearBody(route, bodyBlocks) {
+  if (bodyBlocks.length === 0 || route.length < 2) return true;
+  const BODY_PAD = 2; // Minimal padding: just the block body
+  for (let i = 0; i < route.length - 1; i++) {
+    if (!segmentClear(route[i][0], route[i][1], route[i+1][0], route[i+1][1], bodyBlocks, BODY_PAD)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Compute total Manhattan length of a route.
+ */
+function routeLength(pts) {
   let len = 0;
   for (let i = 0; i < pts.length - 1; i++) {
     len += Math.abs(pts[i+1][0] - pts[i][0]) + Math.abs(pts[i+1][1] - pts[i][1]);
@@ -122,257 +446,41 @@ function pathLength(pts) {
   return len;
 }
 
-function routeWire(fromPort, toPort, blocks, excludeIds = []) {
-  // Build obstacles WITHOUT excluding source/target — prevents wires cutting through blocks
-  const obstacles = buildObstacleSet(blocks);                         // strict, no exclusions
-  const relaxedObs = buildObstacleSet(blocks, [], RELAXED_PAD);       // relaxed, no exclusions
-  const sx = snapToGrid(fromPort.x), sy = snapToGrid(fromPort.y);
-  const ex = snapToGrid(toPort.x), ey = snapToGrid(toPort.y);
-  const startDir = fromPort.dir || 'right';
-  const endDir = toPort.dir || 'left';
-  const G = GRID_SIZE;
-
-  // Build bypass set: port positions + exit/entrance corridors
-  // Corridors allow A* to reach ports through block obstacle zones
-  const bypassKeys = new Set([`${sx},${sy}`, `${ex},${ey}`]);
-
-  // Helper to add corridor cells in a direction
-  const addCorridor = (px, py, dir, steps) => {
-    for (let i = 1; i <= steps; i++) {
-      let cx = px, cy = py;
-      switch (dir) {
-        case 'right': cx += G * i; break;
-        case 'left':  cx -= G * i; break;
-        case 'down':  cy += G * i; break;
-        case 'up':    cy -= G * i; break;
-      }
-      bypassKeys.add(`${cx},${cy}`);
-    }
-  };
-
-  // Add exit corridor from start port (3 cells in port direction)
-  addCorridor(sx, sy, startDir, 3);
-  // Add entrance corridor to end port (3 cells from port direction)
-  addCorridor(ex, ey, endDir, 3);
-
-  // Compute departure point (one grid cell in start direction)
-  let dx = sx + (startDir === 'right' ? G : startDir === 'left' ? -G : 0);
-  let dy = sy + (startDir === 'down' ? G : startDir === 'up' ? -G : 0);
-
-  // Compute approach point (one grid cell in end direction)
-  let ax = ex + (endDir === 'right' ? G : endDir === 'left' ? -G : 0);
-  let ay = ey + (endDir === 'down' ? G : endDir === 'up' ? -G : 0);
-
-  // Compute adaptive directions based on relative positions (for feedback wires)
-  const relDx = ex - sx, relDy = ey - sy;
-  const adaptStart = Math.abs(relDx) >= Math.abs(relDy)
-    ? (relDx >= 0 ? 'right' : 'left')
-    : (relDy >= 0 ? 'down' : 'up');
-  const adaptEnd = Math.abs(relDx) >= Math.abs(relDy)
-    ? (relDx >= 0 ? 'left' : 'right')
-    : (relDy >= 0 ? 'up' : 'down');
-
-  // Add adaptive corridors
-  addCorridor(sx, sy, adaptStart, 3);
-  addCorridor(ex, ey, adaptEnd, 3);
-
-  // Adaptive departure/approach points
-  let adx = sx + (adaptStart === 'right' ? G : adaptStart === 'left' ? -G : 0);
-  let ady = sy + (adaptStart === 'down' ? G : adaptStart === 'up' ? -G : 0);
-  let aax = ex + (adaptEnd === 'right' ? G : adaptEnd === 'left' ? -G : 0);
-  let aay = ey + (adaptEnd === 'down' ? G : adaptEnd === 'up' ? -G : 0);
-
-  // Try multiple routing strategies and pick the SHORTEST path
-  const candidates = [];
-
-  // Strategies 1-3: strict obstacles (full clearance from blocks)
-
-  // Strategy 1: departure → approach (enforces port directions)
-  const p1 = astar(dx, dy, ax, ay, obstacles, startDir, bypassKeys);
-  if (p1 && p1.length > 0) {
-    const route1 = simplifyPath([[sx, sy], ...p1, [ex, ey]]);
-    candidates.push(route1);
+/**
+ * Count the number of bends (direction changes) in a route.
+ */
+function routeBends(pts) {
+  let bends = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const dx1 = pts[i][0] - pts[i-1][0], dy1 = pts[i][1] - pts[i-1][1];
+    const dx2 = pts[i+1][0] - pts[i][0], dy2 = pts[i+1][1] - pts[i][1];
+    if (Math.abs(dx1) > 0.5 && Math.abs(dy2) > 0.5) bends++;
+    else if (Math.abs(dy1) > 0.5 && Math.abs(dx2) > 0.5) bends++;
   }
-
-  // Strategy 2: direct port → port (no stubs, more flexible)
-  const p2 = astar(sx, sy, ex, ey, obstacles, startDir, bypassKeys);
-  if (p2 && p2.length > 0) {
-    candidates.push(p2);
-  }
-
-  // Strategy 3: departure → direct end (start enforced, end flexible)
-  const p3 = astar(dx, dy, ex, ey, obstacles, startDir, bypassKeys);
-  if (p3 && p3.length > 0) {
-    const route3 = simplifyPath([[sx, sy], ...p3]);
-    candidates.push(route3);
-  }
-
-  // Strategies 4-5: relaxed obstacles + adaptive direction (for feedback wires)
-  // These can pass through gaps between blocks with reduced clearance
-
-  // Strategy 4: adaptive departure → adaptive approach (relaxed, no initial penalty)
-  const p4 = astar(adx, ady, aax, aay, relaxedObs, adaptStart, bypassKeys, false);
-  if (p4 && p4.length > 0) {
-    const route4 = simplifyPath([[sx, sy], ...p4, [ex, ey]]);
-    candidates.push(route4);
-  }
-
-  // Strategy 5: adaptive direct port → port (relaxed, no initial penalty)
-  const p5 = astar(sx, sy, ex, ey, relaxedObs, adaptStart, bypassKeys, false);
-  if (p5 && p5.length > 0) {
-    candidates.push(p5);
-  }
-
-  // Pick shortest valid route
-  if (candidates.length > 0) {
-    candidates.sort((a, b) => pathLength(a) - pathLength(b));
-    return candidates[0];
-  }
-
-  // Last resort: route around ALL blocks
-  return fallbackRoute(sx, sy, ex, ey, startDir, endDir, blocks, excludeIds);
+  return bends;
 }
 
-function astar(sx, sy, ex, ey, obstacles, startDir, bypassKeys, penalizeInitial = true) {
-  const G = GRID_SIZE;
-  const MAX_ITER = 10000;
-  const endKey = `${ex},${ey}`;
-
-  if (sx === ex && sy === ey) return [[sx, sy]];
-
-  const heuristic = (x, y) => Math.abs(ex - x) + Math.abs(ey - y);
-
-  const openMap = new Map();
-  const closedSet = new Set();
-  const h0 = heuristic(sx, sy);
-  const startNode = { x: sx, y: sy, g: 0, h: h0, f: h0, parent: null, dir: startDir };
-  const startKey = `${sx},${sy}`;
-  openMap.set(startKey, startNode);
-  const open = [startNode];
-
-  const dirs = [
-    [G, 0, 'right'],
-    [-G, 0, 'left'],
-    [0, G, 'down'],
-    [0, -G, 'up'],
-  ];
-
-  let iter = 0;
-  while (open.length > 0 && iter < MAX_ITER) {
-    iter++;
-    const current = open.shift();
-    const key = `${current.x},${current.y}`;
-
-    if (current.x === ex && current.y === ey) {
-      return reconstructPath(current);
-    }
-
-    closedSet.add(key);
-    openMap.delete(key);
-
-    for (const [ddx, ddy, dirName] of dirs) {
-      const nx = current.x + ddx;
-      const ny = current.y + ddy;
-      const nKey = `${nx},${ny}`;
-
-      if (closedSet.has(nKey)) continue;
-      // Allow bypass cells through obstacles (start, end, departure, approach points)
-      if (obstacles.has(nKey) && !bypassKeys.has(nKey)) continue;
-
-      let stepCost = G;
-      // Strongly prefer continuing same direction (fewer bends)
-      if (dirName === current.dir) stepCost *= 0.75;
-      else stepCost *= 1.3; // Turn penalty
-      // Prefer right/down for natural signal flow
-      if (dirName === 'right' || dirName === 'down') stepCost *= 0.95;
-      // Penalize initial turn (first move should go in port's exit direction)
-      if (penalizeInitial && current.parent === null && dirName !== startDir) stepCost *= 3.0;
-
-      const ng = current.g + stepCost;
-      const nh = heuristic(nx, ny);
-
-      const existing = openMap.get(nKey);
-      if (existing && existing.g <= ng) continue;
-
-      const newNode = { x: nx, y: ny, g: ng, h: nh, f: ng + nh, parent: current, dir: dirName };
-      openMap.set(nKey, newNode);
-
-      // Insert sorted by f
-      let inserted = false;
-      for (let i = 0; i < open.length; i++) {
-        if (newNode.f < open[i].f) {
-          open.splice(i, 0, newNode);
-          inserted = true;
-          break;
-        }
-      }
-      if (!inserted) open.push(newNode);
-    }
-  }
-
-  return null;
-}
-
-function reconstructPath(node) {
-  const path = [];
-  let current = node;
-  while (current) {
-    path.unshift([current.x, current.y]);
-    current = current.parent;
-  }
-  return simplifyPath(path);
-}
-
+/**
+ * Remove collinear intermediate points from a path.
+ */
 function simplifyPath(points) {
   if (points.length <= 2) return points;
   const result = [points[0]];
   for (let i = 1; i < points.length - 1; i++) {
-    const [px, py] = points[i - 1];
+    const [px, py] = result[result.length - 1]; // Use last KEPT point, not original neighbor
     const [cx, cy] = points[i];
     const [nx, ny] = points[i + 1];
-    const sameH = (Math.abs(py - cy) < 1 && Math.abs(cy - ny) < 1);
-    const sameV = (Math.abs(px - cx) < 1 && Math.abs(cx - nx) < 1);
+    const sameH = Math.abs(py - cy) < 1 && Math.abs(cy - ny) < 1;
+    const sameV = Math.abs(px - cx) < 1 && Math.abs(cx - nx) < 1;
     if (!sameH && !sameV) result.push(points[i]);
   }
   result.push(points[points.length - 1]);
   return result;
 }
 
-function fallbackRoute(sx, sy, ex, ey, startDir, endDir, blocks, excludeIds) {
-  const G = GRID_SIZE;
-  // Compute bounding box of ALL blocks (including excluded), route well outside it
-  const allBlocks = Object.values(blocks || {});
-  let minX = sx, maxX = ex, minY = sy, maxY = ey;
-  allBlocks.forEach(b => {
-    const bounds = getInflatedBounds(b);
-    minX = Math.min(minX, bounds.left);
-    maxX = Math.max(maxX, bounds.right);
-    minY = Math.min(minY, bounds.top);
-    maxY = Math.max(maxY, bounds.bottom);
-  });
-  // Route 96px (4 grid cells) outside the bounding box
-  const detourY = snapToGrid(maxY + G * 4);
-  const detourRight = snapToGrid(maxX + G * 4);
-
-  if (startDir === 'right' && endDir === 'left') {
-    if (ex > sx && Math.abs(ey - sy) < G) {
-      // Straight forward — just L-route (no blocks in between since A* didn't fail for this case)
-      const mx = snapToGrid((sx + ex) / 2);
-      return [[sx, sy], [mx, sy], [mx, ey], [ex, ey]];
-    }
-    // Route below all blocks
-    return [[sx, sy], [sx + G, sy], [sx + G, detourY], [ex - G, detourY], [ex - G, ey], [ex, ey]];
-  }
-  if (startDir === 'right' && endDir === 'down') {
-    return [[sx, sy], [ex, sy], [ex, ey]];
-  }
-  if (startDir === 'down') {
-    return [[sx, sy], [sx, detourY], [ex, detourY], [ex, ey]];
-  }
-  // Default: route below
-  return [[sx, sy], [sx, detourY], [ex, detourY], [ex, ey]];
-}
-
+/**
+ * Convert a list of [x,y] points to an SVG path string.
+ */
 function pointsToPath(pts) {
   if (!pts || pts.length === 0) return '';
   const clean = [pts[0]];
@@ -386,56 +494,388 @@ function pointsToPath(pts) {
 }
 
 // ============================================================================
-// Port position computation
+// Blocked Airspace Architecture
 // ============================================================================
+// Each block defines an exclusion zone (padded bounding box) on the canvas.
+// Wires CANNOT enter these zones — only designated ports on the boundary
+// are valid entry/exit points. This prevents wires from cutting through blocks.
 
-function getPortPosition(block, portType, portIndex, _unused, adderPortMap) {
-  const { x, y } = block.position;
-  const type = block.type;
+/**
+ * Build blocked airspace zones for all non-excluded blocks.
+ * Returns array of {left, right, top, bottom, blockId} exclusion rectangles.
+ */
+function buildBlockedAirspace(blocks, excludeIds = [], padding = COLLISION_PAD) {
+  const zones = [];
+  for (const block of Object.values(blocks)) {
+    if (excludeIds.includes(block.id)) continue;
+    zones.push({ ...getBlockBounds(block, padding), blockId: block.id });
+  }
+  return zones;
+}
 
-  if (type === 'input') {
-    return { x: x + PORT_OFFSETS.input.output, y, dir: 'right' };
+/**
+ * Find Y-coordinate bypass lanes that clear all obstacles in the corridor
+ * between two endpoints. Scans the horizontal corridor for obstacle airspaces
+ * and returns Y-coordinates above and below where wires can safely route.
+ */
+function findBypassLanes(sx, sy, ex, ey, airspaces) {
+  const xMin = Math.min(sx, ex), xMax = Math.max(sx, ex);
+  const G = GRID_SIZE;
+
+  // Find ALL obstacles whose X range overlaps the wire corridor (wider search)
+  const corridorObs = airspaces.filter(z =>
+    z.right >= xMin - G * 2 && z.left <= xMax + G * 2
+  );
+
+  if (corridorObs.length === 0) return [];
+
+  // Collect all Y boundaries and find global extents
+  const yBounds = [];
+  for (const obs of corridorObs) {
+    yBounds.push(obs.top);
+    yBounds.push(obs.bottom);
   }
-  if (type === 'output') {
-    return { x: x - PORT_OFFSETS.output.input, y, dir: 'left' };
-  }
-  if (type === 'constant') {
-    return { x: x + PORT_OFFSETS.constant.output, y, dir: 'right' };
+  yBounds.sort((a, b) => a - b);
+
+  const lanes = new Set();
+  const topExtent = yBounds[0];
+  const bottomExtent = yBounds[yBounds.length - 1];
+
+  // Bypass above and below all obstacles
+  for (const mult of [2, 3]) {
+    lanes.add(snapToGrid(topExtent - G * mult));
+    lanes.add(snapToGrid(bottomExtent + G * mult));
   }
 
-  // For gain/delay/integrator: port positions are ALWAYS the same physically
-  // (port 0 = LEFT, port 1 = RIGHT). RTL only changes the visual appearance
-  // (triangle/arrow direction, port colors) — NOT the physical positions.
-  // This is because the backend's RTL convention uses port 0 as output (left)
-  // and port 1 as input (right), which already matches the physical positions.
-  if (type === 'gain' || type === 'delay' || type === 'integrator') {
-    const off = PORT_OFFSETS[type];
-    if (portIndex === 0) return { x: x - off.left, y, dir: 'left' };
-    return { x: x + off.right, y, dir: 'right' };
-  }
-
-  // For adder: use dynamic port positions if available
-  if (type === 'adder') {
-    const dynPorts = adderPortMap && adderPortMap[block.id];
-    if (dynPorts && dynPorts[portIndex]) {
-      const dp = dynPorts[portIndex];
-      return { x: x + dp.dx, y: y + dp.dy, dir: dp.dir };
+  // Detect GAPS between obstacle Y boundaries — route through them
+  for (let i = 0; i < yBounds.length - 1; i++) {
+    const gap = yBounds[i + 1] - yBounds[i];
+    if (gap > G) {
+      lanes.add(snapToGrid((yBounds[i] + yBounds[i + 1]) / 2));
     }
-    // Fallback to fixed positions
-    if (portIndex === 0) return { x: x - PORT_OFFSETS.adder.left, y, dir: 'left' };
-    if (portIndex === 1) return { x, y: y + PORT_OFFSETS.adder.bottom, dir: 'down' };
-    return { x: x + PORT_OFFSETS.adder.right, y, dir: 'right' };
   }
 
-  if (type === 'junction') {
-    const d = PORT_OFFSETS.junction.d;
-    if (portIndex === 0) return { x: x - d, y, dir: 'left' };
-    if (portIndex === 1) return { x: x + d, y, dir: 'right' };
-    if (portIndex === 2) return { x, y: y - d, dir: 'up' };
-    if (portIndex === 3) return { x, y: y + d, dir: 'down' };
-    return { x: x + d, y: y + (portIndex - 3) * GRID_SIZE, dir: 'right' };
+  return [...lanes];
+}
+
+/**
+ * Check that a route's first segment exits in the port departure direction.
+ * Prevents wires from going backwards into source/target blocks.
+ */
+function respectsPortDirections(route, sd) {
+  if (route.length < 2) return true;
+  const fdx = route[1][0] - route[0][0];
+  const fdy = route[1][1] - route[0][1];
+  if (sd === 'right' && fdx < -0.5) return false;
+  if (sd === 'left' && fdx > 0.5) return false;
+  if (sd === 'down' && fdy < -0.5) return false;
+  if (sd === 'up' && fdy > 0.5) return false;
+  return true;
+}
+
+/**
+ * Try geometric routes (straight, L, Z patterns) plus obstacle-aware
+ * bypass routes using the Blocked Airspace model.
+ * Returns the best clear route, or null if all hit obstacles.
+ */
+function tryGeometricRoutes(sx, sy, sd, ex, ey, ed, obsBlocks, bodyBlocks = []) {
+  const G = GRID_SIZE;
+  const candidates = [];
+
+  // Departure stub: one cell in start direction
+  const depX = sx + (sd === 'right' ? G : sd === 'left' ? -G : 0);
+  const depY = sy + (sd === 'down' ? G : sd === 'up' ? -G : 0);
+
+  // Approach stub: one cell in end direction (toward the wire, away from block)
+  const appX = ex + (ed === 'right' ? G : ed === 'left' ? -G : 0);
+  const appY = ey + (ed === 'down' ? G : ed === 'up' ? -G : 0);
+
+  // === Route candidates (all include start and end points) ===
+
+  // 1. Straight line: start→end (if roughly aligned)
+  if (Math.abs(sy - ey) < 1) {
+    candidates.push([[sx, sy], [ex, ey]]);
   }
-  return { x, y, dir: 'right' };
+  if (Math.abs(sx - ex) < 1) {
+    candidates.push([[sx, sy], [ex, ey]]);
+  }
+
+  // 2. L-routes via departure/approach (2 segments + stubs)
+  // Horizontal-first: start → dep → (appX, depY) → (appX, appY) → end
+  candidates.push([[sx, sy], [depX, depY], [appX, depY], [appX, appY], [ex, ey]]);
+  // Vertical-first: start → dep → (depX, appY) → (appX, appY) → end
+  candidates.push([[sx, sy], [depX, depY], [depX, appY], [appX, appY], [ex, ey]]);
+
+  // 3. L-routes without stubs (simpler, fewer bends)
+  // Horizontal-first: start → (ex, sy) → end
+  candidates.push([[sx, sy], [ex, sy], [ex, ey]]);
+  // Vertical-first: start → (sx, ey) → end
+  candidates.push([[sx, sy], [sx, ey], [ex, ey]]);
+
+  // 4. Z-routes with midpoints
+  for (const frac of [0.5, 0.35, 0.65, 0.2, 0.8]) {
+    const mx = snapToGrid(sx + (ex - sx) * frac);
+    const my = snapToGrid(sy + (ey - sy) * frac);
+    // H-V-H: start → (mx, sy) → (mx, ey) → end
+    candidates.push([[sx, sy], [mx, sy], [mx, ey], [ex, ey]]);
+    // V-H-V: start → (sx, my) → (ex, my) → end
+    candidates.push([[sx, sy], [sx, my], [ex, my], [ex, ey]]);
+  }
+
+  // 5. Z-routes via departure/approach with midpoints
+  for (const frac of [0.5, 0.3, 0.7]) {
+    const mx = snapToGrid(depX + (appX - depX) * frac);
+    candidates.push([[sx, sy], [depX, depY], [mx, depY], [mx, appY], [appX, appY], [ex, ey]]);
+  }
+
+  // 6. U-routes (for going backward: right exit but target is to the left)
+  if ((sd === 'right' && ex < sx) || (sd === 'left' && ex > sx)) {
+    const exitX = sd === 'right' ? sx + G * 2 : sx - G * 2;
+    const enterX = ed === 'left' ? ex - G * 2 : ed === 'right' ? ex + G * 2 : ex;
+    // Try tight detours first (G*3), then wider (G*5)
+    for (const mult of [3, 5]) {
+      const detourY = snapToGrid(Math.max(sy, ey) + G * mult);
+      candidates.push([[sx, sy], [exitX, sy], [exitX, detourY], [enterX, detourY], [enterX, ey], [ex, ey]]);
+      const detourYUp = snapToGrid(Math.min(sy, ey) - G * mult);
+      candidates.push([[sx, sy], [exitX, sy], [exitX, detourYUp], [enterX, detourYUp], [enterX, ey], [ex, ey]]);
+    }
+  }
+
+  // === 7. OBSTACLE-AWARE BYPASS ROUTES (Blocked Airspace) ===
+  // When endpoints are at similar Y-levels, Z-route midpoints collapse to
+  // the same Y as endpoints, producing straight lines that hit obstacles.
+  // Scan for actual obstacle positions and generate routes above/below them.
+  // Include bodyBlocks so bypass lanes account for source/target bodies too.
+  const airspaces = [
+    ...obsBlocks.map(b => getBlockBounds(b, COLLISION_PAD)),
+    ...bodyBlocks.map(b => getBlockBounds(b, COLLISION_PAD)),
+  ];
+  const bypassLanes = findBypassLanes(sx, sy, ex, ey, airspaces);
+  for (const byY of bypassLanes) {
+    // V-H-V: vertical departure, horizontal bypass, vertical approach
+    candidates.push([[sx, sy], [sx, byY], [ex, byY], [ex, ey]]);
+    // With departure/approach stubs for clean port exit
+    candidates.push([[sx, sy], [depX, depY], [depX, byY], [appX, byY], [appX, appY], [ex, ey]]);
+    // H-V-H via midpoints at different fractions
+    for (const frac of [0.5, 0.35, 0.65]) {
+      const mx = snapToGrid(sx + (ex - sx) * frac);
+      candidates.push([[sx, sy], [mx, sy], [mx, byY], [ex, byY], [ex, ey]]);
+      candidates.push([[sx, sy], [sx, byY], [mx, byY], [mx, ey], [ex, ey]]);
+    }
+  }
+
+  // Score and filter candidates
+  // TWO-LAYER collision detection:
+  //   1. Other blocks: full airspace padding (COLLISION_PAD * 0.6)
+  //   2. Source/target blocks: body-only padding (BODY_PAD=2) — blocks the physical
+  //      block body while keeping ports accessible (ports are at PORT_DIST=48 from
+  //      center, body half-width=40, so ports are 8px outside body edge)
+  const valid = [];
+  for (const route of candidates) {
+    const simplified = simplifyPath(route);
+    if (simplified.length < 2) continue;
+    if (!routeClear(simplified, obsBlocks, COLLISION_PAD * 0.6)) continue;
+    if (!routeClearBody(simplified, bodyBlocks)) continue;
+    valid.push(simplified);
+  }
+
+  if (valid.length === 0) return null;
+
+  // Score how well a route's first segment follows the port exit direction.
+  // Penalizes routes that go OPPOSITE to sd (cutting through source block body).
+  const exitScore = (route) => {
+    if (route.length < 2) return 0;
+    const dx = route[1][0] - route[0][0], dy = route[1][1] - route[0][1];
+    if (sd === 'right' && dx < -0.5) return -10;
+    if (sd === 'left' && dx > 0.5) return -10;
+    if (sd === 'down' && dy < -0.5) return -10;
+    if (sd === 'up' && dy > 0.5) return -10;
+    if (sd === 'right' && dx > 0.5) return 1;
+    if (sd === 'left' && dx < -0.5) return 1;
+    if (sd === 'down' && dy > 0.5) return 1;
+    if (sd === 'up' && dy < -0.5) return 1;
+    return 0;
+  };
+
+  // Pick best: fewest bends, shortest length, then prefer port-direction-following
+  valid.sort((a, b) => {
+    const ba = routeBends(a), bb = routeBends(b);
+    if (ba !== bb) return ba - bb;
+    const la = routeLength(a), lb = routeLength(b);
+    if (Math.abs(la - lb) > 1) return la - lb;
+    return exitScore(b) - exitScore(a);
+  });
+
+  return valid[0];
+}
+
+/**
+ * A* Manhattan router — fallback when geometric routes fail.
+ * Clean single-strategy implementation with strong turn penalty.
+ */
+function astarRoute(sx, sy, sd, ex, ey, ed, allBlocks, excludeIds) {
+  const G = GRID_SIZE;
+  const MAX_ITER = 8000;
+
+  // Snap start/end
+  const startX = snapToGrid(sx), startY = snapToGrid(sy);
+  const endX = snapToGrid(ex), endY = snapToGrid(ey);
+
+  if (startX === endX && startY === endY) return [[startX, startY]];
+
+  // Build obstacle grid — real blocks are obstacles (skip wire zone pseudo-blocks)
+  // Source/target: body-only padding (ports stay accessible via bypass corridors)
+  // Other blocks: full airspace padding (COLLISION_PAD)
+  const blocked = new Set();
+  for (const block of Object.values(allBlocks)) {
+    if (block._bounds) continue; // Wire zones handled by geometric router only
+    const padding = excludeIds.includes(block.id) ? 2 : COLLISION_PAD;
+    const bounds = getBlockBounds(block, padding);
+    const left = Math.floor(bounds.left / G) * G;
+    const right = Math.ceil(bounds.right / G) * G;
+    const top = Math.floor(bounds.top / G) * G;
+    const bottom = Math.ceil(bounds.bottom / G) * G;
+    for (let gx = left; gx <= right; gx += G) {
+      for (let gy = top; gy <= bottom; gy += G) {
+        blocked.add(`${gx},${gy}`);
+      }
+    }
+  }
+
+  // Bypass: allow start, end, and their immediate corridors
+  const bypass = new Set([`${startX},${startY}`, `${endX},${endY}`]);
+  const addCorridor = (px, py, dir, steps) => {
+    for (let i = 1; i <= steps; i++) {
+      let cx = px, cy = py;
+      if (dir === 'right') cx += G * i;
+      else if (dir === 'left') cx -= G * i;
+      else if (dir === 'down') cy += G * i;
+      else if (dir === 'up') cy -= G * i;
+      bypass.add(`${cx},${cy}`);
+    }
+  };
+  addCorridor(startX, startY, sd, 3);
+  addCorridor(endX, endY, ed, 3);
+
+  // A* search
+  const heuristic = (x, y) => Math.abs(endX - x) + Math.abs(endY - y);
+  const openMap = new Map();
+  const closedSet = new Set();
+  const h0 = heuristic(startX, startY);
+  const startNode = { x: startX, y: startY, g: 0, h: h0, f: h0, parent: null, dir: sd };
+  openMap.set(`${startX},${startY}`, startNode);
+  const open = [startNode];
+
+  const dirs = [[G, 0, 'right'], [-G, 0, 'left'], [0, G, 'down'], [0, -G, 'up']];
+  let iter = 0;
+
+  while (open.length > 0 && iter < MAX_ITER) {
+    iter++;
+    const current = open.shift();
+    const key = `${current.x},${current.y}`;
+
+    if (current.x === endX && current.y === endY) {
+      // Reconstruct path
+      const path = [];
+      let node = current;
+      while (node) { path.unshift([node.x, node.y]); node = node.parent; }
+      return simplifyPath(path);
+    }
+
+    closedSet.add(key);
+    openMap.delete(key);
+
+    for (const [ddx, ddy, dirName] of dirs) {
+      const nx = current.x + ddx, ny = current.y + ddy;
+      const nKey = `${nx},${ny}`;
+
+      if (closedSet.has(nKey)) continue;
+      if (blocked.has(nKey) && !bypass.has(nKey)) continue;
+
+      let stepCost = G;
+      // Strong turn penalty: prefer straight segments (fewer bends = textbook quality)
+      if (dirName === current.dir) stepCost *= 0.7;
+      else stepCost *= 2.0;
+      // Prefer forward/down flow (natural signal direction)
+      if (dirName === 'right' || dirName === 'down') stepCost *= 0.92;
+      // First move must match port exit direction
+      if (current.parent === null && dirName !== sd) stepCost *= 4.0;
+
+      const ng = current.g + stepCost;
+      const nh = heuristic(nx, ny);
+      const existing = openMap.get(nKey);
+      if (existing && existing.g <= ng) continue;
+
+      const newNode = { x: nx, y: ny, g: ng, h: nh, f: ng + nh, parent: current, dir: dirName };
+      openMap.set(nKey, newNode);
+
+      // Insert sorted by f
+      let inserted = false;
+      for (let i = 0; i < open.length; i++) {
+        if (newNode.f < open[i].f) { open.splice(i, 0, newNode); inserted = true; break; }
+      }
+      if (!inserted) open.push(newNode);
+    }
+  }
+
+  return null; // A* failed
+}
+
+/**
+ * Emergency fallback: route around ALL blocks via detour.
+ */
+function emergencyRoute(sx, sy, sd, ex, ey, ed, allBlocks) {
+  const G = GRID_SIZE;
+  const blocks = Object.values(allBlocks).filter(b => !b._bounds);
+  let maxY = Math.max(sy, ey);
+  for (const b of blocks) {
+    const bounds = getBlockBounds(b, G);
+    maxY = Math.max(maxY, bounds.bottom);
+  }
+  const detourY = snapToGrid(maxY + G * 4);
+
+  if (sd === 'right' && ed === 'left' && ex > sx && Math.abs(ey - sy) < G) {
+    const mx = snapToGrid((sx + ex) / 2);
+    return [[sx, sy], [mx, sy], [mx, ey], [ex, ey]];
+  }
+
+  return simplifyPath([
+    [sx, sy],
+    [sx + (sd === 'right' ? G : sd === 'left' ? -G : 0), sy + (sd === 'down' ? G : sd === 'up' ? -G : 0)],
+    [sx + (sd === 'right' ? G : -G), detourY],
+    [ex + (ed === 'left' ? -G : G), detourY],
+    [ex + (ed === 'left' ? -G : G), ey],
+    [ex, ey],
+  ]);
+}
+
+/**
+ * Main wire routing entry point.
+ * Tries geometric routes first (clean results), falls back to A* then emergency.
+ */
+function routeWire(fromPort, toPort, blocks, excludeIds = []) {
+  const sx = snapToGrid(fromPort.x), sy = snapToGrid(fromPort.y);
+  const ex = snapToGrid(toPort.x), ey = snapToGrid(toPort.y);
+  const sd = fromPort.dir || 'right';
+  const ed = toPort.dir || 'left';
+
+  if (sx === ex && sy === ey) return [[sx, sy]];
+
+  // Other blocks: full airspace collision detection
+  const obsBlocks = Object.values(blocks).filter(b => !excludeIds.includes(b.id));
+  // Source/target blocks: body-only collision (ports accessible, body blocked)
+  const bodyBlocks = Object.values(blocks).filter(b => excludeIds.includes(b.id));
+
+  // Phase 1: Geometric routes (cleanest results)
+  const geoRoute = tryGeometricRoutes(sx, sy, sd, ex, ey, ed, obsBlocks, bodyBlocks);
+  if (geoRoute) return geoRoute;
+
+  // Phase 2: A* pathfinding (handles complex obstacle scenarios)
+  const aRoute = astarRoute(sx, sy, sd, ex, ey, ed, blocks, excludeIds);
+  if (aRoute) return aRoute;
+
+  // Phase 3: Emergency fallback
+  return emergencyRoute(sx, sy, sd, ex, ey, ed, blocks);
 }
 
 // ============================================================================
@@ -445,7 +885,6 @@ function getPortPosition(block, portType, portIndex, _unused, adderPortMap) {
 function InputBlock({ block, isSelected, onMouseDown, onPortMouseDown, systemType }) {
   const { x, y } = block.position;
   const w = BLOCK_SIZES.input.width, h = BLOCK_SIZES.input.height;
-  const po = PORT_OFFSETS.input.output;
   const label = systemType === 'ct' ? 'x(t)' : 'x[n]';
   return (
     <g
@@ -457,9 +896,9 @@ function InputBlock({ block, isSelected, onMouseDown, onPortMouseDown, systemTyp
       <text x={-4} y={1} textAnchor="middle" dominantBaseline="middle" className="bd-block-label">{label}</text>
       <polygon points={`${w/2-10},-8 ${w/2},0 ${w/2-10},8`} className="bd-block-arrow" />
       <circle
-        cx={po} cy={0} r={PORT_RADIUS}
+        cx={PORT_DIST} cy={0} r={PORT_RADIUS}
         className="bd-port bd-port-output"
-        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'output', 0, x + po, y, 'right'); }}
+        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'output', 0, x + PORT_DIST, y, 'right'); }}
       />
     </g>
   );
@@ -468,7 +907,6 @@ function InputBlock({ block, isSelected, onMouseDown, onPortMouseDown, systemTyp
 function OutputBlock({ block, isSelected, onMouseDown, onPortMouseUp, systemType }) {
   const { x, y } = block.position;
   const w = BLOCK_SIZES.output.width, h = BLOCK_SIZES.output.height;
-  const pi = PORT_OFFSETS.output.input;
   const label = systemType === 'ct' ? 'y(t)' : 'y[n]';
   return (
     <g
@@ -480,7 +918,7 @@ function OutputBlock({ block, isSelected, onMouseDown, onPortMouseUp, systemType
       <polygon points={`${-w/2+10},-8 ${-w/2},0 ${-w/2+10},8`} className="bd-block-arrow bd-block-arrow-in" />
       <text x={4} y={1} textAnchor="middle" dominantBaseline="middle" className="bd-block-label">{label}</text>
       <circle
-        cx={-pi} cy={0} r={PORT_RADIUS}
+        cx={-PORT_DIST} cy={0} r={PORT_RADIUS}
         className="bd-port bd-port-input"
         onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'input', 0); }}
       />
@@ -492,16 +930,17 @@ function GainBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMous
   const { x, y } = block.position;
   const value = block.value ?? 1;
   const flipped = flowDir === 'rtl';
-  const pL = PORT_OFFSETS.gain.left, pR = PORT_OFFSETS.gain.right;
   const hw = BLOCK_SIZES.gain.width / 2, hh = BLOCK_SIZES.gain.height / 2;
-  // Triangle shape — flipped for RTL
+
+  // Triangle points in signal flow direction
   const triPoints = flipped
     ? `${hw-4},-${hh-6} ${-hw+4},0 ${hw-4},${hh-6}`
     : `${-hw+4},-${hh-6} ${hw-4},0 ${-hw+4},${hh-6}`;
   const textX = flipped ? 6 : -6;
-  // Port positions are ALWAYS fixed (port 0 = left, port 1 = right)
-  // Only the CSS class (color) swaps for RTL to show correct semantic role
-  // RTL: port 0 at left = output (blue), port 1 at right = input (red)
+
+  // Port colors: based on signal flow direction
+  // LTR: port 0 (left) = input (red), port 1 (right) = output (blue)
+  // RTL: port 0 (left) = output (blue), port 1 (right) = input (red)
   return (
     <g
       className={`bd-block ${isSelected ? 'bd-block-selected' : ''}`}
@@ -518,15 +957,15 @@ function GainBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMous
         <text x={0} y={1} textAnchor="middle" dominantBaseline="middle" className="bd-gain-hint-icon">&#9998;</text>
       </g>
       <circle
-        cx={-pL} cy={0} r={PORT_RADIUS}
+        cx={-PORT_DIST} cy={0} r={PORT_RADIUS}
         className={`bd-port ${flipped ? 'bd-port-output' : 'bd-port-input'}`}
-        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 0, x - pL, y, 'left'); }}
+        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 0, x - PORT_DIST, y, 'left'); }}
         onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 0); }}
       />
       <circle
-        cx={pR} cy={0} r={PORT_RADIUS}
+        cx={PORT_DIST} cy={0} r={PORT_RADIUS}
         className={`bd-port ${flipped ? 'bd-port-input' : 'bd-port-output'}`}
-        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 1, x + pR, y, 'right'); }}
+        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 1, x + PORT_DIST, y, 'right'); }}
         onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 1); }}
       />
     </g>
@@ -537,7 +976,6 @@ function ConstantBlock({ block, isSelected, onMouseDown, onPortMouseDown, onGain
   const { x, y } = block.position;
   const value = block.value ?? 1;
   const w = BLOCK_SIZES.constant.width, h = BLOCK_SIZES.constant.height;
-  const po = PORT_OFFSETS.constant.output;
   return (
     <g
       className={`bd-block ${isSelected ? 'bd-block-selected' : ''}`}
@@ -555,9 +993,9 @@ function ConstantBlock({ block, isSelected, onMouseDown, onPortMouseDown, onGain
         <text x={0} y={1} textAnchor="middle" dominantBaseline="middle" className="bd-gain-hint-icon">&#9998;</text>
       </g>
       <circle
-        cx={po} cy={0} r={PORT_RADIUS}
+        cx={PORT_DIST} cy={0} r={PORT_RADIUS}
         className="bd-port bd-port-output"
-        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'output', 0, x + po, y, 'right'); }}
+        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'output', 0, x + PORT_DIST, y, 'right'); }}
       />
     </g>
   );
@@ -568,16 +1006,15 @@ function AdderBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMou
   const rawSigns = block.signs || ['+', '+', '+'];
   const signs = [rawSigns[0] || '+', rawSigns[1] || '+', rawSigns[2] || '+'];
   const r = BLOCK_SIZES.adder.radius;
-  const pL = PORT_OFFSETS.adder.left, pB = PORT_OFFSETS.adder.bottom, pR = PORT_OFFSETS.adder.right;
 
-  // Use dynamic port positions if available, otherwise fallback to defaults
+  // Dynamic or default port positions
   const dp = dynamicPorts || {};
-  const p0 = dp[0] || { dx: -pL, dy: 0, dir: 'left' };
-  const p1 = dp[1] || { dx: 0, dy: pB, dir: 'down' };
-  const p2 = dp[2] || { dx: pR, dy: 0, dir: 'right' };
+  const p0 = dp[0] || { dx: -PORT_DIST, dy: 0, dir: 'left' };
+  const p1 = dp[1] || { dx: 0, dy: PORT_DIST, dir: 'down' };
+  const p2 = dp[2] || { dx: PORT_DIST, dy: 0, dir: 'right' };
 
-  // Sign label offset: place sign label adjacent to port, offset perpendicular to port direction
-  const signOffset = (port) => {
+  // Sign label position: offset from port perpendicular to port direction
+  const signPos = (port) => {
     const so = 16;
     switch (port.dir) {
       case 'left': return { x: port.dx, y: port.dy - so };
@@ -587,8 +1024,8 @@ function AdderBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMou
       default: return { x: port.dx, y: port.dy - so };
     }
   };
-  const s0 = signOffset(p0);
-  const s1 = signOffset(p1);
+  const s0 = signPos(p0);
+  const s1 = signPos(p1);
 
   return (
     <g
@@ -605,9 +1042,7 @@ function AdderBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMou
         onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 0, x + p0.dx, y + p0.dy, p0.dir); }}
         onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 0); }}
       />
-      <text
-        x={s0.x} y={s0.y}
-        textAnchor="middle" className="bd-sign-label"
+      <text x={s0.x} y={s0.y} textAnchor="middle" className="bd-sign-label"
         onClick={(e) => { e.stopPropagation(); onToggleSign(block.id, 0); }}
         style={{ cursor: 'pointer' }}
       >{signs[0]}</text>
@@ -617,9 +1052,7 @@ function AdderBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMou
         onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 1, x + p1.dx, y + p1.dy, p1.dir); }}
         onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 1); }}
       />
-      <text
-        x={s1.x} y={s1.y}
-        textAnchor="middle" className="bd-sign-label"
+      <text x={s1.x} y={s1.y} textAnchor="middle" className="bd-sign-label"
         onClick={(e) => { e.stopPropagation(); onToggleSign(block.id, 1); }}
         style={{ cursor: 'pointer' }}
       >{signs[1]}</text>
@@ -636,12 +1069,13 @@ function DelayBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMou
   const { x, y } = block.position;
   const flipped = flowDir === 'rtl';
   const hw = BLOCK_SIZES.delay.width / 2, hh = BLOCK_SIZES.delay.height / 2;
-  const pL = PORT_OFFSETS.delay.left, pR = PORT_OFFSETS.delay.right;
+
+  // Arrow in signal flow direction
   const arrowX = flipped ? -20 : 20;
   const arrowPoints = flipped
     ? `${arrowX+6},-6 ${arrowX-2},0 ${arrowX+6},6`
     : `${arrowX-6},-6 ${arrowX+2},0 ${arrowX-6},6`;
-  // Port positions ALWAYS fixed. Only CSS class swaps for RTL.
+
   return (
     <g
       className={`bd-block ${isSelected ? 'bd-block-selected' : ''}`}
@@ -655,15 +1089,15 @@ function DelayBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMou
       </text>
       <polygon points={arrowPoints} className="bd-block-arrow" opacity="0.5" />
       <circle
-        cx={-pL} cy={0} r={PORT_RADIUS}
+        cx={-PORT_DIST} cy={0} r={PORT_RADIUS}
         className={`bd-port ${flipped ? 'bd-port-output' : 'bd-port-input'}`}
-        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 0, x - pL, y, 'left'); }}
+        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 0, x - PORT_DIST, y, 'left'); }}
         onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 0); }}
       />
       <circle
-        cx={pR} cy={0} r={PORT_RADIUS}
+        cx={PORT_DIST} cy={0} r={PORT_RADIUS}
         className={`bd-port ${flipped ? 'bd-port-input' : 'bd-port-output'}`}
-        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 1, x + pR, y, 'right'); }}
+        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 1, x + PORT_DIST, y, 'right'); }}
         onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 1); }}
       />
     </g>
@@ -674,12 +1108,12 @@ function IntegratorBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPo
   const { x, y } = block.position;
   const flipped = flowDir === 'rtl';
   const hw = BLOCK_SIZES.integrator.width / 2, hh = BLOCK_SIZES.integrator.height / 2;
-  const pL = PORT_OFFSETS.integrator.left, pR = PORT_OFFSETS.integrator.right;
+
   const arrowX = flipped ? -20 : 20;
   const arrowPoints = flipped
     ? `${arrowX+6},-6 ${arrowX-2},0 ${arrowX+6},6`
     : `${arrowX-6},-6 ${arrowX+2},0 ${arrowX-6},6`;
-  // Port positions ALWAYS fixed. Only CSS class swaps for RTL.
+
   return (
     <g
       className={`bd-block ${isSelected ? 'bd-block-selected' : ''}`}
@@ -693,15 +1127,15 @@ function IntegratorBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPo
       </text>
       <polygon points={arrowPoints} className="bd-block-arrow" opacity="0.5" />
       <circle
-        cx={-pL} cy={0} r={PORT_RADIUS}
+        cx={-PORT_DIST} cy={0} r={PORT_RADIUS}
         className={`bd-port ${flipped ? 'bd-port-output' : 'bd-port-input'}`}
-        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 0, x - pL, y, 'left'); }}
+        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 0, x - PORT_DIST, y, 'left'); }}
         onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 0); }}
       />
       <circle
-        cx={pR} cy={0} r={PORT_RADIUS}
+        cx={PORT_DIST} cy={0} r={PORT_RADIUS}
         className={`bd-port ${flipped ? 'bd-port-input' : 'bd-port-output'}`}
-        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 1, x + pR, y, 'right'); }}
+        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 1, x + PORT_DIST, y, 'right'); }}
         onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 1); }}
       />
     </g>
@@ -711,7 +1145,7 @@ function IntegratorBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPo
 function JunctionBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMouseUp, connections = [] }) {
   const { x, y } = block.position;
   const r = BLOCK_SIZES.junction.radius;
-  const d = PORT_OFFSETS.junction.d;
+  const d = GRID_SIZE;
   const usedOutputPorts = new Set();
   connections.forEach(c => {
     if (c.from_block === block.id) usedOutputPorts.add(c.from_port);
@@ -751,24 +1185,12 @@ function JunctionBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPort
 }
 
 // ============================================================================
-// Wire Component — uses A* router
+// Wire Components
 // ============================================================================
 
-function Wire({ connection, blocks, autoBranch, isNew, isSelected, onWireClick, onWireMouseDown, onWireDoubleClick, flowDirMap, adderPortMap }) {
-  const fromBlock = blocks[connection.from_block];
-  const toBlock = blocks[connection.to_block];
-  if (!fromBlock || !toBlock) return null;
-
-  const portStart = getPortPosition(fromBlock, 'output', connection.from_port, flowDirMap, adderPortMap);
-  const endPos = getPortPosition(toBlock, 'input', connection.to_port, flowDirMap, adderPortMap);
-
-  // Use auto-computed branch point if this wire branches from another
-  const bp = autoBranch;
-  const startPos = bp ? { x: bp.x, y: bp.y, dir: bp.dir || portStart.dir } : portStart;
-
-  // Route wire using A* pathfinding — no collisions guaranteed
-  const points = routeWire(startPos, endPos, blocks, [connection.from_block, connection.to_block]);
-  const d = pointsToPath(points);
+function Wire({ precomputedRoute, isNew, isSelected, onWireClick, onWireMouseDown, onWireDoubleClick }) {
+  if (!precomputedRoute) return null;
+  const d = pointsToPath(precomputedRoute);
 
   return (
     <g className={`bd-wire-group ${isNew ? 'bd-wire-new' : ''} ${isSelected ? 'bd-wire-selected' : ''}`}>
@@ -780,7 +1202,6 @@ function Wire({ connection, blocks, autoBranch, isNew, isSelected, onWireClick, 
 
 function WireInProgress({ startPos, mousePos }) {
   if (!startPos || !mousePos) return null;
-  // Simple L-route for in-progress wire (no A* needed)
   const sx = startPos.x, sy = startPos.y;
   const ex = mousePos.x, ey = mousePos.y;
   const mx = snapToGrid((sx + ex) / 2);
@@ -808,7 +1229,6 @@ function ConnectionFlash({ position, success }) {
 function exportSVG(svgElement) {
   if (!svgElement) return;
   const clone = svgElement.cloneNode(true);
-  // Remove UI-only elements
   clone.querySelectorAll('.bd-wire-hit, .bd-zoom-controls, .bd-instructions-overlay, .bd-gain-edit-hint').forEach(el => el.remove());
   const serializer = new XMLSerializer();
   const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + serializer.serializeToString(clone);
@@ -887,7 +1307,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   const draggingRef = useRef(null);
   const blocksRef = useRef(blocks);
 
-  // Undo/Redo stacks (frontend-side, max 10)
+  // Undo/Redo stacks
   const undoStack = useRef([]);
   const redoStack = useRef([]);
   const MAX_UNDO = 10;
@@ -928,7 +1348,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Clear new wire animation
+  // Clear animations
   useEffect(() => {
     if (newWireIndex !== null) {
       const timer = setTimeout(() => setNewWireIndex(null), 600);
@@ -936,7 +1356,6 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     }
   }, [newWireIndex]);
 
-  // Clear connection flash
   useEffect(() => {
     if (connectionFlash) {
       const timer = setTimeout(() => setConnectionFlash(null), 800);
@@ -961,7 +1380,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   }, []);
 
   // ========================================================================
-  // Backend API calls with undo snapshot
+  // Backend API calls
   // ========================================================================
 
   const saveUndoSnapshot = useCallback(() => {
@@ -1003,7 +1422,6 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     }
   }, [simId, onMetadataChange]);
 
-  // Mutating action: saves undo snapshot first
   const mutatingAction = useCallback(async (action, params = {}) => {
     saveUndoSnapshot();
     return callAction(action, params);
@@ -1074,7 +1492,6 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     if (dragging) {
       const rawX = svgX - dragOffset.current.x;
       const rawY = svgY - dragOffset.current.y;
-      // Ctrl held = free positioning, otherwise snap to grid
       const newX = ctrlHeld ? rawX : snapToGrid(rawX);
       const newY = ctrlHeld ? rawY : snapToGrid(rawY);
       setBlocks(prev => ({
@@ -1191,7 +1608,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     mutatingAction('toggle_adder_sign', { block_id: blockId, port_index: portIndex });
   }, [mutatingAction]);
 
-  // Gain/constant value editing (double-click)
+  // Gain/constant value editing
   const handleGainDoubleClick = useCallback((blockId) => {
     const block = blocks[blockId];
     if (block?.type === 'gain' || block?.type === 'constant') {
@@ -1244,6 +1661,23 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     mutatingAction('auto_arrange', {});
   }, [mutatingAction]);
 
+  // ========================================================================
+  // Computed rendering data (the new clean pipeline)
+  // Must be before wire interaction handlers that reference adderPortMap
+  // ========================================================================
+
+  // 1. Signal flow analysis — per-block LTR/RTL
+  const blockFlowDir = useMemo(
+    () => analyzeSignalFlow(blocks, connections),
+    [blocks, connections]
+  );
+
+  // 2. Dynamic adder port positions
+  const adderPortMap = useMemo(
+    () => computeAdderPorts(blocks, connections),
+    [blocks, connections]
+  );
+
   // Wire interactions
   const handleWireClick = useCallback((e, connIndex) => {
     e.stopPropagation();
@@ -1258,8 +1692,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     const targetBlock = blocks[conn.to_block];
     if (!sourceBlock || !targetBlock) return;
     const { x: clickX, y: clickY } = getSvgCoords(e.clientX, e.clientY);
-    const startPos = getPortPosition(sourceBlock, 'output', conn.from_port);
-    const endPos = getPortPosition(targetBlock, 'input', conn.to_port);
+    const startPos = getPortPosition(sourceBlock, 'output', conn.from_port, null, adderPortMap);
+    const endPos = getPortPosition(targetBlock, 'input', conn.to_port, null, adderPortMap);
     const pts = routeWire(startPos, endPos, blocks, [conn.from_block, conn.to_block]);
     let bestDist = Infinity, bestX = clickX, bestY = clickY, bestDir = 'right';
     for (let i = 0; i < pts.length - 1; i++) {
@@ -1283,7 +1717,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       branchPoint: { x: Math.round(bestX), y: Math.round(bestY), dir: bestDir },
     });
     setSelectedWire(null);
-  }, [connections, blocks, getSvgCoords]);
+  }, [connections, blocks, getSvgCoords, adderPortMap]);
 
   const handleWireMouseDown = useCallback((e, connIndex) => {
     if (e.ctrlKey || e.metaKey) handleWireBranch(e, connIndex);
@@ -1343,142 +1777,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     return { viewBox: `${vx} ${vy} ${vw} ${vh}`, visibleRect: { x: gx, y: gy, width: gw, height: gh } };
   }, [zoom, panOffset]);
 
-  // Dynamic adder port positions — compute optimal port placement based on connected blocks
-  const adderPortMap = useMemo(() => {
-    const map = {};
-    const portDist = PORT_OFFSETS.adder.left; // 48px from center
-
-    Object.values(blocks).forEach(block => {
-      if (block.type !== 'adder') return;
-
-      // Gather all connections to this adder
-      const portConnections = {}; // portIndex → { dx, dy, blockId, isOutput }
-      connections.forEach(conn => {
-        if (conn.to_block === block.id) {
-          const srcBlock = blocks[conn.from_block];
-          if (srcBlock) {
-            portConnections[conn.to_port] = {
-              dx: srcBlock.position.x - block.position.x,
-              dy: srcBlock.position.y - block.position.y,
-              blockId: conn.from_block,
-              isOutput: false
-            };
-          }
-        }
-        if (conn.from_block === block.id) {
-          const tgtBlock = blocks[conn.to_block];
-          if (tgtBlock) {
-            portConnections[conn.from_port] = {
-              dx: tgtBlock.position.x - block.position.x,
-              dy: tgtBlock.position.y - block.position.y,
-              blockId: conn.to_block,
-              isOutput: true
-            };
-          }
-        }
-      });
-
-      // If no connections, keep defaults
-      if (Object.keys(portConnections).length === 0) return;
-
-      // Assign each port to the best cardinal direction based on angle to connected block
-      const usedDirs = new Set();
-      const portEntries = Object.entries(portConnections);
-      const portPositions = {};
-
-      // Cardinal direction vectors: { dir, dx, dy }
-      const cardinals = [
-        { dir: 'left', dx: -portDist, dy: 0 },
-        { dir: 'right', dx: portDist, dy: 0 },
-        { dir: 'up', dx: 0, dy: -portDist },
-        { dir: 'down', dx: 0, dy: portDist },
-      ];
-
-      // Sort ports: output port first (it gets priority), then inputs
-      portEntries.sort((a, b) => {
-        if (a[1].isOutput && !b[1].isOutput) return -1;
-        if (!a[1].isOutput && b[1].isOutput) return 1;
-        return 0;
-      });
-
-      for (const [portIdx, info] of portEntries) {
-        const angle = Math.atan2(info.dy, info.dx);
-        // Score each cardinal direction — lower is better (closer angle match)
-        let bestCard = null;
-        let bestScore = Infinity;
-        for (const card of cardinals) {
-          if (usedDirs.has(card.dir)) continue;
-          const cardAngle = Math.atan2(card.dy, card.dx);
-          let angleDiff = Math.abs(angle - cardAngle);
-          if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-          if (angleDiff < bestScore) {
-            bestScore = angleDiff;
-            bestCard = card;
-          }
-        }
-        if (bestCard) {
-          usedDirs.add(bestCard.dir);
-          portPositions[portIdx] = {
-            dx: bestCard.dx,
-            dy: bestCard.dy,
-            dir: bestCard.dir
-          };
-        }
-      }
-
-      if (Object.keys(portPositions).length > 0) {
-        map[block.id] = portPositions;
-      }
-    });
-
-    return map;
-  }, [blocks, connections]);
-
-  // Per-block flow direction: port-based signal flow analysis
-  // RTL = signal enters on port 1 (right side) and exits from port 0 (left side)
-  // This is the standard convention for feedback blocks in direct-form realizations
-  const blockFlowDir = useMemo(() => {
-    const dirs = {};
-    Object.keys(blocks).forEach(blockId => {
-      const block = blocks[blockId];
-      // Fixed-direction blocks
-      if (['input', 'output', 'adder', 'junction', 'constant'].includes(block.type)) {
-        dirs[blockId] = 'ltr'; return;
-      }
-
-      // For gain/delay/integrator: check port usage pattern
-      // LTR: input on port 0 (left), output on port 1 (right) — standard forward path
-      // RTL: input on port 1 (right), output on port 0 (left) — feedback path convention
-      let hasInputOnPort1 = false;
-      let hasOutputOnPort0 = false;
-      let hasInputOnPort0 = false;
-      let hasOutputOnPort1 = false;
-
-      connections.forEach(conn => {
-        if (conn.to_block === blockId) {
-          if (conn.to_port === 1) hasInputOnPort1 = true;
-          if (conn.to_port === 0) hasInputOnPort0 = true;
-        }
-        if (conn.from_block === blockId) {
-          if (conn.from_port === 0) hasOutputOnPort0 = true;
-          if (conn.from_port === 1) hasOutputOnPort1 = true;
-        }
-      });
-
-      // RTL when input arrives on port 1 AND output leaves from port 0
-      if (hasInputOnPort1 && hasOutputOnPort0) {
-        dirs[blockId] = 'rtl';
-      } else if (hasInputOnPort1 && !hasOutputOnPort1) {
-        // Input only on port 1 (no through-path output known yet) — likely RTL
-        dirs[blockId] = 'rtl';
-      } else {
-        dirs[blockId] = 'ltr';
-      }
-    });
-    return dirs;
-  }, [blocks, connections]);
-
-  // Branch points — must come AFTER adderPortMap and blockFlowDir for correct port positions
+  // 3. Branch points for multi-target ports
   const { branchPoints, autoBranchMap } = useMemo(() => {
     const points = [];
     const autoMap = {};
@@ -1501,19 +1800,17 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       const mainEnd = getPortPosition(mainTarget, 'input', mainConn.to_port, blockFlowDir, adderPortMap);
       const mainPts = routeWire(portPos, mainEnd, blocks, [mainConn.from_block, mainConn.to_block]);
 
-      // OPTIMAL branch point: sample all grid points along main wire,
-      // choose the one that minimizes total Manhattan distance to all branch target PORTS
-      const branchTargetPortPositions = [];
+      // Optimal branch point: minimize total distance to all branch targets
+      const branchTargetPorts = [];
       for (let i = 1; i < indices.length; i++) {
         const bConn = connections[indices[i]];
         const bTarget = blocks[bConn.to_block];
         if (bTarget) {
-          const targetPortPos = getPortPosition(bTarget, 'input', bConn.to_port, blockFlowDir, adderPortMap);
-          branchTargetPortPositions.push(targetPortPos);
+          branchTargetPorts.push(getPortPosition(bTarget, 'input', bConn.to_port, blockFlowDir, adderPortMap));
         }
       }
 
-      // Build candidate points along the main wire at grid intervals
+      // Sample candidate points along the main wire
       const candidates = [];
       if (mainPts.length >= 2) {
         let accumulated = 0;
@@ -1535,11 +1832,11 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       }
 
       let bpX = portPos.x + GRID_SIZE, bpY = portPos.y;
-      if (candidates.length > 0 && branchTargetPortPositions.length > 0) {
+      if (candidates.length > 0 && branchTargetPorts.length > 0) {
         let bestScore = Infinity;
         for (const cand of candidates) {
           let totalDist = 0;
-          for (const tp of branchTargetPortPositions) {
+          for (const tp of branchTargetPorts) {
             totalDist += Math.abs(cand.x - tp.x) + Math.abs(cand.y - tp.y);
           }
           if (totalDist < bestScore) {
@@ -1574,6 +1871,77 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     });
     return { branchPoints: points, autoBranchMap: autoMap };
   }, [connections, blocks, blockFlowDir, adderPortMap]);
+
+  // 4. Centralized wire routing — route wires sequentially so each wire
+  //    avoids previously-routed wire paths (prevents overlapping wires)
+  const wireRoutes = useMemo(() => {
+    const WIRE_PAD = 6; // 6px exclusion zone around each routed wire segment
+    const routes = [];
+    const wireZoneBlocks = []; // Fake blocks representing previously-routed wire segments
+
+    // Group connections by source port — sibling wires (same source port) must NOT
+    // block each other because branch wires start ON the parent wire's path
+    const siblingSet = {};
+    const portGroups = {};
+    connections.forEach((conn, idx) => {
+      const key = `${conn.from_block}:${conn.from_port}`;
+      if (!portGroups[key]) portGroups[key] = [];
+      portGroups[key].push(idx);
+    });
+    Object.values(portGroups).forEach(indices => {
+      for (const idx of indices) {
+        siblingSet[idx] = new Set(indices);
+      }
+    });
+
+    for (let i = 0; i < connections.length; i++) {
+      const conn = connections[i];
+      const fromBlock = blocks[conn.from_block];
+      const toBlock = blocks[conn.to_block];
+      if (!fromBlock || !toBlock) { routes.push(null); continue; }
+
+      const portStart = getPortPosition(fromBlock, 'output', conn.from_port, blockFlowDir, adderPortMap);
+      const endPos = getPortPosition(toBlock, 'input', conn.to_port, blockFlowDir, adderPortMap);
+      const bp = autoBranchMap[i];
+      const startPos = bp ? { x: bp.x, y: bp.y, dir: bp.dir || portStart.dir } : portStart;
+
+      // Build augmented blocks dict: real blocks + wire zone obstacles
+      // Skip zones from sibling wires (same source port) to avoid blocking branch points
+      const allBlocks = { ...blocks };
+      const mySiblings = siblingSet[i] || new Set();
+      for (const wzb of wireZoneBlocks) {
+        const wireIdx = parseInt(wzb.id.split('_')[2]);
+        if (mySiblings.has(wireIdx)) continue;
+        allBlocks[wzb.id] = wzb;
+      }
+
+      const points = routeWire(startPos, endPos, allBlocks, [conn.from_block, conn.to_block]);
+      routes.push(points);
+
+      // Convert this wire's segments into thin zone-blocks for future wires to avoid
+      if (points && points.length >= 2) {
+        for (let s = 0; s < points.length - 1; s++) {
+          const [x1, y1] = points[s];
+          const [x2, y2] = points[s + 1];
+          const segLen = Math.abs(x2 - x1) + Math.abs(y2 - y1);
+          if (segLen < GRID_SIZE) continue; // Skip tiny segments (stubs near ports)
+          wireZoneBlocks.push({
+            id: `_wz_${i}_${s}`,
+            type: '_wire_zone',
+            position: { x: (x1 + x2) / 2, y: (y1 + y2) / 2 },
+            _bounds: {
+              left: Math.min(x1, x2) - WIRE_PAD,
+              right: Math.max(x1, x2) + WIRE_PAD,
+              top: Math.min(y1, y2) - WIRE_PAD,
+              bottom: Math.max(y1, y2) + WIRE_PAD,
+            },
+          });
+        }
+      }
+    }
+
+    return routes;
+  }, [connections, blocks, blockFlowDir, adderPortMap, autoBranchMap]);
 
   // Available block types
   const availableBlocks = useMemo(() => {
@@ -1763,16 +2131,34 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
 
             <rect x={visibleRect.x} y={visibleRect.y} width={visibleRect.width} height={visibleRect.height} fill="url(#grid)" className="bd-grid-bg" />
 
+            {/* Blocked Airspace zones — faint exclusion boundaries */}
+            {Object.values(blocks).map(block => {
+              const bounds = getBlockBounds(block, COLLISION_PAD);
+              return (
+                <rect
+                  key={`airspace-${block.id}`}
+                  x={bounds.left} y={bounds.top}
+                  width={bounds.right - bounds.left}
+                  height={bounds.bottom - bounds.top}
+                  fill="rgba(239, 68, 68, 0.03)"
+                  stroke="rgba(239, 68, 68, 0.12)"
+                  strokeWidth="0.75"
+                  strokeDasharray="4 3"
+                  rx={4}
+                  pointerEvents="none"
+                />
+              );
+            })}
+
             {/* Wires */}
             {connections.map((conn, i) => (
               <Wire
                 key={`${conn.from_block}-${conn.to_block}-${conn.to_port}-${i}`}
-                connection={conn} blocks={blocks} autoBranch={autoBranchMap[i]}
+                precomputedRoute={wireRoutes[i]}
                 isNew={i === newWireIndex} isSelected={i === selectedWire}
                 onWireClick={(e) => handleWireClick(e, i)}
                 onWireMouseDown={(e) => handleWireMouseDown(e, i)}
                 onWireDoubleClick={(e) => handleWireBranch(e, i)}
-                flowDirMap={blockFlowDir} adderPortMap={adderPortMap}
               />
             ))}
 

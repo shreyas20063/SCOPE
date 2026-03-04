@@ -2214,6 +2214,168 @@ SIMULATION_CATALOG = [
             {"id": "pole_plot", "title": "Closed-Loop Poles", "description": "s-plane pole locations for P-controller (shown only in P-controller mode)"},
         ],
     },
+
+    # =========================================================================
+    # STATE SPACE ANALYZER
+    # =========================================================================
+    {
+        "id": "state_space_analyzer",
+        "name": "State Space Analyzer",
+        "description": (
+            "Convert transfer functions and differential equations to state-space form (A, B, C, D matrices). "
+            "For nonlinear systems, automatically finds equilibrium points and linearizes via Jacobian. "
+            "Displays step-by-step LaTeX derivations."
+        ),
+        "category": "Control Systems",
+        "thumbnail": "🔢",
+        "tags": [
+            "state space", "matrices", "linearization", "jacobian",
+            "transfer function", "equilibrium", "stability", "eigenvalues",
+            "controllable", "observable", "nonlinear", "control",
+        ],
+        "has_simulator": True,
+        "controls": [
+            # --- System Selection ---
+            {
+                "type": "select",
+                "name": "system_type",
+                "label": "System Type",
+                "options": [
+                    {"value": "linear_tf", "label": "Linear Transfer Function"},
+                    {"value": "nonlinear", "label": "Nonlinear System"},
+                ],
+                "default": "linear_tf",
+                "group": "System",
+                "description": "Choose between a linear TF/ODE or a nonlinear state equation.",
+            },
+            {
+                "type": "select",
+                "name": "preset",
+                "label": "Preset System",
+                "options": [
+                    {"value": "rc_lowpass", "label": "RC Low-Pass [1/(s+1)]"},
+                    {"value": "mass_spring", "label": "Mass-Spring [1/(s²+2s+1)]"},
+                    {"value": "dc_motor", "label": "DC Motor Position [1/(s²+s)]"},
+                    {"value": "unstable", "label": "Unstable [1/(s²-1)]"},
+                    {"value": "pendulum", "label": "Simple Pendulum"},
+                    {"value": "van_der_pol", "label": "Van der Pol Oscillator"},
+                    {"value": "duffing", "label": "Duffing Oscillator (hard spring)"},
+                    {"value": "custom", "label": "Custom Expression"},
+                ],
+                "default": "rc_lowpass",
+                "group": "System",
+                "description": "Select a preset system or choose Custom to enter your own.",
+            },
+            # --- Linear TF Controls ---
+            {
+                "type": "expression",
+                "name": "tf_numerator",
+                "label": "Numerator Coefficients",
+                "default": "1",
+                "group": "Linear System",
+                "description": "Polynomial coefficients, highest power first. E.g. '1, 2' for s+2.",
+                "visible_when": {"system_type": "linear_tf"},
+            },
+            {
+                "type": "expression",
+                "name": "tf_denominator",
+                "label": "Denominator Coefficients",
+                "default": "1, 1",
+                "group": "Linear System",
+                "description": "Polynomial coefficients, highest power first. E.g. '1, 3, 2' for s²+3s+2.",
+                "visible_when": {"system_type": "linear_tf"},
+            },
+            {
+                "type": "select",
+                "name": "canonical_form",
+                "label": "Canonical Form",
+                "options": [
+                    {"value": "controllable", "label": "Controllable Canonical"},
+                    {"value": "observable", "label": "Observable Canonical"},
+                ],
+                "default": "controllable",
+                "group": "Linear System",
+                "description": "Controllable: all states reachable from input. Observable: all states affect output.",
+                "visible_when": {"system_type": "linear_tf"},
+            },
+            # --- Nonlinear System Controls ---
+            {
+                "type": "expression",
+                "name": "nl_f1",
+                "label": "ẋ₁ = f₁(x₁, x₂, u)",
+                "default": "x2",
+                "group": "Nonlinear System",
+                "description": "First state equation. Use x1, x2, u, sin, cos, exp, sqrt.",
+                "visible_when": {"system_type": "nonlinear"},
+            },
+            {
+                "type": "expression",
+                "name": "nl_f2",
+                "label": "ẋ₂ = f₂(x₁, x₂, u)",
+                "default": "-sin(x1) - 0.5*x2 + u",
+                "group": "Nonlinear System",
+                "description": "Second state equation. Use x1, x2, u, sin, cos, exp, sqrt.",
+                "visible_when": {"system_type": "nonlinear"},
+            },
+            {
+                "type": "expression",
+                "name": "nl_output",
+                "label": "y = g(x₁, x₂)",
+                "default": "x1",
+                "group": "Nonlinear System",
+                "description": "Output equation (used to compute C matrix).",
+                "visible_when": {"system_type": "nonlinear"},
+            },
+            {
+                "type": "slider",
+                "name": "eq_point_idx",
+                "label": "Equilibrium Point Index",
+                "min": 0,
+                "max": 4,
+                "step": 1,
+                "default": 0,
+                "group": "Nonlinear System",
+                "description": "Select which equilibrium point to linearize around (0-indexed).",
+                "visible_when": {"system_type": "nonlinear"},
+            },
+            # --- Action ---
+            {
+                "type": "button",
+                "name": "compute",
+                "label": "Compute System",
+                "group": "Actions",
+                "description": "Re-compute state-space matrices with current expression inputs.",
+            },
+        ],
+        "default_params": {
+            "system_type": "linear_tf",
+            "preset": "rc_lowpass",
+            "tf_numerator": "1",
+            "tf_denominator": "1, 1",
+            "canonical_form": "controllable",
+            "nl_f1": "x2",
+            "nl_f2": "-sin(x1) - 0.5*x2 + u",
+            "nl_output": "x1",
+            "eq_point_idx": 0,
+        },
+        "plots": [
+            {
+                "id": "eigenvalue_map",
+                "title": "Eigenvalue Map",
+                "description": "Pole-zero map showing eigenvalues of A in the complex plane. All poles left of jω axis → stable.",
+            },
+            {
+                "id": "step_response",
+                "title": "Step Response",
+                "description": "Time-domain step response of the linearized state-space system.",
+            },
+            {
+                "id": "phase_portrait",
+                "title": "Phase Portrait",
+                "description": "Phase portrait (x₁ vs x₂) with trajectories around the selected equilibrium point.",
+            },
+        ],
+    },
 ]
 
 

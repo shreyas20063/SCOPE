@@ -1,0 +1,251 @@
+{
+  "lecture_number": 24,
+  "source_file": "6f4f3087015170f8e2c046129e66f1ed_MIT6_003F11_lec24.pdf",
+  "page_count": 61,
+  "pages": [
+    {
+      "page": 1,
+      "text": "6.003: Signals and Systems \nModulation \nDecember 6, 2011  \n1"
+    },
+    {
+      "page": 2,
+      "text": "Communications Systems  \nSignals are not always well matched to the media through which we \nwish to transmit them. \nsignal \napplications \naudio \ntelephone, radio, phonograph, CD, cell phone, MP3 \nvideo \ntelevision, cinema, HDTV, DVD \ninternet \ncoax, twisted pair, cable TV, DSL, optical \ufb01ber, E/M \nModulation can improve match based on frequency.  \n2"
+    },
+    {
+      "page": 3,
+      "text": "Amplitude Modulation  \nAmplitude modulation can be used to match audio frequencies to  \nradio frequencies. It allows parallel transmission of multiple channels.  \nx1(t)\nx2(t)\nx3(t)\nz1(t)\nz2(t)\nz(t)\ny(t)\nz3(t)\ncos w1t\ncos w2t\ncos wct\ncos w3t\nLPF\n3"
+    },
+    {
+      "page": 4,
+      "text": "Superheterodyne Receiver  \nEdwin Howard Armstrong invented the superheterodyne receiver, \nwhich made broadcast AM practical. \nEdwin Howard Armstrong also invented and \npatented the \u201cregenerative\u201d (positive feedback) \ncircuit for amplifying radio signals (while he was \na junior at Columbia University). He also in\u00ad\nvented wide-band FM. \n4"
+    },
+    {
+      "page": 5,
+      "text": "Amplitude, Phase, and Frequency Modulation  \nThere are many ways to embed a \u201cmessage\u201d in a carrier.  \n \n \nAmplitude Modulation (AM) + carrier: y1(t) = x(t) + C cos(\u03c9ct) \nPhase Modulation (PM): \ny2(t) = cos(\u03c9ct + kx(t))\n \n \n t\nFrequency Modulation (FM): \ny3(t) = cos \u03c9ct + k\n\u2212\u221e x(\u03c4 )d\u03c4\nPM: signal modulates instantaneous phase of the carrier. \ny2(t) = cos(\u03c9ct + kx(t)) \nFM: signal modulates instantaneous frequency of carrier. \n \n \nt \n \ny3(t) = cos \u03c9ct + k\nx(\u03c4)d\u03c4 \n' \u2212\u221ev \n\" \n\u03c6(t)\nd \n\u03c9i(t) = \u03c9c + \n\u03c6(t) = \u03c9c + kx(t)\ndt \n5"
+    },
+    {
+      "page": 6,
+      "text": "Frequency Modulation  \nsin(\u03c9mt)) \nAdvantages of FM: \n\u2022 constant power \nCompare AM to FM for x(t) = cos(\u03c9mt). \nAM: y1(t) = x(t) + C cos(\u03c9ct) = (cos(\u03c9mt) + 1.1) cos(\u03c9ct) \nt\nFM: y3(t) = cos \u03c9ct + k \u2212\u221e x(\u03c4 )d\u03c4 = cos(\u03c9ct +\nt \nk \n\u03c9m \nt\n\u2022 no need to transmit carrier (unless DC important) \n\u2022 bandwidth? \n6\nR"
+    },
+    {
+      "page": 7,
+      "text": "Frequency Modulation  \nEarly investigators thought that narrowband FM could have arbitrar\u00ad\nily narrow bandwidth, allowing more channels than AM. \nt \ny3(t) = cos \u03c9ct + k\nx(\u03c4)d\u03c4 \n\u2212\u221e\n'\nv \n\" \n\u03c6(t) \nd \n\u03c9i(t) = \u03c9c + \n\u03c6(t) = \u03c9c + kx(t)\ndt \nSmall k \u2192 small bandwidth. Right? \n7\n\u0010\nZ\n\u0011"
+    },
+    {
+      "page": 8,
+      "text": "Frequency Modulation  \nEarly investigators thought that narrowband FM could have arbitrar\u00ad\nily narrow bandwidth, allowing more channels than AM. Wrong! \n0 \n \nt \ny3(t) = cos \u03c9ct + k\nx(\u03c4)d\u03c4\n\u2212\u221e\n0\n \n0\n \nt\nt \n= cos(\u03c9ct) \u00d7 cos k\nx(\u03c4)d\u03c4\n\u2212 sin(\u03c9ct) \u00d7 sin k\nx(\u03c4 )d\u03c4\n\u2212\u221e \n\u2212\u221e \nIf k \u2192 0 then\n0 \n \nt \ncos k\nx(\u03c4)d\u03c4\n\u2192 1 \n\u2212\u221e\n0 \n \nt\nt \nsin k\nx(\u03c4 )d\u03c4\n\u2192 k\nx(\u03c4)d\u03c4 \n\u2212\u221e \n\u2212\u221e0 \n \nt \ny3(t) \u2248 cos(\u03c9ct) \u2212 sin(\u03c9ct) \u00d7 k\nx(\u03c4)d\u03c4\n\u2212\u221e \nBandwidth of narrowband FM is the same as that of AM! \n(integration does not change the highest frequency in the signal) \n8\nZ\nZ\nZ\nZ\nZ\nZ\nZ"
+    },
+    {
+      "page": 9,
+      "text": "1\n0\n\u22121\n1 sin(\u03c9mt)\nt\n1\n0\n\u22121\ncos(1 sin(\u03c9mt))\nt\nPhase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 , therefore cos(m sin(\u03c9mt)) is periodic in T .\n\u03c9m \n9"
+    },
+    {
+      "page": 10,
+      "text": "2\n0\n\u22122\n2 sin(\u03c9mt)\nt\n1\n0\n\u22121\ncos(2 sin(\u03c9mt))\nt\nPhase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 , therefore cos(m sin(\u03c9mt)) is periodic in T .\n\u03c9m \n10"
+    },
+    {
+      "page": 11,
+      "text": "3\n0\n\u22123\n3 sin(\u03c9mt)\nt\n1\n0\n\u22121\ncos(3 sin(\u03c9mt))\nt\nPhase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 , therefore cos(m sin(\u03c9mt)) is periodic in T .\n\u03c9m \n11"
+    },
+    {
+      "page": 12,
+      "text": "4\n0\n\u22124\n4 sin(\u03c9mt)\nt\n1\n0\n\u22121\ncos(4 sin(\u03c9mt))\nt\nPhase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 , therefore cos(m sin(\u03c9mt)) is periodic in T .\n\u03c9m \n12"
+    },
+    {
+      "page": 13,
+      "text": "5\n0\n\u22125\n5 sin(\u03c9mt)\nt\n1\n0\n\u22121\ncos(5 sin(\u03c9mt))\nt\nPhase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 , therefore cos(m sin(\u03c9mt)) is periodic in T .\n\u03c9m \n13"
+    },
+    {
+      "page": 14,
+      "text": "6\n0\n\u22126\n6 sin(\u03c9mt)\nt\n1\n0\n\u22121\ncos(6 sin(\u03c9mt))\nt\nPhase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 , therefore cos(m sin(\u03c9mt)) is periodic in T .\n\u03c9m \n14"
+    },
+    {
+      "page": 15,
+      "text": "7\n0\n\u22127\n7 sin(\u03c9mt)\nt\n1\n0\n\u22121\ncos(7 sin(\u03c9mt))\nt\nPhase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 , therefore cos(m sin(\u03c9mt)) is periodic in T .\n\u03c9m \n15"
+    },
+    {
+      "page": 16,
+      "text": "8\n0\n\u22128\n8 sin(\u03c9mt)\nt\n1\n0\n\u22121\ncos(8 sin(\u03c9mt))\nt\nPhase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 , therefore cos(m sin(\u03c9mt)) is periodic in T .\n\u03c9m \n16"
+    },
+    {
+      "page": 17,
+      "text": "9\n0\n\u22129\n9 sin(\u03c9mt)\nt\n1\n0\n\u22121\ncos(9 sin(\u03c9mt))\nt\nPhase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 , therefore cos(m sin(\u03c9mt)) is periodic in T .\n\u03c9m \n17"
+    },
+    {
+      "page": 18,
+      "text": "10\n0\n\u221210\n10 sin(\u03c9mt)\nt\n1\n0\n\u22121\ncos(10 sin(\u03c9mt))\nt\nPhase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 , therefore cos(m sin(\u03c9mt)) is periodic in T .\n\u03c9m \n18"
+    },
+    {
+      "page": 19,
+      "text": "20\n0\n\u221220\n20 sin(\u03c9mt)\nt\n1\n0\n\u22121\ncos(20 sin(\u03c9mt))\nt\nPhase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 , therefore cos(m sin(\u03c9mt)) is periodic in T .\n\u03c9m \n19"
+    },
+    {
+      "page": 20,
+      "text": "50\n0\n\u221250\n50 sin(\u03c9mt)\nt\n1\n0\n\u22121\ncos(50 sin(\u03c9mt))\nt\nPhase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 , therefore cos(m sin(\u03c9mt)) is periodic in T .\n\u03c9m \n20"
+    },
+    {
+      "page": 21,
+      "text": "m\n0\n\u2212m\nm sin(\u03c9mt)\nt\n1\n0\n\u22121\ncos(m sin(\u03c9mt))\nt\nincreasing m\nPhase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 , therefore cos(m sin(\u03c9mt)) is periodic in T .\n\u03c9m \n21"
+    },
+    {
+      "page": 22,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore cos(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\ncos(m sin(\u03c9mt))\nt\n|ak|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 0\n22"
+    },
+    {
+      "page": 23,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore cos(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\ncos(m sin(\u03c9mt))\nt\n|ak|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 1\n23"
+    },
+    {
+      "page": 24,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore cos(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\ncos(m sin(\u03c9mt))\nt\n|ak|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 2\n24"
+    },
+    {
+      "page": 25,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore cos(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\ncos(m sin(\u03c9mt))\nt\n|ak|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 5\n25"
+    },
+    {
+      "page": 26,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore cos(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\ncos(m sin(\u03c9mt))\nt\n|ak|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 10\n26"
+    },
+    {
+      "page": 27,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore cos(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\ncos(m sin(\u03c9mt))\nt\n|ak|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 20\n27"
+    },
+    {
+      "page": 28,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore cos(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\ncos(m sin(\u03c9mt))\nt\n|ak|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 30\n28"
+    },
+    {
+      "page": 29,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore cos(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\ncos(m sin(\u03c9mt))\nt\n|ak|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 40\n29"
+    },
+    {
+      "page": 30,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore cos(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\ncos(m sin(\u03c9mt))\nt\n|ak|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 50\n30"
+    },
+    {
+      "page": 31,
+      "text": "|Ya(j\u03c9)|\n\u03c9\n\u03c9c\n\u03c9c\n100\u03c9m\nm = 50\nPhase/Frequency Modulation  \nFourier transform of \ufb01rst part. \nx(t) = sin(\u03c9mt) \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt)))\n'\nv \n\" \nya(t) \n31"
+    },
+    {
+      "page": 32,
+      "text": "m\n0\n\u2212m\nm sin(\u03c9mt)\nt\n1\n0\n\u22121\nsin(m sin(\u03c9mt))\nt\nincreasing m\nincreasing m\nPhase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 , therefore sin(m sin(\u03c9mt)) is periodic in T .\n\u03c9m \n32"
+    },
+    {
+      "page": 33,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore sin(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\nsin(m sin(\u03c9mt))\nt\n|bk|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 0\n33"
+    },
+    {
+      "page": 34,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore sin(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\nsin(m sin(\u03c9mt))\nt\n|bk|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 1\n34"
+    },
+    {
+      "page": 35,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore sin(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\nsin(m sin(\u03c9mt))\nt\n|bk|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 2\n35"
+    },
+    {
+      "page": 36,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore sin(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\nsin(m sin(\u03c9mt))\nt\n|bk|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 5\n36"
+    },
+    {
+      "page": 37,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore sin(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\nsin(m sin(\u03c9mt))\nt\n|bk|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 10\n37"
+    },
+    {
+      "page": 38,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore sin(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\nsin(m sin(\u03c9mt))\nt\n|bk|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 20\n38"
+    },
+    {
+      "page": 39,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore sin(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\nsin(m sin(\u03c9mt))\nt\n|bk|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 30\n39"
+    },
+    {
+      "page": 40,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore sin(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\nsin(m sin(\u03c9mt))\nt\n|bk|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 40\n40"
+    },
+    {
+      "page": 41,
+      "text": "Phase/Frequency Modulation  \nFind the Fourier transform of a PM/FM signal. \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt))) \nx(t) is periodic in T = 2\u03c0 \n\u03c9m , therefore sin(m sin(\u03c9mt)) is periodic in T . \n1\n0\n\u22121\nsin(m sin(\u03c9mt))\nt\n|bk|\nk\n0\n10\n20\n30\n40\n50\n60\nm = 50\n41"
+    },
+    {
+      "page": 42,
+      "text": "'\nv \n\"\nya(t)\n|Yb(j\u03c9)|\n\u03c9\n\u03c9c\n\u03c9c\n100\u03c9m\nm = 50\nPhase/Frequency Modulation  \nFourier transform of second part. \nx(t) = sin(\u03c9mt) \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt)))\n'\nv \n\" \nyb(t) \n42"
+    },
+    {
+      "page": 43,
+      "text": "|Y (j\u03c9)|\n\u03c9\n\u03c9c\n\u03c9c\n100\u03c9m\nm = 50\nPhase/Frequency Modulation  \nFourier transform. \nx(t) = sin(\u03c9mt) \ny(t) = cos(\u03c9ct + mx(t)) = cos(\u03c9ct + m sin(\u03c9mt)) \n= cos(\u03c9ct) cos(m sin(\u03c9mt))) \u2212 sin(\u03c9ct) sin(m sin(\u03c9mt)))\n'\nv \n\"\n'\nv \n\" \nya(t) \nyb(t) \n43"
+    },
+    {
+      "page": 44,
+      "text": "Frequency Modulation  \nWideband FM is useful because it is robust to noise. \nAM: y1(t) = (cos(\u03c9mt) + 1.1) cos(\u03c9ct) \nt\nFM: y3(t) = cos(\u03c9ct + m sin(\u03c9mt)) \nt\nFM generates a redundant signal that is resilient to additive noise. \n44"
+    },
+    {
+      "page": 45,
+      "text": "Summary  \nModulation is useful for matching signals to media. \nExamples: commercial radio (AM and FM) \nClose with unconventional application of modulation \u2013 in microscopy. \n45"
+    },
+    {
+      "page": 46,
+      "text": "6.003 Microscopy  \nDennis M. Freeman \nStanley S. Hong \nJekwan Ryu \nMichael S. Mermelstein \nBerthold K. P. Horn \n46\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 47,
+      "text": "6.003 Model of a Microscope  \nmicroscope \nMicroscope = low-pass filter  \n47\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 48,
+      "text": "Phase-Modulated Microscopy  \nmicroscope \n48\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 49,
+      "text": "49\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 50,
+      "text": "50\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 51,
+      "text": "51\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 52,
+      "text": "52\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 53,
+      "text": "53\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 54,
+      "text": "54\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 55,
+      "text": "55\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 56,
+      "text": "56\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 57,
+      "text": "57\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 58,
+      "text": "58\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 59,
+      "text": "59\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 60,
+      "text": "60\nCourtesy of Stanley Hong, Jekwan Ryu, Michael Mermelstein, and Berthold K. P. Horn. Used with permission."
+    },
+    {
+      "page": 61,
+      "text": "MIT OpenCourseWare\nhttp://ocw.mit.edu\n6.003 Signals and Systems\nFall 2011\nFor information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms."
+    }
+  ]
+}

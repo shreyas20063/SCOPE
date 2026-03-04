@@ -1,0 +1,1251 @@
+
+============================================================
+PAGE 1
+============================================================
+6.003: Signals and Systems 
+Discrete-Time Systems 
+September 13, 2011  
+1
+
+============================================================
+PAGE 2
+============================================================
+Homework  
+Doing the homework is essential to understanding the content. 
+Weekly Homework Assigments 
+•  
+tutor (exam-type) problems: 
+answers are automatically checked to provide quick feedback 
+•  
+engineering design (real-world) problems: 
+graded by a human 
+Learning doesn’t end when you have submitted your work! 
+•  
+solutions will be posted on Wednesdays at 5pm 
+•  
+read solutions to ﬁnd errors and to see alternative approaches 
+•  
+mark the errors in your previously submitted work 
+•  
+submit the markup by Friday at 5pm 
+•  
+identify ALL errors and get back half of the points you lost! 
+2
+
+============================================================
+PAGE 3
+============================================================
+Discrete-Time Systems  
+We start with discrete-time (DT) systems because they 
+• 
+are conceptually simpler than continuous-time systems 
+• 
+illustrate same important modes of thinking as continuous-time 
+• 
+are increasingly important (digital electronics and computation) 
+3
+
+============================================================
+PAGE 4
+============================================================
+Multiple Representations of Discrete-Time Systems  
+Systems can be represented in diﬀerent ways to more easily address 
+diﬀerent types of issues. 
+Verbal description: ‘To reduce the number of bits needed to store 
+a sequence of large numbers that are nearly equal, record the ﬁrst 
+number, and then record successive diﬀerences.’ 
+Diﬀerence equation: 
+y[n] = x[n] − x[n − 1] 
+Block diagram: 
+−1
+Delay
++
+x[n]
+y[n]
+We will exploit particular strengths of each of these representations.  
+4
+
+============================================================
+PAGE 5
+============================================================
+Diﬀerence Equations  
+Diﬀerence equations are mathematically precise and compact. 
+Example: 
+y[n] = x[n] − x[n − 1] 
+Let x[n] equal the “unit sample” signal δ[n], 
+ 1, 
+if n = 0; 
+δ[n] =
+0, 
+otherwise. 
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+We will use the unit sample as a “primitive” (building-block signal) 
+to construct more complex signals.  
+5
+
+============================================================
+PAGE 6
+============================================================
+Check Yourself  
+Solve 
+y[n] = x[n] − x[n − 1] 
+given 
+x[n] = δ[n] 
+How many of the following are true? 
+1. y[2] > y[1] 
+2. y[3] > y[2] 
+3. y[2] = 0 
+4. y[n] − y[n−1] = x[n] − 2x[n−1] + x[n−2] 
+5. y[119] = 0 
+6
+
+============================================================
+PAGE 7
+============================================================
+Step-By-Step Solutions  
+Diﬀerence equations are convenient for step-by-step analysis.  
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+Find y[n] given x[n] = δ[n]:
+y[n] = x[n] −x[n −1]
+y[−1] = x[−1] −x[−2]
+= 0 −0 = 0
+y[0] = x[0] −x[−1]
+= 1 −0 = 1
+y[1] = x[1] −x[0]
+= 0 −1 = −1
+y[2] = x[2] −x[1]
+= 0 −0 = 0
+y[3] = x[3] −x[2]
+= 0 −0 = 0
+. . .
+7
+
+============================================================
+PAGE 8
+============================================================
+Check Yourself  
+Solve 
+y[n] = x[n] − x[n − 1] 
+given 
+x[n] = δ[n] 
+How many of the following are true? 
+4 
+1. y[2] > y[1] 
+√ 
+2. y[3] > y[2] 
+X 
+3. y[2] = 0 
+√ 
+4. y[n] − y[n−1] = x[n] − 2x[n−1] + x[n−2] 
+√ 
+5. y[119] = 0 
+√ 
+8
+
+============================================================
+PAGE 9
+============================================================
+Step-By-Step Solutions  
+Block diagrams are also useful for step-by-step analysis.  
+Represent y[n] = x[n] − x[n − 1] with a block diagram: start “at rest”  
+−1
+Delay
++
+x[n]
+y[n]
+0
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+9
+
+============================================================
+PAGE 10
+============================================================
+Step-By-Step Solutions  
+Block diagrams are also useful for step-by-step analysis.  
+Represent y[n] = x[n] − x[n − 1] with a block diagram: start “at rest”  
+−1
+Delay
++
+1
+1
+−1
+0
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+10
+
+============================================================
+PAGE 11
+============================================================
+Step-By-Step Solutions  
+Block diagrams are also useful for step-by-step analysis.  
+Represent y[n] = x[n] − x[n − 1] with a block diagram: start “at rest”  
+−1
+Delay
++
+1 →0
+−1
+0 →−1
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+11
+
+============================================================
+PAGE 12
+============================================================
+Step-By-Step Solutions  
+Block diagrams are also useful for step-by-step analysis.  
+Represent y[n] = x[n] − x[n − 1] with a block diagram: start “at rest”  
+−1
+Delay
++
+1 →0
+−1
+0
+0 →−1
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+12
+
+============================================================
+PAGE 13
+============================================================
+Step-By-Step Solutions  
+Block diagrams are also useful for step-by-step analysis.  
+Represent y[n] = x[n] − x[n − 1] with a block diagram: start “at rest”  
+−1
+Delay
++
+0
+−1
+0
+−1
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+13
+
+============================================================
+PAGE 14
+============================================================
+Step-By-Step Solutions  
+Block diagrams are also useful for step-by-step analysis.  
+Represent y[n] = x[n] − x[n − 1] with a block diagram: start “at rest”  
+−1
+Delay
++
+0
+−1
+0
+−1 →0
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+14
+
+============================================================
+PAGE 15
+============================================================
+Step-By-Step Solutions  
+Block diagrams are also useful for step-by-step analysis.  
+Represent y[n] = x[n] − x[n − 1] with a block diagram: start “at rest”  
+−1
+Delay
++
+0
+0
+0
+−1 →0
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+15
+
+============================================================
+PAGE 16
+============================================================
+Step-By-Step Solutions  
+Block diagrams are also useful for step-by-step analysis.  
+Represent y[n] = x[n] − x[n − 1] with a block diagram: start “at rest”  
+−1
+Delay
++
+0
+0
+0
+0
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+16
+
+============================================================
+PAGE 17
+============================================================
+Step-By-Step Solutions  
+Block diagrams are also useful for step-by-step analysis.  
+Represent y[n] = x[n] − x[n − 1] with a block diagram: start “at rest”  
+−1
+Delay
++
+0
+0
+0
+0
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+17
+
+============================================================
+PAGE 18
+============================================================
+Check Yourself  
+DT systems can be described by diﬀerence equations and/or 
+block diagrams. 
+Diﬀerence equation: 
+y[n] = x[n] − x[n − 1] 
+Block diagram: 
+−1
+Delay
++
+x[n]
+y[n]
+In what ways are these representations diﬀerent? 
+18
+
+============================================================
+PAGE 19
+============================================================
+Check Yourself  
+In what ways are diﬀerence equations diﬀerent from block diagrams? 
+Diﬀerence equation: 
+y[n] = x[n] − x[n − 1] 
+Diﬀerence equations are “declarative.” 
+They tell you rules that the system obeys. 
+Block diagram: 
+−1
+Delay
++
+x[n]
+y[n]
+Block diagrams are “imperative.” 
+They tell you what to do. 
+Block diagrams contain more information than the corresponding 
+diﬀerence equation (e.g., what is the input? what is the output?) 
+19
+
+============================================================
+PAGE 20
+============================================================
+From Samples to Signals  
+Lumping all of the (possibly inﬁnite) samples into a single object — 
+the signal — simpliﬁes its manipulation. 
+This lumping is an abstraction that is analogous to 
+• representing coordinates in three-space as points 
+• representing lists of numbers as vectors in linear algebra 
+• creating an object in Python 
+20
+
+============================================================
+PAGE 21
+============================================================
+From Samples to Signals  
+Operators manipulate signals rather than individual samples. 
+−1
+Delay
++
+x[n]
+y[n]
+Nodes represent whole signals (e.g., X and Y ). 
+The boxes operate on those signals: 
+• 
+Delay = shift whole signal to right 1 time step 
+• 
+Add = sum two signals 
+•
+−1: multiply by −1 
+Signals are the primitives.  
+Operators are the means of combination.  
+21
+
+============================================================
+PAGE 22
+============================================================
+Operator Notation  
+Symbols can now compactly represent diagrams. 
+Let R represent the right-shift operator: 
+Y = R{X} ≡RX 
+where X represents the whole input signal (x[n] for all n) and Y 
+represents the whole output signal (y[n] for all n) 
+Representing the diﬀerence machine 
+−1
+Delay
++
+x[n]
+y[n]
+with R leads to the equivalent representation 
+Y = X −RX = (1 −R) X  
+22
+
+============================================================
+PAGE 23
+============================================================
+Operator Notation: Check Yourself  
+Let Y = RX. Which of the following is/are true: 
+1. y[n] = x[n] for all n 
+2. y[n + 1] = x[n] for all n 
+3. y[n] = x[n + 1] for all n 
+4. y[n − 1] = x[n] for all n 
+5. none of the above 
+23
+
+============================================================
+PAGE 24
+============================================================
+Check Yourself 
+Consider a simple signal: 
+Then 
+Clearly y[1] = x[0]. 
+−1 0 1 2 3 4
+n
+X
+−1 0 1 2 3 4
+n
+Y = RX
+Equivalently, if n = 0, then y[n + 1] = x[n]. 
+The same sort of argument works for all other n.  
+24
+
+============================================================
+PAGE 25
+============================================================
+Operator Notation: Check Yourself  
+Let Y = RX. Which of the following is/are true: 
+1. y[n] = x[n] for all n 
+2. y[n + 1] = x[n] for all n 
+3. y[n] = x[n + 1] for all n 
+4. y[n − 1] = x[n] for all n 
+5. none of the above 
+25
+
+============================================================
+PAGE 26
+============================================================
+Operator Representation of a Cascaded System  
+System operations have simple operator representations. 
+Cascade systems → multiply operator expressions. 
+−1
+Delay
++
+−1
+Delay
++
+X
+Y1
+Y2
+Using operator notation: 
+Y1 = (1 −R) X 
+Y2 = (1 −R) Y1 
+Substituting for Y1: 
+Y2 = (1 −R)(1 −R) X 
+26
+
+============================================================
+PAGE 27
+============================================================
+Operator Algebra  
+Operator expressions can be manipulated as polynomials. 
+−1
+Delay
++
+−1
+Delay
++
+X
+Y1
+Y2
+Using diﬀerence equations: 
+y2[n] = y1[n] − y1[n − 1] 
+= (x[n] − x[n − 1]) − (x[n − 1] − x[n − 2]) 
+= x[n] − 2x[n − 1] + x[n − 2] 
+Using operator notation: 
+Y2 = (1 −R) Y1 = (1 −R)(1 −R) X  
+= (1 −R)2X  
+= (1 − 2R + R2) X  
+27
+
+============================================================
+PAGE 28
+============================================================
+Operator Approach  
+Applies your existing expertise with polynomials to understand block 
+diagrams, and thereby understand systems. 
+28
+
+============================================================
+PAGE 29
+============================================================
+Operator Algebra  
+Operator notation facilitates seeing relations among systems.  
+“Equivalent” block diagrams (assuming both initially at rest): 
+−1
+Delay
++
+−1
+Delay
++
+X
+Y1
+Y2
+Delay
+Delay
+−2
++
+X
+Y
+Equivalent operator expressions: 
+(1 −R)(1 −R) = 1 − 2R + R2 
+The operator equivalence is much easier to see. 
+29
+
+============================================================
+PAGE 30
+============================================================
+Check Yourself  
+Operator expressions for these “equivalent” systems 
+(if started “at rest”) obey what mathematical property? 
+Delay
+−1
++
+Delay
+X
+Y
+Delay
+Delay
+Delay
+−1
++
+X
+Y
+1. commutate 
+2. associative 
+3. distributive 
+4. transitive 
+5. none of the above 
+30
+
+============================================================
+PAGE 31
+============================================================
+Delay
+−1
++
+Delay
+X
+Y
+Check Yourself  
+Y = R(1 −R)X  
+Delay
+Delay
+Delay
+−1
++
+X
+Y
+Y = (R − R2)X 
+Multiplication by R distributes over addition.  
+31
+
+============================================================
+PAGE 32
+============================================================
+Check Yourself  
+Operator expressions for these “equivalent” systems 
+(if started “at rest”) obey what mathematical property? 3 
+Delay
+−1
++
+Delay
+X
+Y
+Delay
+Delay
+Delay
+−1
++
+X
+Y
+1. commutate 
+2. associative 
+3. distributive 
+4. transitive 
+5. none of the above 
+32
+
+============================================================
+PAGE 33
+============================================================
+Check Yourself  
+How many of the following systems are equivalent to 
+Y = (4R2 + 4R + 1) X ? 
+Delay
+2
++
+Delay
+2
++
+X
+Y
+Delay
++
+Delay
+4
++
+X
+Y
+Delay
+4
++
+Delay
++
+X
+Y
+33
+
+============================================================
+PAGE 34
+============================================================
+Check Yourself 
+Delay
+2
++
+Delay
+2
++
+X
+Y
+Y = (2R + 1)(2R + 1) X 
+—————————————————————————– 
+Delay
++
+Delay
+4
++
+X
+Y
+Y = (4R2 + 4R + 1) X 
+—————————————————————————– 
+Delay
+4
++
+Delay
++
+X
+Y
+Y = (4R2 + 4R + 1) X 
+—————————————————————————– 
+All implement Y = (4R2 + 4R + 1) X 
+34
+
+============================================================
+PAGE 35
+============================================================
+Check Yourself  
+How many of the following systems are equivalent to 
+Y = (4R2 + 4R + 1) X ? 
+3 
+Delay
+2
++
+Delay
+2
++
+X
+Y
+Delay
++
+Delay
+4
++
+X
+Y
+Delay
+4
++
+Delay
++
+X
+Y
+35
+
+============================================================
+PAGE 36
+============================================================
+Operator Algebra: Explicit and Implicit Rules  
+Recipes versus constraints.  
+Recipe: subtract a right-shifted version of the input signal from a 
+copy of the input signal. 
+−1
+Delay
++
+X
+Y
+Y = (1 − R) X 
+Constraint: the diﬀerence between Y and RY is X. 
+Delay
++
+X
+Y
+Y = RY + X 
+(1 − R) Y = X 
+But how does one solve such a constraint? 
+36
+
+============================================================
+PAGE 37
+============================================================
+Example: Accumulator  
+Try step-by-step analysis: it always works. Start “at rest.” 
++
+Delay
+x[n]
+y[n]
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+Find y[n] given x[n] = δ[n]:
+y[n] = x[n] + y[n −1]
+y[0] = x[0] + y[−1]
+= 1 + 0 = 1
+y[1] = x[1] + y[0]
+= 0 + 1 = 1
+y[2] = x[2] + y[1]
+= 0 + 1 = 1
+. . .
+37
+
+============================================================
+PAGE 38
+============================================================
+Example: Accumulator  
+Try step-by-step analysis: it always works. Start “at rest.” 
++
+Delay
+x[n]
+y[n]
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+Find y[n] given x[n] = δ[n]:
+y[n] = x[n] + y[n −1]
+y[0] = x[0] + y[−1]
+= 1 + 0 = 1
+y[1] = x[1] + y[0]
+= 0 + 1 = 1
+y[2] = x[2] + y[1]
+= 0 + 1 = 1
+. . .
+Persistent response to a transient input! 
+38
+
+============================================================
+PAGE 39
+============================================================
+Example: Accumulator  
+The response of the accumulator system could also be generated by 
+a system with inﬁnitely many paths from input to output, each with 
+one unit of delay more than the previous. 
+Y = (1 + R + R2 + R3 + · · ·) X 
+Delay
+Delay
+Delay
+Delay
+Delay
+Delay
++
+...
+...
+X
+Y
+39
+
+============================================================
+PAGE 40
+============================================================
+Example: Accumulator  
+These systems are equivalent in the sense that if each is initially at 
+rest, they will produce identical outputs from the same input. 
+(1 −R) Y1 = X1 
+⇔ ? 
+Y2 = (1 + R + R2 + R3 + · · ·) X2 
+Proof: Assume X2 = X1: 
+Y2 = (1 + R + R2 + R3 + · · ·) X2  
+= (1 + R + R2 + R3 + · · ·) X1  
+= (1 + R + R2 + R3 + · · ·) (1 −R) Y1  
+= ((1 + R + R2 + R3 + · · ·) − (R + R2 + R3 + · · ·)) Y1  
+= Y1  
+It follows that Y2 = Y1. 
+It also follows that (1 −R) and (1 + R + R2 + R3 + · · ·) are reciprocals. 
+40
+
+============================================================
+PAGE 41
+============================================================
+Example: Accumulator  
+The reciprocal of 1−R can also be evaluated using synthetic division. 
+Therefore 
+1 +R +R2 +R3 + · · ·
+1 −R
+1
+1 −R
+R
+R −R2
+R2
+R2 −R3
+R3
+R3 −R4
+· · ·
+1 
+= 1 + R + R2 + R3 + R4 + · · · 
+1 −R 
+41
+
+============================================================
+PAGE 42
+============================================================
+Feedback  
+Systems with signals that depend on previous values of the same 
+signal are said to have feedback. 
+Example: The accumulator system has feedback.  
+Delay
++
+X
+Y
+By contrast, the diﬀerence machine does not have feedback. 
+−1
+Delay
++
+x[n]
+y[n]
+42
+
+============================================================
+PAGE 43
+============================================================
+Cyclic Signal Paths, Feedback, and Modes  
+Block diagrams help visualize feedback.  
+Feedback occurs when there is a cyclic signal ﬂow path. 
+R
+R
+−2
++
+X
+Y
+Delay
++
+X
+Y
+acyclic 
+cyclic 
+Acyclic: all paths through system go from input to output with no 
+cycles. 
+Cyclic: at least one cycle. 
+43
+
+============================================================
+PAGE 44
+============================================================
+Feedback, Cyclic Signal Paths, and Modes  
+The eﬀect of feedback can be visualized by tracing each cycle 
+through the cyclic signal paths. 
+Delay
++
+p0
+X
+Y
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+Each cycle creates another sample in the output. 
+44
+
+============================================================
+PAGE 45
+============================================================
+Feedback, Cyclic Signal Paths, and Modes  
+The eﬀect of feedback can be visualized by tracing each cycle 
+through the cyclic signal paths. 
+Delay
++
+p0
+X
+Y
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+Each cycle creates another sample in the output. 
+45
+
+============================================================
+PAGE 46
+============================================================
+Feedback, Cyclic Signal Paths, and Modes  
+The eﬀect of feedback can be visualized by tracing each cycle 
+through the cyclic signal paths. 
+Delay
++
+p0
+X
+Y
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+Each cycle creates another sample in the output. 
+46
+
+============================================================
+PAGE 47
+============================================================
+Feedback, Cyclic Signal Paths, and Modes  
+The eﬀect of feedback can be visualized by tracing each cycle 
+through the cyclic signal paths. 
+Delay
++
+p0
+X
+Y
+−1 0 1 2 3 4
+n
+x[n] = δ[n]
+−1 0 1 2 3 4
+n
+y[n]
+Each cycle creates another sample in the output. 
+The response will persist even though the input is transient.  
+47
+
+============================================================
+PAGE 48
+============================================================
+Check Yourself  
+How many of the following systems have cyclic signal 
+paths? 
+R
+R
++
++
+X
+Y
++
++
+R
+R
+X
+Y
+R
++
++
+X
+Y
++
++
+R
+R
+X
+Y
+48
+
+============================================================
+PAGE 49
+============================================================
+Check Yourself  
+How many of the following systems have cyclic signal 
+paths? 
+3 
+R
+R
++
++
+X
+Y
++
++
+R
+R
+X
+Y
+R
++
++
+X
+Y
++
++
+R
+R
+X
+Y
+49
+
+============================================================
+PAGE 50
+============================================================
+Finite and Inﬁnite Impulse Responses  
+The impulse response of an acyclic system has ﬁnite duration, while 
+that of a cyclic system can have inﬁnite duration. 
+−1
+Delay
++
+X
+Y
+Delay
++
+X
+Y
+−1 0 1 2 3 4
+n
+−1 0 1 2 3 4
+n
+50
+
+============================================================
+PAGE 51
+============================================================
+Analysis of Cyclic Systems: Geometric Growth  
+If traversing the cycle decreases or increases the magnitude of the 
+signal, then the fundamental mode will decay or grow, respectively. 
+If the response decays toward zero, then we say that it converges. 
+Otherwise, we it diverges. 
+51
+
+============================================================
+PAGE 52
+============================================================
+Check Yourself  
+How many of these systems have divergent unit-sample 
+responses? 
+Delay
+0.5
++
+X
+Y
+Delay
+1.2
++
+X
+Y
+Delay
+0.5
++
+1.2
+Delay
+X
+Y
+52
+
+============================================================
+PAGE 53
+============================================================
+Check Yourself 
+Delay
+0.5
++
+X
+Y
+−1 0 1 2 3 4
+n
+y[n]
+Delay
+1.2
++
+X
+Y
+−1 0 1 2 3 4
+n
+y[n]
+Delay
+0.5
++
+1.2
+Delay
+X
+Y
+−1 0 1 2 3 4
+n
+y[n]
+53
+
+============================================================
+PAGE 54
+============================================================
+X 
+√ 
+X  
+Check Yourself 
+Delay
+0.5
++
+X
+Y
+−1 0 1 2 3 4
+n
+y[n]
+Delay
+1.2
++
+X
+Y
+−1 0 1 2 3 4
+n
+y[n]
+Delay
+0.5
++
+1.2
+Delay
+X
+Y
+−1 0 1 2 3 4
+n
+y[n]
+54
+
+============================================================
+PAGE 55
+============================================================
+Check Yourself  
+How many of these systems have divergent unit-sample 
+responses? 
+1 
+Delay
+0.5
++
+X
+Y
+X 
+Delay
+1.2
++
+X
+Y
+√ 
+Delay
+0.5
++
+1.2
+Delay
+X
+Y
+X 
+55
+
+============================================================
+PAGE 56
+============================================================
+Cyclic Systems: Geometric Growth  
+If traversing the cycle decreases or increases the magnitude of the 
+signal, then the fundamental mode will decay or grow, respectively. 
+Delay
+0.5
++
+X
+Y
+Delay
+1.2
++
+X
+Y
+−1 0 1 2 3 4
+n
+y[n]
+−1 0 1 2 3 4
+n
+y[n]
+These are geometric sequences: y[n] = (0.5)n and (1.2)n for n ≥ 0. 
+These geometric sequences are called fundamental modes. 
+56
+
+============================================================
+PAGE 57
+============================================================
+Multiple Representations of Discrete-Time Systems  
+Now you know four representations of discrete-time systems. 
+Verbal descriptions: preserve the rationale. 
+“To reduce the number of bits needed to store a sequence of 
+large numbers that are nearly equal, record the ﬁrst number, 
+and then record successive diﬀerences.” 
+Diﬀerence equations: mathematically compact. 
+y[n] = x[n] − x[n − 1] 
+Block diagrams: illustrate signal ﬂow paths. 
+−1
+Delay
++
+x[n]
+y[n]
+Operator representations: analyze systems as polynomials. 
+Y = (1 −R) X  
+57
+
+============================================================
+PAGE 58
+============================================================
+MIT OpenCourseWare
+http://ocw.mit.edu
+6.003 Signals and Systems
+Fall 2011
+For information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms.

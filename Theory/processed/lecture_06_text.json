@@ -1,0 +1,159 @@
+{
+  "lecture_number": 6,
+  "source_file": "84b35cc755ccd722ddbdbba00fd41e8f_MIT6_003F11_lec06.pdf",
+  "page_count": 38,
+  "pages": [
+    {
+      "page": 1,
+      "text": "6.003: Signals and Systems\nLaplace Transform\nSeptember 27, 2011\n1"
+    },
+    {
+      "page": 2,
+      "text": "Mid-term Examination #1\nWednesday, October 5, 7:30-9:30pm,\nNo recitations on the day of the exam.\nCoverage:\nCT and DT Systems, Z and Laplace Transforms\nLectures 1\u20137\nRecitations 1\u20137\nHomeworks 1\u20134\nHomework 4 will not collected or graded. Solutions will be posted.\n1\nClosed book: 1 page of notes (82 \u00d7 11 inches; front and back).\nDesigned as 1-hour exam; two hours to complete.\nReview sessions during open o\ufb03ce hours.\nCon\ufb02ict? Contact before Friday, Sept. 30, 5pm.\nPrior term midterm exams have been posted on the 6.003 website.\n2"
+    },
+    {
+      "page": 3,
+      "text": "Concept Map for Discrete-Time Systems\nLast time: relations among representations of DT systems.\nBlock Diagram\nSystem Functional\nDi\ufb00erence Equation\nSystem Function\nUnit-Sample Response\n+\nDelay\n+\nDelay\nX\nY\nY\nX = H(R) =\n1\n1 \u2212R \u2212R2\ny[n] = x[n] + y[n\u22121] + y[n\u22122]\nH(z) = Y (z)\nX(z) =\nz2\nz2 \u2212z \u22121\nh[n]: 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, . . .\nindex shift\nDelay \u2192R\n3"
+    },
+    {
+      "page": 4,
+      "text": "Concept Map for Discrete-Time Systems\nMost important new concept from last time was the Z transform.\nBlock Diagram\nSystem Functional\nDi\ufb00erence Equation\nSystem Function\nUnit-Sample Response\n+\nDelay\n+\nDelay\nX\nY\nY\nX = H(R) =\n1\n1 \u2212R \u2212R2\ny[n] = x[n] + y[n\u22121] + y[n\u22122]\nH(z) = Y (z)\nX(z) =\nz2\nz2 \u2212z \u22121\nh[n]: 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, . . .\nindex shift\nDelay \u2192R\nZ transform\n4"
+    },
+    {
+      "page": 5,
+      "text": "Concept Map for Continuous-Time Systems\nToday: similar relations among representations of CT systems.\nBlock Diagram\nSystem Functional\nDi\ufb00erential Equation\nSystem Function\nImpulse Response\n+\nR\n1\n+\nR\n1\n2\nX\nY\n\u2212\n\u2212\nY\nX =\n2A2\n2 + 3A + A2\n2\u00a8y(t) + 3 \u02d9y(t) + y(t) = 2x(t)\nY (s)\nX(s) =\n2\n2s2 + 3s + 1\nh(t) = 2(e\u2212t/2 \u2212e\u2212t) u(t)\nR\n\u02d9x(t)\nx(t)\nDelay \u2192R\n5"
+    },
+    {
+      "page": 6,
+      "text": "Concept Map for Continuous-Time Systems\nCorresponding concept for CT is the Laplace Transform.\nBlock Diagram\nSystem Functional\nDi\ufb00erential Equation\nSystem Function\nImpulse Response\n+\nR\n1\n+\nR\n1\n2\nX\nY\n\u2212\n\u2212\nY\nX =\n2A2\n2 + 3A + A2\n2\u00a8y(t) + 3 \u02d9y(t) + y(t) = 2x(t)\nY (s)\nX(s) =\n2\n2s2 + 3s + 1\nh(t) = 2(e\u2212t/2 \u2212e\u2212t) u(t)\nR\n\u02d9x(t)\nx(t)\nDelay \u2192R\nLaplace transform\n6"
+    },
+    {
+      "page": 7,
+      "text": "Laplace Transform: De\ufb01nition\nLaplace transform maps a function of time t to a function of s.\nX(s) =\nZ\nst\nx(t)e\u2212dt\nThere are two important variants:\nUnilateral (18.03)\n\u221e\nX(s) =\nZ\nx(t)e\u2212stdt\n0\nBilateral (6.003)\nX(s) =\nZ \u221e\nx(t)e\u2212stdt\n\u2212\u221e\nBoth share important properties.\nWe will focus on bilateral version, and discuss di\ufb00erences later.\n7"
+    },
+    {
+      "page": 8,
+      "text": "Laplace Transforms\nExample: Find the Laplace transform of x1(t):\n0\nt\nx1(t)\n1\nx1(t) =\n\u001a\ne\u2212t\nif t \u22650\n0\notherwise\nZ \u221e\n\u2212\u221e\nst\nX1(s) =\nx1(t)e\u2212dt =\nt\nst\ne\ne\u2212e\u2212dt =\n=\n0\n(s + 1)\ns + 1\nZ \u221e\n\u2212(s+1)t\n\u2212\n\f\f\f\f\f\n\u221e\n0\n1\nprovided Re(s + 1) > 0 which implies that Re(s) > \u22121.\n\u22121\ns-plane\nROC\n1\n;\nRe(\ns + 1\ns) > \u22121\n8"
+    },
+    {
+      "page": 9,
+      "text": "Check Yourself\n0\nt\nx2(t)\nx2(t) =\n\u001a\ne\u2212t \u2212e\u22122t\nif t \u22650\n0\notherwise\nWhich of the following is the Laplace transform of x2(t)?\n1. X2(s) =\n1\n(s+1)(s+2) ;\nRe(s) > \u22121\n2. X2(s) =\n1\n(s+1)(s+2) ;\nRe(s) > \u22122\n3. X2(s) =\ns\n(s+1)(s+2) ;\nRe(s) > \u22121\n4. X2(s) =\ns\n(s+1)(s+2) ;\nRe(s) > \u22122\n5. none of the above\n9"
+    },
+    {
+      "page": 10,
+      "text": "Check Yourself\nX2(s) =\nZ \u221e\n(\n2\ne\u2212t \u2212\nt\nst\ne\u2212)e\u2212dt\n0\n=\nZ \u221e\n\u221e\ne\u2212te\u2212stdt\n0\n\u2212\nZ\ne\u22122te\u2212stdt\n0\n1\n1\n(s + 2)\n1\n=\n\u2212\n=\n\u2212(s + 1) =\ns + 1\ns + 2\n(s + 1)(s + 2)\n(s + 1)(s + 2)\nThese equations converge if Re(s + 1) > 0 and Re(s + 2) > 0, thus\n(s) >\n1.\nRe\n\u2212\n\u22121\n\u22122\ns-plane\nROC\n1\n(s + 1)(s + 2) ;\nRe(s) > \u22121\n10"
+    },
+    {
+      "page": 11,
+      "text": "Check Yourself\n0\nt\nx2(t)\nx2(t) =\n\u001a\ne\u2212t \u2212e\u22122t\nif t \u22650\n0\notherwise\nWhich of the following is the Laplace transform of x2(t)?\n1\n1. X2(s) =\n1\n(s+1)(s+2) ;\nRe(s) > \u22121\n2. X2(s) =\n1\n(s+1)(s+2) ;\nRe(s) > \u22122\n3. X2(s) =\ns\n(s+1)(s+2) ;\nRe(s) > \u22121\n4. X2(s) =\ns\n(s+1)(s+2) ;\nRe(s) > \u22122\n5. none of the above\n11"
+    },
+    {
+      "page": 12,
+      "text": "Regions of Convergence\neft-sided signals have left-sided Laplace transforms (bilateral only).\nL\nExample:\nt\nx3(t)\n\u22121\nx3(t) =\n\u001a\n\u2212e\u2212t\nif t \u22640\n0\notherwise\nX3(s) =\nZ \u221e\n\u2212\u221e\nx3(t)e\u2212stdt =\nZ 0\n\u2212\u221e\n\u2212e\u2212te\u2212stdt = \u2212e\u2212(s+1)t\n\u2212(s + 1)\n\f\f\f\f\f\n0\n\u2212\u221e\n=\n1\ns + 1\nprovided Re(s + 1) < 0 which implies that Re(s) < \u22121.\n\u22121\ns-plane\nROC\n1\ns + 1 ;\nRe(s) < \u22121\n12"
+    },
+    {
+      "page": 13,
+      "text": "Left- and Right-Sided ROCs\nLaplace transforms of left- and right-sided exponentials have the\nsame form (except \u2212); with left- and right-sided ROCs, respectively.\n0\nt\ne\u2212tu(t)\n1\ntime function\nLaplace transform\n\u22121\ns-plane\nROC\n1\ns + 1\nt\n\u2212e\u2212tu(\u2212t)\n\u22121\n\u22121\ns-plane\nROC\n1\ns + 1\n13"
+    },
+    {
+      "page": 14,
+      "text": "Check Yourself\nFind the Laplace transform of x4(t).\n0\nt\nx4(t)\nx4(t) = e\u2212|t|\n1.\nX4(s) =\n2\n1\u2212s2 ;\n\u2212\u221e< Re(s) < \u221e\n2.\nX4(s) =\n2\n1\u2212s2 ;\n\u22121 < Re(s) < 1\n3.\nX4(s) =\n2\n1+s2 ;\n\u2212\u221e< Re(s) < \u221e\n4.\nX4(s) =\n2\n1+s2 ;\n\u22121 < Re(s) < 1\n5.\nnone of the above\n14"
+    },
+    {
+      "page": 15,
+      "text": "Check Yourself\nX4(s) =\nZ \u221e\ne\u2212|t|e\u2212stdt\n\u2212\u221e\n=\nZ 0\n(1\ne\n\u2212s)tdt +\nZ \u221e\ne\u2212(1+s)tdt\n\u2212\u221e\n0\n(1\n= e\n\u2212s)t\n(1 \u2212s)\n\f\f0\n\f\u221e\n+ e\u2212(1+s)t\n\u2212\u221e\n\u2212(1 + s)\n\f\n0\n1\n\f\f\n\f\n=\n\f\n1\n+\n\f\n1\n\f\n{z\n\u2212s\nRe\n|\n(s)<\n}\n1 + s\n1\nRe\n1\n=\n|\n(s\n{z\n)>\n}\n\u22121\n+ s + 1 \u2212s\n2\n=\n;\n(1\n\u22121 < Re(s) < 1\n\u2212s)(1 + s)\n1\n2\n\u2212s\nThe ROC is the intersection of Re(s) < 1 and Re(s) > \u22121.\n15"
+    },
+    {
+      "page": 16,
+      "text": "Check Yourself\nLaplace transform of a signal that is both-sided is a vertical strip.\n0\nt\nx4(t)\nx4(t) = e\u2212|t|\n\u22121\n1\ns-plane\nROC\nX4(s) =\n2\n1 \u2212s2\n\u22121 < Re(s) < 1\n16"
+    },
+    {
+      "page": 17,
+      "text": "Check Yourself\nFind the Laplace transform of x4(t).\n2\n0\nt\nx4(t)\nx4(t) = e\u2212|t|\n1.\nX4(s) =\n2\n1\u2212s2 ;\n\u2212\u221e< Re(s) < \u221e\n2.\nX4(s) =\n2\n1\u2212s2 ;\n\u22121 < Re(s) < 1\n3.\nX4(s) =\n2\n1+s2 ;\n\u2212\u221e< Re(s) < \u221e\n4.\nX4(s) =\n2\n1+s2 ;\n\u22121 < Re(s) < 1\n5.\nnone of the above\n17"
+    },
+    {
+      "page": 18,
+      "text": "Time-Domain Interpretation of ROC\nZ \u221e\nX(s) =\nx(t) e\u2212stdt\n\u2212\u221e\nt\nx1(t)\ns-plane\n\u22121\nt\nx2(t)\ns-plane\n\u22121\n\u22122\nt\nx3(t)\n\u22121\ns-plane\n\u22121\nt\nx4(t)\ns-plane\n\u22121\n1\n18"
+    },
+    {
+      "page": 19,
+      "text": "Time-Domain Interpretation of ROC\nX(s) =\nZ \u221e\n\u2212\u221e\nx(t) e\u2212stdt\nt\nx1(t)\ns-plane\n\u22121\nt\nx2(t)\ns-plane\n\u22121\n\u22122\nt\nx3(t)\n\u22121\ns-plane\n\u22121\nt\nx4(t)\ns-plane\n\u22121\n1\n19"
+    },
+    {
+      "page": 20,
+      "text": "Time-Domain Interpretation of ROC\nX(s) =\nZ \u221e\n\u2212\u221e\nx(t) e\u2212stdt\nt\nx1(t)\ns-plane\n\u22121\nt\nx2(t)\ns-plane\n\u22121\n\u22122\nt\nx3(t)\n\u22121\ns-plane\n\u22121\nt\nx4(t)\ns-plane\n\u22121\n1\n20"
+    },
+    {
+      "page": 21,
+      "text": "Time-Domain Interpretation of ROC\nX(s) =\nZ \u221e\n\u2212\u221e\nx(t) e\u2212stdt\nt\nx1(t)\ns-plane\n\u22121\nt\nx2(t)\ns-plane\n\u22121\n\u22122\nt\nx3(t)\n\u22121\ns-plane\n\u22121\nt\nx4(t)\ns-plane\n\u22121\n1\n21"
+    },
+    {
+      "page": 22,
+      "text": "Check Yourself\nThe Laplace transform\n2s\ns2 \u22124 corresponds to how many of\nthe following signals?\n1.\ne\u22122tu(t) + e2tu(t)\n2.\ne\u22122tu(t) \u2212e2tu(\u2212t)\n3. \u2212e\u22122tu(\u2212t) + e2tu(t)\n4. \u2212e\u22122tu(\u2212t) \u2212e2tu(\u2212t)\n22"
+    },
+    {
+      "page": 23,
+      "text": "Check Yourself\nExpand with partial fractions:\n2s\n1\n1\n=\n+\n2\ns \u22124\ns + 2\ns \u22122\npole at \u22122\npole at 2\npole\nfunction\n| {z }\nright-sided;\n| {z }\nROC\nleft-sided (ROC)\n\u22122\ne\u22122t\ne\u22122tu(t);\nRe(s) > \u22122\n2\n\u2212e\u2212tu(\u2212t);\nRe(s) < \u22122\n2\n2\ne t\n2\ne tu(t);\nRe(s) > 2\n2\n\u2212e tu(\u2212t);\nRe(s) < 2\n1.\ne\u22122tu(t) +\n2\ne tu(t)\nRe(s) > \u22122 \u2229Re(s) > 2\nRe(s) > 2\n2.\ne\u22122tu(t)\n2\n\u2212e tu(\u2212t)\nRe(s) > \u22122 \u2229Re(s) < 2\n\u22122 < Re(s) < 2\n3. \u2212e\u22122tu(\n2\n\u2212t)+e tu(t)\nRe(s) < \u22122 \u2229Re(s) > 2\nnone\n4. \u2212e\u22122tu(\n2\n\u2212t) \u2212e tu(\u2212t)\nRe(s) < \u22122 \u2229Re(s) < 2\nRe(s) < \u22122\n23"
+    },
+    {
+      "page": 24,
+      "text": "Check Yourself\nThe Laplace transform\n2s\ns2 \u22124 corresponds to how many of\nthe following signals?\n3\n1.\ne\u22122tu(t) + e2tu(t)\n2.\ne\u22122tu(t) \u2212e2tu(\u2212t)\n3. \u2212e\u22122tu(\u2212t) + e2tu(t)\n4. \u2212e\u22122tu(\u2212t) \u2212e2tu(\u2212t)\n24"
+    },
+    {
+      "page": 25,
+      "text": "Solving Di\ufb00erential Equations with Laplace Transforms\nSolve the following di\ufb00erential equation:\ny\u02d9(t) + y(t) = \u03b4(t)\nTake the Laplace transform of this equation.\nL {y\u02d9(t) + y(t)} = L {\u03b4(t)}\nThe Laplace transform of a sum is the sum of the Laplace transforms\n(prove this as an exercise).\nL {y\u02d9(t)} + L {y(t)} = L {\u03b4(t)}\nWhat\u2019s the Laplace transform of a derivative?\n25"
+    },
+    {
+      "page": 26,
+      "text": "Laplace Transform of a Derivative\nAssume that\nZ\nX(s) is the Laplace transform of x(t):\n\u221e\nX(s) =\nx(t)e\u2212stdt\n\u2212\u221e\nFind the Laplace\nY (s) =\nZ\ntransform of y(t) = x\u02d9(t).\n\u221e\n\u221e\ny(\nst\nt)e\u2212dt =\n\u02d9\nst\nx(t) e\u2212\ndt\n\u2212\u221e\nZ\n\u2212\u221e\nv\u02d9\nu\n\u221e\n=\n\u2212\nZ \u221e\nst\nx(t)\n|{z} e|\n\u2212\n{z\nst\n\f\f\n} \f\f\n|{z}\nx(\n|{z}\nt\n|\nse\n{z}\n)(\u2212\n\u2212)dt\nu\nv\n\u2212\u221e\n\u2212\u221e\nv\nu\u02d9\nThe \ufb01rst term\nZ\nmust be zero since\n|\nX\n{z\n(s\n}\n) converged. Thus\n\u221e\nY (s) = s\nx(t)e\u2212stdt = sX(s)\n\u2212\u221e\n26"
+    },
+    {
+      "page": 27,
+      "text": "Solving Di\ufb00erential Equations with Laplace Transforms\nBack to the previous problem:\nL {y\u02d9(t)} + L {y(t)} = L {\u03b4(t)}\nLet Y (s) represent the Laplace transform of y(t).\nThen sY (s) is the Laplace transform of y\u02d9(t).\nsY (s) + Y (s) = L {\u03b4(t)}\nWhat\u2019s the Laplace transform of the impulse function?\n27"
+    },
+    {
+      "page": 28,
+      "text": "Laplace Transform of the Impulse Function\nLet x(t) = \u03b4(t).\n\u221e\nX(\nst\ns) =\nZ\n\u03b4(t)e\u2212dt\n\u2212\u221e\n=\nZ \u221e\n\u03b4(t) e\u2212st\f\ft=0 dt\n\u2212\u221e\n=\nZ \u221e\n\u03b4(t) 1 dt\n\u2212\u221e\n= 1\nSifting property:\nMultiplying f(t) by \u03b4(t) and integrating over t sifts out f(0).\n28"
+    },
+    {
+      "page": 29,
+      "text": "Solving Di\ufb00erential Equations with Laplace Transforms\nBack to the previous problem:\nsY (s) + Y (s) = L {\u03b4(t)} = 1\nThis is a simple algebraic expression.\nLaplace transform converts a di\ufb00erential equation\ny\u02d9(t) + y(t) = \u03b4(t)\nto an equivalent algebraic equation.\nsY + Y = 1\n29"
+    },
+    {
+      "page": 30,
+      "text": "Solving Di\ufb00erential Equations with Laplace Transforms\nBack to the previous problem:\nsY (s) + Y (s) = L {\u03b4(t)} = 1\nThis is a simple algebraic expression. Solve for Y (s):\n1\nY (s) = s + 1\nWe\u2019ve seen this Laplace transform previously.\ny(t) = e\u2212tu(t)\n(why not y(t) = \u2212e\u2212tu(\u2212t) ?)\nNotice that we solved the di\ufb00erential equation y\u02d9(t)+y(t) = \u03b4(t) without\ncomputing homogeneous and particular solutions.\n30"
+    },
+    {
+      "page": 31,
+      "text": "Solving Di\ufb00erential Equations with Laplace Transforms\nSummary of method.\nStart with di\ufb00erential equation:\ny\u02d9(t) + y(t) = \u03b4(t)\nTake the Laplace transform of this equation:\nsY (s) + Y (s) = 1\nSolve for Y (s):\n1\nY (s) = s + 1\nTake inverse Laplace transform (by recognizing form of transform):\ny(t) = e\u2212tu(t)\n31"
+    },
+    {
+      "page": 32,
+      "text": "Solving Di\ufb00erential Equations with Laplace Transforms\nRecognizing the form ...\nIs there a more systematic way to take an inverse Laplace transform?\nYes ... and no.\nFormally,\n1\nj\nx(t)\n2\u03c0j\nZ \u03c3+ \u221e\n=\nX(s) st\ne ds\n\u03c3\u2212j\u221e\nbut this integral is not generally easy to compute.\nThis equation can be useful to prove theorems.\nWe will \ufb01nd better ways (e.g., partial fractions) to compute inverse\ntransforms for common systems.\n32"
+    },
+    {
+      "page": 33,
+      "text": "Solving Di\ufb00erential Equations with Laplace Transforms\nExample 2:\ny\u00a8(t) + 3y\u02d9(t) + 2y(t) = \u03b4(t)\nLaplace transform:\n2\ns Y (s) + 3sY (s) + 2Y (s) = 1\nSolve:\n1\n1\n1\nY (s) =\n=\n(s + 1)(s + 2)\ns + 1 \u2212s + 2\nInverse Laplace transform:\ny(\nt\n2t\nt) =\n\u0000e\u2212\u2212e\u2212\u0001\nu(t)\nThese forward and inverse Laplace transforms are easy if\n\u2022\ndi\ufb00erential equation is linear with constant coe\ufb03cients, and\n\u2022\nthe input signal is an impulse function.\n33"
+    },
+    {
+      "page": 34,
+      "text": "Properties of Laplace Transforms\nUsefulness of Laplace transforms derives from its many properties.\nProperty\nx(t)\nX(s)\nROC\nLinearity\nax1(t) + bx2(t)\naX1(s) + bX2(s)\n\u2283(R1 \u2229R2)\nDelay by T\nx(t \u2212T)\nX(s)\nsT\ne\u2212\nR\nMultiply by t\ntx(t)\ndX(s)\n\u2212\nR\nds\nMultiply by e\u2212\u03b1t\nt\nx(\n\u03b1\nt)e\u2212\nX(s + \u03b1)\nshift R by \u2212\u03b1\ndx(t)\nDi\ufb00erentiate in t\nsX(s)\ndt\n\u2283R\nIntegrate in t\nZ t\nX(\nx(\u03c4)\ns)\nd\u03c4\n\u2212\u221e\ns\n\u2283\n\u221e\n\u0010\nR \u2229\n\u0000Re(s)>0\n\u0001\u0011\nConvolve in t\nZ\nx1(\u03c4)x2(t \u2212\u03c4) d\u03c4\nX1(s)X2(s)\n\u2283(R1 \u2229R2)\n\u2212\u221e\nand many others!\n34"
+    },
+    {
+      "page": 35,
+      "text": "Initial Value Theorem\nIf x(t) = 0 for t < 0 and x(t) contains no impulses or higher-order\nsingularities at t = 0 then\nx(0+) = lim sX(s) .\ns\u2192\u221e\nConsider lim sX(s) = lim s\nZ \u221e\nst\n\u221e\nst\nx(t)e\u2212dt = lim\nx(t) se\u2212dt.\ns\u2192\u221e\ns\u2192\u221e\n\u2212\u221e\ns\u2192\u221e\nZ\n0\nAs s \u2192\u221ethe function e\u2212st shrinks towards 0.\nt\ne\u2212st\ns = 1\ns = 5\ns = 25\nArea under e\u2212st is s\n\u2192\narea under se\u2212st is 1\n\u2192\nlim se\u2212st = \u03b4(t) !\ns\u2192\u221e\n\u221e\n\u221e\nlim sX(s) = lim\nst\nx(t)se\u2212dt\nx(t)\u03b4(t)dt = x(0+)\ns\u2192\u221e\ns\u2192\u221e\nZ\n0\n\u2192\nZ\n0\n(the 0+ arises because the limit is from the right side.)\n1\n35"
+    },
+    {
+      "page": 36,
+      "text": "Final Value Theorem\nIf x(t) = 0 for t < 0 and x(t) has a \ufb01nite limit as t \u2192\u221e\nx(\u221e) = lim sX(s) .\ns\u21920\n\u221e\nConsider lim sX(s) = lim s\nZ\n(\nst\nt)e\u2212st\n\u221e\nx\ndt = lim\ns\u2192\ns\u21920\n\u2212\u221e\ns\u21920\nZ\nx(t) se\u2212dt.\n0\n0\nAs s\nst\n\u21920 the function e\u2212st \ufb02attens out. But again, the area under\nse\u2212\nis always 1.\nx(\u221e)\nt\ne\u2212st\ns = 1\ns = 5\ns = 25\nAs s \u21920, area under se\u2212st monotonically shifts to higher values of t\n(e.g., the average value of se\u2212st\n1\nis\nwhich grows as s\ns\n\u21920).\nIn the limit, lim sX(s)\n.\n\u21920\n\u2192x(\u221e)\ns\n36"
+    },
+    {
+      "page": 37,
+      "text": "Summary: Relations among CT representations\nBlock Diagram\nSystem Functional\nDi\ufb00erential Equation\nSystem Function\nImpulse Response\n+\nR\n1\n+\nR\n1\n2\nX\nY\n\u2212\n\u2212\nY\nX =\n2A2\n2 + 3A + A2\n2\u00a8y(t) + 3 \u02d9y(t) + y(t) = 2x(t)\nY (s)\nX(s) =\n2\n2s2 + 3s + 1\nh(t) = 2(e\u2212t/2 \u2212e\u2212t) u(t)\nR\n\u02d9x(t)\nx(t)\nDelay \u2192R\nLaplace transform\nMany others: e.g., Laplace transform of a circuit (see HW4)!\n37"
+    },
+    {
+      "page": 38,
+      "text": "MIT OpenCourseWare\nhttp://ocw.mit.edu\n6.003 Signals and Systems\nFall 2011\nFor information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms."
+    }
+  ]
+}

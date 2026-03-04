@@ -1,0 +1,936 @@
+
+============================================================
+PAGE 1
+============================================================
+6.003: Signals and Systems 
+CT Feedback and Control 
+October 20, 2011  
+1
+
+============================================================
+PAGE 2
+============================================================
+Mid-term Examination #2  
+Wednesday, October 26, 7:30-9:30pm,
+No recitations on the day of the exam. 
+Coverage: 
+Lectures 1–12 
+Recitations 1–12 
+Homeworks 1–7 
+Homework 7 will not be collected or graded. Solutions will be posted. 
+Closed book: 2 pages of notes (81
+2 × 11 inches; front and back). 
+No calculators, computers, cell phones, music players, or other aids. 
+Designed as 1-hour exam; two hours to complete. 
+Review sessions during open oﬃce hours. 
+Conﬂict? Contact before Friday, Oct. 21, 5pm. 
+2
+
+============================================================
+PAGE 3
+============================================================
+Feedback and Control  
+Feedback: simple, elegant, and robust framework for control. 
++
+−
+X
+Y
+E
+S
+C
+controller
+plant
+sensor
+Last time: robotic driving. 
+di = desiredFront
+do = distanceFront
+3
+
+============================================================
+PAGE 4
+============================================================
+Feedback and Control  
+Using feedback to enhance performance. 
+Examples: 
+•  
+increasing speed and bandwidth 
+•  
+controlling position instead of speed 
+•  
+reducing sensitivity to parameter variation 
+•  
+reducing distortion 
+•  
+stabilizing unstable systems 
+− 
+magnetic levitation 
+− 
+inverted pendulum 
+4
+
+============================================================
+PAGE 5
+============================================================
+Op-amps  
+An “ideal” op-amp has many desireable characteristics. 
+V+
+V−
+Vo = K (V+ −V−)
+K
+• 
+high speed 
+• 
+large bandwidth 
+• 
+high input impedance 
+• 
+low output impedance 
+• 
+... 
+It is diﬃcult to build a circuit with all of these features. 
+5
+
+============================================================
+PAGE 6
+============================================================
+Op-Amp  
+The gain of an op-amp depends on frequency. 
+102
+103
+104
+105
+1
+10
+102
+103
+104
+105
+106
+ω [log scale]
+|K(jω)| [log scale]
+0
+−π
+2
+1
+10
+102
+103
+104
+105
+106
+ω [log scale]
+∠K(jω)|
+Frequency dependence of LM741 op-amp.  
+6
+
+============================================================
+PAGE 7
+============================================================
+Op-Amp  
+Low-gain at high frequencies limits applications. 
+102
+103
+104
+105
+1
+10
+102
+103
+104
+105
+106
+ω [log scale]
+|K(jω)| [log scale]
+audio
+frequencies
+0
+−π
+2
+1
+10
+102
+103
+104
+105
+106
+ω [log scale]
+∠K(jω)|
+Unacceptable frequency response for an audio ampliﬁer.  
+7
+
+============================================================
+PAGE 8
+============================================================
+Op-Amp  
+An ideal op-amp has fast time response. 
+Vi
+Vo
+K
+Step response: 
+1
+t
+Vi(t) = u(t)
+A
+t
+Vo(t) = s(t)
+8
+
+============================================================
+PAGE 9
+============================================================
+Check Yourself  
+Determine τ for the unit-step response s(t) of an LM741. 
+τ
+A
+t
+[seconds]
+s(t)
+102
+103
+104
+105
+|K(jω)| [log scale]
+0
+−π
+2
+1
+10
+102
+103
+104
+105
+ω [log scale]
+∠K(jω)|
+1. 40 s 
+2. 40 
+2π s 
+3. 1 
+40 s 
+4. 2π 
+40 s 
+5. 
+1 
+2π×40 s 
+0. none of the above 
+9
+
+============================================================
+PAGE 10
+============================================================
+Check Yourself  
+Determine the step response of an LM741. 
+System function: 
+K(s) = αK0 
+s + α 
+Impulse response: 
+−αt 
+h(t) = αK0e
+u(t) 
+Step response: 
+ t 
+ t 
+αK0e−ατ t 
+−ατ dτ 
+−αt)u(t)
+s(t) =
+h(τ )dτ =
+αK0e 
+=
+= K0(1 − e 
+−α
+−∞ 
+0
+0 
+     
+Parameters: 
+A = K0 = 2 × 105 
+1
+1 
+τ =
+= 
+α 
+40 
+s 
+10
+
+============================================================
+PAGE 11
+============================================================
+Check Yourself  
+Determine τ for the unit-step response s(t) of an LM741. 
+τ
+A
+t
+[seconds]
+s(t)
+102
+103
+104
+105
+|K(jω)| [log scale]
+0
+−π
+2
+1
+10
+102
+103
+104
+105
+ω [log scale]
+∠K(jω)|
+1. 40 s 
+2. 40 
+2π s 
+3. 1 
+40 s 
+4. 2π 
+40 s 
+5. 
+1 
+2π×40 s 
+0. none of the above 
+11
+
+============================================================
+PAGE 12
+============================================================
+Op-Amp  
+Performance parameters for real op-amps fall short of the ideal.  
+Frequency Response: high gain but only at low frequencies. 
+102
+103
+104
+105
+1
+10
+102
+103
+104
+105
+106
+ω [log scale]
+|K(jω)| [log scale]
+audio
+frequencies
+Step Response: slow by electronic standards. 
+t [seconds]
+1/40
+2 × 105
+12
+
+============================================================
+PAGE 13
+============================================================
+Op-Amp  
+We can use feedback to improve performance of op-amps. 
+Vi
+Vo
+K(s)
+R1
+R2
+βV0
+V−= βVo =
+
+R2
+R1 + R2
+
+Vo
+circuit
+β
+K(s)
++
+−
+Vi
+Vo
+Vo
+Vi
+=
+K(s)
+1 + βK(s)
+6.003 model
+13
+
+============================================================
+PAGE 14
+============================================================
+Dominant Pole  
+Op-amps are designed to have a dominant pole at low frequencies: 
+→ simpliﬁes the application of feedback. 
+s-plane
+−40
+40 rad/s
+α = 40 rad/s = 
+≈ 6.4 Hz
+2π rad/cycle 
+14
+
+============================================================
+PAGE 15
+============================================================
+Improving Performance  
+Using feedback to improve performance parameters. 
+Vi
+Vo
+K(s)
+R1
+R2
+βV0
+V−= βVo =
+
+R2
+R1 + R2
+
+Vo
+circuit
+β
+K(s)
++
+−
+Vi
+Vo
+Vo
+Vi
+=
+K(s)
+1 + βK(s)
+=
+αK0
+s+α
+1 + β αK0
+s+α
+=
+αK0
+s + α + αβK0
+6.003 model
+15
+
+============================================================
+PAGE 16
+============================================================
+Check Yourself  
+What is the most negative value of the closed-loop pole 
+that can be achieved with feedback? 
+s-plane
+−α
+?
+1. −α(1 + β) 
+2. −α(1 + βK0) 
+3. −α(1 + K0) 
+4. −∞ 
+5. none of the above 
+16
+
+============================================================
+PAGE 17
+============================================================
+Improving Performance  
+Using feedback to improve performance parameters. 
+Vi
+Vo
+K(s)
+R1
+R2
+βV0
+V−= βVo =
+
+R2
+R1 + R2
+
+Vo
+circuit
+β
+K(s)
++
+−
+Vi
+Vo
+Vo
+Vi
+=
+K(s)
+1 + βK(s)
+=
+αK0
+s+α
+1 + β αK0
+s+α
+=
+αK0
+s + α + αβK0
+6.003 model
+17
+
+============================================================
+PAGE 18
+============================================================
+Check Yourself  
+What is the most negative value of the closed-loop pole that can be 
+achieved with feedback? 
+αK0
+Open loop system function: s + α 
+→ pole: s = −α. 
+αK0
+Closed-loop system function: s + α + αβK0 
+→ pole: s = −α(1 + βK0). 
+The feedback constant is 0 ≤ β ≤ 1. 
+→ most negative value of the closed-loop pole is s = −α(1 + K0). 
+18
+
+============================================================
+PAGE 19
+============================================================
+Check Yourself  
+What is the most negative value of the closed-loop pole 
+that can be achieved with feedback? 
+3 
+s-plane
+−α
+−α(1 + K0)
+1. −α(1 + β) 
+2. −α(1 + βK0) 
+3. −α(1 + K0) 
+4. −∞ 
+5. none of the above 
+19
+
+============================================================
+PAGE 20
+============================================================
+Improving Performance  
+Feedback extends frequency response by a factor of 1 + βK0 
+(K0 = 2 × 105). 
+1 + βK0
+0.001
+0.01
+0.1
+1
+1
+10
+102
+103
+104
+105
+106
+ω [log scale]
+|H(jω)|
+|H(j0)|
+[log scale]
+1 + βK0
+0
+−π
+2
+1
+10
+102
+103
+104
+105
+106
+ω [log scale]
+∠H(jω)|
+20
+
+============================================================
+PAGE 21
+============================================================
+Improving Performance  
+Feedback produces higher bandwidths by reducing the gain at low  
+frequencies. It trades gain for bandwidth. 
+ω [log scale]
+1
+102
+104
+106
+108
+0.1
+1
+10
+102
+103
+104
+105
+|H(jω)| [log scale]
+β = 0 (open loop)
+β = 10−4
+β = 10−2
+β = 1
+21
+
+============================================================
+PAGE 22
+============================================================
+Improving Performance  
+Feedback makes the time response faster by a factor of 1 + βK0 
+(K0 = 2 × 105). 
+Step response 
+K0 
+−α(1+βK0)t)u(t)
+s(t) = 1 + βK0 
+(1 − e 
+t [seconds]
+s(t)
+K0
+1 + βK0
+1/40
+β = 0
+β = 1
+22
+
+============================================================
+PAGE 23
+============================================================
+Improving Performance  
+Feedback produces faster responses by reducing the ﬁnal value of 
+the step response. It trades gain for speed. 
+Step response 
+K0 
+−α(1+βK0)t)u(t)
+s(t) = 
+(1 − e
+1 + βK0 
+ds(t)
+The maximum rate of voltage change 
+is not increased. 
+dt 
+t=0+ 
+t [seconds]
+s(t)
+2 × 105
+1/40
+β
+0
+0.5 × 10−5
+1.5 × 10−5
+23
+
+============================================================
+PAGE 24
+============================================================
+Improving Performance  
+Feedback improves performance parameters of op-amp circuits. 
+• 
+can extend frequency response 
+• 
+can increase speed  
+Performance enhancements are achieved through a reduction of gain.  
+24
+
+============================================================
+PAGE 25
+============================================================
+Motor Controller  
+We wish to build a robot arm (actually its elbow). The input should  
+be voltage v(t), and the output should be the elbow angle θ(t). 
+robotic
+arm
+v(t)
+θ(t) ∝v(t)
+We wish to build the robot arm with a DC motor. 
+DC motor
+v(t)
+θ(t)
+This problem is similar to the head-turning servo in 6.01 !  
+25
+
+============================================================
+PAGE 26
+============================================================
+Check Yourself  
+What is the relation between v(t) and θ(t) for a DC motor? 
+DC motor
+v(t)
+θ(t)
+1. θ(t) ∝ v(t) 
+2. cos θ(t) ∝ v(t) 
+3. θ(t) ∝ ˙v(t) 
+4. cos θ(t) ∝ ˙v(t) 
+5. none of the above 
+26
+
+============================================================
+PAGE 27
+============================================================
+Check Yourself  
+What is the relation between v(t) and θ(t) for a DC motor?  
+To ﬁrst order, the rotational speed θ˙(t) of a DC motor is proportional  
+to the input voltage v(t). 
+DC motor
+v(t)
+θ(t)
+v(t)
+t
+θ(t)
+t
+First-order model: integrator 
+γA
+V
+Θ
+27
+
+============================================================
+PAGE 28
+============================================================
+Check Yourself  
+What is the relation between v(t) and θ(t) for a DC motor? 
+DC motor
+v(t)
+θ(t)
+1. θ(t) ∝ v(t) 
+2. cos θ(t) ∝ v(t) 
+3. θ(t) ∝ ˙v(t) 
+4. cos θ(t) ∝ ˙v(t) 
+5. none of the above 
+28
+
+============================================================
+PAGE 29
+============================================================
+Motor Controller  
+Use proportional feedback to control the angle of the motor’s shaft. 
++
+α
+γA
+β
+v(t)
+θ(t)
+DC motor
+ampliﬁer
+feedback
+(potentiometer)
+−
+Θ = 
+αγA 
+= 
+αγ 1 
+s 
+= 
+αγ 
+V 
+1 + αβγA 
+1 + αβγ 1 
+s + αβγ 
+s 
+29
+
+============================================================
+PAGE 30
+============================================================
+Motor Controller  
+The closed loop system has a single pole at s = −αβγ. 
+Θ 
+αγ 
+= 
+V
+s + αβγ 
+As α increases, the closed-loop pole becomes increasingly negative. 
+σ
+ω s-plane
+30
+
+============================================================
+PAGE 31
+============================================================
+Motor Controller  
+Find the impulse and step response. 
+The system function is
+Θ 
+αγ 
+= 
+. 
+V
+s + αβγ 
+The impulse response is 
+h(t) = αγe−αβγt u(t) 
+and the step response is therefore 
+p 
+ 
+1 
+−αβγt
+s(t) = 
+1 − e 
+β 
+The response is faster for larger values of α. 
+u(t) . 
+θ(t)
+t
+1
+β
+α ↑
+Try it: Demo.  
+31
+
+============================================================
+PAGE 32
+============================================================
+Motor Controller  
+The speed of a DC motor does not change instantly if the voltage  
+is stepped. There is lag due to rotational inertia. 
+γA
+V
+Θ1
+First-order model
+integrator
+γA
+
+pA
+1 + pA
+
+V
+Θ2
+Second-order model
+integrator with lag
+Step response of the models: 
+v(t)
+1
+t
+t
+θ(t)
+θ1(t) = γtu(t)
+θ2(t) =
+ γt −γ
+p(1 −e−pt)
+
+u(t)
+32
+
+============================================================
+PAGE 33
+============================================================
+Motor Controller  
+Analyze second-order model. 
++
+α
+γpA2
+1 + pA
+β
+v(t)
+θ(t)
+DC motor
+ampliﬁer
+feedback
+(potentiometer)
+−
+Θ = 
+αγpA2 
+1+pA 
+= 
+αγpA2 
+= 
+αγp 
+V 
+1 + αβγpA2 
+1 + pA + αβγpA2 
+s2 + ps + αβγp 
+1+pA
+ p
+2
+p
+p 
+s = −
+− αβγp 
+2 ±
+2 
+33
+
+
+============================================================
+PAGE 34
+============================================================
+Motor Controller  
+For second-order model, increasing α causes the poles at 0 and −p 
+to approach each other, collide at s = −p/2, then split into two poles 
+with imaginary parts. 
+Increasing the gain α does not increase speed of convergence. 
+σ
+ω s-plane
+−p
+34
+
+============================================================
+PAGE 35
+============================================================
+Motor Controller  
+Step response. 
+t
+s(t)
+1
+β
+35
+
+============================================================
+PAGE 36
+============================================================
+Motor Controller  
+Step response. 
+t
+s(t)
+1
+β
+36
+
+============================================================
+PAGE 37
+============================================================
+Motor Controller  
+Step response. 
+t
+s(t)
+1
+β
+37
+
+============================================================
+PAGE 38
+============================================================
+Motor Controller  
+Step response. 
+t
+s(t)
+1
+β
+38
+
+============================================================
+PAGE 39
+============================================================
+Motor Controller  
+Step response. 
+t
+s(t)
+1
+β
+cos(ωdt + φ)
+e−pt/2
+39
+
+============================================================
+PAGE 40
+============================================================
+Feedback and Control: Summary  
+CT feedback is useful for many reasons. Today we saw two: 
+•  
+increasing speed and bandwidth 
+•  
+controlling position instead of speed 
+Next time we will look at several others: 
+•  
+reduce sensitivity to parameter variation 
+•  
+reduce distortion 
+•  
+stabilize unstable systems 
+− 
+magnetic levitation 
+− 
+inverted pendulum 
+40
+
+============================================================
+PAGE 41
+============================================================
+MIT OpenCourseWare
+http://ocw.mit.edu
+6.003 Signals and Systems
+Fall 2011
+For information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms.

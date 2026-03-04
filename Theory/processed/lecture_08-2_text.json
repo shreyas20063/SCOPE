@@ -1,0 +1,307 @@
+{
+  "lecture_number": 8,
+  "source_file": "3c5d1ec5efbca4bcf46cdf5a1cca3518_MIT6_003F11_lec08-2.pdf",
+  "page_count": 75,
+  "pages": [
+    {
+      "page": 1,
+      "text": "6.003: Signals and Systems \nConvolution \nOctober 4, 2011  \n1"
+    },
+    {
+      "page": 2,
+      "text": "Mid-term Examination #1  \nWednesday, October 5, 7:30-9:30pm. \nNo recitations on the day of the exam. \nCoverage: \nCT and DT Systems, Z and Laplace Transforms \nLectures 1\u20137 \nRecitations 1\u20137 \nHomeworks 1\u20134 \nHomework 4 will not collected or graded. Solutions are posted. \nClosed book: 1 page of notes (8 1\n2 \u00d7 11 inches; front and back).  \nNo calculators, computers, cell phones, music players, or other aids.  \nDesigned as 1-hour exam; two hours to complete.  \nPrior term midterm exams have been posted on the 6.003 website.  \n2"
+    },
+    {
+      "page": 3,
+      "text": "+\nR\nz0\nX\nY\n+\nA\ns0\nX\nY\nMultiple Representations of CT and DT Systems  \nVerbal descriptions: preserve the rationale. \nDi\ufb00erence/di\ufb00erential equations: mathematically compact. \ny[n] = x[n] + z0 y[n \u2212 1] \ny\u02d9(t) = x(t) + s0 y(t) \nBlock diagrams: illustrate signal \ufb02ow paths. \nOperator representations: analyze systems as polynomials. \nY \n1 \nY \nA \n= \n= \nX \n1 \u2212 z0R \nX \n1 \u2212 s0A \nTransforms: representing di\ufb00. equations with algebraic equations.  \nz \n1 \nH(z) = \nH(s) = \nz \u2212 z0 \ns \u2212 s0 \n3"
+    },
+    {
+      "page": 4,
+      "text": "Convolution  \nRepresenting a system by a single signal.  \n4"
+    },
+    {
+      "page": 5,
+      "text": "Responses to arbitrary signals  \nAlthough we have focused on responses to simple signals (\u03b4[n], \u03b4(t)) \nwe are generally interested in responses to more complicated signals. \nHow do we compute responses to a more complicated input signals? \nNo problem for di\ufb00erence equations / block diagrams. \n\u2192 use step-by-step analysis. \n5"
+    },
+    {
+      "page": 6,
+      "text": "Check Yourself  \nExample: Find y[3] \n+\n+\nR\nR\nX\nY\nwhen the input is \nx[n]\nn\n1\n1. 1 \n2. 2 \n3. 3 \n4. 4 \n5. 5 \n0. none of the above \n6"
+    },
+    {
+      "page": 7,
+      "text": "Responses to arbitrary signals  \nExample.  \n+\n+\nR\nR\n0\n0\n0\n0\nx[n]\nn\ny[n]\nn\n7"
+    },
+    {
+      "page": 8,
+      "text": "Responses to arbitrary signals  \nExample.  \n+\n+\nR\nR\n1\n0\n0\n1\nx[n]\nn\ny[n]\nn\n8"
+    },
+    {
+      "page": 9,
+      "text": "Responses to arbitrary signals  \nExample.  \n+\n+\nR\nR\n1\n1\n0\n2\nx[n]\nn\ny[n]\nn\n9"
+    },
+    {
+      "page": 10,
+      "text": "Responses to arbitrary signals  \nExample.  \n+\n+\nR\nR\n1\n1\n1\n3\nx[n]\nn\ny[n]\nn\n10"
+    },
+    {
+      "page": 11,
+      "text": "Responses to arbitrary signals  \nExample.  \n+\n+\nR\nR\n0\n1\n1\n2\nx[n]\nn\ny[n]\nn\n11"
+    },
+    {
+      "page": 12,
+      "text": "Responses to arbitrary signals  \nExample.  \n+\n+\nR\nR\n0\n0\n1\n1\nx[n]\nn\ny[n]\nn\n12"
+    },
+    {
+      "page": 13,
+      "text": "Responses to arbitrary signals  \nExample.  \n+\n+\nR\nR\n0\n0\n0\n0\nx[n]\nn\ny[n]\nn\n13"
+    },
+    {
+      "page": 14,
+      "text": "Check Yourself  \nWhat is y[3]? \n2 \n+\n+\nR\nR\n0\n0\n0\n0\nx[n]\nn\n1\ny[n]\nn\n1. 1 \n2. 2 \n3. 3 \n4. 4 \n5. 5 \n0. none of the above \n14"
+    },
+    {
+      "page": 15,
+      "text": "Superposition  \nBreak input into additive parts and sum the responses to the parts.  \nn\nx[n]\ny[n]\nn\n=\n+\n+\n+\n+\n=\nn\n\u22121 0 1 2 3 4 5\nn\nn\nn\nn\n\u22121 0 1 2 3 4 5\nn\n15"
+    },
+    {
+      "page": 16,
+      "text": "Linearity  \nA system is linear if its response to a weighted sum of inputs is equal \nto the weighted sum of its responses to each of the inputs. \nGiven \nsystem\nx1[n]\ny1[n]\nand \nsystem\nx2[n]\ny2[n]\nthe system is linear if \nsystem\n\u03b1x1[n] + \u03b2x2[n]\n\u03b1y1[n] + \u03b2y2[n]\nis true for all \u03b1 and \u03b2. \n16"
+    },
+    {
+      "page": 17,
+      "text": "Superposition  \nBreak input into additive parts and sum the responses to the parts. \nn\nx[n]\ny[n]\nn\n=\n+\n+\n+\n+\n=\nn\n\u22121 0 1 2 3 4 5\nn\nn\nn\nn\n\u22121 0 1 2 3 4 5\nn\nSuperposition works if the system is linear. \n17"
+    },
+    {
+      "page": 18,
+      "text": "Superposition  \nBreak input into additive parts and sum the responses to the parts. \nn\nx[n]\ny[n]\nn\n=\n+\n+\n+\n+\n=\nn\n\u22121 0 1 2 3 4 5\nn\nn\nn\nn\n\u22121 0 1 2 3 4 5\nn\nReponses to parts are easy to compute if system is time-invariant. \n18"
+    },
+    {
+      "page": 19,
+      "text": "Time-Invariance  \nA system is time-invariant if delaying the input to the system simply \ndelays the output by the same amount of time. \nGiven  \nsystem\nx[n]\ny[n]\nthe system is time invariant if \nsystem\nx[n \u2212n0]\ny[n \u2212n0]\nis true for all n0. \n19"
+    },
+    {
+      "page": 20,
+      "text": "Superposition  \nBreak input into additive parts and sum the responses to the parts. \nn\nx[n]\ny[n]\nn\n=\n+\n+\n+\n+\n=\nn\n\u22121 0 1 2 3 4 5\nn\nn\nn\nn\n\u22121 0 1 2 3 4 5\nn\nSuperposition is easy if the system is linear and time-invariant. \n20"
+    },
+    {
+      "page": 21,
+      "text": "Structure of Superposition  \nIf a system is linear and time-invariant (LTI) then its output is the \nsum of weighted and shifted unit-sample responses. \nsystem\n\u03b4[n]\nh[n]\nsystem\n\u03b4[n \u2212k]\nh[n \u2212k]\nsystem\nx[k]\u03b4[n \u2212k]\nx[k]h[n \u2212k]\nsystem\nx[n] =\n\u221e\nX\nk=\u2212\u221e\nx[k]\u03b4[n \u2212k]\ny[n] =\n\u221e\nX\nk=\u2212\u221e\nx[k]h[n \u2212k]\n21"
+    },
+    {
+      "page": 22,
+      "text": "Convolution  \nResponse of an LTI system to an arbitrary input. \nThis operation is called convolution. \nLTI\nx[n]\ny[n]\ny[n] =\n\u221e\nX\nk=\u2212\u221e\nx[k]h[n \u2212k] \u2261(x \u2217h)[n]\n22"
+    },
+    {
+      "page": 23,
+      "text": "Notation  \nConvolution is represented with an asterisk. \n\u221e\n0 \nx[k]h[n \u2212 k] \u2261 (x \u2217 h)[n] \nk=\u2212\u221e \nIt is customary (but confusing) to abbreviate this notation: \n(x \u2217 h)[n] = x[n] \u2217 h[n] \n23"
+    },
+    {
+      "page": 24,
+      "text": "Notation  \nDo not be fooled by the confusing notation. \nConfusing (but conventional) notation: \n\u221e\n0 \nx[k]h[n \u2212 k] = x[n] \u2217 h[n] \nk=\u2212\u221e \nx[n] \u2217 h[n] looks like an operation of samples; but it is not! \nx[1] \u2217 h[1]  = (x \u2217 h)[1] \nConvolution operates on signals not samples. \nUnambiguous notation: \n\u221e\n0 \nx[k]h[n \u2212 k] \u2261 (x \u2217 h)[n] \nk=\u2212\u221e \nThe symbols x and h represent DT signals. \nConvolving x with h generates a new DT signal x \u2217 h. \n24"
+    },
+    {
+      "page": 25,
+      "text": "Structure of Convolution  \n\u221e\n0 \ny[n] = \nx[k]h[n \u2212 k] \nk=\u2212\u221e \n\u22122\u22121 0 1 2 3 4 5\nn\nx[n]\nh[n]\n\u2217\n\u22122\u22121 0 1 2 3 4 5\nn\n25"
+    },
+    {
+      "page": 26,
+      "text": "Structure of Convolution  \n\u221e\n0 \ny[0] = \nx[k]h[0 \u2212 k] \nk=\u2212\u221e \n\u22122\u22121 0 1 2 3 4 5\nn\nx[n]\nh[n]\n\u2217\n\u22122\u22121 0 1 2 3 4 5\nn\n26"
+    },
+    {
+      "page": 27,
+      "text": "Structure of Convolution  \n\u221e\n0 \ny[0] = \nx[k]h[0 \u2212 k] \nk=\u2212\u221e \n\u22122\u22121 0 1 2 3 4 5\nk\nx[k]\nh[k]\n\u2217\n\u22122\u22121 0 1 2 3 4 5\nk\n27"
+    },
+    {
+      "page": 28,
+      "text": "Structure of Convolution  \n\u221e\n0 \ny[0] = \nx[k]h[0 \u2212 k] \nk=\u2212\u221e \n\u22122\u22121 0 1 2 3 4 5\nk\nx[k]\nh[k]\nh[\u2212k]\n\u2217\n\ufb02ip\n\u22122\u22121 0 1 2 3 4 5\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n28"
+    },
+    {
+      "page": 29,
+      "text": "Structure of Convolution  \n\u221e\n0 \ny[0] = \nx[k]h[0 \u2212 k] \nk=\u2212\u221e \n\u22122\u22121 0 1 2 3 4 5\nk\nx[k]\nh[k]\nh[0 \u2212k]\n\u2217\nshift\n\u22122\u22121 0 1 2 3 4 5\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n29"
+    },
+    {
+      "page": 30,
+      "text": "Structure of Convolution  \n\u221e\n0 \ny[0] = \nx[k]h[0 \u2212 k] \nk=\u2212\u221e \n\u22122\u22121 0 1 2 3 4 5\nk\nx[k]\nh[k]\nh[0 \u2212k]\nh[0 \u2212k]\n\u2217\nmultiply\n\u22122\u22121 0 1 2 3 4 5\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n30"
+    },
+    {
+      "page": 31,
+      "text": "Structure of Convolution  \n\u221e\n0 \ny[0] = \nx[k]h[0 \u2212 k] \nk=\u2212\u221e \nk\nx[k]\nh[k]\nh[0 \u2212k]\nh[0 \u2212k]\nx[k]h[0 \u2212k]\n\u2217\nmultiply\n\u22122\u22121 0 1 2 3 4 5\nk\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n31"
+    },
+    {
+      "page": 32,
+      "text": "Structure of Convolution  \n\u221e\n0 \ny[0] = \nx[k]h[0 \u2212 k] \nk=\u2212\u221e \nk\nx[k]\nh[k]\nh[0 \u2212k]\nh[0 \u2212k]\nx[k]h[0 \u2212k]\n\u2217\nsum\n\u221e\nX\nk=\u2212\u221e\nk\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n32"
+    },
+    {
+      "page": 33,
+      "text": "Structure of Convolution  \n\u221e\n0 \ny[0] = \nx[k]h[0 \u2212 k] \nk=\u2212\u221e \nk\nx[k]\nh[k]\nh[0 \u2212k]\nh[0 \u2212k]\nx[k]h[0 \u2212k]\n\u2217\n\u221e\nX\nk=\u2212\u221e\nk\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n= 1\n33"
+    },
+    {
+      "page": 34,
+      "text": "Structure of Convolution  \n\u221e\n0 \ny[1] = \nx[k]h[1 \u2212 k] \nk=\u2212\u221e \nk\nx[k]\nh[k]\nh[1 \u2212k]\nh[1 \u2212k]\nx[k]h[1 \u2212k]\n\u2217\n\u221e\nX\nk=\u2212\u221e\nk\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n= 2\n34"
+    },
+    {
+      "page": 35,
+      "text": "Structure of Convolution  \n\u221e\n0 \ny[2] = \nx[k]h[2 \u2212 k] \nk=\u2212\u221e \nk\nx[k]\nh[k]\nh[2 \u2212k]\nh[2 \u2212k]\nx[k]h[2 \u2212k]\n\u2217\n\u221e\nX\nk=\u2212\u221e\nk\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n= 3\n35"
+    },
+    {
+      "page": 36,
+      "text": "Structure of Convolution  \n\u221e\n0 \ny[3] = \nx[k]h[3 \u2212 k] \nk=\u2212\u221e \nk\nx[k]\nh[k]\nh[3 \u2212k]\nh[3 \u2212k]\nx[k]h[3 \u2212k]\n\u2217\n\u221e\nX\nk=\u2212\u221e\nk\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n= 2\n36"
+    },
+    {
+      "page": 37,
+      "text": "Structure of Convolution  \n\u221e\n0 \ny[4] = \nx[k]h[4 \u2212 k] \nk=\u2212\u221e \nk\nx[k]\nh[k]\nh[4 \u2212k]\nh[4 \u2212k]\nx[k]h[4 \u2212k]\n\u2217\n\u221e\nX\nk=\u2212\u221e\nk\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n= 1\n37"
+    },
+    {
+      "page": 38,
+      "text": "Structure of Convolution  \n\u221e\n0 \ny[5] = \nx[k]h[5 \u2212 k] \nk=\u2212\u221e \nk\nx[k]\nh[k]\nh[5 \u2212k]\nh[5 \u2212k]\nx[k]h[5 \u2212k]\n\u2217\n\u221e\nX\nk=\u2212\u221e\nk\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n\u22122\u22121 0 1 2 3 4 5\nk\n= 0\n38"
+    },
+    {
+      "page": 39,
+      "text": "Check Yourself \n1\n\u2217\n1\nWhich plot shows the result of the convolution above? \n1. \n1\n2. \n1\n3. \n1\n4. \n1\n5. none of the above \n39"
+    },
+    {
+      "page": 40,
+      "text": "Check Yourself \n1\n\u2217\n1\nExpress mathematically:\n  2 \n3\n n \nu[n]\n \n\u2217\n  2 \n3\n n \nu[n]\n \n= \n\u221e\n0   2 \n3\n k \nu[k] \n! \n\u00d7 \n  2 \n3\n n\u2212k \nu[n \u2212 k] \n!\nk=\u2212\u221e \nn   k \n  \n0 \n2\n2 n\u2212k \n= \n\u00d7\n3\n3\nk=0\nn   \n  \nn\n0 \nn\nn 0\n2\n2 \n= \n=\n1\n3\n3\nk=0\nk=0\n  n\n2\n= (n + 1)\nu[n]\n3\n4 \n4 \n32 \n80\n= 1, \n. . . \n3, 3, 27, 81, \n40"
+    },
+    {
+      "page": 41,
+      "text": "Check Yourself \n1\n\u2217\n1\nWhich plot shows the result of the convolution above? 3 \n1. \n1\n2. \n1\n3. \n1\n4. \n1\n5. none of the above \n41"
+    },
+    {
+      "page": 42,
+      "text": "DT Convolution: Summary  \nRepresenting an LTI system by a single signal. \nh[n]\nx[n]\ny[n]\nUnit-sample response h[n] is a complete description of an LTI system. \nGiven h[n] one can compute the response y[n] to any arbitrary input \nsignal x[n]: \n\u221e\n0 \ny[n] = (x \u2217 h)[n] \u2261 \nx[k]h[n \u2212 k] \nk=\u2212\u221e \n42"
+    },
+    {
+      "page": 43,
+      "text": "CT Convolution  \n0 \nx(t) = lim \n\u0394\u21920 k \nwhere \n \u221e \nThe same sort of reasoning applies to CT signals. \nt\nx(t)\nx(k\u0394)p(t \u2212 k\u0394)\u0394 \nt\np(t)\n\u2206\n1\n\u2206\nAs \u0394 \u2192 0, k\u0394 \u2192 \u03c4 , \u0394 \u2192 d\u03c4 , and p(t) \u2192 \u03b4(t): \nx(t) \u2192\nx(\u03c4)\u03b4(t \u2212 \u03c4)d\u03c4 \n\u2212\u221e \n43"
+    },
+    {
+      "page": 44,
+      "text": "Structure of Superposition  \nIf a system is linear and time-invariant (LTI) then its output is the \nintegral of weighted and shifted unit-impulse responses. \nsystem\n\u03b4(t)\nh(t)\nsystem\n\u03b4(t \u2212\u03c4)\nh(t \u2212\u03c4)\nsystem\nx(\u03c4)\u03b4(t \u2212\u03c4)\nx(\u03c4)h(t \u2212\u03c4)\nsystem\nx(t) =\nZ \u221e\n\u2212\u221e\nx(\u03c4)\u03b4(t \u2212\u03c4)d\u03c4\ny(t) =\nZ \u221e\n\u2212\u221e\nx(\u03c4)h(t \u2212\u03c4)d\u03c4\n44"
+    },
+    {
+      "page": 45,
+      "text": "CT Convolution  \nConvolution of CT signals is analogous to convolution of DT signals.  \n\u221e\n0 \nDT: y[n] = (x \u2217 h)[n] = \nx[k]h[n \u2212 k] \nk=\u2212\u221e \n\u221e \nCT: y(t) = (x \u2217 h)(t) = \nx(\u03c4)h(t \u2212 \u03c4)d\u03c4 \n\u2212\u221e \n45\nZ"
+    },
+    {
+      "page": 46,
+      "text": "Check Yourself \nt\ne\u2212tu(t)\n\u2217\nt\ne\u2212tu(t)\nWhich plot shows the result of the convolution above? \n1. \nt\n2. \nt\n3. \nt\n4. \nt\n5. none of the above \n46"
+    },
+    {
+      "page": 47,
+      "text": "Check Yourself  \nWhich plot shows the result of the following convolution?\nt\ne\u2212tu(t)\n\u2217\nt\ne\u2212tu(t)\n \ne \u2212t u(t)\n \n\u2217\n \ne \u2212t u(t)\n \n= \n\u221e \ne \u2212\u03c4 u(\u03c4 )e \u2212(t\u2212\u03c4)u(t \u2212 \u03c4)d\u03c4 \n\u2212\u221e \nt\nt \n\u2212\u03c4 \n\u2212t \n\u2212t\n\u2212(t\u2212\u03c4)d\u03c4 \nd\u03c4 = te\nu(t)\n= \n0 \ne \ne \n= e \n0 \nt\n47\nZ\nZ\nZ"
+    },
+    {
+      "page": 48,
+      "text": "Check Yourself \nt\ne\u2212tu(t)\n\u2217\nt\ne\u2212tu(t)\nWhich plot shows the result of the convolution above? \n4 \n1. \nt\n2. \nt\n3. \nt\n4. \nt\n5. none of the above \n48"
+    },
+    {
+      "page": 49,
+      "text": "Convolution  \nConvolution is an important computational tool. \nExample: characterizing LTI systems \n\u2022 \nDetermine the unit-sample response h[n]. \n\u2022 \nCalculate the output for an arbitrary input using convolution: \n0 \ny[n] = (x \u2217 h)[n] = \nx[k]h[n \u2212 k] \n49"
+    },
+    {
+      "page": 50,
+      "text": "Applications of Convolution  \nConvolution is an important conceptual tool: it provides an impor\u00ad\ntant new way to think about the behaviors of systems. \nExample systems: microscopes and telescopes. \n50"
+    },
+    {
+      "page": 51,
+      "text": "Microscope  \nImages from even the best microscopes are blurred.  \n51\nD\ni\na\ngra\nm of a\n microscope\n.\nImage by MIT OpenCourseWare."
+    },
+    {
+      "page": 52,
+      "text": "Microscope  \nA perfect lens transforms a spherical wave of light from the target \ninto a spherical wave that converges to the image. \nBlurring is inversely related to the diameter of the lens. \ntarget\nimage\n52"
+    },
+    {
+      "page": 53,
+      "text": "Microscope  \nA perfect lens transforms a spherical wave of light from the target \ninto a spherical wave that converges to the image. \nBlurring is inversely related to the diameter of the lens. \ntarget\nimage\n53"
+    },
+    {
+      "page": 54,
+      "text": "Microscope  \nA perfect lens transforms a spherical wave of light from the target \ninto a spherical wave that converges to the image. \nBlurring is inversely related to the diameter of the lens. \ntarget\nimage\n54"
+    },
+    {
+      "page": 55,
+      "text": "Microscope  \nBlurring can be represented by convolving the image with the optical \n\u201cpoint-spread-function\u201d (3D impulse response). \nBlurring is inversely related to the diameter of the lens. \ntarget\nimage\n\u2217\n=\n55"
+    },
+    {
+      "page": 56,
+      "text": "Microscope  \nBlurring can be represented by convolving the image with the optical \n\u201cpoint-spread-function\u201d (3D impulse response). \nBlurring is inversely related to the diameter of the lens. \ntarget\nimage\n\u2217\n=\n56"
+    },
+    {
+      "page": 57,
+      "text": "Microscope  \nBlurring can be represented by convolving the image with the optical \n\u201cpoint-spread-function\u201d (3D impulse response). \nBlurring is inversely related to the diameter of the lens. \ntarget\nimage\n\u2217\n=\n57"
+    },
+    {
+      "page": 58,
+      "text": "Microscope  \nMeasuring the \u201cimpulse response\u201d of a microscope.  \nImage diameter \u2248 6 times target diameter: target \u2192 impulse.  \n58\nCourtesy of Anthony Patire. Used with permission."
+    },
+    {
+      "page": 59,
+      "text": "Microscope  \nImages at di\ufb00erent focal planes can be assembled to form a three-\ndimensional impulse response (point-spread function). \n59\nCourtesy of Anthony Patire. Used with permission."
+    },
+    {
+      "page": 60,
+      "text": "Microscope  \nBlurring along the optical axis is better visualized by resampling the \nthree-dimensional impulse response. \n60\nCourtesy of Anthony Patire. Used with permission."
+    },
+    {
+      "page": 61,
+      "text": "Microscope  \nBlurring is much greater along the optical axis than it is across the \noptical axis. \n61\nCourtesy of Anthony Patire. Used with permission."
+    },
+    {
+      "page": 62,
+      "text": "Microscope  \nThe point-spread function (3D impulse response) is a useful way to \ncharacterize a microscope. It provides a direct measure of blurring, \nwhich is an important \ufb01gure of merit for optics. \n62"
+    },
+    {
+      "page": 63,
+      "text": "Hubble Space Telescope  \nHubble Space Telescope (1990-)  \nhttp://hubblesite.org\n63"
+    },
+    {
+      "page": 64,
+      "text": "Hubble Space Telescope  \nWhy build a space telescope?  \nTelescope images are blurred by the telescope lenses AND by at\u00ad\nmospheric turbulence.  \nha(x, y)\nhd(x, y)\nX\nY\natmospheric\nblurring\nblur due to\nmirror size\nht(x, y) = (ha \u2217hd)(x, y)\nX\nY\nground-based\ntelescope\n64"
+    },
+    {
+      "page": 65,
+      "text": "Hubble Space Telescope  \nTelescope blur can be respresented by the convolution of blur due  \nto atmospheric turbulence and blur due to mirror size. \n\u22122 \u22121\n0\n1\n2\u03b8 \u22122 \u22121\n0\n1\n2\u03b8 \u22122 \u22121\n0\n1\n2\u03b8\n\u22122 \u22121\n0\n1\n2\u03b8 \u22122 \u22121\n0\n1\n2\u03b8 \u22122 \u22121\n0\n1\n2\u03b8\nha(\u03b8)\nha(\u03b8)\nhd(\u03b8)\nhd(\u03b8)\nht(\u03b8)\nht(\u03b8)\n\u2217\n\u2217\n=\n=\nd = 12cm\nd = 1m\n[arc-seconds]\n65"
+    },
+    {
+      "page": 66,
+      "text": "Hubble Space Telescope  \nThe main optical components of the Hubble Space Telescope are \ntwo mirrors. \nhttp://hubblesite.org\n66"
+    },
+    {
+      "page": 67,
+      "text": "Hubble Space Telescope  \nThe diameter of the primary mirror is 2.4 meters.  \nhttp://hubblesite.org  \n67"
+    },
+    {
+      "page": 68,
+      "text": "Hubble Space Telescope  \nHubble\u2019s \ufb01rst pictures of distant stars (May 20, 1990) were more \nblurred than expected. \nexpected \nearly Hubble \npoint-spread \nimage of \nfunction \ndistant star \nhttp://hubblesite.org\n68"
+    },
+    {
+      "page": 69,
+      "text": "Hubble Space Telescope  \nThe parabolic mirror was ground 2.2 \u00b5m too \ufb02at!  \nhttp://hubblesite.org\n69"
+    },
+    {
+      "page": 70,
+      "text": "Hubble Space Telescope  \nCorrective Optics Space Telescope Axial Replacement (COSTAR): \neyeglasses for Hubble! \nHubble\nCOSTAR\n70"
+    },
+    {
+      "page": 71,
+      "text": "Hubble Space Telescope  \nHubble images before and after COSTAR.  \nbefore \nafter  \nhttp://hubblesite.org\n71"
+    },
+    {
+      "page": 72,
+      "text": "Hubble Space Telescope  \nHubble images before and after COSTAR.  \nbefore \nafter  \nhttp://hubblesite.org\n72"
+    },
+    {
+      "page": 73,
+      "text": "Hubble Space Telescope  \nImages from ground-based telescope and Hubble.  \nhttp://hubblesite.org\n73"
+    },
+    {
+      "page": 74,
+      "text": "Impulse Response: Summary  \nThe impulse response is a complete description of a linear, time-\ninvariant system. \nOne can \ufb01nd the output of such a system by convolving the input \nsignal with the impulse response. \nThe impulse response is an especially useful description of some \ntypes of systems, e.g., optical systems, where blurring is an impor\u00ad\ntant \ufb01gure of merit. \n74"
+    },
+    {
+      "page": 75,
+      "text": "MIT OpenCourseWare\nhttp://ocw.mit.edu\n6.003 Signals and Systems\nFall 2011\nFor information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms."
+    }
+  ]
+}

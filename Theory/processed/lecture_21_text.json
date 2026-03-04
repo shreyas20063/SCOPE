@@ -1,0 +1,251 @@
+{
+  "lecture_number": 21,
+  "source_file": "12e6e5d7567fca2e993ef8563fef5a60_MIT6_003F11_lec21.pdf",
+  "page_count": 61,
+  "pages": [
+    {
+      "page": 1,
+      "text": "6.003: Signals and Systems \nSampling \nNovember 22, 2011  \n1"
+    },
+    {
+      "page": 2,
+      "text": "Sampling  \nConversion of a continuous-time signal to discrete time.  \nt\nx(t)\n0\n2\n4\n6\n8\n10\nn\nx[n]\n0\n2\n4\n6\n8\n10\nWe have used sampling a number of times before.  \nToday: new insights from Fourier representations.  \n2"
+    },
+    {
+      "page": 3,
+      "text": "Sampling  \nSampling allows the use of modern digital electronics to process, \nrecord, transmit, store, and retrieve CT signals. \n\u2022 \naudio: MP3, CD, cell phone \n\u2022 \npictures: digital camera, printer \n\u2022 \nvideo: DVD \n\u2022 \neverything on the web \n3"
+    },
+    {
+      "page": 4,
+      "text": "Sampling  \nSampling is pervasive.  \nExample: digital cameras record sampled images.  \nx\ny\nI(x, y)\nm\nn\nI[m, n]\n4"
+    },
+    {
+      "page": 5,
+      "text": "Sampling  \nPhotographs in newsprint are \u201chalf-tone\u201d images. \nEach point is \nblack or white and the average conveys brightness. \n5"
+    },
+    {
+      "page": 6,
+      "text": "Sampling  \nZoom in to see the binary pattern.  \n6"
+    },
+    {
+      "page": 7,
+      "text": "Sampling  \nEven high-quality photographic paper records discrete images. When \nAgBr crystals (0.04 \u2212 1.5\u00b5m) are exposed to light, some of the Ag \nis reduced to metal. During \u201cdevelopment\u201d the exposed grains are \ncompletely reduced to metal and unexposed grains are removed. \n7\nImages of discrete grains in photographic paper removed due to copyright restrictions."
+    },
+    {
+      "page": 8,
+      "text": "Sampling  \nEvery image that we see is sampled by the retina, which contains \u2248 \n100 million rods and 6 million cones (average spacing \u2248 3\u00b5m) which \nact as discrete sensors. \n8\nhttp://webvision.med.utah.edu/imageswv/sagschem.jpeg\nCourtesy of Helga Kolb, Eduardo Fernandez, and Ralph Nelson. Used with permission."
+    },
+    {
+      "page": 9,
+      "text": "Check Yourself  \nYour retina is sampling this slide, which is composed of 1024\u00d7768 \npixels. \nIs the spatial sampling done by your rods and cones ade\u00ad\nquate to resolve individual pixels in this slide? \n9"
+    },
+    {
+      "page": 10,
+      "text": "Check Yourself  \nThe spacing of rods and cones limits the angular resolution of your \nretina to approximately \nrod/cone spacing \n3 \u00d7 10\u22126 m \n\u03b8eye = \n\u2248\n\u2248 10\u22124 radians \ndiameter of eye \n3 cm \nThe angle between pixels viewed from the center of the classroom \nis approximately \nscreen size / 1024 \n3 m/1024 \n\u2248\n\u2248 3 \u00d7 10\u22124 radians\n\u03b8pixels = distance to screen \n10 m \nLight from a single pixel falls upon multiple rods and cones. \n10"
+    },
+    {
+      "page": 11,
+      "text": "Sampling  \nHow does sampling a\ufb00ect the information contained in a signal?  \n11"
+    },
+    {
+      "page": 12,
+      "text": "Sampling  \nWe would like to sample in a way that preserves information, which \nmay not seem possible. \nt\nx(t)\nInformation between samples is lost. Therefore, the same samples \ncan represent multiple signals. \nt\ncos 7\u03c0\n3 n?\ncos \u03c0\n3 n?\n12"
+    },
+    {
+      "page": 13,
+      "text": "Sampling and Reconstruction  \nTo determine the e\ufb00ect of sampling, compare the original signal x(t) \nto the signal xp(t) that is reconstructed from the samples x[n]. \nUniform sampling (sampling interval T ). \nt\nn\nx[n] = x(nT)\nImpulse reconstruction. \nt\nn\nxp(t) =\nX\nn\nx[n]\u03b4(t \u2212nT)\n13"
+    },
+    {
+      "page": 14,
+      "text": "Reconstruction  \nImpulse reconstruction maps samples x[n] (DT) to xp(t) (CT). \n\u221e\nxp(t) = \nx[n]\u03b4(t \u2212 nT ) \nn=\u2212\u221e \n0 \n\u221e\n= \nx(nT )\u03b4(t \u2212 nT ) \nn=\u2212\u221e \n0 \n\u221e\n= \nx(t)\u03b4(t \u2212 nT ) \nn=\u2212\u221e \n0 \n\u221e\n= x(t) \n\u03b4(t \u2212 nT ) \n0 \nn=\u2212\u221e ,,\n\u2261 p(t) \n-\n\"  \nResulting reconstruction xp(t) is equivalent to multiplying x(t) by \nimpulse train. \n14"
+    },
+    {
+      "page": 15,
+      "text": "Sampling  \nMultiplication by an impulse train in time is equivalent to convolution \nby an impulse train in frequency. \n\u2192 generates multiple copies of original frequency content. \n\u03c9\nX(j\u03c9)\n\u2212W W\n1\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n\u03c9s= 2\u03c0\nT\n1\nT\n15"
+    },
+    {
+      "page": 16,
+      "text": "Check Yourself  \nWhat is the relation between the DTFT of x[n] = x(nT ) \nand the CTFT of xp(t) =  x[n]\u03b4(t \u2212 nT ) for X(j\u03c9) below. \n\u03c9\nX(j\u03c9)\n\u2212W W\n1\n1. Xp(j\u03c9) = X(e j\u03a9)|\u03a9=\u03c9 \n2. Xp(j\u03c9) = X(e j\u03a9)|\u03a9= \u03c9 \nT \n3. Xp(j\u03c9) = X(e j\u03a9)|\u03a9=\u03c9T \n4. none of the above \n16"
+    },
+    {
+      "page": 17,
+      "text": "Check Yourself  \nDTFT  \n\u221e\nx[n]e \nn=\u2212\u221e \n(t) \n0 \nX(e j\u03a9) = \nCTFT of xp\n\u2212j\u03a9n \n\u221e\n\u2212j\u03c9tdt\nXp(j\u03c9) =\nx[n]\u03b4(t \u2212 nT )e \n\u2212\u221e n=\u2212\u221e \n0\n \u221e \n \u221e\n\u221e\n\u2212j\u03c9tdt\n= \nx[n]\n\u03b4(t \u2212 nT )e \n\u2212\u221e\nn=\u2212\u221e \n0 \n\u221e\n\u2212j\u03c9nT \n= \nx[n]e \nn=\u2212\u221e \n0 \n= X(ej\u03a9) \n\u03a9=\u03c9T \n17"
+    },
+    {
+      "page": 18,
+      "text": "Check Yourself  \nXp(j\u03c9) = X(e j\u03a9) \n\u03c9\nX(j\u03c9)\n\u2212W W\n1\n\u03a9=\u03c9T \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n\u03c9s= 2\u03c0\nT\n1\nT\n\u2126\nX(ej\u2126) = Xp(j\u03c9)\n\f\f\n\u03c9= \u2126\nT\n\u22122\u03c0\n2\u03c0\n1\nT\n18"
+    },
+    {
+      "page": 19,
+      "text": "Check Yourself  \nWhat is the relation between the DTFT of x[n] = x(nT ) \nand the CTFT of xp(t) = \nx[n]\u03b4(t \u2212 nT ) for X(j\u03c9) below. \n\u03c9\nX(j\u03c9)\n\u2212W W\n1\n1. Xp(j\u03c9) = X(e j\u03a9)|\u03a9=\u03c9 \n2. Xp(j\u03c9) = X(e j\u03a9)|\u03a9= \u03c9 \nT \n3. Xp(j\u03c9) = X(e j\u03a9)|\u03a9=\u03c9T \n4. none of the above \n19"
+    },
+    {
+      "page": 20,
+      "text": "Sampling  \nThe high frequency copies can be removed with a low-pass \ufb01lter \n(also multiply by T to undo the amplitude scaling). \nImpulse reconstruction followed by ideal low-pass \ufb01ltering is called \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n1\nT\n\u2212\u03c9s\n2\n\u03c9s\n2\nT\nbandlimited reconstruction. \n20"
+    },
+    {
+      "page": 21,
+      "text": "The Sampling Theorem  \nIf signal is bandlimited \u2192 sample without loosing information. \nIf x(t) is bandlimited so that \nX(j\u03c9) = 0 for |\u03c9| > \u03c9m \nthen x(t) is uniquely determined by its samples x(nT ) if \n2\u03c0 \n\u03c9s = \n> 2\u03c9m. \nT \nThe minimum sampling frequency, 2\u03c9m, is called the \u201cNyquist rate.\u201d \n21"
+    },
+    {
+      "page": 22,
+      "text": "\u2212\u03c9s\n2\n\u03c9s\n2\n\u03c9\nT\nx[n]\nxr(t)\nImpulse\nReconstruction\nxp(t) =\nP x[n]\u03b4(t \u2212nT)\nLPF\nSummary  \nThree important ideas. \nSampling \nx(t) \u2192 x[n] = x(nT ) \n \n \n2\u03c0 \nBandlimited Reconstruction\n\u03c9s = T\n\u03c9s\nSampling Theorem: If X(j\u03c9) = 0 \u2200|\u03c9| > \nthen xr(t) = x(t).\n2 \n22"
+    },
+    {
+      "page": 23,
+      "text": "Check Yourself  \nWe can hear sounds with frequency components between 20 Hz \nand 20 kHz. \nWhat is the maximum sampling interval T that can be used \nto sample a signal without loss of audible information? \n1. 100 \u00b5s \n2. 50 \u00b5s \n3. 25 \u00b5s \n4. 100\u03c0 \u00b5s \n5. 50\u03c0 \u00b5s \n6. 25\u03c0 \u00b5s \n23"
+    },
+    {
+      "page": 24,
+      "text": "Check Yourself  \n\u03c9s \n2\u03c0\n2\u03c0fm = \u03c9m < \n= \n2\n2T \n1\n1 \nT < \n= \n= 25 \u00b5s\n2fm \n2 \u00d7 20 kHz \n24"
+    },
+    {
+      "page": 25,
+      "text": "Check Yourself  \nWe can hear sounds with frequency components between 20 Hz \nand 20 kHz. \nWhat is the maximum sampling interval T that can be used \nto sample a signal without loss of audible information? \n1. 100 \u00b5s \n2. 50 \u00b5s \n3. 25 \u00b5s \n4. 100\u03c0 \u00b5s \n5. 50\u03c0 \u00b5s \n6. 25\u03c0 \u00b5s \n25"
+    },
+    {
+      "page": 26,
+      "text": "CT Model of Sampling and Reconstruction  \nSampling followed by bandlimited reconstruction is equivalent to \nmultiplying by an impulse train and then low-pass \ufb01ltering. \n\u2212\u03c9s\n2\n\u03c9s\n2\n\u03c9\nT\n\u00d7\nx(t)\np(t)\nxr(t)\nxp(t)\nLPF\nt\np(t) = \u201dsampling function\u201d\n0 T\n26"
+    },
+    {
+      "page": 27,
+      "text": "Aliasing  \nWhat happens if X contains frequencies |\u03c9| > \u03c0 \nT ? \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n27"
+    },
+    {
+      "page": 28,
+      "text": "Aliasing  \nWhat happens if X contains frequencies |\u03c9| > \u03c0 \nT ? \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n28"
+    },
+    {
+      "page": 29,
+      "text": "Aliasing  \nWhat happens if X contains frequencies |\u03c9| > \u03c0 \nT ? \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n29"
+    },
+    {
+      "page": 30,
+      "text": "Aliasing  \nWhat happens if X contains frequencies |\u03c9| > \u03c0 \nT ? \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n30"
+    },
+    {
+      "page": 31,
+      "text": "Aliasing  \nThe e\ufb00ect of aliasing is to wrap frequencies.  \n\u03c9\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\n\u03c9\nX(j\u03c9)\nInput frequency\nOutput frequency\n\u03c9s\n2\n\u03c9s\n2\n31"
+    },
+    {
+      "page": 32,
+      "text": "Aliasing  \nThe e\ufb00ect of aliasing is to wrap frequencies.  \n\u03c9\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\n\u03c9\nX(j\u03c9)\nInput frequency\nOutput frequency\n\u03c9s\n2\n\u03c9s\n2\n32"
+    },
+    {
+      "page": 33,
+      "text": "Aliasing  \nThe e\ufb00ect of aliasing is to wrap frequencies.  \n\u03c9\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\n\u03c9\nX(j\u03c9)\nInput frequency\nOutput frequency\n\u03c9s\n2\n\u03c9s\n2\n33"
+    },
+    {
+      "page": 34,
+      "text": "Aliasing  \nThe e\ufb00ect of aliasing is to wrap frequencies.  \n\u03c9\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\n\u03c9\nX(j\u03c9)\nInput frequency\nOutput frequency\n\u03c9s\n2\n\u03c9s\n2\n34"
+    },
+    {
+      "page": 35,
+      "text": "Check Yourself  \nA periodic signal, period of 0.1 ms, is sampled at 44 kHz. \nTo what frequency does the third harmonic alias? \n1. 18 kHz \n2. 16 kHz \n3. 14 kHz \n4. \n8 kHz \n5. \n6 kHz \n0. none of the above \n35"
+    },
+    {
+      "page": 36,
+      "text": "Check Yourself \nInput frequency (kHz)\nOutput frequency (kHz)\n22 44 66 88\n22\n44\n88\n36"
+    },
+    {
+      "page": 37,
+      "text": "Check Yourself \nInput frequency (kHz)\nOutput frequency (kHz)\n22 44 66 88\n22\n44\n88\nHarmonic \nAlias \n10 kHz \n10 kHz \n20 kHz \n20 kHz \n30 kHz \n44 kHz-30 kHz =14 kHz \n37"
+    },
+    {
+      "page": 38,
+      "text": "Check Yourself  \nA periodic signal, period of 0.1 ms, is sampled at 44 kHz. \nTo what frequency does the third harmonic alias? \n3 \n1. 18 kHz \n2. 16 kHz \n3. 14 kHz \n4. \n8 kHz \n5. \n6 kHz \n0. none of the above \n38"
+    },
+    {
+      "page": 39,
+      "text": "Check Yourself \nInput frequency (kHz)\nOutput frequency (kHz)\n22 44 66 88\n22\n44\n88\nHarmonic \nAlias \n10 kHz \n10 kHz \n20 kHz \n20 kHz \n30 kHz \n44 kHz-30 kHz =14 kHz \n40 kHz \n44 kHz-40 kHz = 4 kHz \n50 kHz \n50 kHz-44 kHz = 6 kHz \n60 kHz \n60 kHz-44 kHz =16 kHz \n70 kHz \n88 kHz-70 kHz =18 kHz \n80 kHz \n88 kHz-80 kHz = 8 kHz \n39"
+    },
+    {
+      "page": 40,
+      "text": "Check Yourself  \nScrambled harmonics.  \n\u03c9\n\u03c9\n40"
+    },
+    {
+      "page": 41,
+      "text": "Aliasing  \nHigh frequency components of complex signals also wrap.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n1\n41"
+    },
+    {
+      "page": 42,
+      "text": "Aliasing  \nHigh frequency components of complex signals also wrap.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n1\n42"
+    },
+    {
+      "page": 43,
+      "text": "Aliasing  \nHigh frequency components of complex signals also wrap.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n1\n43"
+    },
+    {
+      "page": 44,
+      "text": "Aliasing  \nHigh frequency components of complex signals also wrap.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n1\n44"
+    },
+    {
+      "page": 45,
+      "text": "Aliasing  \nAliasing increases as the sampling rate decreases.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n1\n45"
+    },
+    {
+      "page": 46,
+      "text": "Aliasing  \nAliasing increases as the sampling rate decreases.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n1\n46"
+    },
+    {
+      "page": 47,
+      "text": "Aliasing  \nAliasing increases as the sampling rate decreases.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n1\n47"
+    },
+    {
+      "page": 48,
+      "text": "Aliasing  \nAliasing increases as the sampling rate decreases.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n1\n48"
+    },
+    {
+      "page": 49,
+      "text": "Aliasing Demonstration  \nSampling Music  \n2\u03c0 \n\u03c9s = \n= 2\u03c0fs\nT \n\u2022 fs = 44.1 kHz \n\u2022 fs = 22 kHz \n\u2022 fs = 11 kHz \n\u2022 fs = 5.5 kHz \n\u2022 fs = 2.8 kHz \nJ.S. Bach, Sonata No. 1 in G minor Mvmt. IV. Presto \nNathan Milstein, violin \n49"
+    },
+    {
+      "page": 50,
+      "text": "Aliasing  \nAliasing increases as the sampling rate decreases.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n1\n50"
+    },
+    {
+      "page": 51,
+      "text": "Aliasing  \nAliasing increases as the sampling rate decreases.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n1\n51"
+    },
+    {
+      "page": 52,
+      "text": "Aliasing  \nAliasing increases as the sampling rate decreases.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n1\n52"
+    },
+    {
+      "page": 53,
+      "text": "Aliasing  \nAliasing increases as the sampling rate decreases.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n1\n53"
+    },
+    {
+      "page": 54,
+      "text": "Anti-Aliasing Filter  \nTo avoid aliasing, remove frequency components that alias before \nsampling. \n\u2212\u03c9s\n2\n\u03c9s\n2\n\u03c9\n1\n\u00d7\n\u2212\u03c9s\n2\n\u03c9s\n2\n\u03c9\nT\nx(t)\np(t)\nxr(t)\nxp(t)\nReconstruction\nFilter\nAnti-aliasing\nFilter\n54"
+    },
+    {
+      "page": 55,
+      "text": "Aliasing  \nAliasing increases as the sampling rate decreases.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nX(j\u03c9)\n1\n55"
+    },
+    {
+      "page": 56,
+      "text": "Aliasing  \nAliasing increases as the sampling rate decreases.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nAnti-aliased X(j\u03c9)\n56"
+    },
+    {
+      "page": 57,
+      "text": "Aliasing  \nAliasing increases as the sampling rate decreases.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nAnti-aliased X(j\u03c9)\n57"
+    },
+    {
+      "page": 58,
+      "text": "Aliasing  \nAliasing increases as the sampling rate decreases.  \n\u03c9\nXp(j\u03c9) = 1\n2\u03c0 (X(j \u00b7 ) \u2217P(j \u00b7 ))(\u03c9)\n\u2212\u03c9s\n2\n\u03c9s\n2\n1\nT\n\u03c9\nP(j\u03c9)\n\u2212\u03c9s\n\u03c9s\n2\u03c0\nT\n\u03c9\nAnti-aliased X(j\u03c9)\n58"
+    },
+    {
+      "page": 59,
+      "text": "Anti-Aliasing Demonstration  \nSampling Music  \n2\u03c0 \n\u03c9s = \n= 2\u03c0fs\nT \n\u2022 fs = 11 kHz without anti-aliasing \n\u2022 fs = 11 kHz with anti-aliasing \n\u2022 fs = 5.5 kHz without anti-aliasing \n\u2022 fs = 5.5 kHz with anti-aliasing \n\u2022 fs = 2.8 kHz without anti-aliasing \n\u2022 fs = 2.8 kHz with anti-aliasing \nJ.S. Bach, Sonata No. 1 in G minor Mvmt. IV. Presto \nNathan Milstein, violin \n59"
+    },
+    {
+      "page": 60,
+      "text": "Sampling: Summary  \nE\ufb00ects of sampling are easy to visualize with Fourier representations. \nSignals that are bandlimited in frequency (e.g., \u2212W <\u03c9 <W ) can be \nsampled without loss of information. \nThe minimum sampling frequency for sampling without loss of in\u00ad\nformation is called the Nyquist rate. The Nyquist rate is twice the \nhighest frequency contained in a bandlimited signal. \nSampling at frequencies below the Nyquist rate causes aliasing. \nAliasing can be eliminated by pre-\ufb01ltering to remove frequency com\u00ad\nponents that would otherwise alias. \n60"
+    },
+    {
+      "page": 61,
+      "text": "MIT OpenCourseWare\nhttp://ocw.mit.edu\n6.003 Signals and Systems\nFall 2011\nFor information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms."
+    }
+  ]
+}

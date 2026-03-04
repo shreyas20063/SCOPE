@@ -1,0 +1,167 @@
+{
+  "lecture_number": 23,
+  "source_file": "08c6a7bc7e56eda548248c354886dc37_MIT6_003F11_lec23.pdf",
+  "page_count": 40,
+  "pages": [
+    {
+      "page": 1,
+      "text": "6.003: Signals and Systems \nModulation \nDecember 1, 2011  \n1"
+    },
+    {
+      "page": 2,
+      "text": "Modulation  \nApplications of signals and systems in communication systems. \nExample: Transmit voice via telephone wires (copper) \nmic \namp \ntelephone wire \namp \nspeaker \nWorks well: basis of local land-based telephones.  \n2"
+    },
+    {
+      "page": 3,
+      "text": "Wireless Communication  \nIn cellular communication systems, signals are transmitted via elec\u00ad\ntromagnetic (E/M) waves. \nmic \namp \nE/M wave \namp speaker \nFor e\ufb03cient transmission and reception, antenna length should be  \non the order of the wavelength.  \nTelephone-quality speech contains frequencies from 200 to 3000 Hz.  \nHow long should the antenna be?  \n3"
+    },
+    {
+      "page": 4,
+      "text": "Check Yourself  \nFor e\ufb03cient transmission and reception, the antenna length \nshould be on the order of the wavelength. \nTelephone-quality speech contains frequencies between 200 Hz \nand 3000 Hz. \nHow long should the antenna be? \n1. < 1 mm \n2. \u223c cm \n3. \u223c m \n4. \u223c km \n5. > 100 km \n4"
+    },
+    {
+      "page": 5,
+      "text": "Check Yourself  \nWavelength is \u03bb = c/f so the lowest frequencies (200 Hz) produce \nthe longest wavelengths \nc \n3 \u00d7 108 m/s\n\u03bb =\n= \n= 1.5 \u00d7 106 m = 1500 km . \nf \n200 Hz \nand the highest frequencies (3000 Hz) produce the shortest wave\u00ad\nlengths \nc \n3 \u00d7 108 m/s\n\u03bb = \n= \n= 105 m = 100 km . \nf \n3000 Hz \nOn the order of hundreds of miles! \n5"
+    },
+    {
+      "page": 6,
+      "text": "Check Yourself  \nFor e\ufb03cient transmission and reception, the antenna length \nshould be on the order of the wavelength. \nTelephone-quality speech contains frequencies between 200 Hz \nand 3000 Hz. \nHow long should the antenna be? \n5 \n1. < 1 mm \n2. \u223c cm \n3. \u223c m \n4. \u223c km \n5. > 100 km \n6"
+    },
+    {
+      "page": 7,
+      "text": "Check Yourself  \nWhat frequency E/M wave is well matched to an antenna \nwith a length of 10 cm (about 4 inches)? \n1. < 100 kHz \n2. 1 MHz \n3. 10 MHz \n4. 100 MHz \n5. > 1 GHz \n7"
+    },
+    {
+      "page": 8,
+      "text": "Check Yourself  \nA wavelength of 10 cm corresponds to a frequency of  \nc \n3 \u00d7 108 m/s\nf = \n\u223c\n\u2248 3 GHz . \n\u03bb \n10 cm \nModern cell phones use frequencies near 2 GHz. \n8"
+    },
+    {
+      "page": 9,
+      "text": "Check Yourself  \nWhat frequency E/M wave is well matched to an antenna \nwith a length of 10 cm (about 4 inches)? \n5 \n1. < 100 kHz \n2. 1 MHz \n3. 10 MHz \n4. 100 MHz \n5. > 1 GHz \n9"
+    },
+    {
+      "page": 10,
+      "text": "Wireless Communication  \nSpeech is not well matched to the wireless medium. \nMany applications require the use of signals that are not well \nmatched to the required media. \nsignal \napplications \naudio \ntelephone, radio, phonograph, CD, cell phone, MP3  \nvideo \ntelevision, cinema, HDTV, DVD  \ninternet \ncoax, twisted pair, cable TV, DSL, optical \ufb01ber, E/M  \nWe can often modify the signals to obtain a better match. \nToday we will introduce simple matching strategies based on \nmodulation. \n10"
+    },
+    {
+      "page": 11,
+      "text": "Check Yourself  \nConstruct a signal Y that codes the audio frequency information \nin X using frequency components near 2 GHz. \n\u03c9\n|X(j\u03c9)|\n\u03c9\n\u03c9c\n|Y (j\u03c9)|\nDetermine an expression for Y in terms of X. \n1. y(t) = x(t) e j\u03c9ct \n2. y(t) = x(t) \u2217 e j\u03c9ct \n3. y(t) = x(t) cos(\u03c9ct) \n4. y(t) = x(t) \u2217 cos(\u03c9ct) \n5. none of the above \n11"
+    },
+    {
+      "page": 12,
+      "text": "Check Yourself  \nConstruct a signal Y that codes the audio frequency information \nin X using frequency components near 2 GHz. \n\u03c9\n|X(j\u03c9)|\n\u03c9\n\u03c9c\n|Y (j\u03c9)|\nDetermine an expression for Y in terms of X. \n1 \n1. y(t) = x(t) e j\u03c9ct \n2. y(t) = x(t) \u2217 e j\u03c9ct \n3. y(t) = x(t) cos(\u03c9ct) \n4. y(t) = x(t) \u2217 cos(\u03c9ct) \n5. none of the above \n12"
+    },
+    {
+      "page": 13,
+      "text": "Amplitude Modulation  \nMultiplying a signal by a sinusoidal carrier signal is called amplitude  \nmodulation (AM). AM shifts the frequency components of X by \u00b1\u03c9c. \n\u00d7\nx(t)\ny(t)\ncos \u03c9ct\n\u03c9\n|X(j\u03c9)|\n\u03c9\n\u03c9c\n\u2212\u03c9c\n\u03c9\n\u03c9c\n\u2212\u03c9c\n|Y (j\u03c9)|\n13"
+    },
+    {
+      "page": 14,
+      "text": "Amplitude Modulation  \nMultiplying a signal by a sinusoidal carrier signal is called amplitude  \nmodulation. The signal \u201cmodulates\u201d the amplitude of the carrier. \n\u00d7\nx(t)\ny(t)\ncos \u03c9ct\nt\nx(t) cos \u03c9ct\nt\nx(t)\nt\ncos \u03c9ct\n14"
+    },
+    {
+      "page": 15,
+      "text": "Amplitude Modulation  \nHow could you recover x(t) from y(t)? \n\u00d7\nx(t)\ny(t)\ncos \u03c9ct\n15"
+    },
+    {
+      "page": 16,
+      "text": "\u0012\n\u0013 \nSynchronous Demodulation  \nX can be recovered by multiplying by the carrier and then low-pass \n\ufb01ltering. This process is called synchronous demodulation. \ny(t) = x(t) cos \u03c9ct \n1\n1 \nz(t) = y(t) cos \u03c9ct = x(t) \u00d7 cos \u03c9ct \u00d7 cos \u03c9ct = x(t) \n+ \ncos(2\u03c9ct)\n2\n2 \n16"
+    },
+    {
+      "page": 17,
+      "text": "Synchronous Demodulation  \nSynchronous demodulation: convolution in frequency.  \n\u03c9\n\u03c9c\n\u2212\u03c9c\n|Y (j\u03c9)|\n\u03c9\n\u03c9c\n\u2212\u03c9c\n\u03c9\n2\u03c9c\n\u22122\u03c9c\n|Z(j\u03c9)|\n17"
+    },
+    {
+      "page": 18,
+      "text": "Synchronous Demodulation  \nWe can recover X by low-pass \ufb01ltering.  \n\u03c9\n\u03c9c\n\u2212\u03c9c\n|Y (j\u03c9)|\n\u03c9\n\u03c9c\n\u2212\u03c9c\n\u03c9\n2\u03c9c\n\u22122\u03c9c\n|Z(j\u03c9)|\n2\n18"
+    },
+    {
+      "page": 19,
+      "text": "Frequency-Division Multiplexing  \nMultiple transmitters can co-exist, as long as the frequencies that \nthey transmit do not overlap. \nx1(t)\nx2(t)\nx3(t)\nz1(t)\nz2(t)\nz(t)\ny(t)\nz3(t)\ncos w1t\ncos w2t\ncos wct\ncos w3t\nLPF\n19"
+    },
+    {
+      "page": 20,
+      "text": "Frequency-Division Multiplexing  \nMultiple transmitters simply sum (to \ufb01rst order). \nx1(t)\nx2(t)\nx3(t)\nz1(t)\nz2(t)\nz(t)\ny(t)\nz3(t)\ncos w1t\ncos w2t\ncos wct\ncos w3t\nLPF\n20"
+    },
+    {
+      "page": 21,
+      "text": "Frequency-Division Multiplexing  \nThe receiver can select the transmitter of interest by choosing the \ncorresponding demodulation frequency. \nZ(jw)\nX1(jw)\nw\nw\nw\nw\nw1 w2 w3\n21"
+    },
+    {
+      "page": 22,
+      "text": "Frequency-Division Multiplexing  \nThe receiver can select the transmitter of interest by choosing the \ncorresponding demodulation frequency. \nZ(jw)\nX2(jw)\nw\nw\nw\nw\nw1 w2 w3\n22"
+    },
+    {
+      "page": 23,
+      "text": "Frequency-Division Multiplexing  \nThe receiver can select the transmitter of interest by choosing the \ncorresponding demodulation frequency. \nZ(jw)\nX3(jw)\nw\nw\nw\nw\nw1 w2 w3\n23"
+    },
+    {
+      "page": 24,
+      "text": "Broadcast Radio  \n\u201cBroadcast\u201d radio was championed by David Sarno\ufb00, who previously \nworked at Marconi Wireless Telegraphy Company (point-to-point). \n\u2022 envisioned \u201cradio music boxes\u201d \n\u2022 analogous to newspaper, but at speed of light \n\u2022 receiver must be cheap (as with newsprint) \n\u2022 transmitter can be expensive (as with printing press) \n24"
+    },
+    {
+      "page": 25,
+      "text": "Inexpensive Radio Receiver  \nThe problem with making an inexpensive radio receiver is that you \nmust know the carrier signal exactly! \nz(t)\nx(t)\ny(t)\ncos(wct)\ncos(wct+f)\nLPF\n25"
+    },
+    {
+      "page": 26,
+      "text": "Check Yourself  \nThe problem with making an inexpensive radio receiver is that \nyou must know the carrier signal exactly! \nz(t)\nx(t)\ny(t)\ncos(wct)\ncos(wct+f)\nLPF\nWhat happens if there is a phase shift \u03c6 between the signal \nused to modulate and that used to demodulate? \n26"
+    },
+    {
+      "page": 27,
+      "text": "\u0012\n\u0013\nCheck Yourself  \ny(t) = x(t) \u00d7 cos(\u03c9ct) \u00d7 cos(\u03c9ct + \u03c6) \n= x(t) \u00d7 \n2\n1 cos \u03c6 + 1 cos(2\u03c9ct + \u03c6)\n2 \nPassing y(t) through a low pass \ufb01lter yields 1\n2 x(t) cos \u03c6. \nIf \u03c6 = \u03c0/2, the output is zero! \nIf \u03c6 changes with time, then the signal \u201cfades.\u201d \n27\n\u0012\n\u0013"
+    },
+    {
+      "page": 28,
+      "text": "AM with Carrier  \nOne way to synchronize the sender and receiver is to send the carrier  \nalong with the message. \n\u00d7\n+\nC\nx(t)\nz(t)\ncos \u03c9ct\nz(t) = x(t) cos \u03c9ct + C cos \u03c9ct = (x(t) + C) cos \u03c9ct \nt\nz(t)\nx(t) + C\nAdding carrier is equivalent to shifting the DC value of x(t). \nIf we shift the DC value su\ufb03ciently, the message is easy to decode: \nit is just the envelope (minus the DC shift). \n28"
+    },
+    {
+      "page": 29,
+      "text": "Inexpensive Radio Receiver  \nIf the carrier frequency is much greater than the highest frequency \nin the message, AM with carrier can be demodulated with a peak \ndetector. \nz(t)\nz(t)\ny(t)\nR\nC\nt\ny(t)\nIn AM radio, the highest frequency in the message is 5 kHz and the  \ncarrier frequency is between 500 kHz and 1500 kHz.  \nThis circuit is simple and inexpensive.  \nBut there is a problem.  \n29"
+    },
+    {
+      "page": 30,
+      "text": "Inexpensive Radio Receiver  \nAM with carrier requires more power to transmit the carrier than to \ntransmit the message! \nx(t)\nxp\nxrms\nxp > 35xrms\nt\nSpeech sounds have high crest factors (peak value divided by rms \nvalue). The DC o\ufb00set C must be larger than xp for simple envelope \ndetection to work.  \nThe power needed to transmit the carrier can be 352 \u2248 1000\u00d7 that  \nneeded to transmit the message.  \nOkay for broadcast radio (WBZ: 50 kwatts).  \nNot for point-to-point (cell phone batteries wouldn\u2019t last long!).  \n30"
+    },
+    {
+      "page": 31,
+      "text": "Inexpensive Radio Receiver  \nEnvelope detection also cannot separate multiple senders.  \nz(t)\nz(t)\ny(t)\nR\nC\nt\ny(t)\n31"
+    },
+    {
+      "page": 32,
+      "text": "Superheterodyne Receiver  \nEdwin Howard Armstrong invented the superheterodyne receiver, \nwhich made broadcast AM practical. \nEdwin Howard Armstrong also invented and \npatented the \u201cregenerative\u201d (positive feedback) \ncircuit for amplifying radio signals (while he was \na junior at Columbia University). He also in\u00ad\nvented wide-band FM. \n32"
+    },
+    {
+      "page": 33,
+      "text": "Digital Radio  \nCould we implement a radio with digital electronics?  \nCommercial AM radio \n\u2022 \n106 channels \n\u2022 \neach channel is allocated 10 kHz bandwidth \n\u2022 \ncenter frequencies from 540 to 1600 kHz \nUniform\nSampler\nDigital Signal\nProcessor\nBandlimited\nReconstruction\nxa(t)\nxd[n]\nyd[n]\nya(t)\nT\nT\n33"
+    },
+    {
+      "page": 34,
+      "text": "\u2022 \neach channel is allocated 10 kHz bandwidth \n\u2022 \ncenter frequencies from 540 to 1600 kHz \nUniform\nSampler\nDigital Signal\nProcessor\nBandlimited\nReconstruction\nxa(t)\nxd[n]\nyd[n]\nya(t)\nT\nT\nCheck Yourself  \nDetermine T to decode commercial AM radio. \nCommercial AM radio \n\u2022 \n106 channels \nThe maximum value of T is approximately \n1. 0.3 fs \n2. 0.3 ns \n3. 0.3\u00b5s \n4. 0.3 ms \n5. none of these \n34"
+    },
+    {
+      "page": 35,
+      "text": "\u2022 \neach channel is allocated 10 kHz bandwidth \n\u2022 \ncenter frequencies from 540 to 1600 kHz \nUniform\nSampler\nDigital Signal\nProcessor\nBandlimited\nReconstruction\nxa(t)\nxd[n]\nyd[n]\nya(t)\nT\nT\nCheck Yourself  \nDetermine T to decode commercial AM radio. \n3. \nCommercial AM radio \n\u2022 \n106 channels \nThe maximum value of T is approximately \n1. 0.3 fs \n2. 0.3 ns \n3. 0.3\u00b5s \n4. 0.3 ms \n5. none of these \n35"
+    },
+    {
+      "page": 36,
+      "text": "Digital Radio  \nThe digital electronics must implement a bandpass \ufb01lter, multipli\u00ad\ncation by cos \u03c9ct, and a lowpass \ufb01lter. \nBPF\n\u00d7\nLPF\nxd[n]\nyd[n]\ncos \u03c9ct\n36"
+    },
+    {
+      "page": 37,
+      "text": "Check Yourself  \nWhich of following systems implement a bandpass \ufb01lter? \n\u00d7\nLPF\n\u00d7\ncos \u2126cn\ncos \u2126cn\n\u00d7\nLPF\n\u00d7\ncos \u2126cn\ncos \u2126cn\n\u00d7\nLPF\n\u00d7\nsin \u2126cn\nsin \u2126cn\n+\nh[n] = hLPF [n] cos \u2126cn\nSystem 1\nSystem 2\nSystem 3\n37"
+    },
+    {
+      "page": 38,
+      "text": "Check Yourself  \nh[n] = hLP F [n] cos \u03a9cn \n \n \ny[n] = x[n] \u2217hLP F [n] cos \u03a9cn\n \n=\nx[k]hLP F [n \u2212 k] cos \u03a9c(n \u2212 k) \nk\n \n=\nx[k]hLP F [n \u2212 k] (cos \u03a9cn cos \u03a9ck + sin \u03a9cn sin \u03a9ck) \nk\n \n \n \n=\nx[k] cos \u03a9ck hLP F [n \u2212 k]\ncos \u03a9cn \nk \n \n \n+\nx[k] sin \u03a9ck hLP F [n \u2212 k]\nsin \u03a9cn \nk\n \n \n=\n(x[n] cos \u03a9cn) \u2217 hLP F [n]\ncos \u03a9cn \n \n \n+\n(x[n] sin \u03a9cn) \u2217 hLP F [n]\nsin \u03a9cn \n38"
+    },
+    {
+      "page": 39,
+      "text": "Check Yourself  \nWhich of following systems implement a bandpass \ufb01lter? \n\u00d7\nLPF\n\u00d7\ncos \u2126cn\ncos \u2126cn\n\u00d7\nLPF\n\u00d7\ncos \u2126cn\ncos \u2126cn\n\u00d7\nLPF\n\u00d7\nsin \u2126cn\nsin \u2126cn\n+\nh[n] = hLPF [n] cos \u2126cn\nSystem 1\nSystem 2\nSystem 3\n39"
+    },
+    {
+      "page": 40,
+      "text": "MIT OpenCourseWare\nhttp://ocw.mit.edu\n6.003 Signals and Systems\nFall 2011\nFor information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms."
+    }
+  ]
+}

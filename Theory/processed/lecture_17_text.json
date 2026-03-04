@@ -1,0 +1,227 @@
+{
+  "lecture_number": 17,
+  "source_file": "e2884792e474bcc842f75071f4c9bacb_MIT6_003F11_lec17.pdf",
+  "page_count": 55,
+  "pages": [
+    {
+      "page": 1,
+      "text": "6.003: Signals and Systems \nDiscrete-Time Frequency Representations \nNovember 8, 2011  \n1"
+    },
+    {
+      "page": 2,
+      "text": "Mid-term Examination #3  \nWednesday, November 16, 7:30-9:30pm, \nNo recitations on the day of the exam. \nCoverage: \nLectures 1\u201318 \nRecitations 1\u201316 \nHomeworks 1\u201310 \nHomework 10 will not be collected or graded. \nSolutions will be posted. \nClosed book: 3 pages of notes (81\n2 \u00d7 11 inches; front and back). \nNo calculators, computers, cell phones, music players, or other aids. \nDesigned as 1-hour exam; two hours to complete. \nReview session Monday at 3pm and at open o\ufb03ce hours. \nPrior term midterm exams have been posted on the 6.003 website. \nCon\ufb02ict? Contact before Friday, Nov. 11, 5pm. \n2"
+    },
+    {
+      "page": 3,
+      "text": "Signal Processing: From CT to DT  \nSignal-processing problems \ufb01rst conceived & addressed in CT: \n\u2022  \naudio \n\u2212 \nradio (noise/static reduction, automatic gain control, etc.) \n\u2212 \ntelephone (equalizers, echo-suppression, etc.) \n\u2212 \nhi-\ufb01 (bass, treble, loudness, etc.) \n\u2022  \nimaging \n\u2212 \ntelevision (brightness, tint, etc.) \n\u2212 \nphotography (image enhancement, gamma) \n\u2212 \nx-rays (noise reduction, contrast enhancement) \n\u2212 \nradar and sonar (noise reduction, object detection) \nSuch problems are increasingly solved with DT signal processing: \n\u2022  \nMP3 \n\u2022  \nJPEG \n\u2022  \nMPEG \n3"
+    },
+    {
+      "page": 4,
+      "text": "Signal Processing: Acoustical  \nMechano-acoustic components to optimize frequency response of \nloudspeakers: e.g., \u201cbass-re\ufb02ex\u201d system. \ndriver\nre\ufb02ex port\n4"
+    },
+    {
+      "page": 5,
+      "text": "Signal Processing: Acoustico-Mechanical  \nPassive radiator for improved low-frequency preformance.  \ndriver\npassive\nradiator\n5"
+    },
+    {
+      "page": 6,
+      "text": "Signal Processing: Electronic  \nLow-cost electronics \u2192 new ways to overcome frequency limitations.  \n10\n1\n10\n2\n10\n3\n10\n4\n10\n5\n70\n80\n90\n100\n110\nFrequency (Hz)\nMagnitude (dB)\nSmall speakers (4 inch): eight facing wall, one facing listener. \nElectronic \u201cequalizer\u201d compensated for limited frequency response. \n6"
+    },
+    {
+      "page": 7,
+      "text": "Signal Processing  \nModern audio systems process sounds digitally.  \nA/D\nDT \ufb01lter\nD/A\nx(t)\ny(t)\nx[n]\ny[n]\n7"
+    },
+    {
+      "page": 8,
+      "text": "Signal Processing  \nModern audio systems process sounds digitally. \nTexas Instruments TAS3004\n\u2022\n2 channels\n\u2022\n24 bit ADC, 24 bit DAC\n\u2022\n48 kHz sampling rate\n\u2022\n100 MIPS\n\u2022\n$9.63 ($5.20 in bulk)\nControl\nPWR_DN\nTEST\nAINRP\nAINRM\nAINLM\nAINLP\n24\u00adBit\nStereo\nADC\nRINA\nRINB\nAINRM\nAINRP\nAINLM\nAINLP\nLINA\nLINB\nControl\nCS1\nSDA\nSCL\nController\nGPI0\nGPI1\nGPI2\nGPI3\nGPI4\nGPI5\n24\u00adBit\nStereo DAC\nCAP_PLL\nMCLK\nXTALO\nMCLKO\nCLKSEL\nSDIN2\nSDIN1\nSDATA\nControl\nLRCLK/O\nSCLK/O\nSDOUT1\nL\nL+R\nSDOUT2\n32\u00adBit Audio Signal\nProcessor\nAOUTL\nVCOM\nAOUTR\nL+R\nR\n32\u00adBit Audio Signal\nProcessor\nOSC/CLK\nSelect\nPLL\nReference\nVoltage\nSupplies\nAnalog\nSupplies\nDigital\nIFM/S\nRESET\nINPA\nALLPASS\nXTALI/\nFigure 1\u00ad 1. TAS3004 Block Diagram\nAVSS(REF)\nVRFILT\nAVDD\nAVSS\nVREFM\nDVDD\nDVSS\nVREFP\nI2C\nControl\nAnalog\nFormat\nOutput\nSDOUT0\nLogic\nControl\nRegister\n8\nCourtesy of Texas Instruments. Used with permission."
+    },
+    {
+      "page": 9,
+      "text": "DT Fourier Series and Frequency Response  \nToday: frequency representations for DT signals and systems.  \n9"
+    },
+    {
+      "page": 10,
+      "text": "Review: Complex Geometric Sequences  \nComplex geometric sequences are eigenfunctions of DT LTI systems. \nn\nFind response of DT LTI system (h[n]) to input x[n] = z . \n\u221e\n\u221e\n0\n0 \nn\u2212k\nn \n\u2212k\nn \ny[n] = (h \u2217 x)[n] = \nh[k]z \n= z\nh[k]z \n= H(z) z . \nk=\u2212\u221e \nk=\u2212\u221e \nComplex geometrics (DT): analogous to complex exponentials (CT)  \nh[n]\nzn\nH(z) zn\nh(t)\nest\nH(s) est\n10"
+    },
+    {
+      "page": 11,
+      "text": "Review: Rational System Functions  \nA system described by a linear di\ufb00erence equation with constant \ncoe\ufb03cients \u2192 system function that is a ratio of polynomials in z. \nExample: \ny[n \u2212 2] + 3y[n \u2212 1] + 4y[n] = 2x[n \u2212 2] + 7x[n \u2212 1] + 8x[n]  \n2z\u22122 + 7z\u22121 + 8 \n2 + 7z + 8z2 \nN(z) \nH(z) = \n= \n2 \u2261 \nz\u22122 + 3z\u22121 + 4 \n1 + 3z + 4z\nD(z) \n11"
+    },
+    {
+      "page": 12,
+      "text": "DT Vector Diagrams  \nFactor the numerator and denominator of the system function to \nmake poles and zeros explicit. \n(z0 \u2212 q0)(z0 \u2212 q1)(z0 \u2212 q2) \u00b7 \u00b7 \u00b7 \nH(z0) = K (z0 \u2212 p0)(z0 \u2212 p1)(z0 \u2212 p2) \u00b7 \u00b7 \u00b7 \nEach factor in the numerator/denominator corresponds to a vector \nfrom a zero/pole (here q0) to z0, the point of interest in the z-plane. \nq0 q0\nz0 \u2212q0\nz0\nz-plane\nz0\nVector diagrams for DT are similar to those for CT. \n12"
+    },
+    {
+      "page": 13,
+      "text": "DT Vector Diagrams  \nValue of H(z) at z = z0 can be determined by combining the contri\u00ad\nbutions of the vectors associated with each of the poles and zeros. \n(z0 \u2212 q0)(z0 \u2212 q1)(z0 \u2212 q2) \u00b7 \u00b7 \u00b7 \nH(z0) = K (z0 \u2212 p0)(z0 \u2212 p1)(z0 \u2212 p2) \u00b7 \u00b7 \u00b7 \nThe magnitude is determined by the product of the magnitudes. \n|(z0 \u2212 q0)||(z0 \u2212 q1)||(z0 \u2212 q2)| \u00b7 \u00b7 \u00b7 \n|H(z0)| = |K| |(z0 \u2212 p0)||(z0 \u2212 p1)||(z0 \u2212 p2)| \u00b7 \u00b7 \u00b7 \nThe angle is determined by the sum of the angles. \n\u2220H(z0) = \u2220K + \u2220(z0 \u2212 q0)+ \u2220(z0 \u2212 q1)+ \u00b7 \u00b7 \u00b7\u2212 \u2220(z0 \u2212 p0) \u2212 \u2220(z0 \u2212 p1) \u2212\u00b7 \u00b7 \u00b7 \n13"
+    },
+    {
+      "page": 14,
+      "text": "DT Frequency Response  \nResponse to eternal sinusoids. \nLet x[n] = cos \u03a90n (for all time): \n \n \n \n \n1 \nj\u03a90n + e \u2212j\u03a90n\n1 \nn\nn\nx[n] = \ne \n= \nz0 + z1\n2\n2\nj\u03a90 \n\u2212j\u03a90\nwhere z0 = e \nand z1 = e \n.  \nThe response to a sum is the sum of the responses:  \n \n \n1 \nn\nn\ny[n] = \nH(z0) z0 + H(z1) z1\n2\n \n \n1 \n\u2212j\u03a90n\n= 2\nH(e j\u03a90 ) e j\u03a90n + H(e \u2212j\u03a90 ) e \n14"
+    },
+    {
+      "page": 15,
+      "text": "Conjugate Symmetry  \nFor physical systems, the complex conjugate of H(e j\u03a9) is H(e\u2212j\u03a9).  \nThe system function is the Z transform of the unit-sample response:  \n\u221e\n\u2212n\nH(z) = \nh[n]z \nn=\u2212\u221e \nwhere h[n] is a real-valued function of n for physical systems. \n0 \n\u221e\nh[n]e \n0 \n\u2212\u221e\n=\nn\n\u221e\n0 \nj\u03a9) = \n\u2212j\u03a9n\nH(e  \n\u2217 \n\u2212j\u03a9) = \nj\u03a9n \u2261 H(e j\u03a9)\nH(e  \nh[n]e  \nn=\u2212\u221e \n15"
+    },
+    {
+      "page": 16,
+      "text": "DT Frequency Response  \nResponse to eternal sinusoids. \nLet x[n] = cos \u03a90n (for all time), which can be written as \n1 \nx[n] = 2 e j\u03a90n + e \u2212j\u03a90n . \nThen \n1 \ny[n] = 2 H(e j\u03a90 )e j\u03a90n + H(e \u2212j\u03a90 )e \u2212j\u03a90n \n \n \n= Re\nH(e j\u03a90 )e j\u03a90n\n \n \n= Re\n|H(e j\u03a90 )|e j\u2220H(e j\u03a90 )e j\u03a90n\n \n \nj\u03a90n+j\u2220H(e j\u03a90 )\n= |H(e j\u03a90 )|Re\ne \n \n \n \n \ny[n] =  H(e j\u03a90 ) cos \u03a90n + \u2220H(e j\u03a90 ) \n16\n\u0010\n\u0011\n\u0010\n\u0011\n\u0010\n\u0011"
+    },
+    {
+      "page": 17,
+      "text": "DT Frequency Response  \nThe magnitude and phase of the response of a system to an eternal  \ncosine signal is the magnitude and phase of the system function \nevaluated on the unit circle. \nH(z)\ncos(\u2126n)\n|H(e j\u2126)| cos\n\u0010\n\u2126n + \u2220H(e j\u2126)\n\u0011\nH(e j\u03a9) = H(z)|z=e j\u03a9 \n17"
+    },
+    {
+      "page": 18,
+      "text": "Finding Frequency Response with Vector Diagrams \nz-plane\nH(z) = z \u2212q1\nz \u2212p1\n\u2212\u03c0\n0\n\u03c0\n1\n\f\f\fH(e j\u2126)\n\f\f\f\n\u2212\u03c0\n\u03c0\n\u03c0/2\n\u2212\u03c0/2\n\u2220H(e j\u2126)\n18"
+    },
+    {
+      "page": 19,
+      "text": "Finding Frequency Response with Vector Diagrams \nz-plane\nH(z) = z \u2212q1\nz \u2212p1\n\u2212\u03c0\n0\n\u03c0\n1\n\f\f\fH(e j\u2126)\n\f\f\f\n\u2212\u03c0\n\u03c0\n\u03c0/2\n\u2212\u03c0/2\n\u2220H(e j\u2126)\n19"
+    },
+    {
+      "page": 20,
+      "text": "Finding Frequency Response with Vector Diagrams \nz-plane\nH(z) = z \u2212q1\nz \u2212p1\n\u2212\u03c0\n0\n\u03c0\n1\n\f\f\fH(e j\u2126)\n\f\f\f\n\u2212\u03c0\n\u03c0\n\u03c0/2\n\u2212\u03c0/2\n\u2220H(e j\u2126)\n20"
+    },
+    {
+      "page": 21,
+      "text": "Finding Frequency Response with Vector Diagrams \nz-plane\nH(z) = z \u2212q1\nz \u2212p1\n\u2212\u03c0\n0\n\u03c0\n1\n\f\f\fH(e j\u2126)\n\f\f\f\n\u2212\u03c0\n\u03c0\n\u03c0/2\n\u2212\u03c0/2\n\u2220H(e j\u2126)\n21"
+    },
+    {
+      "page": 22,
+      "text": "Finding Frequency Response with Vector Diagrams \nz-plane\nH(z) = z \u2212q1\nz \u2212p1\n\u2212\u03c0\n0\n\u03c0\n1\n\f\f\fH(e j\u2126)\n\f\f\f\n\u2212\u03c0\n\u03c0\n\u03c0/2\n\u2212\u03c0/2\n\u2220H(e j\u2126)\n22"
+    },
+    {
+      "page": 23,
+      "text": "Finding Frequency Response with Vector Diagrams \nz-plane\nH(z) = z \u2212q1\nz \u2212p1\n\u2212\u03c0\n0\n\u03c0\n1\n\f\f\fH(e j\u2126)\n\f\f\f\n\u2212\u03c0\n\u03c0\n\u03c0/2\n\u2212\u03c0/2\n\u2220H(e j\u2126)\n23"
+    },
+    {
+      "page": 24,
+      "text": "Finding Frequency Response with Vector Diagrams \nz-plane\nH(z) = z \u2212q1\nz \u2212p1\n\u2212\u03c0\n0\n\u03c0\n1\n\f\f\fH(e j\u2126)\n\f\f\f\n\u2212\u03c0\n\u03c0\n\u03c0/2\n\u2212\u03c0/2\n\u2220H(e j\u2126)\n24"
+    },
+    {
+      "page": 25,
+      "text": "Finding Frequency Response with Vector Diagrams \nz-plane\nH(z) = z \u2212q1\nz \u2212p1\n\u2212\u03c0\n0\n\u03c0\n1\n\f\f\fH(e j\u2126)\n\f\f\f\n\u2212\u03c0\n\u03c0\n\u03c0/2\n\u2212\u03c0/2\n\u2220H(e j\u2126)\n25"
+    },
+    {
+      "page": 26,
+      "text": "Finding Frequency Response with Vector Diagrams \nz-plane\nH(z) = z \u2212q1\nz \u2212p1\n\u2212\u03c0\n0\n\u03c0\n1\n\f\f\fH(e j\u2126)\n\f\f\f\n\u2212\u03c0\n\u03c0\n\u03c0/2\n\u2212\u03c0/2\n\u2220H(e j\u2126)\n26"
+    },
+    {
+      "page": 27,
+      "text": "Finding Frequency Response with Vector Diagrams \nz-plane\nH(z) = z \u2212q1\nz \u2212p1\n\u2212\u03c0\n0\n\u03c0\n1\n\f\f\fH(e j\u2126)\n\f\f\f\n\u2212\u03c0\n\u03c0\n\u03c0/2\n\u2212\u03c0/2\n\u2220H(e j\u2126)\n27"
+    },
+    {
+      "page": 28,
+      "text": "Comparision of CT and DT Frequency Responses  \nCT frequency response: H(s) on the imaginary axis, i.e., s = j\u03c9. \nj\u03a9\ns-plane\n\u03c3\n\u03c9\n\u22125\n0\n5\n|H(j\u03c9)|\nz-plane\n\u2212\u03c0\n0\n\u03c0\n1\n\f\f\fH(e j\u2126)\n\f\f\f\nDT frequency response: H(z) on the unit circle, i.e., z = e \n. \n28"
+    },
+    {
+      "page": 29,
+      "text": "DT Periodicity  \nDT frequency responses are periodic functions of \u03a9, with period 2\u03c0. \nIf \u03a92 = \u03a91 + 2\u03c0k where k is an integer then \nH(e j\u03a92 ) = H(e j(\u03a91+2\u03c0k)) = H(e j\u03a91 e j2\u03c0k) = H(e j\u03a91 ) \nj\u03a9\nThe periodicity of H(e j\u03a9) results because H(e j\u03a9) is a function of e \n, \nwhich is itself periodic in \u03a9. Thus DT complex exponentials have \nmany \u201caliases.\u201d \nj\u03a92 \nj(\u03a91+2\u03c0k) \nj\u03a91 e j2\u03c0k \nj\u03a91\ne \n= e \n= e \n= e \nBecause of this aliasing, there is a \u201chighest\u201d DT frequency: \u03a9 = \u03c0. \n29"
+    },
+    {
+      "page": 30,
+      "text": "Comparision of CT and DT Frequency Responses  \nCT frequency response: H(s) on the imaginary axis, i.e., s = j\u03c9. \nj\u03a9\ns-plane\n\u03c3\n\u03c9\n\u22125\n0\n5\n|H(j\u03c9)|\nz-plane\n\u2212\u03c0\n0\n\u03c0\n1\n\f\f\fH(e j\u2126)\n\f\f\f\nDT frequency response: H(z) on the unit circle, i.e., z = e \n. \n30"
+    },
+    {
+      "page": 31,
+      "text": "Check Yourself  \nConsider 3 CT signals: \nx1(t) = cos(3000t) \n; \nx2(t) = cos(4000t) \n; \nx3(t) = cos(5000t) \nEach of these is sampled so that \nx1[n] = x1(nT ) \n; \nx2[n] = x2(nT ) \n; \nx3[n] = x3(nT ) \nwhere T = 0.001. \nWhich list goes from lowest to highest DT frequency? \n0. x1[n] x2[n] x3[n] \n1. x1[n] x3[n] x2[n] \n2. x2[n] x1[n] x3[n] \n3. x2[n] x3[n] x1[n] \n4. x3[n] x1[n] x2[n] \n5. x3[n] x2[n] x1[n] \n31"
+    },
+    {
+      "page": 32,
+      "text": "Check Yourself  \nThe discrete signals are \nx1[n] = cos[3n]  \nx2[n] = cos[4n]  \nx3[n] = cos[5n]  \nand the corresponding discrete frequencies are \u03a9 = 3, 4 and 5, repre\u00ad\nsented below with \u00d7 marking e j\u03a9 and o marking e\u2212j\u03a9). \n3\n4\n5\n3\n4\n5\n32"
+    },
+    {
+      "page": 33,
+      "text": "Check Yourself  \n\u03a9 = 0.25 \nn\nx[n] = cos(0.25n)\n33"
+    },
+    {
+      "page": 34,
+      "text": "Check Yourself  \n\u03a9 = 0.5 \nn\nx[n] = cos(0.5n)\n34"
+    },
+    {
+      "page": 35,
+      "text": "Check Yourself  \n\u03a9 = 1 \nn\nx[n] = cos(n)\n35"
+    },
+    {
+      "page": 36,
+      "text": "Check Yourself  \n\u03a9 = 2 \nn\nx[n] = cos(2n)\n36"
+    },
+    {
+      "page": 37,
+      "text": "Check Yourself  \n\u03a9 = 3 \nn\nx[n] = cos(3n)\n37"
+    },
+    {
+      "page": 38,
+      "text": "Check Yourself  \n\u03a9 = 4 \nn\nx[n] = cos(4n) = cos(2\u03c0 \u22124n) \u2248cos(2.283n)\nn\n38"
+    },
+    {
+      "page": 39,
+      "text": "Check Yourself  \n\u03a9 = 5 \nn\nx[n] = cos(5n) = cos(2\u03c0 \u22125n) \u2248cos(1.283n)\nn\n39"
+    },
+    {
+      "page": 40,
+      "text": "Check Yourself  \n\u03a9 = 6 \nn\nx[n] = cos(6n) = cos(2\u03c0 \u22126n) \u2248cos(0.283n)\nn\n40"
+    },
+    {
+      "page": 41,
+      "text": "Check Yourself  \nThe discrete signals are \nx1[n] = cos[3n]  \nx2[n] = cos[4n]  \nx3[n] = cos[5n]  \nand the corresponding discrete frequencies are \u03a9 = 3, 4 and 5, repre\u00ad\nsented below with \u00d7 marking e j\u03a9 and o marking e\u2212j\u03a9). \n3\n4\n5\n3\n4\n5\n41"
+    },
+    {
+      "page": 42,
+      "text": "Check Yourself  \nConsider 3 CT signals: \nx1(t) = cos(3000t) \n; \nx2(t) = cos(4000t) \n; \nx3(t) = cos(5000t) \nEach of these is sampled so that \nx1[n] = x1(nT ) \n; \nx2[n] = x2(nT ) \n; \nx3[n] = x3(nT ) \nwhere T = 0.001. \nWhich list goes from lowest to highest DT frequency? \n5 \n0. x1[n] x2[n] x3[n] \n1. x1[n] x3[n] x2[n] \n2. x2[n] x1[n] x3[n] \n3. x2[n] x3[n] x1[n] \n4. x3[n] x1[n] x2[n] \n5. x3[n] x2[n] x1[n] \n42"
+    },
+    {
+      "page": 43,
+      "text": "Check Yourself  \nWhat kind of \ufb01ltering corresponds to the following? \nz-plane\n1. high pass \n2. low pass \n3. band pass \n4. band stop (notch) \n5. none of above \n43"
+    },
+    {
+      "page": 44,
+      "text": "Check Yourself  \nWhat kind of \ufb01ltering corresponds to the following? \n1 \nz-plane\n1. high pass \n2. low pass \n3. band pass \n4. band stop (notch) \n5. none of above \n44"
+    },
+    {
+      "page": 45,
+      "text": "DT Fourier Series  \nDT Fourier series represent DT signals in terms of the amplitudes \nand phases of harmonic components. \n0 \njk\u03a90n \nx[n] = \nake \nThe period N of all harmonic components is the same (as in CT). \n45"
+    },
+    {
+      "page": 46,
+      "text": "DT Fourier Series  \nThere are (only) N distinct complex exponentials with period N. \n(There were an in\ufb01nite number in CT!) \nj\u03a9n\nIf y[n] = e \nis periodic in N then \nj\u03a9n\nj\u03a9(n+N) \nj\u03a9n j\u03a9N \ny[n] = e \n= y[n + N] = e \n= e\ne \nj\u03a9N\nand e \nmust be 1, and ej\u03a9 must be one of the Nth roots of 1. \nExample: N = 8 \nz-plane\n46"
+    },
+    {
+      "page": 47,
+      "text": "DT Fourier Series  \nThere are N distinct complex exponentials with period N. \nThese can be combined via Fourier series to produce periodic time \nsignals with N independent samples. \nn\nExample: periodic in N=3\n3 samples repeated in time\n3 complex exponentials\nn\nExample: periodic in N=4\n4 samples repeated in time\n4 complex exponentials\n47"
+    },
+    {
+      "page": 48,
+      "text": "DT Fourier Series  \nDT Fourier series represent DT signals in terms of the amplitudes \nand phases of harmonic components. \nN0\n\u22121 \n2\u03c0\njk\u03a90n \nx[n] = x[n + N] = \nake \n; \u03a90 = N \nk=0 \nN equations (one for each point in time n) in N unknowns (ak). \nExample: N = 4 \n2\n2\n2\n2\n\u23a1 \n\u23a1 \n\u23a4 \n\u23a4\n\u23a1\n\u23a4 a0 \n\u03c0\n\u03c0\n\u03c0\n\u03c0\n0\u00b70 \n1\u00b70 \n2\u00b70 \n3\u00b70\nx[0]  \nj \nj \nj \nj\nN\nN\nN\nN\ne  \ne  \ne  \ne  \n2\n2\n2 1\u00b7 \nN\n\u03c0\n2\n2\n\u03c0\n\u03c0\n\u03c0\n0\u00b71 \n1\u00b71 \n3\u00b71\n\u23a2\u23a2\u23a2\u23a3  \n\u23a5\u23a5\u23a5\u23a6  =  \n\u23a2\u23a2\u23a2\u23a3  \n\u23a2\u23a2\u23a2\u23a3  \n\u23a5\u23a5\u23a5\u23a6  \n\u23a5\u23a5\u23a5\u23a6  \nx[1]  \nx[2]  \nj \nj \nj \nj \na1 \na2 \nN\nN\nN\ne  \ne  \ne  \ne  \n2\n2\n2\n2\n\u03c0\n\u03c0\n\u03c0\n\u03c0\n0\u00b72 \n1\u00b72 \n2\u00b72 \n3\u00b72\nj \nj \nj \nj\nN\nN\nN\nN\ne  \ne  \ne  \ne  \n2\n2\n2\n2\n\u03c0\n\u03c0\n\u03c0\n\u03c0\n0\u00b73 \n1\u00b73 \n2\u00b73 \n3\u00b73 \nx[3] \ne j \nj \nj \nj \na3\nN\ne N\ne N\ne N\n48"
+    },
+    {
+      "page": 49,
+      "text": "DT Fourier Series  \nDT Fourier series represent DT signals in terms of the amplitudes \nand phases of harmonic components. \nN0\n\u22121 \n2\u03c0\njk\u03a90n \nx[n] = x[n + N] = \nake \n; \u03a90 = N \nk=0 \nN equations (one for each point in time n) in N unknowns (ak). \nExample: N = 4 \n\u23a1 \n\u23a1 \n\u23a4 \n\u23a4\n\u23a1\n\u23a4 a0\nx[0]  \n1 \n1 \n1 \n1 \n1 \nj \n\u22121 \n\u2212j \n1 \n\u22121 \n1 \n\u22121 \n\u23a2\u23a2\u23a2\u23a3  \n\u23a5\u23a5\u23a5\u23a6  =  \n\u23a2\u23a2\u23a2\u23a3  \n\u23a2\u23a2\u23a2\u23a3 \n\u23a5\u23a5\u23a5\u23a6 \na1 \na2 \n\u23a5\u23a5\u23a5\u23a6  \nx[1]  \nx[2]  \nx[3] \n1 \n\u2212j \n\u22121 \nj\na3 \n49"
+    },
+    {
+      "page": 50,
+      "text": "Orthogonality  \nDT harmonics are orthogonal to each other (as were CT harmonics).  \nN0\n\u22121 \nN0\n\u22121 \nj\u03a90kn \u2212j\u03a90ln \nj\u03a90(k\u2212l)n \ne\ne \n= \ne \nn=0 \nn=0 \n\u23a7 N \n; k = l\n\u23a8 \n2\u03c0\nj \n(k\u2212l)N\n= \n1\u2212e j\u03a90(k\u2212l)N \n1\u2212e N\n\u23a9 \n= \n= 0 \n; k =6\nl\nj\u03a90(k\u2212l)\n2\u03c0\n1\u2212e \nj \n(k\u2212l)\n1\u2212e N \n= N\u03b4[k \u2212 l] \n50"
+    },
+    {
+      "page": 51,
+      "text": "Sifting  \nUse orthogonality property of harmonics to sift out FS coe\ufb03cients. \nN0\n\u22121  \njk\u03a90n \nAssume x[n] = \nake \nk=0 \nMultiply both sides by the complex conjugate of the lth harmonic, \nand sum over time. \nN0\n\u22121 \nN0\n\u22121 N0\n\u22121 \nN0\n\u22121 \nN0\n\u22121 \n\u2212jl\u03a90n \njk\u03a90n \u2212jl\u03a90n \njk\u03a90n \u2212jl\u03a90n \nx[n]e \n= \nake\ne \n= \nak \ne\ne \nn=0 \nn=0 k=0 \nk=0 \nn=0 \nN0\n\u22121 \n= \nakN\u03b4[k \u2212 l] = Nal \nk=0 \nN0\n\u22121\n1 \n\u2212jk\u03a90n \nak = \nx[n]e \nN n=0 \n51"
+    },
+    {
+      "page": 52,
+      "text": "DT Fourier Series  \nSince both x[n] and ak are periodic in N, the sums can be taken over \nany N successive indices. \nNotation. If f[n] is periodic in N, then \nN0\n\u22121 \nN\nN+1\n0\n0 \n0 \nf[n] = \nf[n] = \nf[n] = \u00b7 \u00b7 \u00b7 = \nf[n] \nn=0 \nn=1 \nn=2 \nn=<N> \nDT Fourier Series  \n1\n2\u03c0\n0 \n\u2212jk\u03a90n \nak = ak+N = \nx[n]e \n; \u03a90 = \n(\u201canalysis\u201d equation) \nN\nN \nn=<N>  \n0 \njk\u03a90n  \nx[n]= x[n + N] = \nake \n(\u201csynthesis\u201d equation) \nk=<N> \n52"
+    },
+    {
+      "page": 53,
+      "text": "DT Fourier Series  \nDT Fourier series have simple matrix interpretations.  \n0 \n0  \njk 2\n0\n\u03c0 \n4 n = \njk\u03a90n = \nx[n] = x[n + 4] =  \nakjkn \nake \nake \nk=<4>\nk=<4>\nk=<4> \n\u23a1 \n\u23a1 \n\u23a4 \n\u23a4\n\u23a1\n\u23a4 a0\nx[0]  \n1 \n1 \n1 \n1 \n1 \nj \n\u22121 \n\u2212j \n1 \n\u22121 \n1 \n\u22121 \n\u23a2\u23a2\u23a2\u23a3  \n\u23a5\u23a5\u23a5\u23a6  =  \n\u23a2\u23a2\u23a2\u23a3  \n\u23a2\u23a2\u23a2\u23a3 \n\u23a5\u23a5\u23a5\u23a6 \na1 \na2 \n\u23a5\u23a5\u23a5\u23a6  \nx[1]  \nx[2]  \nx[3] \n1 \n\u2212j \n\u22121 \nj\na3 \n1  \n1  \n1 \n0 \n0 \n0 \n2\u03c0\n\u2212jk\u03a90n =  \n\u2212jk \nx[n]j\u2212kn \nx[n]e  \nn = \nak \n=\n= ak+4\nN\ne \n4  \n4  \n4  \nn=<4> \nn=<4> \nn=<4> \n\u23a1\n\u23a4\n\u23a1 a0 \n\u23a1\n\u23a4\n\u23a4 \n1\n1 \n1 \n1  \nx[0]  \n\u23a2\u23a2\u23a2\u23a3  \na1 \u23a5\u23a5\u23a5\u23a6  \n1  \n= 4 \n\u23a2\u23a2\u23a2\u23a3  \n\u23a2\u23a2\u23a2\u23a3 \n\u23a5\u23a5\u23a5\u23a6 \n\u23a5\u23a5\u23a5\u23a6  \n1 \n\u2212j \n\u22121  \nj  \n1 \n\u22121\n1 \n\u22121  \nx[1]  \nx[2]  \na2 \na3 \n1 \nj \n\u22121 \n\u2212j\nx[3] \nThese matrices are inverses of each other. \n53"
+    },
+    {
+      "page": 54,
+      "text": "Discrete-Time Frequency Representations  \nSimilarities and di\ufb00erences between CT and DT. \nDT frequency response \n\u2022 vector diagrams (similar to CT) \n\u2022 frequency response on unit circle in z-plane (j\u03c9 axis in CT) \nDT Fourier series \n\u2022 represent signal as sum of harmonics (similar to CT) \n\u2022 \ufb01nite number of periodic harmonics (unlike CT) \n\u2022 \ufb01nite sum (unlike CT) \nThe \ufb01nite length of DT Fourier series make them especially useful \nfor signal processing! (more on this next time) \n54"
+    },
+    {
+      "page": 55,
+      "text": "MIT OpenCourseWare\nhttp://ocw.mit.edu\n6.003 Signals and Systems\nFall 2011\nFor information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms."
+    }
+  ]
+}

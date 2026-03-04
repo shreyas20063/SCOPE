@@ -20,9 +20,10 @@ CORS_SETTINGS = {
 }
 
 # Server Configuration
+import os as _os
 SERVER_HOST = "0.0.0.0"
 SERVER_PORT = 8000
-DEBUG_MODE = True
+DEBUG_MODE = _os.getenv("DEBUG_MODE", "false").lower() == "true"
 
 # API Configuration
 API_PREFIX = "/api"

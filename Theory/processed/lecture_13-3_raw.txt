@@ -1,0 +1,817 @@
+
+============================================================
+PAGE 1
+============================================================
+6.003: Signals and Systems 
+CT Feedback and Control 
+October 25, 2011  
+1
+
+============================================================
+PAGE 2
+============================================================
+Mid-term Examination #2  
+Tomorrow, October 26, 7:30-9:30pm, 
+No recitations on the day of the exam.
+Coverage: 
+Lectures 1–12 
+Recitations 1–12 
+Homeworks 1–7 
+Homework 7 will not be collected or graded. Solutions are posted. 
+Closed book: 2 pages of notes (81
+2 × 11 inches; front and back). 
+No calculators, computers, cell phones, music players, or other aids. 
+Designed as 1-hour exam; two hours to complete. 
+Old exams and solutions are posted on the 6.003 website. 
+2
+
+============================================================
+PAGE 3
+============================================================
+Feedback and Control  
+Using feedback to enhance performance. 
+Examples: 
+•  
+improve performance of an op amp circuit. 
+•  
+control position of a motor. 
+•  
+reduce sensitivity to unwanted parameter variation. 
+•  
+reduce distortions. 
+•  
+stabilize unstable systems 
+− 
+magnetic levitation 
+− 
+inverted pendulum 
+3
+
+============================================================
+PAGE 4
+============================================================
+Feedback and Control  
+Reducing sensitivity to unwanted parameter variation.  
+Example: power ampliﬁer 
+Changes in F0 (due to changes in temperature, for example) lead to 
+undesired changes in sound level. 
+F0
+MP3 player
+power
+ampliﬁer
+8 < F0 < 12
+speaker
+4
+
+============================================================
+PAGE 5
+============================================================
+Feedback and Control  
+Feedback can be used to compensate for parameter variation. 
+F0
+MP3 player
+K
+β
++
+power
+ampliﬁer
+8 < F0 < 12
+speaker
+X
+Y
+−
+H(s) = 
+KF0 
+1 + βKF0 
+If K is made large, so that βKF0 » 1, then 
+1 
+H(s) ≈ β 
+independent of K or F0! 
+5
+
+============================================================
+PAGE 6
+============================================================
+Feedback and Control  
+Feedback reduces the change in gain due to change in F0. 
+F0
+MP3 player
+100
+1
+10
++
+8 < F0 < 12
+X
+Y
+−
+0
+10
+20
+0
+10
+20
+8 < F0 < 12
+F0
+Gain to Speaker
+F0 (no feedback)
+100F0
+1 + 100F0
+10
+(feedback)
+6
+
+============================================================
+PAGE 7
+============================================================
+Check Yourself 
+F0
+MP3 player
+K
+β
++
+power
+ampliﬁer
+8 < F0 < 12
+speaker
+X
+Y
+−
+Feedback greatly reduces sensitivity to variations in K or F0. 
+lim 
+K→∞ H(s) = 
+KF0 
+1 + βKF0 
+→ 1 
+β 
+What about variations in β? Aren’t those important? 
+7
+
+============================================================
+PAGE 8
+============================================================
+Check Yourself  
+What about variations in β? Aren’t those important? 
+The value of β is typically determined with resistors, whose values 
+are quite stable (compared to semiconductor devices). 
+8
+
+============================================================
+PAGE 9
+============================================================
+Crossover Distortion  
+Feedback can compensate for parameter variation even when the 
+variation occurs rapidly. 
+Example: using transistors to amplify power.  
+MP3 player
+speaker
++50V
+−50V
+9
+
+============================================================
+PAGE 10
+============================================================
+Crossover Distortion  
+This circuit introduces “crossover distortion.”  
+For the upper transistor to conduct, Vi − Vo > VT . 
+For the lower transistor to conduct, Vi − Vo < −VT . 
++50V
+−50V
+Vi
+Vo
+Vi
+Vo
+VT
+−VT
+10
+
+============================================================
+PAGE 11
+============================================================
+Crossover Distortion  
+Crossover distortion changes the shapes of signals. 
+Example: crossover distortion when the input is Vi(t) = B sin(ω0t). 
++50V
+−50V
+Vi
+Vo
+t
+Vo(t)
+11
+
+============================================================
+PAGE 12
+============================================================
+Crossover Distortion  
+Feedback can reduce the eﬀects of crossover distortion. 
+MP3 player
+K
++
+speaker
++50V
+−50V
+−
+12
+
+============================================================
+PAGE 13
+============================================================
+Crossover Distortion  
+When K is small, feedback has little eﬀect on crossover distortion. 
+K
++
++50V
+−50V
+Vi
+Vo
+−
+t
+Vo(t)
+K = 1
+13
+
+============================================================
+PAGE 14
+============================================================
+Crossover Distortion 
+K
++
++50V
+−50V
+Vi
+Vo
+−
+Feedback reduces crossover distortion. 
+t
+Vo(t)
+K = 2
+14
+
+============================================================
+PAGE 15
+============================================================
+Crossover Distortion 
+K
++
++50V
+−50V
+Vi
+Vo
+−
+Feedback reduces crossover distortion. 
+t
+Vo(t)
+K = 4
+15
+
+============================================================
+PAGE 16
+============================================================
+Crossover Distortion 
+K
++
++50V
+−50V
+Vi
+Vo
+−
+Feedback reduces crossover distortion. 
+t
+Vo(t)
+K = 10
+16
+
+============================================================
+PAGE 17
+============================================================
+K
++
++50V
+−50V
+Vi
+Vo
+−
+t
+Vo(t)
+Demo
+• original
+• no feedback
+• K = 2
+• K = 4
+• K = 8
+• K = 16
+• original
+Crossover Distortion  
+J.S. Bach, Sonata No. 1 in G minor Mvmt. IV. Presto 
+Nathan Milstein, violin 
+17
+
+============================================================
+PAGE 18
+============================================================
+Feedback and Control  
+Using feedback to enhance performance. 
+Examples: 
+•  
+improve performance of an op amp circuit. 
+•  
+control position of a motor. 
+•  
+reduce sensitivity to unwanted parameter variation. 
+•  
+reduce distortions. 
+•  
+stabilize unstable systems 
+− 
+magnetic levitation 
+− 
+inverted pendulum 
+18
+
+============================================================
+PAGE 19
+============================================================
+Control of Unstable Systems  
+Feedback is useful for controlling unstable systems.  
+Example: Magnetic levitation.  
+i(t) = io
+y(t)
+19
+
+============================================================
+PAGE 20
+============================================================
+Control of Unstable Systems  
+Magnetic levitation is unstable.  
+i(t) = io
+y(t)
+fm(t)
+Mg
+Equilibrium (y = 0): magnetic force fm(t) is equal to the weight Mg.  
+Increase y → increased force → further increases y.  
+Decrease y → decreased force → further decreases y.  
+Positive feedback!  
+20
+
+============================================================
+PAGE 21
+============================================================
+Modeling Magnetic Levitation  
+The magnet generates a force that depends on the distance y(t). 
+i(t) = io
+y(t)
+fm(t)
+Mg
+fm(t)
+y(t)
+Mg
+i(t) = i0
+21
+
+============================================================
+PAGE 22
+============================================================
+Modeling Magnetic Levitation  
+The net force f(t) = fm(t) − Mg accelerates the mass. 
+i(t) = io
+y(t)
+fm(t)
+Mg
+f(t) = fm(t) −Mg = Ma = M ¨y(t)
+y(t)
+i(t) = i0
+22
+
+============================================================
+PAGE 23
+============================================================
+Modeling Magnetic Levitation  
+Represent the magnet as a system: input y(t) and output f(t). 
+i(t) = io
+y(t)
+fm(t)
+Mg
+f(t) = fm(t) −Mg = Ma = M ¨y(t)
+y(t)
+i(t) = i0
+magnet
+y(t)
+f(t)
+23
+
+============================================================
+PAGE 24
+============================================================
+Modeling Magnetic Levitation  
+The magnet system is part of a feedback system.  
+f(t) = fm(t) −Mg = Ma = M ¨y(t)
+y(t)
+i(t) = i0
+magnet
+y(t)
+f(t)
+magnet
+1
+M
+A
+A
+y(t)
+y(t)
+¨y(t)
+f(t)
+24
+
+============================================================
+PAGE 25
+============================================================
+Modeling Magnetic Levitation  
+For small distances, force grows approximately linearly with distance.  
+f(t) = fm(t) −Mg = Ma = M ¨y(t)
+y(t)
+i(t) = i0
+K
+K
+y(t)
+f(t)
+K
+1
+M
+A
+A
+y(t)
+y(t)
+¨y(t)
+f(t)
+25
+
+============================================================
+PAGE 26
+============================================================
+“Levitation” with a Spring  
+Relation between force and distance for a spring is opposite in sign. 
+ 
+ 
+F = K x(t) − y(t)
+= M ¨y(t) 
+x(t)
+y(t)
+f(t)
+y(t)
+Mg
+−K
+26
+
+============================================================
+PAGE 27
+============================================================
+Block Diagrams  
+Block diagrams for magnetic levitation and spring/mass are similar. 
+Spring and mass 
+F = K x(t) − y(t) = M ¨y(t) 
++
+K
+M
+A
+A
+x(t)
+y(t)
+˙y(t)
+¨y(t)
+−
+Magnetic levitation 
+F = Ky(t) = M ¨y(t) 
++
+K
+M
+A
+A
+x(t) = 0
+y(t)
+˙y(t)
+¨y(t)
++
+27
+
+
+
+============================================================
+PAGE 28
+============================================================
+Check Yourself  
++
+K
+M
+A
+A
+x(t) = 0
+y(t)
+˙y(t)
+¨y(t)
++
+How do the poles of these two systems diﬀer? 
+Spring and mass 
+F = K x(t) − y(t) = M ¨y(t) 
++
+K
+M
+A
+A
+x(t)
+y(t)
+˙y(t)
+¨y(t)
+−
+Magnetic levitation 
+F = Ky(t) = M ¨y(t) 
+28
+
+
+
+============================================================
+PAGE 29
+============================================================
+Check Yourself  
+How do the poles of the two systems diﬀer?  
+s-plane
+Spring and mass
+F = K
+
+x(t) −y(t)
+
+= M ¨y(t)
+Y
+X =
+K
+M
+s2 + K
+M
+→s = ±j
+r
+K
+M
+s-plane
+Magnetic levitation
+F = Ky(t) = M ¨y(t)
+s2 = K
+M
+→s = ±
+r
+K
+M
+29
+
+============================================================
+PAGE 30
+============================================================
+Magnetic Levitation is Unstable 
+i(t) = io
+y(t)
+fm(t)
+Mg
+magnet
+1
+M
+A
+A
+y(t)
+y(t)
+¨y(t)
+f(t)
+30
+
+============================================================
+PAGE 31
+============================================================
+Magnetic Levitation  
+We can stabilize this system by adding an additional feedback loop 
+to control i(t). 
+f(t)
+y(t)
+Mg
+i(t) = 1.1i0
+i(t) = i0
+i(t) = 0.9i0
+31
+
+============================================================
+PAGE 32
+============================================================
+Stabilizing Magnetic Levitation  
+Stabilize magnetic levitation by controlling the magnet current. 
+i(t) = io
+y(t)
+fm(t)
+Mg
+magnet
+1
+M
+A
+A
+α
+y(t)
+y(t)
+¨y(t)
+f(t)
+i(t)
+32
+
+============================================================
+PAGE 33
+============================================================
+Stabilizing Magnetic Levitation  
+Stabilize magnetic levitation by controlling the magnet current. 
+i(t) = io
+y(t)
+fm(t)
+Mg
++
+1
+M
+A
+A
+y(t)
+fi(t)
+fo(t)
+−K2
+K
+33
+
+============================================================
+PAGE 34
+============================================================
+Magnetic Levitation  
+Increasing K2 moves poles toward the origin and then onto jω axis. 
++
+K−K2
+M
+A
+A
+x(t)
+y(t)
+˙y(t)
+¨y(t)
+s-plane
+But the poles are still marginally stable. 
+34
+
+============================================================
+PAGE 35
+============================================================
+Magnetic Levitation  
+Adding a zero makes the poles stable for suﬃciently large K2. 
++
+K−K2
+M
+(s + z0)
+A
+A
+x(t)
+y(t)
+˙y(t)
+¨y(t)
+s-plane
+Try it: Demo [designed by Prof. James Roberge]. 
+35
+
+============================================================
+PAGE 36
+============================================================
+inverted pendulum. 
+x(t)
+θ(t)
+mg
+l
+md2x(t)
+dt2
+θ(t)
+mg
+l
+lab frame 
+cart frame 
+Inverted Pendulum  
+As a ﬁnal example of stabilizing an unstable system, consider an  
+(inertial) 
+(non-inertial) 
+d2θ(t) 
+d2x(t)
+ml2
+= mg l sin θ(t) − m
+l cos θ(t)
+m-l2 dt2 
+m-l2 m
+-l
+2 
+m -ldt2 2 m -l
+2 
+I 
+force distance 
+distance
+force 
+36
+
+============================================================
+PAGE 37
+============================================================
+Check Yourself: Inverted Pendulum  
+Where are the poles of this system? 
+x(t)
+θ(t)
+mg
+l
+md2x(t)
+dt2
+θ(t)
+mg
+l
+ml2 d2θ(t) 
+dt2 
+= mgl sin θ(t) − m d2x(t) 
+dt2 l cos θ(t) 
+37
+
+============================================================
+PAGE 38
+============================================================
+Check Yourself: Inverted Pendulum  
+Where are the poles of this system? 
+x(t)
+θ(t)
+mg
+l
+md2x(t)
+dt2
+θ(t)
+mg
+l
+ml2 d2θ(t) 
+dt2 
+= mgl sin θ(t) − m d2x(t) 
+dt2 l cos θ(t) 
+2 d2θ(t) 
+d2x(t)
+ml
+− mglθ(t) = −ml 
+dt2 
+dt2 
+ 
+Θ 
+−mls2 
+−s2/l 
+g
+H(s) = 
+= 
+= 
+poles at s = ±
+X 
+ml2s2 − mgl 
+s2 − g/l 
+l 
+38
+
+============================================================
+PAGE 39
+============================================================
+Inverted Pendulum  
+This unstable system can be stablized with feedback.  
+x(t)
+θ(t)
+mg
+l
+md2x(t)
+dt2
+θ(t)
+mg
+l
+Try it. Demo. [originally designed by Marcel Gaudreau]  
+39
+
+============================================================
+PAGE 40
+============================================================
+Feedback and Control  
+Using feedback to enhance performance. 
+Examples: 
+•  
+improve performance of an op amp circuit. 
+•  
+control position of a motor. 
+•  
+reduce sensitivity to unwanted parameter variation. 
+•  
+reduce distortions. 
+•  
+stabilize unstable systems 
+− 
+magnetic levitation 
+− 
+inverted pendulum 
+40
+
+============================================================
+PAGE 41
+============================================================
+MIT OpenCourseWare
+http://ocw.mit.edu
+6.003 Signals and Systems
+Fall 2011
+For information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms.

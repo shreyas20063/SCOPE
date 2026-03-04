@@ -1,0 +1,1209 @@
+
+============================================================
+PAGE 1
+============================================================
+6.003: Signals and Systems
+Laplace Transform
+September 27, 2011
+1
+
+============================================================
+PAGE 2
+============================================================
+Mid-term Examination #1
+Wednesday, October 5, 7:30-9:30pm,
+No recitations on the day of the exam.
+Coverage:
+CT and DT Systems, Z and Laplace Transforms
+Lectures 1–7
+Recitations 1–7
+Homeworks 1–4
+Homework 4 will not collected or graded. Solutions will be posted.
+1
+Closed book: 1 page of notes (82 × 11 inches; front and back).
+Designed as 1-hour exam; two hours to complete.
+Review sessions during open oﬃce hours.
+Conﬂict? Contact before Friday, Sept. 30, 5pm.
+Prior term midterm exams have been posted on the 6.003 website.
+2
+
+============================================================
+PAGE 3
+============================================================
+Concept Map for Discrete-Time Systems
+Last time: relations among representations of DT systems.
+Block Diagram
+System Functional
+Diﬀerence Equation
+System Function
+Unit-Sample Response
++
+Delay
++
+Delay
+X
+Y
+Y
+X = H(R) =
+1
+1 −R −R2
+y[n] = x[n] + y[n−1] + y[n−2]
+H(z) = Y (z)
+X(z) =
+z2
+z2 −z −1
+h[n]: 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, . . .
+index shift
+Delay →R
+3
+
+============================================================
+PAGE 4
+============================================================
+Concept Map for Discrete-Time Systems
+Most important new concept from last time was the Z transform.
+Block Diagram
+System Functional
+Diﬀerence Equation
+System Function
+Unit-Sample Response
++
+Delay
++
+Delay
+X
+Y
+Y
+X = H(R) =
+1
+1 −R −R2
+y[n] = x[n] + y[n−1] + y[n−2]
+H(z) = Y (z)
+X(z) =
+z2
+z2 −z −1
+h[n]: 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, . . .
+index shift
+Delay →R
+Z transform
+4
+
+============================================================
+PAGE 5
+============================================================
+Concept Map for Continuous-Time Systems
+Today: similar relations among representations of CT systems.
+Block Diagram
+System Functional
+Diﬀerential Equation
+System Function
+Impulse Response
++
+R
+1
++
+R
+1
+2
+X
+Y
+−
+−
+Y
+X =
+2A2
+2 + 3A + A2
+2¨y(t) + 3 ˙y(t) + y(t) = 2x(t)
+Y (s)
+X(s) =
+2
+2s2 + 3s + 1
+h(t) = 2(e−t/2 −e−t) u(t)
+R
+˙x(t)
+x(t)
+Delay →R
+5
+
+============================================================
+PAGE 6
+============================================================
+Concept Map for Continuous-Time Systems
+Corresponding concept for CT is the Laplace Transform.
+Block Diagram
+System Functional
+Diﬀerential Equation
+System Function
+Impulse Response
++
+R
+1
++
+R
+1
+2
+X
+Y
+−
+−
+Y
+X =
+2A2
+2 + 3A + A2
+2¨y(t) + 3 ˙y(t) + y(t) = 2x(t)
+Y (s)
+X(s) =
+2
+2s2 + 3s + 1
+h(t) = 2(e−t/2 −e−t) u(t)
+R
+˙x(t)
+x(t)
+Delay →R
+Laplace transform
+6
+
+============================================================
+PAGE 7
+============================================================
+Laplace Transform: Deﬁnition
+Laplace transform maps a function of time t to a function of s.
+X(s) =
+Z
+st
+x(t)e−dt
+There are two important variants:
+Unilateral (18.03)
+∞
+X(s) =
+Z
+x(t)e−stdt
+0
+Bilateral (6.003)
+X(s) =
+Z ∞
+x(t)e−stdt
+−∞
+Both share important properties.
+We will focus on bilateral version, and discuss diﬀerences later.
+7
+
+============================================================
+PAGE 8
+============================================================
+Laplace Transforms
+Example: Find the Laplace transform of x1(t):
+0
+t
+x1(t)
+1
+x1(t) =
+
+e−t
+if t ≥0
+0
+otherwise
+Z ∞
+−∞
+st
+X1(s) =
+x1(t)e−dt =
+t
+st
+e
+e−e−dt =
+=
+0
+(s + 1)
+s + 1
+Z ∞
+−(s+1)t
+−
+
+∞
+0
+1
+provided Re(s + 1) > 0 which implies that Re(s) > −1.
+−1
+s-plane
+ROC
+1
+;
+Re(
+s + 1
+s) > −1
+8
+
+============================================================
+PAGE 9
+============================================================
+Check Yourself
+0
+t
+x2(t)
+x2(t) =
+
+e−t −e−2t
+if t ≥0
+0
+otherwise
+Which of the following is the Laplace transform of x2(t)?
+1. X2(s) =
+1
+(s+1)(s+2) ;
+Re(s) > −1
+2. X2(s) =
+1
+(s+1)(s+2) ;
+Re(s) > −2
+3. X2(s) =
+s
+(s+1)(s+2) ;
+Re(s) > −1
+4. X2(s) =
+s
+(s+1)(s+2) ;
+Re(s) > −2
+5. none of the above
+9
+
+============================================================
+PAGE 10
+============================================================
+Check Yourself
+X2(s) =
+Z ∞
+(
+2
+e−t −
+t
+st
+e−)e−dt
+0
+=
+Z ∞
+∞
+e−te−stdt
+0
+−
+Z
+e−2te−stdt
+0
+1
+1
+(s + 2)
+1
+=
+−
+=
+−(s + 1) =
+s + 1
+s + 2
+(s + 1)(s + 2)
+(s + 1)(s + 2)
+These equations converge if Re(s + 1) > 0 and Re(s + 2) > 0, thus
+(s) >
+1.
+Re
+−
+−1
+−2
+s-plane
+ROC
+1
+(s + 1)(s + 2) ;
+Re(s) > −1
+10
+
+============================================================
+PAGE 11
+============================================================
+Check Yourself
+0
+t
+x2(t)
+x2(t) =
+
+e−t −e−2t
+if t ≥0
+0
+otherwise
+Which of the following is the Laplace transform of x2(t)?
+1
+1. X2(s) =
+1
+(s+1)(s+2) ;
+Re(s) > −1
+2. X2(s) =
+1
+(s+1)(s+2) ;
+Re(s) > −2
+3. X2(s) =
+s
+(s+1)(s+2) ;
+Re(s) > −1
+4. X2(s) =
+s
+(s+1)(s+2) ;
+Re(s) > −2
+5. none of the above
+11
+
+============================================================
+PAGE 12
+============================================================
+Regions of Convergence
+eft-sided signals have left-sided Laplace transforms (bilateral only).
+L
+Example:
+t
+x3(t)
+−1
+x3(t) =
+
+−e−t
+if t ≤0
+0
+otherwise
+X3(s) =
+Z ∞
+−∞
+x3(t)e−stdt =
+Z 0
+−∞
+−e−te−stdt = −e−(s+1)t
+−(s + 1)
+
+0
+−∞
+=
+1
+s + 1
+provided Re(s + 1) < 0 which implies that Re(s) < −1.
+−1
+s-plane
+ROC
+1
+s + 1 ;
+Re(s) < −1
+12
+
+============================================================
+PAGE 13
+============================================================
+Left- and Right-Sided ROCs
+Laplace transforms of left- and right-sided exponentials have the
+same form (except −); with left- and right-sided ROCs, respectively.
+0
+t
+e−tu(t)
+1
+time function
+Laplace transform
+−1
+s-plane
+ROC
+1
+s + 1
+t
+−e−tu(−t)
+−1
+−1
+s-plane
+ROC
+1
+s + 1
+13
+
+============================================================
+PAGE 14
+============================================================
+Check Yourself
+Find the Laplace transform of x4(t).
+0
+t
+x4(t)
+x4(t) = e−|t|
+1.
+X4(s) =
+2
+1−s2 ;
+−∞< Re(s) < ∞
+2.
+X4(s) =
+2
+1−s2 ;
+−1 < Re(s) < 1
+3.
+X4(s) =
+2
+1+s2 ;
+−∞< Re(s) < ∞
+4.
+X4(s) =
+2
+1+s2 ;
+−1 < Re(s) < 1
+5.
+none of the above
+14
+
+============================================================
+PAGE 15
+============================================================
+Check Yourself
+X4(s) =
+Z ∞
+e−|t|e−stdt
+−∞
+=
+Z 0
+(1
+e
+−s)tdt +
+Z ∞
+e−(1+s)tdt
+−∞
+0
+(1
+= e
+−s)t
+(1 −s)
+0
+∞
++ e−(1+s)t
+−∞
+−(1 + s)
+
+0
+1
+
+
+=
+
+1
++
+
+1
+
+{z
+−s
+Re
+|
+(s)<
+}
+1 + s
+1
+Re
+1
+=
+|
+(s
+{z
+)>
+}
+−1
++ s + 1 −s
+2
+=
+;
+(1
+−1 < Re(s) < 1
+−s)(1 + s)
+1
+2
+−s
+The ROC is the intersection of Re(s) < 1 and Re(s) > −1.
+15
+
+============================================================
+PAGE 16
+============================================================
+Check Yourself
+Laplace transform of a signal that is both-sided is a vertical strip.
+0
+t
+x4(t)
+x4(t) = e−|t|
+−1
+1
+s-plane
+ROC
+X4(s) =
+2
+1 −s2
+−1 < Re(s) < 1
+16
+
+============================================================
+PAGE 17
+============================================================
+Check Yourself
+Find the Laplace transform of x4(t).
+2
+0
+t
+x4(t)
+x4(t) = e−|t|
+1.
+X4(s) =
+2
+1−s2 ;
+−∞< Re(s) < ∞
+2.
+X4(s) =
+2
+1−s2 ;
+−1 < Re(s) < 1
+3.
+X4(s) =
+2
+1+s2 ;
+−∞< Re(s) < ∞
+4.
+X4(s) =
+2
+1+s2 ;
+−1 < Re(s) < 1
+5.
+none of the above
+17
+
+============================================================
+PAGE 18
+============================================================
+Time-Domain Interpretation of ROC
+Z ∞
+X(s) =
+x(t) e−stdt
+−∞
+t
+x1(t)
+s-plane
+−1
+t
+x2(t)
+s-plane
+−1
+−2
+t
+x3(t)
+−1
+s-plane
+−1
+t
+x4(t)
+s-plane
+−1
+1
+18
+
+============================================================
+PAGE 19
+============================================================
+Time-Domain Interpretation of ROC
+X(s) =
+Z ∞
+−∞
+x(t) e−stdt
+t
+x1(t)
+s-plane
+−1
+t
+x2(t)
+s-plane
+−1
+−2
+t
+x3(t)
+−1
+s-plane
+−1
+t
+x4(t)
+s-plane
+−1
+1
+19
+
+============================================================
+PAGE 20
+============================================================
+Time-Domain Interpretation of ROC
+X(s) =
+Z ∞
+−∞
+x(t) e−stdt
+t
+x1(t)
+s-plane
+−1
+t
+x2(t)
+s-plane
+−1
+−2
+t
+x3(t)
+−1
+s-plane
+−1
+t
+x4(t)
+s-plane
+−1
+1
+20
+
+============================================================
+PAGE 21
+============================================================
+Time-Domain Interpretation of ROC
+X(s) =
+Z ∞
+−∞
+x(t) e−stdt
+t
+x1(t)
+s-plane
+−1
+t
+x2(t)
+s-plane
+−1
+−2
+t
+x3(t)
+−1
+s-plane
+−1
+t
+x4(t)
+s-plane
+−1
+1
+21
+
+============================================================
+PAGE 22
+============================================================
+Check Yourself
+The Laplace transform
+2s
+s2 −4 corresponds to how many of
+the following signals?
+1.
+e−2tu(t) + e2tu(t)
+2.
+e−2tu(t) −e2tu(−t)
+3. −e−2tu(−t) + e2tu(t)
+4. −e−2tu(−t) −e2tu(−t)
+22
+
+============================================================
+PAGE 23
+============================================================
+Check Yourself
+Expand with partial fractions:
+2s
+1
+1
+=
++
+2
+s −4
+s + 2
+s −2
+pole at −2
+pole at 2
+pole
+function
+| {z }
+right-sided;
+| {z }
+ROC
+left-sided (ROC)
+−2
+e−2t
+e−2tu(t);
+Re(s) > −2
+2
+−e−tu(−t);
+Re(s) < −2
+2
+2
+e t
+2
+e tu(t);
+Re(s) > 2
+2
+−e tu(−t);
+Re(s) < 2
+1.
+e−2tu(t) +
+2
+e tu(t)
+Re(s) > −2 ∩Re(s) > 2
+Re(s) > 2
+2.
+e−2tu(t)
+2
+−e tu(−t)
+Re(s) > −2 ∩Re(s) < 2
+−2 < Re(s) < 2
+3. −e−2tu(
+2
+−t)+e tu(t)
+Re(s) < −2 ∩Re(s) > 2
+none
+4. −e−2tu(
+2
+−t) −e tu(−t)
+Re(s) < −2 ∩Re(s) < 2
+Re(s) < −2
+23
+
+============================================================
+PAGE 24
+============================================================
+Check Yourself
+The Laplace transform
+2s
+s2 −4 corresponds to how many of
+the following signals?
+3
+1.
+e−2tu(t) + e2tu(t)
+2.
+e−2tu(t) −e2tu(−t)
+3. −e−2tu(−t) + e2tu(t)
+4. −e−2tu(−t) −e2tu(−t)
+24
+
+============================================================
+PAGE 25
+============================================================
+Solving Diﬀerential Equations with Laplace Transforms
+Solve the following diﬀerential equation:
+y˙(t) + y(t) = δ(t)
+Take the Laplace transform of this equation.
+L {y˙(t) + y(t)} = L {δ(t)}
+The Laplace transform of a sum is the sum of the Laplace transforms
+(prove this as an exercise).
+L {y˙(t)} + L {y(t)} = L {δ(t)}
+What’s the Laplace transform of a derivative?
+25
+
+============================================================
+PAGE 26
+============================================================
+Laplace Transform of a Derivative
+Assume that
+Z
+X(s) is the Laplace transform of x(t):
+∞
+X(s) =
+x(t)e−stdt
+−∞
+Find the Laplace
+Y (s) =
+Z
+transform of y(t) = x˙(t).
+∞
+∞
+y(
+st
+t)e−dt =
+˙
+st
+x(t) e−
+dt
+−∞
+Z
+−∞
+v˙
+u
+∞
+=
+−
+Z ∞
+st
+x(t)
+|{z} e|
+−
+{z
+st
+
+} 
+|{z}
+x(
+|{z}
+t
+|
+se
+{z}
+)(−
+−)dt
+u
+v
+−∞
+−∞
+v
+u˙
+The ﬁrst term
+Z
+must be zero since
+|
+X
+{z
+(s
+}
+) converged. Thus
+∞
+Y (s) = s
+x(t)e−stdt = sX(s)
+−∞
+26
+
+============================================================
+PAGE 27
+============================================================
+Solving Diﬀerential Equations with Laplace Transforms
+Back to the previous problem:
+L {y˙(t)} + L {y(t)} = L {δ(t)}
+Let Y (s) represent the Laplace transform of y(t).
+Then sY (s) is the Laplace transform of y˙(t).
+sY (s) + Y (s) = L {δ(t)}
+What’s the Laplace transform of the impulse function?
+27
+
+============================================================
+PAGE 28
+============================================================
+Laplace Transform of the Impulse Function
+Let x(t) = δ(t).
+∞
+X(
+st
+s) =
+Z
+δ(t)e−dt
+−∞
+=
+Z ∞
+δ(t) e−stt=0 dt
+−∞
+=
+Z ∞
+δ(t) 1 dt
+−∞
+= 1
+Sifting property:
+Multiplying f(t) by δ(t) and integrating over t sifts out f(0).
+28
+
+============================================================
+PAGE 29
+============================================================
+Solving Diﬀerential Equations with Laplace Transforms
+Back to the previous problem:
+sY (s) + Y (s) = L {δ(t)} = 1
+This is a simple algebraic expression.
+Laplace transform converts a diﬀerential equation
+y˙(t) + y(t) = δ(t)
+to an equivalent algebraic equation.
+sY + Y = 1
+29
+
+============================================================
+PAGE 30
+============================================================
+Solving Diﬀerential Equations with Laplace Transforms
+Back to the previous problem:
+sY (s) + Y (s) = L {δ(t)} = 1
+This is a simple algebraic expression. Solve for Y (s):
+1
+Y (s) = s + 1
+We’ve seen this Laplace transform previously.
+y(t) = e−tu(t)
+(why not y(t) = −e−tu(−t) ?)
+Notice that we solved the diﬀerential equation y˙(t)+y(t) = δ(t) without
+computing homogeneous and particular solutions.
+30
+
+============================================================
+PAGE 31
+============================================================
+Solving Diﬀerential Equations with Laplace Transforms
+Summary of method.
+Start with diﬀerential equation:
+y˙(t) + y(t) = δ(t)
+Take the Laplace transform of this equation:
+sY (s) + Y (s) = 1
+Solve for Y (s):
+1
+Y (s) = s + 1
+Take inverse Laplace transform (by recognizing form of transform):
+y(t) = e−tu(t)
+31
+
+============================================================
+PAGE 32
+============================================================
+Solving Diﬀerential Equations with Laplace Transforms
+Recognizing the form ...
+Is there a more systematic way to take an inverse Laplace transform?
+Yes ... and no.
+Formally,
+1
+j
+x(t)
+2πj
+Z σ+ ∞
+=
+X(s) st
+e ds
+σ−j∞
+but this integral is not generally easy to compute.
+This equation can be useful to prove theorems.
+We will ﬁnd better ways (e.g., partial fractions) to compute inverse
+transforms for common systems.
+32
+
+============================================================
+PAGE 33
+============================================================
+Solving Diﬀerential Equations with Laplace Transforms
+Example 2:
+y¨(t) + 3y˙(t) + 2y(t) = δ(t)
+Laplace transform:
+2
+s Y (s) + 3sY (s) + 2Y (s) = 1
+Solve:
+1
+1
+1
+Y (s) =
+=
+(s + 1)(s + 2)
+s + 1 −s + 2
+Inverse Laplace transform:
+y(
+t
+2t
+t) =
+ e−−e−
+u(t)
+These forward and inverse Laplace transforms are easy if
+•
+diﬀerential equation is linear with constant coeﬃcients, and
+•
+the input signal is an impulse function.
+33
+
+============================================================
+PAGE 34
+============================================================
+Properties of Laplace Transforms
+Usefulness of Laplace transforms derives from its many properties.
+Property
+x(t)
+X(s)
+ROC
+Linearity
+ax1(t) + bx2(t)
+aX1(s) + bX2(s)
+⊃(R1 ∩R2)
+Delay by T
+x(t −T)
+X(s)
+sT
+e−
+R
+Multiply by t
+tx(t)
+dX(s)
+−
+R
+ds
+Multiply by e−αt
+t
+x(
+α
+t)e−
+X(s + α)
+shift R by −α
+dx(t)
+Diﬀerentiate in t
+sX(s)
+dt
+⊃R
+Integrate in t
+Z t
+X(
+x(τ)
+s)
+dτ
+−∞
+s
+⊃
+∞
+
+R ∩
+ Re(s)>0
+
+Convolve in t
+Z
+x1(τ)x2(t −τ) dτ
+X1(s)X2(s)
+⊃(R1 ∩R2)
+−∞
+and many others!
+34
+
+============================================================
+PAGE 35
+============================================================
+Initial Value Theorem
+If x(t) = 0 for t < 0 and x(t) contains no impulses or higher-order
+singularities at t = 0 then
+x(0+) = lim sX(s) .
+s→∞
+Consider lim sX(s) = lim s
+Z ∞
+st
+∞
+st
+x(t)e−dt = lim
+x(t) se−dt.
+s→∞
+s→∞
+−∞
+s→∞
+Z
+0
+As s →∞the function e−st shrinks towards 0.
+t
+e−st
+s = 1
+s = 5
+s = 25
+Area under e−st is s
+→
+area under se−st is 1
+→
+lim se−st = δ(t) !
+s→∞
+∞
+∞
+lim sX(s) = lim
+st
+x(t)se−dt
+x(t)δ(t)dt = x(0+)
+s→∞
+s→∞
+Z
+0
+→
+Z
+0
+(the 0+ arises because the limit is from the right side.)
+1
+35
+
+============================================================
+PAGE 36
+============================================================
+Final Value Theorem
+If x(t) = 0 for t < 0 and x(t) has a ﬁnite limit as t →∞
+x(∞) = lim sX(s) .
+s→0
+∞
+Consider lim sX(s) = lim s
+Z
+(
+st
+t)e−st
+∞
+x
+dt = lim
+s→
+s→0
+−∞
+s→0
+Z
+x(t) se−dt.
+0
+0
+As s
+st
+→0 the function e−st ﬂattens out. But again, the area under
+se−
+is always 1.
+x(∞)
+t
+e−st
+s = 1
+s = 5
+s = 25
+As s →0, area under se−st monotonically shifts to higher values of t
+(e.g., the average value of se−st
+1
+is
+which grows as s
+s
+→0).
+In the limit, lim sX(s)
+.
+→0
+→x(∞)
+s
+36
+
+============================================================
+PAGE 37
+============================================================
+Summary: Relations among CT representations
+Block Diagram
+System Functional
+Diﬀerential Equation
+System Function
+Impulse Response
++
+R
+1
++
+R
+1
+2
+X
+Y
+−
+−
+Y
+X =
+2A2
+2 + 3A + A2
+2¨y(t) + 3 ˙y(t) + y(t) = 2x(t)
+Y (s)
+X(s) =
+2
+2s2 + 3s + 1
+h(t) = 2(e−t/2 −e−t) u(t)
+R
+˙x(t)
+x(t)
+Delay →R
+Laplace transform
+Many others: e.g., Laplace transform of a circuit (see HW4)!
+37
+
+============================================================
+PAGE 38
+============================================================
+MIT OpenCourseWare
+http://ocw.mit.edu
+6.003 Signals and Systems
+Fall 2011
+For information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms.

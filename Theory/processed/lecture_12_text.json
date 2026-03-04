@@ -1,0 +1,171 @@
+{
+  "lecture_number": 12,
+  "source_file": "34a432915f7bc013d5d4436f1e7195d9_MIT6_003F11_lec12.pdf",
+  "page_count": 41,
+  "pages": [
+    {
+      "page": 1,
+      "text": "6.003: Signals and Systems \nCT Feedback and Control \nOctober 20, 2011  \n1"
+    },
+    {
+      "page": 2,
+      "text": "Mid-term Examination #2  \nWednesday, October 26, 7:30-9:30pm,\nNo recitations on the day of the exam. \nCoverage: \nLectures 1\u201312 \nRecitations 1\u201312 \nHomeworks 1\u20137 \nHomework 7 will not be collected or graded. Solutions will be posted. \nClosed book: 2 pages of notes (81\n2 \u00d7 11 inches; front and back). \nNo calculators, computers, cell phones, music players, or other aids. \nDesigned as 1-hour exam; two hours to complete. \nReview sessions during open o\ufb03ce hours. \nCon\ufb02ict? Contact before Friday, Oct. 21, 5pm. \n2"
+    },
+    {
+      "page": 3,
+      "text": "Feedback and Control  \nFeedback: simple, elegant, and robust framework for control. \n+\n\u2212\nX\nY\nE\nS\nC\ncontroller\nplant\nsensor\nLast time: robotic driving. \ndi = desiredFront\ndo = distanceFront\n3"
+    },
+    {
+      "page": 4,
+      "text": "Feedback and Control  \nUsing feedback to enhance performance. \nExamples: \n\u2022  \nincreasing speed and bandwidth \n\u2022  \ncontrolling position instead of speed \n\u2022  \nreducing sensitivity to parameter variation \n\u2022  \nreducing distortion \n\u2022  \nstabilizing unstable systems \n\u2212 \nmagnetic levitation \n\u2212 \ninverted pendulum \n4"
+    },
+    {
+      "page": 5,
+      "text": "Op-amps  \nAn \u201cideal\u201d op-amp has many desireable characteristics. \nV+\nV\u2212\nVo = K (V+ \u2212V\u2212)\nK\n\u2022 \nhigh speed \n\u2022 \nlarge bandwidth \n\u2022 \nhigh input impedance \n\u2022 \nlow output impedance \n\u2022 \n... \nIt is di\ufb03cult to build a circuit with all of these features. \n5"
+    },
+    {
+      "page": 6,
+      "text": "Op-Amp  \nThe gain of an op-amp depends on frequency. \n102\n103\n104\n105\n1\n10\n102\n103\n104\n105\n106\n\u03c9 [log scale]\n|K(j\u03c9)| [log scale]\n0\n\u2212\u03c0\n2\n1\n10\n102\n103\n104\n105\n106\n\u03c9 [log scale]\n\u2220K(j\u03c9)|\nFrequency dependence of LM741 op-amp.  \n6"
+    },
+    {
+      "page": 7,
+      "text": "Op-Amp  \nLow-gain at high frequencies limits applications. \n102\n103\n104\n105\n1\n10\n102\n103\n104\n105\n106\n\u03c9 [log scale]\n|K(j\u03c9)| [log scale]\naudio\nfrequencies\n0\n\u2212\u03c0\n2\n1\n10\n102\n103\n104\n105\n106\n\u03c9 [log scale]\n\u2220K(j\u03c9)|\nUnacceptable frequency response for an audio ampli\ufb01er.  \n7"
+    },
+    {
+      "page": 8,
+      "text": "Op-Amp  \nAn ideal op-amp has fast time response. \nVi\nVo\nK\nStep response: \n1\nt\nVi(t) = u(t)\nA\nt\nVo(t) = s(t)\n8"
+    },
+    {
+      "page": 9,
+      "text": "Check Yourself  \nDetermine \u03c4 for the unit-step response s(t) of an LM741. \n\u03c4\nA\nt\n[seconds]\ns(t)\n102\n103\n104\n105\n|K(j\u03c9)| [log scale]\n0\n\u2212\u03c0\n2\n1\n10\n102\n103\n104\n105\n\u03c9 [log scale]\n\u2220K(j\u03c9)|\n1. 40 s \n2. 40 \n2\u03c0 s \n3. 1 \n40 s \n4. 2\u03c0 \n40 s \n5. \n1 \n2\u03c0\u00d740 s \n0. none of the above \n9"
+    },
+    {
+      "page": 10,
+      "text": "Check Yourself  \nDetermine the step response of an LM741. \nSystem function: \nK(s) = \u03b1K0 \ns + \u03b1 \nImpulse response: \n\u2212\u03b1t \nh(t) = \u03b1K0e\nu(t) \nStep response: \n t \n t \n\u03b1K0e\u2212\u03b1\u03c4 t \n\u2212\u03b1\u03c4 d\u03c4 \n\u2212\u03b1t)u(t)\ns(t) =\nh(\u03c4 )d\u03c4 =\n\u03b1K0e \n=\n= K0(1 \u2212 e \n\u2212\u03b1\n\u2212\u221e \n0\n0 \n     \nParameters: \nA = K0 = 2 \u00d7 105 \n1\n1 \n\u03c4 =\n= \n\u03b1 \n40 \ns \n10"
+    },
+    {
+      "page": 11,
+      "text": "Check Yourself  \nDetermine \u03c4 for the unit-step response s(t) of an LM741. \n\u03c4\nA\nt\n[seconds]\ns(t)\n102\n103\n104\n105\n|K(j\u03c9)| [log scale]\n0\n\u2212\u03c0\n2\n1\n10\n102\n103\n104\n105\n\u03c9 [log scale]\n\u2220K(j\u03c9)|\n1. 40 s \n2. 40 \n2\u03c0 s \n3. 1 \n40 s \n4. 2\u03c0 \n40 s \n5. \n1 \n2\u03c0\u00d740 s \n0. none of the above \n11"
+    },
+    {
+      "page": 12,
+      "text": "Op-Amp  \nPerformance parameters for real op-amps fall short of the ideal.  \nFrequency Response: high gain but only at low frequencies. \n102\n103\n104\n105\n1\n10\n102\n103\n104\n105\n106\n\u03c9 [log scale]\n|K(j\u03c9)| [log scale]\naudio\nfrequencies\nStep Response: slow by electronic standards. \nt [seconds]\n1/40\n2 \u00d7 105\n12"
+    },
+    {
+      "page": 13,
+      "text": "Op-Amp  \nWe can use feedback to improve performance of op-amps. \nVi\nVo\nK(s)\nR1\nR2\n\u03b2V0\nV\u2212= \u03b2Vo =\n\u0012\nR2\nR1 + R2\n\u0013\nVo\ncircuit\n\u03b2\nK(s)\n+\n\u2212\nVi\nVo\nVo\nVi\n=\nK(s)\n1 + \u03b2K(s)\n6.003 model\n13"
+    },
+    {
+      "page": 14,
+      "text": "Dominant Pole  \nOp-amps are designed to have a dominant pole at low frequencies: \n\u2192 simpli\ufb01es the application of feedback. \ns-plane\n\u221240\n40 rad/s\n\u03b1 = 40 rad/s = \n\u2248 6.4 Hz\n2\u03c0 rad/cycle \n14"
+    },
+    {
+      "page": 15,
+      "text": "Improving Performance  \nUsing feedback to improve performance parameters. \nVi\nVo\nK(s)\nR1\nR2\n\u03b2V0\nV\u2212= \u03b2Vo =\n\u0012\nR2\nR1 + R2\n\u0013\nVo\ncircuit\n\u03b2\nK(s)\n+\n\u2212\nVi\nVo\nVo\nVi\n=\nK(s)\n1 + \u03b2K(s)\n=\n\u03b1K0\ns+\u03b1\n1 + \u03b2 \u03b1K0\ns+\u03b1\n=\n\u03b1K0\ns + \u03b1 + \u03b1\u03b2K0\n6.003 model\n15"
+    },
+    {
+      "page": 16,
+      "text": "Check Yourself  \nWhat is the most negative value of the closed-loop pole \nthat can be achieved with feedback? \ns-plane\n\u2212\u03b1\n?\n1. \u2212\u03b1(1 + \u03b2) \n2. \u2212\u03b1(1 + \u03b2K0) \n3. \u2212\u03b1(1 + K0) \n4. \u2212\u221e \n5. none of the above \n16"
+    },
+    {
+      "page": 17,
+      "text": "Improving Performance  \nUsing feedback to improve performance parameters. \nVi\nVo\nK(s)\nR1\nR2\n\u03b2V0\nV\u2212= \u03b2Vo =\n\u0012\nR2\nR1 + R2\n\u0013\nVo\ncircuit\n\u03b2\nK(s)\n+\n\u2212\nVi\nVo\nVo\nVi\n=\nK(s)\n1 + \u03b2K(s)\n=\n\u03b1K0\ns+\u03b1\n1 + \u03b2 \u03b1K0\ns+\u03b1\n=\n\u03b1K0\ns + \u03b1 + \u03b1\u03b2K0\n6.003 model\n17"
+    },
+    {
+      "page": 18,
+      "text": "Check Yourself  \nWhat is the most negative value of the closed-loop pole that can be \nachieved with feedback? \n\u03b1K0\nOpen loop system function: s + \u03b1 \n\u2192 pole: s = \u2212\u03b1. \n\u03b1K0\nClosed-loop system function: s + \u03b1 + \u03b1\u03b2K0 \n\u2192 pole: s = \u2212\u03b1(1 + \u03b2K0). \nThe feedback constant is 0 \u2264 \u03b2 \u2264 1. \n\u2192 most negative value of the closed-loop pole is s = \u2212\u03b1(1 + K0). \n18"
+    },
+    {
+      "page": 19,
+      "text": "Check Yourself  \nWhat is the most negative value of the closed-loop pole \nthat can be achieved with feedback? \n3 \ns-plane\n\u2212\u03b1\n\u2212\u03b1(1 + K0)\n1. \u2212\u03b1(1 + \u03b2) \n2. \u2212\u03b1(1 + \u03b2K0) \n3. \u2212\u03b1(1 + K0) \n4. \u2212\u221e \n5. none of the above \n19"
+    },
+    {
+      "page": 20,
+      "text": "Improving Performance  \nFeedback extends frequency response by a factor of 1 + \u03b2K0 \n(K0 = 2 \u00d7 105). \n1 + \u03b2K0\n0.001\n0.01\n0.1\n1\n1\n10\n102\n103\n104\n105\n106\n\u03c9 [log scale]\n|H(j\u03c9)|\n|H(j0)|\n[log scale]\n1 + \u03b2K0\n0\n\u2212\u03c0\n2\n1\n10\n102\n103\n104\n105\n106\n\u03c9 [log scale]\n\u2220H(j\u03c9)|\n20"
+    },
+    {
+      "page": 21,
+      "text": "Improving Performance  \nFeedback produces higher bandwidths by reducing the gain at low  \nfrequencies. It trades gain for bandwidth. \n\u03c9 [log scale]\n1\n102\n104\n106\n108\n0.1\n1\n10\n102\n103\n104\n105\n|H(j\u03c9)| [log scale]\n\u03b2 = 0 (open loop)\n\u03b2 = 10\u22124\n\u03b2 = 10\u22122\n\u03b2 = 1\n21"
+    },
+    {
+      "page": 22,
+      "text": "Improving Performance  \nFeedback makes the time response faster by a factor of 1 + \u03b2K0 \n(K0 = 2 \u00d7 105). \nStep response \nK0 \n\u2212\u03b1(1+\u03b2K0)t)u(t)\ns(t) = 1 + \u03b2K0 \n(1 \u2212 e \nt [seconds]\ns(t)\nK0\n1 + \u03b2K0\n1/40\n\u03b2 = 0\n\u03b2 = 1\n22"
+    },
+    {
+      "page": 23,
+      "text": "Improving Performance  \nFeedback produces faster responses by reducing the \ufb01nal value of \nthe step response. It trades gain for speed. \nStep response \nK0 \n\u2212\u03b1(1+\u03b2K0)t)u(t)\ns(t) = \n(1 \u2212 e\n1 + \u03b2K0 \nds(t)\nThe maximum rate of voltage change \nis not increased. \ndt \nt=0+ \nt [seconds]\ns(t)\n2 \u00d7 105\n1/40\n\u03b2\n0\n0.5 \u00d7 10\u22125\n1.5 \u00d7 10\u22125\n23"
+    },
+    {
+      "page": 24,
+      "text": "Improving Performance  \nFeedback improves performance parameters of op-amp circuits. \n\u2022 \ncan extend frequency response \n\u2022 \ncan increase speed  \nPerformance enhancements are achieved through a reduction of gain.  \n24"
+    },
+    {
+      "page": 25,
+      "text": "Motor Controller  \nWe wish to build a robot arm (actually its elbow). The input should  \nbe voltage v(t), and the output should be the elbow angle \u03b8(t). \nrobotic\narm\nv(t)\n\u03b8(t) \u221dv(t)\nWe wish to build the robot arm with a DC motor. \nDC motor\nv(t)\n\u03b8(t)\nThis problem is similar to the head-turning servo in 6.01 !  \n25"
+    },
+    {
+      "page": 26,
+      "text": "Check Yourself  \nWhat is the relation between v(t) and \u03b8(t) for a DC motor? \nDC motor\nv(t)\n\u03b8(t)\n1. \u03b8(t) \u221d v(t) \n2. cos \u03b8(t) \u221d v(t) \n3. \u03b8(t) \u221d \u02d9v(t) \n4. cos \u03b8(t) \u221d \u02d9v(t) \n5. none of the above \n26"
+    },
+    {
+      "page": 27,
+      "text": "Check Yourself  \nWhat is the relation between v(t) and \u03b8(t) for a DC motor?  \nTo \ufb01rst order, the rotational speed \u03b8\u02d9(t) of a DC motor is proportional  \nto the input voltage v(t). \nDC motor\nv(t)\n\u03b8(t)\nv(t)\nt\n\u03b8(t)\nt\nFirst-order model: integrator \n\u03b3A\nV\n\u0398\n27"
+    },
+    {
+      "page": 28,
+      "text": "Check Yourself  \nWhat is the relation between v(t) and \u03b8(t) for a DC motor? \nDC motor\nv(t)\n\u03b8(t)\n1. \u03b8(t) \u221d v(t) \n2. cos \u03b8(t) \u221d v(t) \n3. \u03b8(t) \u221d \u02d9v(t) \n4. cos \u03b8(t) \u221d \u02d9v(t) \n5. none of the above \n28"
+    },
+    {
+      "page": 29,
+      "text": "Motor Controller  \nUse proportional feedback to control the angle of the motor\u2019s shaft. \n+\n\u03b1\n\u03b3A\n\u03b2\nv(t)\n\u03b8(t)\nDC motor\nampli\ufb01er\nfeedback\n(potentiometer)\n\u2212\n\u0398 = \n\u03b1\u03b3A \n= \n\u03b1\u03b3 1 \ns \n= \n\u03b1\u03b3 \nV \n1 + \u03b1\u03b2\u03b3A \n1 + \u03b1\u03b2\u03b3 1 \ns + \u03b1\u03b2\u03b3 \ns \n29"
+    },
+    {
+      "page": 30,
+      "text": "Motor Controller  \nThe closed loop system has a single pole at s = \u2212\u03b1\u03b2\u03b3. \n\u0398 \n\u03b1\u03b3 \n= \nV\ns + \u03b1\u03b2\u03b3 \nAs \u03b1 increases, the closed-loop pole becomes increasingly negative. \n\u03c3\n\u03c9 s-plane\n30"
+    },
+    {
+      "page": 31,
+      "text": "Motor Controller  \nFind the impulse and step response. \nThe system function is\n\u0398 \n\u03b1\u03b3 \n= \n. \nV\ns + \u03b1\u03b2\u03b3 \nThe impulse response is \nh(t) = \u03b1\u03b3e\u2212\u03b1\u03b2\u03b3t u(t) \nand the step response is therefore \np \n \n1 \n\u2212\u03b1\u03b2\u03b3t\ns(t) = \n1 \u2212 e \n\u03b2 \nThe response is faster for larger values of \u03b1. \nu(t) . \n\u03b8(t)\nt\n1\n\u03b2\n\u03b1 \u2191\nTry it: Demo.  \n31"
+    },
+    {
+      "page": 32,
+      "text": "Motor Controller  \nThe speed of a DC motor does not change instantly if the voltage  \nis stepped. There is lag due to rotational inertia. \n\u03b3A\nV\n\u03981\nFirst-order model\nintegrator\n\u03b3A\n\u0012\npA\n1 + pA\n\u0013\nV\n\u03982\nSecond-order model\nintegrator with lag\nStep response of the models: \nv(t)\n1\nt\nt\n\u03b8(t)\n\u03b81(t) = \u03b3tu(t)\n\u03b82(t) =\n\u0000\u03b3t \u2212\u03b3\np(1 \u2212e\u2212pt)\n\u0001\nu(t)\n32"
+    },
+    {
+      "page": 33,
+      "text": "Motor Controller  \nAnalyze second-order model. \n+\n\u03b1\n\u03b3pA2\n1 + pA\n\u03b2\nv(t)\n\u03b8(t)\nDC motor\nampli\ufb01er\nfeedback\n(potentiometer)\n\u2212\n\u0398 = \n\u03b1\u03b3pA2 \n1+pA \n= \n\u03b1\u03b3pA2 \n= \n\u03b1\u03b3p \nV \n1 + \u03b1\u03b2\u03b3pA2 \n1 + pA + \u03b1\u03b2\u03b3pA2 \ns2 + ps + \u03b1\u03b2\u03b3p \n1+pA\n p\n2\np\np \ns = \u2212\n\u2212 \u03b1\u03b2\u03b3p \n2 \u00b1\n2 \n33\n\u0011"
+    },
+    {
+      "page": 34,
+      "text": "Motor Controller  \nFor second-order model, increasing \u03b1 causes the poles at 0 and \u2212p \nto approach each other, collide at s = \u2212p/2, then split into two poles \nwith imaginary parts. \nIncreasing the gain \u03b1 does not increase speed of convergence. \n\u03c3\n\u03c9 s-plane\n\u2212p\n34"
+    },
+    {
+      "page": 35,
+      "text": "Motor Controller  \nStep response. \nt\ns(t)\n1\n\u03b2\n35"
+    },
+    {
+      "page": 36,
+      "text": "Motor Controller  \nStep response. \nt\ns(t)\n1\n\u03b2\n36"
+    },
+    {
+      "page": 37,
+      "text": "Motor Controller  \nStep response. \nt\ns(t)\n1\n\u03b2\n37"
+    },
+    {
+      "page": 38,
+      "text": "Motor Controller  \nStep response. \nt\ns(t)\n1\n\u03b2\n38"
+    },
+    {
+      "page": 39,
+      "text": "Motor Controller  \nStep response. \nt\ns(t)\n1\n\u03b2\ncos(\u03c9dt + \u03c6)\ne\u2212pt/2\n39"
+    },
+    {
+      "page": 40,
+      "text": "Feedback and Control: Summary  \nCT feedback is useful for many reasons. Today we saw two: \n\u2022  \nincreasing speed and bandwidth \n\u2022  \ncontrolling position instead of speed \nNext time we will look at several others: \n\u2022  \nreduce sensitivity to parameter variation \n\u2022  \nreduce distortion \n\u2022  \nstabilize unstable systems \n\u2212 \nmagnetic levitation \n\u2212 \ninverted pendulum \n40"
+    },
+    {
+      "page": 41,
+      "text": "MIT OpenCourseWare\nhttp://ocw.mit.edu\n6.003 Signals and Systems\nFall 2011\nFor information about citing these materials or our Terms of Use, visit: http://ocw.mit.edu/terms."
+    }
+  ]
+}
