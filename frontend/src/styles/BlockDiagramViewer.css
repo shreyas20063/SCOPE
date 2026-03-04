@@ -5,6 +5,14 @@
 
 /* Main container */
 .block-diagram-viewer {
+  /* Component-scoped design tokens */
+  --bd-surface-translucent: rgba(19, 27, 46, 0.95);
+  --bd-surface-translucent-70: rgba(19, 27, 46, 0.7);
+  --bd-surface-translucent-85: rgba(19, 27, 46, 0.85);
+  --bd-surface-translucent-60: rgba(19, 27, 46, 0.6);
+  --bd-port-output-hover: #60a5fa;
+  --bd-port-input-hover: #f87171;
+
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -50,7 +58,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 1rem;
-  background: rgba(19, 27, 46, 0.95);
+  background: var(--bd-surface-translucent);
   border-bottom: 1px solid rgba(0, 217, 255, 0.1);
   min-height: 48px;
 }
@@ -285,7 +293,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 1rem;
-  background: rgba(19, 27, 46, 0.7);
+  background: var(--bd-surface-translucent-70);
   border-bottom: 1px solid rgba(0, 217, 255, 0.08);
 }
 
@@ -305,13 +313,17 @@
   border: 1px solid rgba(0, 217, 255, 0.15);
   border-radius: var(--radius-md, 8px);
   color: var(--text-primary, #f1f5f9);
-  outline: none;
   transition: border-color var(--transition-fast, 150ms), box-shadow var(--transition-fast, 150ms);
 }
 
 .bd-tf-input:focus {
   border-color: rgba(0, 217, 255, 0.45);
   box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1);
+}
+
+.bd-tf-input:focus-visible {
+  outline: 2px solid var(--accent-color, #00d9ff);
+  outline-offset: 1px;
 }
 
 .bd-tf-input::placeholder {
@@ -351,7 +363,7 @@
   align-items: center;
   gap: 1rem;
   padding: 0.6rem 1.25rem;
-  background: rgba(19, 27, 46, 0.7);
+  background: var(--bd-surface-translucent-70);
   border-bottom: 1px solid rgba(0, 217, 255, 0.08);
   min-height: 44px;
   flex-wrap: wrap;
@@ -474,7 +486,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  background: rgba(19, 27, 46, 0.85);
+  background: var(--bd-surface-translucent-85);
   border: 1px solid rgba(0, 217, 255, 0.15);
   border-radius: var(--radius-md, 8px);
   padding: 4px 6px;
@@ -545,7 +557,7 @@
 
 .bd-block {
   cursor: grab;
-  transition: filter 0.15s ease;
+  transition: filter var(--transition-fast, 150ms) ease;
 }
 
 .bd-block:hover {
@@ -569,7 +581,7 @@
   stroke: var(--bd-block-stroke, #2c7be5);
   stroke-width: 2;
   filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));
-  transition: stroke 0.15s ease, fill 0.15s ease;
+  transition: stroke var(--transition-fast, 150ms) ease, fill var(--transition-fast, 150ms) ease;
 }
 
 .bd-block:hover .bd-block-shape {
@@ -664,7 +676,7 @@
   font-family: 'Inter', sans-serif;
   user-select: none;
   cursor: pointer;
-  transition: fill 0.15s ease;
+  transition: fill var(--transition-fast, 150ms) ease;
 }
 
 .bd-sign-label:hover {
@@ -677,7 +689,7 @@
 
 .bd-gain-edit-hint {
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--transition-fast, 150ms) ease;
   pointer-events: none;
 }
 
@@ -701,11 +713,11 @@
    ============================================================================ */
 
 .bd-port {
-  fill: rgba(19, 27, 46, 0.85);
+  fill: var(--bd-surface-translucent-85);
   stroke: rgba(148, 163, 184, 0.6);
   stroke-width: 2;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast, 150ms) ease;
 }
 
 .bd-port:hover {
@@ -723,7 +735,7 @@
 
 .bd-port-output:hover {
   fill: rgba(59, 130, 246, 0.4);
-  stroke: #60a5fa;
+  stroke: var(--bd-port-output-hover);
   filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.5));
 }
 
@@ -734,7 +746,7 @@
 
 .bd-port-input:hover {
   fill: rgba(239, 68, 68, 0.4);
-  stroke: #f87171;
+  stroke: var(--bd-port-input-hover);
   filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.5));
 }
 
@@ -767,7 +779,7 @@
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: stroke 0.15s ease, stroke-width 0.15s ease;
+  transition: stroke var(--transition-fast, 150ms) ease, stroke-width var(--transition-fast, 150ms) ease;
   pointer-events: none;
 }
 
@@ -909,8 +921,12 @@
   border: 2px solid var(--accent-color, #00d9ff);
   border-radius: var(--radius-md, 8px);
   color: var(--text-primary, #f1f5f9);
-  outline: none;
   box-shadow: 0 0 16px rgba(0, 217, 255, 0.35), 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.bd-gain-edit-input:focus-visible {
+  outline: 2px solid var(--accent-color, #00d9ff);
+  outline-offset: 2px;
 }
 
 /* ============================================================================
@@ -984,7 +1000,7 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  background: rgba(19, 27, 46, 0.6);
+  background: var(--bd-surface-translucent-60);
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
@@ -1262,16 +1278,16 @@
 }
 
 [data-theme="light"] .bd-canvas-container {
-  background: #f8fafc;
+  background: var(--background-secondary, #f8fafc);
 }
 
 [data-theme="light"] .bd-block-shape {
-  fill: #f8fbff;
-  stroke: #2c7be5;
+  fill: var(--surface-color, #f8fbff);
+  stroke: var(--secondary-color, #3b82f6);
 }
 
 [data-theme="light"] .bd-wire {
-  stroke: #007acc;
+  stroke: var(--secondary-color, #3b82f6);
 }
 
 [data-theme="light"] .bd-side-panel {
@@ -1288,16 +1304,16 @@
 }
 
 [data-theme="light"] .bd-loading-bar-inner {
-  background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+  background: linear-gradient(90deg, transparent, var(--secondary-color, #3b82f6), transparent);
 }
 
 [data-theme="light"] .bd-gain-edit-input {
-  background: #fff;
-  border-color: #3b82f6;
+  background: var(--background-color, #fff);
+  border-color: var(--secondary-color, #3b82f6);
 }
 
 [data-theme="light"] .bd-preset-menu {
-  background: #fff;
+  background: var(--background-color, #fff);
   border-color: rgba(0, 0, 0, 0.1);
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12);
 }

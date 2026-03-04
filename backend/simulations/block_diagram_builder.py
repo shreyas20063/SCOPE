@@ -18,6 +18,8 @@ direct cascade for acyclic graphs.
 
 import copy
 import numpy as np
+from collections import deque
+from itertools import combinations
 from typing import Any, Dict, List, Optional, Tuple
 from .base_simulator import BaseSimulator
 import re
@@ -119,9 +121,8 @@ class BlockDiagramSimulator(BaseSimulator):
         self._tf_result: Optional[Dict[str, Any]] = None
         self._error: Optional[str] = None
         self._next_block_id = 0
-        self._history: List[Tuple[Dict, List, int]] = []
-        self._redo_history: List[Tuple[Dict, List, int]] = []
-        self._max_history = 30
+        self._history: deque = deque(maxlen=30)
+        self._redo_history: deque = deque(maxlen=30)
 
     def _gen_block_id(self) -> str:
         """Generate unique block ID."""
@@ -135,8 +136,7 @@ class BlockDiagramSimulator(BaseSimulator):
             copy.deepcopy(self.connections),
             self._next_block_id,
         ))
-        if len(self._history) > self._max_history:
-            self._history.pop(0)
+        # deque(maxlen=30) auto-evicts oldest entries
         # Clear redo on new action
         self._redo_history.clear()
 
@@ -170,14 +170,17 @@ class BlockDiagramSimulator(BaseSimulator):
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
         """Update a parameter (system_type or mode)."""
         if name in self.parameters:
-            self.parameters[name] = self._validate_param(name, value)
+            sanitized = self._validate_param(name, value)
+            self.parameters[name] = sanitized
+        else:
+            sanitized = value
 
         if name == "system_type":
-            self.system_type = value
+            self.system_type = sanitized
             # Recompute TF when switching system type
             self._recompute_tf()
         elif name == "mode":
-            self.mode = value
+            self.mode = sanitized
 
         return self.get_state()
 
@@ -226,6 +229,8 @@ class BlockDiagramSimulator(BaseSimulator):
 
     def _action_add_block(self, params: Dict[str, Any]) -> None:
         """Add a new block to the diagram."""
+        if len(self.blocks) >= 30:
+            raise ValueError("Maximum 30 blocks allowed.")
         self._save_history()
         block_type = params.get("block_type", "gain")
         position = params.get("position", {"x": 408, "y": 240})
@@ -254,7 +259,10 @@ class BlockDiagramSimulator(BaseSimulator):
 
         # Set default value for gain and constant blocks
         if block_type in ("gain", "constant"):
-            block["value"] = float(value) if value is not None else type_def.get("default_value", 1.0)
+            raw_val = float(value) if value is not None else type_def.get("default_value", 1.0)
+            if not np.isfinite(raw_val):
+                raise ValueError("Gain/constant value must be a finite number.")
+            block["value"] = raw_val
         elif block_type == "adder":
             # Signs for each input port: default both positive
             block["signs"] = params.get("signs", ["+", "+", "+"])
@@ -298,7 +306,10 @@ class BlockDiagramSimulator(BaseSimulator):
             raise ValueError(f"Block not found: {block_id}")
         block = self.blocks[block_id]
         if block["type"] in ("gain", "constant"):
-            block["value"] = float(value)
+            val = float(value)
+            if not np.isfinite(val):
+                raise ValueError("Gain/constant value must be a finite number.")
+            block["value"] = val
         self._recompute_tf()
 
     def _action_add_connection(self, params: Dict[str, Any]) -> None:
@@ -459,10 +470,14 @@ class BlockDiagramSimulator(BaseSimulator):
         tf_string = params.get("tf_string", "")
         self.tf_input = tf_string
         self._parse_transfer_function(tf_string)
+        # Auto-arrange so the diagram is clean before showing to user
+        self._action_auto_arrange({})
 
     def _action_set_mode(self, params: Dict[str, Any]) -> None:
         """Switch between build and parse mode."""
         mode = params.get("mode", "build")
+        if mode not in ("build", "parse"):
+            raise ValueError(f"Invalid mode: {mode}")
         self.mode = mode
         self.parameters["mode"] = mode
 
@@ -470,6 +485,8 @@ class BlockDiagramSimulator(BaseSimulator):
         """Switch between DT and CT. Clears the diagram since block types differ."""
         self._save_history()
         system_type = params.get("system_type", "dt")
+        if system_type not in ("dt", "ct"):
+            raise ValueError(f"Invalid system type: {system_type}")
         self.system_type = system_type
         self.parameters["system_type"] = system_type
         # Clear diagram — delay blocks are invalid in CT, integrators in DT
@@ -672,18 +689,18 @@ class BlockDiagramSimulator(BaseSimulator):
 
         # --- Find forward path: blocks on ANY acyclic path from input to output ---
         fwd_from_input = set(input_ids)
-        q = list(input_ids)
+        q = deque(input_ids)
         while q:
-            n = q.pop(0)
+            n = q.popleft()
             for nb in acyclic_out.get(n, set()):
                 if nb not in fwd_from_input:
                     fwd_from_input.add(nb)
                     q.append(nb)
 
         bwd_from_output = set(output_ids)
-        q = list(output_ids)
+        q = deque(output_ids)
         while q:
-            n = q.pop(0)
+            n = q.popleft()
             for nb in acyclic_in.get(n, set()):
                 if nb not in bwd_from_output:
                     bwd_from_output.add(nb)
@@ -701,11 +718,11 @@ class BlockDiagramSimulator(BaseSimulator):
                 fw_out[fb].add(tb)
                 fw_in_deg[tb] += 1
 
-        q = sorted([b for b in forward_set if fw_in_deg[b] == 0],
-                    key=lambda b: (0 if self.blocks[b]["type"] == "input" else 1, b))
+        q = deque(sorted([b for b in forward_set if fw_in_deg[b] == 0],
+                         key=lambda b: (0 if self.blocks[b]["type"] == "input" else 1, b)))
         fw_topo = []
         while q:
-            n = q.pop(0)
+            n = q.popleft()
             fw_topo.append(n)
             for nb in fw_out.get(n, set()):
                 fw_in_deg[nb] -= 1
@@ -1131,6 +1148,7 @@ class BlockDiagramSimulator(BaseSimulator):
         # Find all forward paths and loops
         forward_paths = []
         all_loops = []
+        seen_loops: set = set()
         self._dfs_forward_paths(
             input_id, output_id, incoming, outgoing,
             [input_id], set([input_id]), forward_paths
@@ -1138,7 +1156,7 @@ class BlockDiagramSimulator(BaseSimulator):
         for start_bid in block_ids:
             self._dfs_loops(
                 start_bid, start_bid, outgoing,
-                [start_bid], set([start_bid]), all_loops
+                [start_bid], set([start_bid]), all_loops, seen_loops
             )
 
         if not forward_paths:
@@ -1217,8 +1235,8 @@ class BlockDiagramSimulator(BaseSimulator):
 
         def compute_delta(loops: List[List[str]]) -> Tuple[np.ndarray, np.ndarray]:
             """Compute graph determinant Δ from a set of loops.
-            Δ = 1 - Σ L_i + Σ (non-touching pairs) L_i·L_j - ...
-            Cap at triples for performance (sufficient for most diagrams).
+            Δ = 1 - Σ L_i + Σ (non-touching pairs) L_i·L_j - Σ (triples) + ...
+            Generalized to all group sizes using itertools.combinations.
             """
             # Start with Δ = 1
             d_num = np.array([1.0])
@@ -1231,49 +1249,52 @@ class BlockDiagramSimulator(BaseSimulator):
             loop_gains = [compute_loop_gain(lp) for lp in loops]
             n_loops = len(loop_gains)
 
-            # Subtract individual loop gains: - Σ L_i
-            for ln, ld in loop_gains:
-                d_num = self._psub(
-                    self._pmul(d_num, ld),
-                    self._pmul(ln, d_den)
-                )
-                d_den = self._pmul(d_den, ld)
+            # Precompute loop node sets for fast non-touching checks
+            loop_sets = [set(lp) for lp in loops]
 
-            # Add non-touching pairs: + Σ L_i · L_j
-            if n_loops >= 2 and n_loops <= 20:
-                for i in range(n_loops):
-                    for j in range(i + 1, n_loops):
-                        if loops_are_non_touching(loops[i], loops[j]):
-                            pair_num = self._pmul(loop_gains[i][0], loop_gains[j][0])
-                            pair_den = self._pmul(loop_gains[i][1], loop_gains[j][1])
+            # For k = 1, 2, ..., n_loops: add (-1)^k * sum of products
+            # of non-touching k-tuples
+            for k in range(1, n_loops + 1):
+                # Safety cap for very large diagrams
+                if n_loops > 20 and k > 4:
+                    break
+                sign_positive = (k % 2 == 0)  # k=1: subtract, k=2: add, ...
+                found_any = False
+
+                for combo in combinations(range(n_loops), k):
+                    # Check all pairs in combo are mutually non-touching
+                    all_non_touching = True
+                    for ci in range(len(combo)):
+                        for cj in range(ci + 1, len(combo)):
+                            if not loop_sets[combo[ci]].isdisjoint(loop_sets[combo[cj]]):
+                                all_non_touching = False
+                                break
+                        if not all_non_touching:
+                            break
+
+                    if all_non_touching:
+                        found_any = True
+                        prod_num = np.array([1.0])
+                        prod_den = np.array([1.0])
+                        for idx in combo:
+                            prod_num = self._pmul(prod_num, loop_gains[idx][0])
+                            prod_den = self._pmul(prod_den, loop_gains[idx][1])
+
+                        if sign_positive:
                             d_num = self._padd(
-                                self._pmul(d_num, pair_den),
-                                self._pmul(pair_num, d_den)
+                                self._pmul(d_num, prod_den),
+                                self._pmul(prod_num, d_den)
                             )
-                            d_den = self._pmul(d_den, pair_den)
+                        else:
+                            d_num = self._psub(
+                                self._pmul(d_num, prod_den),
+                                self._pmul(prod_num, d_den)
+                            )
+                        d_den = self._pmul(d_den, prod_den)
 
-            # Subtract non-touching triples: - Σ L_i · L_j · L_k
-            if n_loops >= 3 and n_loops <= 20:
-                for i in range(n_loops):
-                    for j in range(i + 1, n_loops):
-                        if not loops_are_non_touching(loops[i], loops[j]):
-                            continue
-                        for k in range(j + 1, n_loops):
-                            if (loops_are_non_touching(loops[i], loops[k]) and
-                                    loops_are_non_touching(loops[j], loops[k])):
-                                tri_num = self._pmul(
-                                    self._pmul(loop_gains[i][0], loop_gains[j][0]),
-                                    loop_gains[k][0]
-                                )
-                                tri_den = self._pmul(
-                                    self._pmul(loop_gains[i][1], loop_gains[j][1]),
-                                    loop_gains[k][1]
-                                )
-                                d_num = self._psub(
-                                    self._pmul(d_num, tri_den),
-                                    self._pmul(tri_num, d_den)
-                                )
-                                d_den = self._pmul(d_den, tri_den)
+                # If no non-touching groups of size k exist, no larger groups can either
+                if not found_any:
+                    break
 
             return d_num, d_den
 
@@ -1433,26 +1454,35 @@ class BlockDiagramSimulator(BaseSimulator):
                 if next_block != target:
                     visited.discard(next_block)
 
+    @staticmethod
+    def _block_sort_key(bid: str) -> Tuple:
+        """Numeric sort key for block IDs to avoid lexicographic ordering bugs."""
+        m = re.search(r'\d+$', bid)
+        return (int(m.group()) if m else 0, bid)
+
     def _dfs_loops(
         self, start: str, current: str,
         outgoing: Dict,
         path: List[str], visited: set,
-        results: List[List[str]]
+        results: List[List[str]],
+        seen_loops: set
     ) -> None:
         """Find all loops starting from start via DFS."""
         for next_block in outgoing.get(current, []):
             if next_block == start and len(path) > 1:
                 # Found a loop - normalize to avoid duplicates
                 loop = list(path)
-                # Normalize: rotate so smallest ID is first
-                min_idx = loop.index(min(loop))
+                # Normalize: rotate so numerically-smallest ID is first
+                min_idx = loop.index(min(loop, key=self._block_sort_key))
                 normalized = loop[min_idx:] + loop[:min_idx]
-                if normalized not in results:
+                key = tuple(normalized)
+                if key not in seen_loops:
+                    seen_loops.add(key)
                     results.append(normalized)
             elif next_block not in visited:
                 visited.add(next_block)
                 path.append(next_block)
-                self._dfs_loops(start, next_block, outgoing, path, visited, results)
+                self._dfs_loops(start, next_block, outgoing, path, visited, results, seen_loops)
                 path.pop()
                 visited.discard(next_block)
 
@@ -1702,6 +1732,8 @@ class BlockDiagramSimulator(BaseSimulator):
         """
         if not tf_string.strip():
             raise ValueError("Please enter a transfer function expression.")
+        if len(tf_string) > 500:
+            raise ValueError("Expression too long (max 500 characters).")
 
         # Clean up input
         tf_clean = tf_string.strip()
@@ -2024,7 +2056,7 @@ class BlockDiagramSimulator(BaseSimulator):
         self, num_coeffs: List[float], den_coeffs: List[float]
     ) -> None:
         """
-        Generate a direct-form-II transposed block diagram from TF coefficients.
+        Generate a Direct Form I block diagram from TF coefficients.
 
         For H(R) = (b0 + b1*R + b2*R^2) / (1 + a1*R + a2*R^2)
         (note: den_coeffs stores as-is, e.g. '1 - 0.5R' -> [1, -0.5])
@@ -2567,8 +2599,17 @@ class BlockDiagramSimulator(BaseSimulator):
         try:
             from scipy.signal import impulse, step, lti
             sys = lti(s_num, s_den)
-            t_imp, imp_resp = impulse(sys, N=500)
-            t_step, step_resp = step(sys, N=500)
+            # Estimate suitable time range from poles
+            poles = np.roots(s_den)
+            real_parts = np.abs(np.real(poles[np.isfinite(poles)]))
+            if len(real_parts) > 0 and np.max(real_parts) > 1e-6:
+                t_end = max(10.0, 5.0 / np.min(real_parts[real_parts > 1e-6]) if np.any(real_parts > 1e-6) else 10.0)
+            else:
+                t_end = 10.0
+            t_end = min(t_end, 100.0)  # Cap at 100s
+            T = np.linspace(0, t_end, 500)
+            t_imp, imp_resp = impulse(sys, T=T)
+            t_step, step_resp = step(sys, T=T)
         except Exception:
             # Fallback with simple time vector
             t_imp = np.linspace(0, 10, 500)
@@ -2620,21 +2661,9 @@ class BlockDiagramSimulator(BaseSimulator):
         }
 
     def _filter_signal(self, b: np.ndarray, a: np.ndarray, x: np.ndarray) -> np.ndarray:
-        """Apply IIR filter (difference equation) to signal x."""
-        N = len(x)
-        y = np.zeros(N)
-        nb = len(b)
-        na = len(a)
-        for n in range(N):
-            # Feedforward
-            for k in range(min(nb, n + 1)):
-                y[n] += b[k] * x[n - k]
-            # Feedback
-            for k in range(1, min(na, n + 1)):
-                y[n] -= a[k] * y[n - k]
-            if abs(a[0]) > 1e-12:
-                y[n] /= a[0]
-        return y
+        """Apply IIR filter (difference equation) to signal x using scipy."""
+        from scipy.signal import lfilter
+        return lfilter(b, a, x)
 
     # =========================================================================
     # State

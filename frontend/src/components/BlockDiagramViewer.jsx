@@ -142,11 +142,12 @@ function analyzeSignalFlow(blocks, connections) {
     }
   }
 
-  // Forward reachable from inputs
+  // Forward reachable from inputs (use index-based queue instead of shift())
   const fwdFromInput = new Set(inputIds);
   let q = [...inputIds];
-  while (q.length > 0) {
-    const n = q.shift();
+  let qi = 0;
+  while (qi < q.length) {
+    const n = q[qi++];
     for (const nb of (acyclicOut[n] || [])) {
       if (!fwdFromInput.has(nb)) { fwdFromInput.add(nb); q.push(nb); }
     }
@@ -155,8 +156,9 @@ function analyzeSignalFlow(blocks, connections) {
   // Backward reachable from outputs
   const bwdFromOutput = new Set(outputIds);
   q = [...outputIds];
-  while (q.length > 0) {
-    const n = q.shift();
+  qi = 0;
+  while (qi < q.length) {
+    const n = q[qi++];
     for (const nb of (acyclicIn[n] || [])) {
       if (!bwdFromOutput.has(nb)) { bwdFromOutput.add(nb); q.push(nb); }
     }
@@ -174,8 +176,8 @@ function analyzeSignalFlow(blocks, connections) {
     }
 
     if (!forwardSet.has(blockId)) {
-      // Feedback block → LTR (cleaner wiring with auto_arrange layout)
-      dirs[blockId] = 'ltr';
+      // Feedback block → RTL (textbook convention: feedback flows right-to-left)
+      dirs[blockId] = 'rtl';
     } else {
       // Forward path block → LTR by default, RTL if source is spatially to the right
       let sourceBlock = null;
@@ -710,12 +712,56 @@ function tryGeometricRoutes(sx, sy, sd, ex, ey, ed, obsBlocks, bodyBlocks = []) 
 }
 
 /**
+ * Binary min-heap for efficient A* priority queue — O(log n) push/pop.
+ */
+class MinHeap {
+  constructor() { this.data = []; }
+  get size() { return this.data.length; }
+  push(node) {
+    this.data.push(node);
+    this._bubbleUp(this.data.length - 1);
+  }
+  pop() {
+    const top = this.data[0];
+    const last = this.data.pop();
+    if (this.data.length > 0) {
+      this.data[0] = last;
+      this._sinkDown(0);
+    }
+    return top;
+  }
+  _bubbleUp(i) {
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (this.data[i].f < this.data[parent].f) {
+        [this.data[i], this.data[parent]] = [this.data[parent], this.data[i]];
+        i = parent;
+      } else break;
+    }
+  }
+  _sinkDown(i) {
+    const n = this.data.length;
+    while (true) {
+      let smallest = i;
+      const l = 2 * i + 1, r = 2 * i + 2;
+      if (l < n && this.data[l].f < this.data[smallest].f) smallest = l;
+      if (r < n && this.data[r].f < this.data[smallest].f) smallest = r;
+      if (smallest !== i) {
+        [this.data[i], this.data[smallest]] = [this.data[smallest], this.data[i]];
+        i = smallest;
+      } else break;
+    }
+  }
+}
+
+/**
  * A* Manhattan router — fallback when geometric routes fail.
- * Clean single-strategy implementation with strong turn penalty.
+ * Uses binary min-heap for O(n log n) performance.
+ * Strong turn penalty produces clean textbook-quality right-angled wires.
  */
 function astarRoute(sx, sy, sd, ex, ey, ed, allBlocks, excludeIds) {
   const G = GRID_SIZE;
-  const MAX_ITER = 8000;
+  const MAX_ITER = 10000;
 
   // Snap start/end
   const startX = snapToGrid(sx), startY = snapToGrid(sy);
@@ -725,10 +771,23 @@ function astarRoute(sx, sy, sd, ex, ey, ed, allBlocks, excludeIds) {
 
   // Build obstacle grid — real blocks are obstacles (skip wire zone pseudo-blocks)
   // Source/target: body-only padding (ports stay accessible via bypass corridors)
-  // Other blocks: full airspace padding (COLLISION_PAD)
+  // Other blocks: full airspace padding (COLLISION_PAD) — strict no-fly zone
   const blocked = new Set();
   for (const block of Object.values(allBlocks)) {
-    if (block._bounds) continue; // Wire zones handled by geometric router only
+    if (block._bounds) {
+      // Wire zone pseudo-blocks: use their pre-computed bounds directly
+      const b = block._bounds;
+      const left = Math.floor(b.left / G) * G;
+      const right = Math.ceil(b.right / G) * G;
+      const top = Math.floor(b.top / G) * G;
+      const bottom = Math.ceil(b.bottom / G) * G;
+      for (let gx = left; gx <= right; gx += G) {
+        for (let gy = top; gy <= bottom; gy += G) {
+          blocked.add(`${gx},${gy}`);
+        }
+      }
+      continue;
+    }
     const padding = excludeIds.includes(block.id) ? 2 : COLLISION_PAD;
     const bounds = getBlockBounds(block, padding);
     const left = Math.floor(bounds.left / G) * G;
@@ -742,7 +801,7 @@ function astarRoute(sx, sy, sd, ex, ey, ed, allBlocks, excludeIds) {
     }
   }
 
-  // Bypass: allow start, end, and their immediate corridors
+  // Bypass: allow start, end, and their immediate corridors (port exits)
   const bypass = new Set([`${startX},${startY}`, `${endX},${endY}`]);
   const addCorridor = (px, py, dir, steps) => {
     for (let i = 1; i <= steps; i++) {
@@ -757,22 +816,26 @@ function astarRoute(sx, sy, sd, ex, ey, ed, allBlocks, excludeIds) {
   addCorridor(startX, startY, sd, 3);
   addCorridor(endX, endY, ed, 3);
 
-  // A* search
+  // A* search with binary min-heap
   const heuristic = (x, y) => Math.abs(endX - x) + Math.abs(endY - y);
-  const openMap = new Map();
-  const closedSet = new Set();
+  const bestG = new Map(); // key → best g-score seen
+  const heap = new MinHeap();
   const h0 = heuristic(startX, startY);
   const startNode = { x: startX, y: startY, g: 0, h: h0, f: h0, parent: null, dir: sd };
-  openMap.set(`${startX},${startY}`, startNode);
-  const open = [startNode];
+  heap.push(startNode);
+  bestG.set(`${startX},${startY}`, 0);
 
-  const dirs = [[G, 0, 'right'], [-G, 0, 'left'], [0, G, 'down'], [0, -G, 'up']];
+  const dirMoves = [[G, 0, 'right'], [-G, 0, 'left'], [0, G, 'down'], [0, -G, 'up']];
   let iter = 0;
 
-  while (open.length > 0 && iter < MAX_ITER) {
+  while (heap.size > 0 && iter < MAX_ITER) {
     iter++;
-    const current = open.shift();
+    const current = heap.pop();
     const key = `${current.x},${current.y}`;
+
+    // Skip if we've already found a better path to this node
+    const recordedG = bestG.get(key);
+    if (recordedG !== undefined && recordedG < current.g) continue;
 
     if (current.x === endX && current.y === endY) {
       // Reconstruct path
@@ -782,43 +845,165 @@ function astarRoute(sx, sy, sd, ex, ey, ed, allBlocks, excludeIds) {
       return simplifyPath(path);
     }
 
-    closedSet.add(key);
-    openMap.delete(key);
-
-    for (const [ddx, ddy, dirName] of dirs) {
+    for (const [ddx, ddy, dirName] of dirMoves) {
       const nx = current.x + ddx, ny = current.y + ddy;
       const nKey = `${nx},${ny}`;
 
-      if (closedSet.has(nKey)) continue;
       if (blocked.has(nKey) && !bypass.has(nKey)) continue;
 
       let stepCost = G;
-      // Strong turn penalty: prefer straight segments (fewer bends = textbook quality)
-      if (dirName === current.dir) stepCost *= 0.7;
-      else stepCost *= 2.0;
+      // Very strong turn penalty: prefer straight segments (textbook quality)
+      if (dirName === current.dir) stepCost *= 0.6;
+      else stepCost *= 2.5;
       // Prefer forward/down flow (natural signal direction)
-      if (dirName === 'right' || dirName === 'down') stepCost *= 0.92;
+      if (dirName === 'right' || dirName === 'down') stepCost *= 0.90;
       // First move must match port exit direction
-      if (current.parent === null && dirName !== sd) stepCost *= 4.0;
+      if (current.parent === null && dirName !== sd) stepCost *= 5.0;
 
       const ng = current.g + stepCost;
+
+      // Skip if we already have a better path to this neighbor
+      const existingG = bestG.get(nKey);
+      if (existingG !== undefined && existingG <= ng) continue;
+      bestG.set(nKey, ng);
+
       const nh = heuristic(nx, ny);
-      const existing = openMap.get(nKey);
-      if (existing && existing.g <= ng) continue;
-
       const newNode = { x: nx, y: ny, g: ng, h: nh, f: ng + nh, parent: current, dir: dirName };
-      openMap.set(nKey, newNode);
-
-      // Insert sorted by f
-      let inserted = false;
-      for (let i = 0; i < open.length; i++) {
-        if (newNode.f < open[i].f) { open.splice(i, 0, newNode); inserted = true; break; }
-      }
-      if (!inserted) open.push(newNode);
+      heap.push(newNode);
     }
   }
 
   return null; // A* failed
+}
+
+/**
+ * Detect all crossing points between routed wires.
+ * Only checks horizontal-vs-vertical segment intersections (Manhattan routing).
+ * Returns array of { wireIdx, x, y } where wireIdx is the wire that gets the bridge.
+ */
+function detectWireCrossings(allRoutes, siblingSets) {
+  const crossingMap = {}; // wireIdx → [{x, y}]
+
+  for (let i = 0; i < allRoutes.length; i++) {
+    if (!allRoutes[i] || allRoutes[i].length < 2) continue;
+    for (let j = i + 1; j < allRoutes.length; j++) {
+      if (!allRoutes[j] || allRoutes[j].length < 2) continue;
+      // Skip sibling wires (same source port — they share a branch point)
+      if (siblingSets[i] && siblingSets[i].has(j)) continue;
+
+      const routeA = allRoutes[i];
+      const routeB = allRoutes[j];
+
+      for (let si = 0; si < routeA.length - 1; si++) {
+        const [ax1, ay1] = routeA[si];
+        const [ax2, ay2] = routeA[si + 1];
+
+        for (let sj = 0; sj < routeB.length - 1; sj++) {
+          const [bx1, by1] = routeB[sj];
+          const [bx2, by2] = routeB[sj + 1];
+
+          // Check H-V or V-H crossing
+          const aIsH = Math.abs(ay1 - ay2) < 1;
+          const aIsV = Math.abs(ax1 - ax2) < 1;
+          const bIsH = Math.abs(by1 - by2) < 1;
+          const bIsV = Math.abs(bx1 - bx2) < 1;
+
+          let crossX, crossY;
+          if (aIsH && bIsV) {
+            crossY = ay1;
+            crossX = bx1;
+            const aMinX = Math.min(ax1, ax2), aMaxX = Math.max(ax1, ax2);
+            const bMinY = Math.min(by1, by2), bMaxY = Math.max(by1, by2);
+            if (crossX > aMinX && crossX < aMaxX && crossY > bMinY && crossY < bMaxY) {
+              // Wire drawn later (higher index) gets the bridge
+              const bridgeWire = j;
+              if (!crossingMap[bridgeWire]) crossingMap[bridgeWire] = [];
+              crossingMap[bridgeWire].push({ x: crossX, y: crossY });
+            }
+          } else if (aIsV && bIsH) {
+            crossX = ax1;
+            crossY = by1;
+            const bMinX = Math.min(bx1, bx2), bMaxX = Math.max(bx1, bx2);
+            const aMinY = Math.min(ay1, ay2), aMaxY = Math.max(ay1, ay2);
+            if (crossX > bMinX && crossX < bMaxX && crossY > aMinY && crossY < aMaxY) {
+              const bridgeWire = j;
+              if (!crossingMap[bridgeWire]) crossingMap[bridgeWire] = [];
+              crossingMap[bridgeWire].push({ x: crossX, y: crossY });
+            }
+          }
+        }
+      }
+    }
+  }
+  return crossingMap;
+}
+
+/**
+ * Build an SVG path string with bridge arcs at wire crossing points.
+ * At each crossing, inserts a small semicircular arc (bump) to indicate no junction.
+ */
+function buildPathWithBridges(points, crossings) {
+  if (!points || points.length === 0) return '';
+  if (!crossings || crossings.length === 0) return pointsToPath(points);
+
+  const BRIDGE_R = 7; // Bridge arc radius in pixels
+  let d = `M ${points[0][0]} ${points[0][1]}`;
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const [x1, y1] = points[i];
+    const [x2, y2] = points[i + 1];
+
+    // Find crossings on this segment
+    const isH = Math.abs(y1 - y2) < 1;
+    const isV = Math.abs(x1 - x2) < 1;
+
+    // Filter crossings that fall on this segment
+    const segCrossings = crossings.filter(c => {
+      if (isH) {
+        const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+        return Math.abs(c.y - y1) < 1 && c.x > minX + BRIDGE_R && c.x < maxX - BRIDGE_R;
+      }
+      if (isV) {
+        const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+        return Math.abs(c.x - x1) < 1 && c.y > minY + BRIDGE_R && c.y < maxY - BRIDGE_R;
+      }
+      return false;
+    });
+
+    if (segCrossings.length === 0) {
+      d += ` L ${x2} ${y2}`;
+      continue;
+    }
+
+    // Sort crossings along segment direction
+    if (isH) {
+      const dir = x2 > x1 ? 1 : -1;
+      segCrossings.sort((a, b) => (a.x - b.x) * dir);
+      let cx = x1;
+      for (const c of segCrossings) {
+        // Draw line to just before the crossing, then arc over it
+        d += ` L ${c.x - BRIDGE_R * dir} ${y1}`;
+        // Semicircular arc: sweep direction depends on wire direction
+        d += ` A ${BRIDGE_R} ${BRIDGE_R} 0 0 ${dir > 0 ? 1 : 0} ${c.x + BRIDGE_R * dir} ${y1}`;
+        cx = c.x + BRIDGE_R * dir;
+      }
+      d += ` L ${x2} ${y2}`;
+    } else if (isV) {
+      const dir = y2 > y1 ? 1 : -1;
+      segCrossings.sort((a, b) => (a.y - b.y) * dir);
+      let cy = y1;
+      for (const c of segCrossings) {
+        d += ` L ${x1} ${c.y - BRIDGE_R * dir}`;
+        d += ` A ${BRIDGE_R} ${BRIDGE_R} 0 0 ${dir > 0 ? 0 : 1} ${x1} ${c.y + BRIDGE_R * dir}`;
+        cy = c.y + BRIDGE_R * dir;
+      }
+      d += ` L ${x2} ${y2}`;
+    } else {
+      d += ` L ${x2} ${y2}`;
+    }
+  }
+
+  return d;
 }
 
 /**
@@ -1188,13 +1373,18 @@ function JunctionBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPort
 // Wire Components
 // ============================================================================
 
-function Wire({ precomputedRoute, isNew, isSelected, onWireClick, onWireMouseDown, onWireDoubleClick }) {
+function Wire({ precomputedRoute, crossings, isNew, isSelected, onWireClick, onWireMouseDown, onWireDoubleClick }) {
   if (!precomputedRoute) return null;
-  const d = pointsToPath(precomputedRoute);
+  // Build path with bridge arcs at crossing points
+  const d = (crossings && crossings.length > 0)
+    ? buildPathWithBridges(precomputedRoute, crossings)
+    : pointsToPath(precomputedRoute);
+  // Hit area always uses simple path (no arcs) for reliable click detection
+  const hitD = pointsToPath(precomputedRoute);
 
   return (
     <g className={`bd-wire-group ${isNew ? 'bd-wire-new' : ''} ${isSelected ? 'bd-wire-selected' : ''}`}>
-      <path d={d} className="bd-wire-hit" onClick={onWireClick} onMouseDown={onWireMouseDown} onDoubleClick={onWireDoubleClick} />
+      <path d={hitD} className="bd-wire-hit" onClick={onWireClick} onMouseDown={onWireMouseDown} onDoubleClick={onWireDoubleClick} />
       <path d={d} className="bd-wire" markerEnd="url(#arrowhead)" />
     </g>
   );
@@ -1254,7 +1444,7 @@ function exportPNG(svgElement) {
   const ctx = canvas.getContext('2d');
   const img = new Image();
   img.onload = () => {
-    ctx.fillStyle = '#0a0e27';
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--background-color').trim() || '#0a0e27';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     canvas.toBlob(blob => {
@@ -1874,7 +2064,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
 
   // 4. Centralized wire routing — route wires sequentially so each wire
   //    avoids previously-routed wire paths (prevents overlapping wires)
-  const wireRoutes = useMemo(() => {
+  //    Also detects wire crossings and returns a per-wire crossing map.
+  const { wireRoutes, wireCrossingMap } = useMemo(() => {
     const WIRE_PAD = 6; // 6px exclusion zone around each routed wire segment
     const routes = [];
     const wireZoneBlocks = []; // Fake blocks representing previously-routed wire segments
@@ -1940,7 +2131,10 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       }
     }
 
-    return routes;
+    // Post-process: detect wire crossings and build per-wire crossing map
+    const crossingMap = detectWireCrossings(routes, siblingSet);
+
+    return { wireRoutes: routes, wireCrossingMap: crossingMap };
   }, [connections, blocks, blockFlowDir, adderPortMap, autoBranchMap]);
 
   // Available block types
@@ -1961,7 +2155,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     adder: '\u2295', delay: '\u25FB', integrator: '\u222B', junction: '\u25CF',
   };
 
-  // Gain edit position
+  // Gain edit position — only recompute when editing a gain block or view changes
   const gainEditPos = useMemo(() => {
     if (!gainEditBlock || !blocks[gainEditBlock] || !svgRef.current) return null;
     const block = blocks[gainEditBlock];
@@ -1972,7 +2166,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     const screenX = block.position.x * ctm.a + ctm.e - svgRect.left;
     const screenY = (block.position.y - 35) * ctm.d + ctm.f - svgRect.top;
     return { left: screenX, top: screenY };
-  }, [gainEditBlock, blocks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gainEditBlock, zoom, panOffset]);
 
   // Export handlers
   const handleExportSVG = useCallback(() => exportSVG(svgRef.current), []);
@@ -2005,16 +2200,16 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
         <div className="bd-toolbar-section">
           <span className="bd-toolbar-label">Mode</span>
           <div className="bd-toggle-group">
-            <button className={`bd-toggle-btn ${mode === 'build' ? 'active' : ''}`} onClick={() => handleModeChange('build')}>Build</button>
-            <button className={`bd-toggle-btn ${mode === 'parse' ? 'active' : ''}`} onClick={() => handleModeChange('parse')}>Parse TF</button>
+            <button className={`bd-toggle-btn ${mode === 'build' ? 'active' : ''}`} onClick={() => handleModeChange('build')} aria-pressed={mode === 'build'} aria-label="Build mode">Build</button>
+            <button className={`bd-toggle-btn ${mode === 'parse' ? 'active' : ''}`} onClick={() => handleModeChange('parse')} aria-pressed={mode === 'parse'} aria-label="Parse transfer function mode">Parse TF</button>
           </div>
         </div>
 
         <div className="bd-toolbar-section">
           <span className="bd-toolbar-label">Type</span>
           <div className="bd-toggle-group">
-            <button className={`bd-toggle-btn ${systemType === 'dt' ? 'active' : ''}`} onClick={() => handleSystemTypeChange('dt')}>DT</button>
-            <button className={`bd-toggle-btn ${systemType === 'ct' ? 'active' : ''}`} onClick={() => handleSystemTypeChange('ct')}>CT</button>
+            <button className={`bd-toggle-btn ${systemType === 'dt' ? 'active' : ''}`} onClick={() => handleSystemTypeChange('dt')} aria-pressed={systemType === 'dt'} aria-label="Discrete-time system">DT</button>
+            <button className={`bd-toggle-btn ${systemType === 'ct' ? 'active' : ''}`} onClick={() => handleSystemTypeChange('ct')} aria-pressed={systemType === 'ct'} aria-label="Continuous-time system">CT</button>
           </div>
         </div>
 
@@ -2027,14 +2222,11 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
           <button className="bd-action-btn bd-redo-btn" onClick={handleRedo} title="Redo (Ctrl+Shift+Z)">
             <span className="bd-btn-icon">&#x21AA;</span> Redo
           </button>
-          <button className="bd-action-btn" onClick={handleAutoArrange} title="Auto Arrange">
-            <span className="bd-btn-icon">&#x2630;</span> Arrange
-          </button>
           <button className="bd-action-btn bd-clear-btn" onClick={handleClear}>
             <span className="bd-btn-icon">&times;</span> Clear
           </button>
           <div className="bd-preset-dropdown" ref={presetRef}>
-            <button className={`bd-action-btn bd-preset-toggle ${presetOpen ? 'open' : ''}`} onClick={() => setPresetOpen(!presetOpen)}>
+            <button className={`bd-action-btn bd-preset-toggle ${presetOpen ? 'open' : ''}`} onClick={() => setPresetOpen(!presetOpen)} aria-expanded={presetOpen} aria-haspopup="true" aria-label="Load preset diagram">
               Presets {presetOpen ? '\u25B4' : '\u25BE'}
             </button>
             {presetOpen && (
@@ -2155,6 +2347,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
               <Wire
                 key={`${conn.from_block}-${conn.to_block}-${conn.to_port}-${i}`}
                 precomputedRoute={wireRoutes[i]}
+                crossings={wireCrossingMap[i]}
                 isNew={i === newWireIndex} isSelected={i === selectedWire}
                 onWireClick={(e) => handleWireClick(e, i)}
                 onWireMouseDown={(e) => handleWireMouseDown(e, i)}
