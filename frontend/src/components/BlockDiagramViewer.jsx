@@ -1303,6 +1303,8 @@ function CustomTfBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPort
   const flipped = flowDir === 'rtl';
   const hw = BLOCK_SIZES.custom_tf.width / 2, hh = BLOCK_SIZES.custom_tf.height / 2;
   const expression = block.expression || '1';
+  const label = block.label || (systemType === 'ct' ? 'H(s)' : 'H(z)');
+  const convertedFrom = block.converted_from;
   const latexStr = tfExprToLatex(expression, systemType);
 
   // Render KaTeX to HTML string
@@ -1324,6 +1326,19 @@ function CustomTfBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPort
       transform={`translate(${x}, ${y})`}
     >
       <rect x={-hw} y={-hh} width={hw*2} height={hh*2} rx={8} className="bd-block-shape bd-block-custom-tf-rect" />
+      {/* Label above the block */}
+      <text x={0} y={-hh - 6} textAnchor="middle" className="bd-custom-tf-label">
+        {label}
+      </text>
+      {/* Conversion badge */}
+      {convertedFrom && (
+        <g transform={`translate(${hw - 2}, ${-hh + 2})`}>
+          <rect x={-14} y={-8} width={28} height={14} rx={4} className="bd-custom-tf-converted-badge" />
+          <text x={0} y={0} textAnchor="middle" dominantBaseline="middle" className="bd-custom-tf-converted-text">
+            {convertedFrom}→{systemType === 'dt' ? 'R' : 'A'}
+          </text>
+        </g>
+      )}
       <foreignObject x={-hw + 4} y={-hh + 2} width={hw*2 - 8} height={hh*2 - 4}
         style={{ pointerEvents: 'none', overflow: 'visible' }}>
         <div xmlns="http://www.w3.org/1999/xhtml"
@@ -1576,6 +1591,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   const [tfDialogOpen, setTfDialogOpen] = useState(false);
   const [tfDialogBlockId, setTfDialogBlockId] = useState(null);
   const [tfDialogValue, setTfDialogValue] = useState('');
+  const [tfDialogLabel, setTfDialogLabel] = useState('');
   const [tfDialogError, setTfDialogError] = useState('');
   const [selectedTfBlock, setSelectedTfBlock] = useState(null);
   // Drag-and-drop from toolbar
@@ -1926,6 +1942,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     if (block?.type === 'custom_tf') {
       setTfDialogBlockId(blockId);
       setTfDialogValue(block.expression || '1');
+      setTfDialogLabel(block.label || '');
       setTfDialogError('');
       setTfDialogOpen(true);
       setSelectedBlock(blockId);
@@ -1941,6 +1958,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     try {
       const result = await api.executeSimulation(simId, 'update_block_value', {
         block_id: tfDialogBlockId, value: tfDialogValue.trim(),
+        ...(tfDialogLabel.trim() && { label: tfDialogLabel.trim() }),
       });
       if (result.success && result.data) {
         const meta = result.data.metadata || result.metadata;
@@ -1966,7 +1984,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     } finally {
       setIsLoading(false);
     }
-  }, [tfDialogBlockId, tfDialogValue, simId, saveUndoSnapshot, onMetadataChange]);
+  }, [tfDialogBlockId, tfDialogValue, tfDialogLabel, simId, saveUndoSnapshot, onMetadataChange]);
 
   const handleTfDialogCancel = useCallback(() => {
     setTfDialogOpen(false);
@@ -2505,7 +2523,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
             <option value="">Select a block...</option>
             {customTfBlocks.map(b => (
               <option key={b.id} value={b.id}>
-                {b.id}: {b.expression || 'H(z)'}
+                {b.label || b.id}: {b.expression || '1'}
+                {b.converted_from ? ` (${b.converted_from}→R)` : ''}
               </option>
             ))}
           </select>
@@ -2678,27 +2697,54 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
             <h3 className="bd-tf-dialog-title">
               Edit Transfer Function {tfDialogBlockId && <span className="bd-tf-dialog-block-id">({tfDialogBlockId})</span>}
             </h3>
-            <div className="bd-tf-dialog-preview">
-              {(() => {
-                try {
-                  const latex = tfExprToLatex(tfDialogValue || '1', systemType);
-                  return <span dangerouslySetInnerHTML={{ __html: katex.renderToString(latex, { throwOnError: false, displayMode: true }) }} />;
-                } catch {
-                  return <span style={{ color: 'var(--text-muted)' }}>Preview unavailable</span>;
-                }
-              })()}
+            <div className="bd-tf-dialog-field">
+              <label className="bd-tf-dialog-field-label">Label</label>
+              <input
+                className="bd-tf-dialog-input bd-tf-dialog-label-input"
+                value={tfDialogLabel}
+                onChange={(e) => setTfDialogLabel(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleTfDialogSubmit();
+                  if (e.key === 'Escape') handleTfDialogCancel();
+                }}
+                placeholder={systemType === 'dt' ? 'e.g. G(z), Plant, Controller' : 'e.g. G(s), Plant, Controller'}
+                maxLength={30}
+              />
             </div>
-            <input
-              className="bd-tf-dialog-input"
-              value={tfDialogValue}
-              onChange={(e) => { setTfDialogValue(e.target.value); setTfDialogError(''); }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleTfDialogSubmit();
-                if (e.key === 'Escape') handleTfDialogCancel();
-              }}
-              placeholder={systemType === 'dt' ? 'e.g. (1+2R)/(1-0.5R)' : 'e.g. (s+1)/(s^2+2s+1)'}
-              autoFocus
-            />
+            <div className="bd-tf-dialog-field">
+              <label className="bd-tf-dialog-field-label">Expression</label>
+              <div className="bd-tf-dialog-preview">
+                {(() => {
+                  try {
+                    const latex = tfExprToLatex(tfDialogValue || '1', systemType);
+                    return <span dangerouslySetInnerHTML={{ __html: katex.renderToString(latex, { throwOnError: false, displayMode: true }) }} />;
+                  } catch {
+                    return <span style={{ color: 'var(--text-muted)' }}>Preview unavailable</span>;
+                  }
+                })()}
+              </div>
+              <input
+                className="bd-tf-dialog-input"
+                value={tfDialogValue}
+                onChange={(e) => { setTfDialogValue(e.target.value); setTfDialogError(''); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleTfDialogSubmit();
+                  if (e.key === 'Escape') handleTfDialogCancel();
+                }}
+                placeholder={systemType === 'dt' ? 'e.g. (1+2R)/(1-0.5R) or 1/(s+1)' : 'e.g. (s+1)/(s^2+2s+1)'}
+                autoFocus
+              />
+              {systemType === 'dt' && /(?<![a-zA-Z])s(?![a-zA-Z])/.test(tfDialogValue) && (
+                <div className="bd-tf-dialog-hint">
+                  s-domain detected — will auto-convert to R-domain (discrete-time)
+                </div>
+              )}
+              {systemType === 'dt' && /(?<![a-zA-Z])z(?![a-zA-Z])/i.test(tfDialogValue) && (
+                <div className="bd-tf-dialog-hint">
+                  z-domain detected — will auto-convert to R-domain
+                </div>
+              )}
+            </div>
             {tfDialogError && <div className="bd-tf-dialog-error">{tfDialogError}</div>}
             <div className="bd-tf-dialog-actions">
               <button className="bd-tf-dialog-btn bd-tf-dialog-cancel" onClick={handleTfDialogCancel}>Cancel</button>

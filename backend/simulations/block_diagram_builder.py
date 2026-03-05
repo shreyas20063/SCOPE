@@ -271,6 +271,9 @@ class BlockDiagramSimulator(BaseSimulator):
             block["expression"] = "1"
             block["num_coeffs"] = [1.0]
             block["den_coeffs"] = [1.0]
+            # User-defined label, e.g. "G(s)", "H(z)", "Plant"
+            default_label = "H(z)" if self.system_type == "dt" else "H(s)"
+            block["label"] = params.get("label", default_label)
 
         self.blocks[block_id] = block
         self._recompute_tf()
@@ -321,18 +324,65 @@ class BlockDiagramSimulator(BaseSimulator):
                 raise ValueError("Transfer function expression cannot be empty.")
             if len(expr) > 200:
                 raise ValueError("Transfer function expression too long (max 200 chars).")
-            # Determine variable name based on system type
-            var = "R" if self.system_type == "dt" else "A"
-            # Parse using existing _parse_ratio (returns (num_coeffs, den_coeffs))
-            num_coeffs, den_coeffs = self._parse_ratio(expr, var)
+            # Auto-detect variable in the expression
+            tf_clean = re.sub(r'H\([^)]*\)\s*=\s*', '', expr).strip()
+            detected_var = None
+            converted_from = None
+            if re.search(r'(?<![a-zA-Z])s(?![a-zA-Z])', tf_clean):
+                detected_var = "s"
+            elif re.search(r'(?<![a-zA-Z])z(?![a-zA-Z])', tf_clean, re.IGNORECASE):
+                detected_var = "z"
+            elif re.search(r'(?<![a-zA-Z])R(?![a-zA-Z])', tf_clean):
+                detected_var = "R"
+            elif re.search(r'(?<![a-zA-Z])A(?![a-zA-Z])', tf_clean):
+                detected_var = "A"
+            # Default to native variable if no variable detected (constant)
+            if detected_var is None:
+                detected_var = "R" if self.system_type == "dt" else "A"
+            # Parse with the detected variable
+            num_coeffs, den_coeffs = self._parse_ratio(expr, detected_var)
+            # Convert if the detected domain doesn't match system type
+            if self.system_type == "dt" and detected_var == "s":
+                # s-domain entered in DT mode: s → A → reverse to R
+                # s → A conversion (A = 1/s)
+                num_a, den_a = self._s_to_a_coeffs(num_coeffs, den_coeffs)
+                # A-domain is structurally identical to R-domain (both are
+                # unit-operator polynomials in low-power-first order), so the
+                # coefficients can be used directly as R-domain coefficients.
+                num_coeffs, den_coeffs = num_a, den_a
+                converted_from = "s"
+            elif self.system_type == "dt" and detected_var == "A":
+                # A (CT operator) entered in DT: treat coefficients as R-domain
+                converted_from = "A"
+            elif self.system_type == "ct" and detected_var in ("R", "z"):
+                # DT expression entered in CT mode: not a meaningful conversion
+                raise ValueError(
+                    f"Cannot use {detected_var}-domain expression in continuous-time mode. "
+                    "Use 's' or 'A' as the variable."
+                )
+            elif detected_var == "z":
+                # z-domain in DT: convert z → R
+                uses_neg_z = bool(re.search(r'z\s*\^\s*-', tf_clean, re.IGNORECASE))
+                if not uses_neg_z:
+                    num_coeffs, den_coeffs = self._z_to_r_coeffs(num_coeffs, den_coeffs)
+                converted_from = "z"
             # Validate all coefficients are finite
             if not all(np.isfinite(c) for c in num_coeffs):
                 raise ValueError("Numerator contains non-finite coefficients.")
             if not all(np.isfinite(c) for c in den_coeffs):
                 raise ValueError("Denominator contains non-finite coefficients.")
             block["expression"] = expr
-            block["num_coeffs"] = num_coeffs
-            block["den_coeffs"] = den_coeffs
+            block["num_coeffs"] = list(num_coeffs)
+            block["den_coeffs"] = list(den_coeffs)
+            if converted_from:
+                block["converted_from"] = converted_from
+        # Update label if provided (for custom_tf blocks)
+        label = params.get("label")
+        if label is not None and block["type"] == "custom_tf":
+            label_str = str(label).strip()
+            if len(label_str) > 30:
+                raise ValueError("Label too long (max 30 characters).")
+            block["label"] = label_str
         self._recompute_tf()
 
     def _action_add_connection(self, params: Dict[str, Any]) -> None:

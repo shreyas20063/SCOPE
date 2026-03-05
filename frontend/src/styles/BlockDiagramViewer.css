@@ -1344,6 +1344,30 @@
   filter: drop-shadow(0 0 8px rgba(0, 217, 255, 0.4));
 }
 
+.bd-custom-tf-label {
+  fill: var(--text-secondary, #94a3b8);
+  font-size: 11px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+}
+
+.bd-block-selected .bd-custom-tf-label {
+  fill: var(--accent-color, #00d9ff);
+}
+
+.bd-custom-tf-converted-badge {
+  fill: rgba(245, 158, 11, 0.2);
+  stroke: rgba(245, 158, 11, 0.5);
+  stroke-width: 1;
+}
+
+.bd-custom-tf-converted-text {
+  fill: #f59e0b;
+  font-size: 7px;
+  font-family: 'Fira Code', monospace;
+  font-weight: 600;
+}
+
 /* ============================================================================
    TF Management Panel
    ============================================================================ */
@@ -1479,6 +1503,35 @@
   border-color: var(--accent-color, #00d9ff);
   box-shadow: 0 0 0 2px rgba(0, 217, 255, 0.15);
   outline: none;
+}
+
+.bd-tf-dialog-field {
+  margin-bottom: 12px;
+}
+
+.bd-tf-dialog-field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.bd-tf-dialog-label-input {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+}
+
+.bd-tf-dialog-hint {
+  font-size: 11px;
+  color: #f59e0b;
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: var(--radius-sm, 6px);
+  border-left: 2px solid #f59e0b;
 }
 
 .bd-tf-dialog-error {
