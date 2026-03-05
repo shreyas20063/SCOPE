@@ -1298,6 +1298,260 @@ function tfExprToLatex(expression, systemType) {
   return expr;
 }
 
+// ============================================================================
+// Signal Flow Graph (SFG) conversion
+// ============================================================================
+
+const SFG_NODE_TYPES = { input: 'source', output: 'sink', adder: 'sum', junction: 'branch' };
+
+function convertToSFG(blocks, connections, systemType, flowDirMap) {
+  const nodes = [];
+  const edges = [];
+  const nodeMap = {};
+
+  const addNode = (id, label, x, y, type) => {
+    const node = { id, label, x, y, type };
+    nodes.push(node);
+    nodeMap[id] = node;
+  };
+
+  // 1. Create SFG nodes from block types
+  for (const block of Object.values(blocks)) {
+    const { x, y } = block.position;
+    const type = block.type;
+
+    if (type === 'input') {
+      const lbl = block.label || (systemType === 'ct' ? 'x(t)' : 'x[n]');
+      addNode(`${block.id}`, lbl, x, y, 'source');
+    } else if (type === 'output') {
+      const lbl = block.label || (systemType === 'ct' ? 'y(t)' : 'y[n]');
+      addNode(`${block.id}`, lbl, x, y, 'sink');
+    } else if (type === 'adder') {
+      addNode(`${block.id}`, '+', x, y, 'sum');
+    } else if (type === 'junction') {
+      addNode(`${block.id}`, '', x, y, 'branch');
+    } else if (type === 'gain' || type === 'delay' || type === 'integrator' || type === 'custom_tf') {
+      // Transfer-function blocks create two nodes (in/out) and an internal edge
+      const inX = x - PORT_DIST;
+      const outX = x + PORT_DIST;
+      addNode(`${block.id}_in`, '', inX, y, 'intermediate');
+      addNode(`${block.id}_out`, '', outX, y, 'intermediate');
+
+      // Internal edge with the block's transfer function
+      let gain, gainLatex;
+      if (type === 'gain') {
+        const v = block.value ?? 1;
+        gain = String(v);
+        gainLatex = String(v);
+      } else if (type === 'delay') {
+        gain = systemType === 'ct' ? 'e^{-sT}' : 'R';
+        gainLatex = systemType === 'ct' ? 'e^{-sT}' : 'z^{-1}';
+      } else if (type === 'integrator') {
+        gain = systemType === 'ct' ? '1/s' : '1/(1-R)';
+        gainLatex = systemType === 'ct' ? '\\frac{1}{s}' : '\\frac{1}{1-z^{-1}}';
+      } else if (type === 'custom_tf') {
+        const expr = block.expression || '1';
+        gain = expr;
+        gainLatex = tfExprToLatex(expr, systemType);
+        if (gainLatex === (systemType === 'ct' ? 'H(s)' : 'H(z)')) {
+          gainLatex = '1'; // Default expression
+          gain = '1';
+        }
+      }
+      edges.push({
+        from: `${block.id}_in`, to: `${block.id}_out`,
+        gain, gainLatex, isInternal: true,
+      });
+    }
+  }
+
+  // 2. Create wire edges from connections
+  for (const conn of connections) {
+    const fromBlock = blocks[conn.from_block];
+    const toBlock = blocks[conn.to_block];
+    if (!fromBlock || !toBlock) continue;
+
+    // Determine source SFG node
+    const fromType = fromBlock.type;
+    let sourceNode;
+    if (fromType === 'adder' || fromType === 'junction') {
+      sourceNode = `${conn.from_block}`;
+    } else if (fromType === 'input') {
+      sourceNode = `${conn.from_block}`;
+    } else {
+      sourceNode = `${conn.from_block}_out`;
+    }
+
+    // Determine target SFG node
+    const toType = toBlock.type;
+    let targetNode;
+    if (toType === 'adder' || toType === 'junction') {
+      targetNode = `${conn.to_block}`;
+    } else if (toType === 'output') {
+      targetNode = `${conn.to_block}`;
+    } else {
+      targetNode = `${conn.to_block}_in`;
+    }
+
+    // Determine gain (handle adder negative signs)
+    let gain = '1';
+    let gainLatex = '1';
+    if (toType === 'adder' && toBlock.signs) {
+      const sign = toBlock.signs[conn.to_port];
+      if (sign === '-') {
+        gain = '-1';
+        gainLatex = '-1';
+      }
+    }
+
+    if (nodeMap[sourceNode] && nodeMap[targetNode]) {
+      edges.push({
+        from: sourceNode, to: targetNode,
+        gain, gainLatex, isInternal: false,
+      });
+    }
+  }
+
+  return { nodes, edges };
+}
+
+// ============================================================================
+// SFG rendering components
+// ============================================================================
+
+const SFG_NODE_RADIUS = { source: 20, sink: 20, sum: 18, branch: 7, intermediate: 14 };
+
+function SFGNode({ node }) {
+  const { x, y, label, type } = node;
+  const r = SFG_NODE_RADIUS[type] || 14;
+  const ringR = r + 6;
+  const isBranch = type === 'branch';
+
+  return (
+    <g className={`sfg-node sfg-node-${type}`} transform={`translate(${x}, ${y})`}>
+      {/* Outer glow ring */}
+      {!isBranch && (
+        <circle r={ringR} className="sfg-node-ring" />
+      )}
+      {/* Main body */}
+      <circle r={r} className="sfg-node-body" />
+      {/* Label */}
+      {label && (
+        <text x={0} y={type === 'sum' ? 1 : 0} textAnchor="middle" dominantBaseline="central" className="sfg-node-label">
+          {label}
+        </text>
+      )}
+      {/* Node ID underneath for source/sink */}
+      {(type === 'source' || type === 'sink') && (
+        <text x={0} y={r + 14} textAnchor="middle" className="sfg-node-id">
+          {node.id}
+        </text>
+      )}
+    </g>
+  );
+}
+
+function SFGEdge({ edge, nodesMap, edgeIndex, parallelOffset }) {
+  const fromNode = nodesMap[edge.from];
+  const toNode = nodesMap[edge.to];
+  if (!fromNode || !toNode) return null;
+
+  const x1 = fromNode.x, y1 = fromNode.y;
+  const x2 = toNode.x, y2 = toNode.y;
+  const dx = x2 - x1, dy = y2 - y1;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  const isUnity = edge.gain === '1';
+  const isNegative = edge.gain === '-1';
+  const isSelfLoop = edge.from === edge.to;
+  const isFeedback = dx < -10; // right-to-left
+
+  // Compute edge path
+  let d, labelX, labelY;
+
+  if (isSelfLoop) {
+    // Teardrop self-loop above the node
+    const loopR = 35;
+    d = `M ${x1 - 8} ${y1 - (SFG_NODE_RADIUS[fromNode.type] || 14)}
+         C ${x1 - loopR} ${y1 - loopR * 2.2}, ${x1 + loopR} ${y1 - loopR * 2.2}, ${x1 + 8} ${y1 - (SFG_NODE_RADIUS[fromNode.type] || 14)}`;
+    labelX = x1;
+    labelY = y1 - loopR * 2 - 8;
+  } else {
+    // Curvature proportional to distance, with offset for parallel edges
+    const baseCurve = Math.min(60, Math.max(25, dist * 0.15));
+    const offset = baseCurve + (parallelOffset || 0) * 25;
+
+    // Perpendicular offset direction
+    const nx = -dy / (dist || 1);
+    const ny = dx / (dist || 1);
+
+    // Feedback edges curve below, forward edges curve above
+    const sign = isFeedback ? 1 : -1;
+    const curveScale = isFeedback ? offset * 1.5 : offset;
+
+    const cx = (x1 + x2) / 2 + nx * curveScale * sign;
+    const cy = (y1 + y2) / 2 + ny * curveScale * sign;
+
+    // Offset start/end points by node radius to avoid overlap
+    const fromR = SFG_NODE_RADIUS[fromNode.type] || 14;
+    const toR = SFG_NODE_RADIUS[toNode.type] || 14;
+
+    // Direction from start to control point for tangent exit
+    const cdx1 = cx - x1, cdy1 = cy - y1;
+    const cLen1 = Math.sqrt(cdx1 * cdx1 + cdy1 * cdy1) || 1;
+    const sx = x1 + (cdx1 / cLen1) * fromR;
+    const sy = y1 + (cdy1 / cLen1) * fromR;
+
+    // Direction from control point to end for tangent entry
+    const cdx2 = x2 - cx, cdy2 = y2 - cy;
+    const cLen2 = Math.sqrt(cdx2 * cdx2 + cdy2 * cdy2) || 1;
+    const ex = x2 - (cdx2 / cLen2) * toR;
+    const ey = y2 - (cdy2 / cLen2) * toR;
+
+    d = `M ${sx} ${sy} Q ${cx} ${cy}, ${ex} ${ey}`;
+
+    // Label at parametric t=0.5 of the quadratic bezier
+    labelX = 0.25 * sx + 0.5 * cx + 0.25 * ex;
+    labelY = 0.25 * sy + 0.5 * cy + 0.25 * ey;
+  }
+
+  const edgeClass = `sfg-edge ${isFeedback ? 'sfg-edge-feedback' : 'sfg-edge-forward'} ${isUnity ? 'sfg-edge-unity' : ''} ${isNegative ? 'sfg-edge-negative' : ''}`;
+
+  // Determine if we need KaTeX or plain text
+  const needsKatex = edge.gainLatex && (edge.gainLatex.includes('\\') || edge.gainLatex.includes('^') || edge.gainLatex.includes('_'));
+  let labelHtml = '';
+  if (needsKatex) {
+    try {
+      labelHtml = katex.renderToString(edge.gainLatex, { throwOnError: false, displayMode: false });
+    } catch {
+      labelHtml = '';
+    }
+  }
+
+  const markerRef = isFeedback ? 'url(#sfg-arrow-feedback)' : 'url(#sfg-arrow-forward)';
+
+  return (
+    <g className={edgeClass}>
+      <path d={d} className="sfg-edge-path" markerEnd={markerRef} />
+      {/* Gain label */}
+      {!isUnity && (
+        needsKatex && labelHtml ? (
+          <foreignObject x={labelX - 40} y={labelY - 14} width={80} height={28} style={{ overflow: 'visible', pointerEvents: 'none' }}>
+            <div className="sfg-edge-label sfg-edge-label-katex" dangerouslySetInnerHTML={{ __html: labelHtml }} />
+          </foreignObject>
+        ) : (
+          <g>
+            <rect x={labelX - 14} y={labelY - 10} width={28} height={20} rx={10} className="sfg-edge-label-bg" />
+            <text x={labelX} y={labelY} textAnchor="middle" dominantBaseline="central" className={`sfg-edge-label-text ${isNegative ? 'sfg-edge-label-negative' : ''}`}>
+              {edge.gain}
+            </text>
+          </g>
+        )
+      )}
+    </g>
+  );
+}
+
 function CustomTfBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMouseUp, onTfDoubleClick, flowDir = 'ltr', systemType = 'dt' }) {
   const { x, y } = block.position;
   const flipped = flowDir === 'rtl';
@@ -1596,6 +1850,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   const [selectedTfBlock, setSelectedTfBlock] = useState(null);
   // Drag-and-drop from toolbar
   const [dragOver, setDragOver] = useState(false);
+  // View mode: 'block' (traditional block diagram) or 'sfg' (Mason's Signal Flow Graph)
+  const [viewMode, setViewMode] = useState('block');
   const panStart = useRef({ x: 0, y: 0, ox: 0, oy: 0 });
 
   const svgRef = useRef(null);
@@ -1772,6 +2028,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   }, [blocks, mutatingAction]);
 
   const handleBlockMouseDown = useCallback((e, blockId) => {
+    if (viewMode === 'sfg') return;
     if (e.button !== 0) return;
     e.stopPropagation();
     const { x: svgX, y: svgY } = getSvgCoords(e.clientX, e.clientY);
@@ -1782,7 +2039,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     setSelectedBlock(blockId);
     setSelectedWire(null);
     setGainEditBlock(null);
-  }, [blocks, getSvgCoords]);
+  }, [blocks, getSvgCoords, viewMode]);
 
   const handleSvgMouseMove = useCallback((e) => {
     const { x: svgX, y: svgY } = getSvgCoords(e.clientX, e.clientY);
@@ -1817,15 +2074,17 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   const handlePortMouseDown = useCallback((e, blockId, portType, portIndex, portX, portY, portDir) => {
     e.preventDefault();
     e.stopPropagation();
+    if (viewMode === 'sfg') return;
     if (wireStart) return;
     // Don't start a wire from a port already used as input (has incoming wire)
     if (connections.some(c => c.to_block === blockId && c.to_port === portIndex)) return;
     setWireStart({ blockId, portIndex, x: portX, y: portY, dir: portDir || 'right' });
-  }, [wireStart, connections]);
+  }, [viewMode, wireStart, connections]);
 
   const handlePortMouseUp = useCallback((e, blockId, portType, portIndex) => {
     e.preventDefault();
     e.stopPropagation();
+    if (viewMode === 'sfg') return;
     if (wireStart && wireStart.blockId !== blockId) {
       const targetBlock = blocks[blockId];
       const targetPos = targetBlock ? getPortPosition(targetBlock, 'input', portIndex) : null;
@@ -1872,7 +2131,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       setNewWireIndex(connections.length);
     }
     setWireStart(null);
-  }, [wireStart, mutatingAction, blocks, connections]);
+  }, [viewMode, wireStart, mutatingAction, blocks, connections]);
 
   // Undo/Redo
   const handleUndo = useCallback(() => {
@@ -1896,7 +2155,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       e.preventDefault(); handleUndo(); return;
     }
     const isTyping = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
-    if ((e.key === 'Delete' || e.key === 'Backspace') && !gainEditBlock && !tfDialogOpen && !isTyping) {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !gainEditBlock && !tfDialogOpen && !isTyping && viewMode !== 'sfg') {
       e.preventDefault();
       if (selectedWire !== null) {
         mutatingAction('remove_connection', { conn_index: selectedWire });
@@ -1906,7 +2165,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
         setSelectedBlock(null);
       }
     }
-  }, [selectedBlock, selectedWire, gainEditBlock, tfDialogOpen, mutatingAction, handleUndo, handleRedo]);
+  }, [selectedBlock, selectedWire, gainEditBlock, tfDialogOpen, mutatingAction, handleUndo, handleRedo, viewMode]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -2069,6 +2328,29 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     () => computeAdderPorts(blocks, connections),
     [blocks, connections]
   );
+
+  // 3. Signal Flow Graph — derived visualization
+  const sfgGraph = useMemo(() => {
+    if (viewMode !== 'sfg') return null;
+    return convertToSFG(blocks, connections, systemType, blockFlowDir);
+  }, [viewMode, blocks, connections, systemType, blockFlowDir]);
+
+  // Pre-compute SFG helpers: node map + parallel edge offsets
+  const { sfgNodesMap, sfgEdgeOffsets } = useMemo(() => {
+    if (!sfgGraph) return { sfgNodesMap: {}, sfgEdgeOffsets: [] };
+    const nMap = {};
+    for (const n of sfgGraph.nodes) nMap[n.id] = n;
+    // Count parallel edges between same node pairs for offset
+    const pairCount = {};
+    const offsets = sfgGraph.edges.map((edge) => {
+      const key = [edge.from, edge.to].sort().join('|');
+      pairCount[key] = (pairCount[key] || 0);
+      const offset = pairCount[key];
+      pairCount[key]++;
+      return offset;
+    });
+    return { sfgNodesMap: nMap, sfgEdgeOffsets: offsets };
+  }, [sfgGraph]);
 
   // Wire interactions
   const handleWireClick = useCallback((e, connIndex) => {
@@ -2423,6 +2705,14 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
           </div>
         </div>
 
+        <div className="bd-toolbar-section">
+          <span className="bd-toolbar-label">View</span>
+          <div className="bd-toggle-group">
+            <button className={`bd-toggle-btn ${viewMode === 'block' ? 'active' : ''}`} onClick={() => setViewMode('block')} aria-pressed={viewMode === 'block'} aria-label="Block diagram view">Diagram</button>
+            <button className={`bd-toggle-btn ${viewMode === 'sfg' ? 'active' : ''}`} onClick={() => setViewMode('sfg')} aria-pressed={viewMode === 'sfg'} aria-label="Signal flow graph view">SFG</button>
+          </div>
+        </div>
+
         <div className="bd-toolbar-divider" />
 
         <div className="bd-toolbar-section bd-toolbar-actions">
@@ -2578,82 +2868,116 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
                 <line x1={GRID_SIZE} y1="0" x2={GRID_SIZE} y2={GRID_SIZE} stroke="var(--bd-grid-color, #e5e5e5)" strokeWidth="0.5" opacity="0.3" />
                 <line x1="0" y1={GRID_SIZE} x2={GRID_SIZE} y2={GRID_SIZE} stroke="var(--bd-grid-color, #e5e5e5)" strokeWidth="0.5" opacity="0.3" />
               </pattern>
+              {/* SFG arrowheads */}
+              <marker id="sfg-arrow-forward" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto">
+                <polygon points="0 0, 10 4, 0 8" fill="var(--accent-color, #00d9ff)" opacity="0.85" />
+              </marker>
+              <marker id="sfg-arrow-feedback" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto">
+                <polygon points="0 0, 10 4, 0 8" fill="var(--warning-color, #f59e0b)" opacity="0.85" />
+              </marker>
+              {/* SFG node glow filter */}
+              <filter id="sfgNodeGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
             </defs>
 
             <rect x={visibleRect.x} y={visibleRect.y} width={visibleRect.width} height={visibleRect.height} fill="url(#grid)" className="bd-grid-bg" />
 
-            {/* Blocked Airspace zones — faint exclusion boundaries */}
-            {Object.values(blocks).map(block => {
-              const bounds = getBlockBounds(block, COLLISION_PAD);
-              return (
-                <rect
-                  key={`airspace-${block.id}`}
-                  x={bounds.left} y={bounds.top}
-                  width={bounds.right - bounds.left}
-                  height={bounds.bottom - bounds.top}
-                  fill="rgba(239, 68, 68, 0.03)"
-                  stroke="rgba(239, 68, 68, 0.12)"
-                  strokeWidth="0.75"
-                  strokeDasharray="4 3"
-                  rx={4}
-                  pointerEvents="none"
-                />
-              );
-            })}
+            {viewMode === 'block' ? (
+              <>
+                {/* Blocked Airspace zones — faint exclusion boundaries */}
+                {Object.values(blocks).map(block => {
+                  const bounds = getBlockBounds(block, COLLISION_PAD);
+                  return (
+                    <rect
+                      key={`airspace-${block.id}`}
+                      x={bounds.left} y={bounds.top}
+                      width={bounds.right - bounds.left}
+                      height={bounds.bottom - bounds.top}
+                      fill="rgba(239, 68, 68, 0.03)"
+                      stroke="rgba(239, 68, 68, 0.12)"
+                      strokeWidth="0.75"
+                      strokeDasharray="4 3"
+                      rx={4}
+                      pointerEvents="none"
+                    />
+                  );
+                })}
 
-            {/* Wires */}
-            {connections.map((conn, i) => (
-              <Wire
-                key={`${conn.from_block}-${conn.to_block}-${conn.to_port}-${i}`}
-                precomputedRoute={wireRoutes[i]}
-                crossings={wireCrossingMap[i]}
-                isNew={i === newWireIndex} isSelected={i === selectedWire}
-                onWireClick={(e) => handleWireClick(e, i)}
-                onWireMouseDown={(e) => handleWireMouseDown(e, i)}
-                onWireDoubleClick={(e) => handleWireBranch(e, i)}
-              />
-            ))}
+                {/* Wires */}
+                {connections.map((conn, i) => (
+                  <Wire
+                    key={`${conn.from_block}-${conn.to_block}-${conn.to_port}-${i}`}
+                    precomputedRoute={wireRoutes[i]}
+                    crossings={wireCrossingMap[i]}
+                    isNew={i === newWireIndex} isSelected={i === selectedWire}
+                    onWireClick={(e) => handleWireClick(e, i)}
+                    onWireMouseDown={(e) => handleWireMouseDown(e, i)}
+                    onWireDoubleClick={(e) => handleWireBranch(e, i)}
+                  />
+                ))}
 
-            {branchPoints.map((pt, i) => (
-              <circle key={`branch-${i}`} cx={pt.x} cy={pt.y} r={5} className="bd-branch-dot" />
-            ))}
+                {branchPoints.map((pt, i) => (
+                  <circle key={`branch-${i}`} cx={pt.x} cy={pt.y} r={5} className="bd-branch-dot" />
+                ))}
 
-            {wireStart && <WireInProgress startPos={wireStart} mousePos={mousePos} />}
-            {connectionFlash && <ConnectionFlash position={connectionFlash.position} success={connectionFlash.success} />}
+                {wireStart && <WireInProgress startPos={wireStart} mousePos={mousePos} />}
+                {connectionFlash && <ConnectionFlash position={connectionFlash.position} success={connectionFlash.success} />}
 
-            {/* Blocks */}
-            {Object.values(blocks).map(block => {
-              const commonProps = {
-                block, isSelected: selectedBlock === block.id,
-                onMouseDown: handleBlockMouseDown,
-                onPortMouseDown: handlePortMouseDown,
-                onPortMouseUp: handlePortMouseUp,
-              };
-              const flowDir = blockFlowDir[block.id] || 'ltr';
-              switch (block.type) {
-                case 'input':
-                  return <InputBlock key={block.id} {...commonProps} systemType={systemType} />;
-                case 'output':
-                  return <OutputBlock key={block.id} {...commonProps} systemType={systemType} />;
-                case 'gain':
-                  return <GainBlock key={block.id} {...commonProps} flowDir={flowDir} onGainDoubleClick={handleGainDoubleClick} />;
-                case 'adder':
-                  return <AdderBlock key={block.id} {...commonProps} onToggleSign={handleToggleSign} dynamicPorts={adderPortMap[block.id]} />;
-                case 'delay':
-                  return <DelayBlock key={block.id} {...commonProps} flowDir={flowDir} />;
-                case 'integrator':
-                  return <IntegratorBlock key={block.id} {...commonProps} flowDir={flowDir} />;
-                case 'junction':
-                  return <JunctionBlock key={block.id} {...commonProps} connections={connections} />;
-                case 'custom_tf':
-                  return <CustomTfBlock key={block.id} {...commonProps} flowDir={flowDir} onTfDoubleClick={handleTfDoubleClick} systemType={systemType} />;
-                default: return null;
-              }
-            })}
+                {/* Blocks */}
+                {Object.values(blocks).map(block => {
+                  const commonProps = {
+                    block, isSelected: selectedBlock === block.id,
+                    onMouseDown: handleBlockMouseDown,
+                    onPortMouseDown: handlePortMouseDown,
+                    onPortMouseUp: handlePortMouseUp,
+                  };
+                  const flowDir = blockFlowDir[block.id] || 'ltr';
+                  switch (block.type) {
+                    case 'input':
+                      return <InputBlock key={block.id} {...commonProps} systemType={systemType} />;
+                    case 'output':
+                      return <OutputBlock key={block.id} {...commonProps} systemType={systemType} />;
+                    case 'gain':
+                      return <GainBlock key={block.id} {...commonProps} flowDir={flowDir} onGainDoubleClick={handleGainDoubleClick} />;
+                    case 'adder':
+                      return <AdderBlock key={block.id} {...commonProps} onToggleSign={handleToggleSign} dynamicPorts={adderPortMap[block.id]} />;
+                    case 'delay':
+                      return <DelayBlock key={block.id} {...commonProps} flowDir={flowDir} />;
+                    case 'integrator':
+                      return <IntegratorBlock key={block.id} {...commonProps} flowDir={flowDir} />;
+                    case 'junction':
+                      return <JunctionBlock key={block.id} {...commonProps} connections={connections} />;
+                    case 'custom_tf':
+                      return <CustomTfBlock key={block.id} {...commonProps} flowDir={flowDir} onTfDoubleClick={handleTfDoubleClick} systemType={systemType} />;
+                    default: return null;
+                  }
+                })}
+              </>
+            ) : (
+              <>
+                {/* Signal Flow Graph view */}
+                {sfgGraph && sfgGraph.edges.map((edge, i) => (
+                  <SFGEdge key={`sfg-e-${i}`} edge={edge} nodesMap={sfgNodesMap} edgeIndex={i} parallelOffset={sfgEdgeOffsets[i]} />
+                ))}
+                {sfgGraph && sfgGraph.nodes.map(node => (
+                  <SFGNode key={`sfg-n-${node.id}`} node={node} />
+                ))}
+                {(!sfgGraph || sfgGraph.nodes.length === 0) && (
+                  <text x={CANVAS_WIDTH / 2} y={CANVAS_HEIGHT / 2} textAnchor="middle" dominantBaseline="central" className="sfg-empty-hint" fill="var(--text-muted, #64748b)" fontSize="16" fontFamily="Inter, sans-serif">
+                    No diagram to convert — add blocks in Diagram view
+                  </text>
+                )}
+              </>
+            )}
           </svg>
 
-          {/* Gain/constant edit overlay */}
-          {gainEditBlock && blocks[gainEditBlock] && gainEditPos && (
+          {/* Gain/constant edit overlay (hidden in SFG mode) */}
+          {viewMode === 'block' && gainEditBlock && blocks[gainEditBlock] && gainEditPos && (
             <div className="bd-gain-edit-overlay" style={{ left: `${gainEditPos.left}px`, top: `${gainEditPos.top}px` }}>
               <label className="bd-gain-edit-label">Gain value</label>
               <input
@@ -2667,7 +2991,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
           )}
 
           {/* Instructions */}
-          {Object.keys(blocks).length === 0 && mode === 'build' && (
+          {Object.keys(blocks).length === 0 && mode === 'build' && viewMode === 'block' && (
             <div className="bd-instructions-overlay">
               <div className="bd-instructions-icon">&#9881;</div>
               <p className="bd-instructions-title">Block Diagram Builder</p>
