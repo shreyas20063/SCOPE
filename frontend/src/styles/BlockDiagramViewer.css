@@ -1638,133 +1638,10 @@
 
 /* --- Nodes --- */
 
+/* SFG view is fully static — no hover effects, no pointer events */
 .sfg-node {
+  pointer-events: none;
   cursor: default;
-}
-
-.sfg-node-ring {
-  fill: none;
-  stroke-width: 1;
-  opacity: 0.2;
-  transition: opacity var(--transition-fast, 150ms);
-}
-
-.sfg-node-body {
-  stroke-width: 2;
-  transition: transform var(--transition-fast, 150ms), stroke var(--transition-fast, 150ms), filter var(--transition-fast, 150ms);
-  transform-origin: center;
-}
-
-.sfg-node:hover .sfg-node-body {
-  transform: scale(1.1);
-  filter: url(#sfgNodeGlow);
-}
-
-.sfg-node:hover .sfg-node-ring {
-  opacity: 0.4;
-}
-
-/* Source & sink: teal */
-.sfg-node-source .sfg-node-ring { stroke: rgba(20, 184, 166, 0.5); }
-.sfg-node-source .sfg-node-body { fill: rgba(20, 184, 166, 0.12); stroke: rgba(20, 184, 166, 0.7); }
-.sfg-node-source:hover .sfg-node-body { stroke: rgba(20, 184, 166, 0.95); }
-
-.sfg-node-sink .sfg-node-ring { stroke: rgba(20, 184, 166, 0.5); }
-.sfg-node-sink .sfg-node-body { fill: rgba(20, 184, 166, 0.12); stroke: rgba(20, 184, 166, 0.7); }
-.sfg-node-sink:hover .sfg-node-body { stroke: rgba(20, 184, 166, 0.95); }
-
-/* Sum (adder): amber */
-.sfg-node-sum .sfg-node-ring { stroke: rgba(245, 158, 11, 0.4); }
-.sfg-node-sum .sfg-node-body { fill: rgba(245, 158, 11, 0.1); stroke: rgba(245, 158, 11, 0.6); }
-.sfg-node-sum:hover .sfg-node-body { stroke: rgba(245, 158, 11, 0.9); }
-
-/* Branch (junction): small filled dot */
-.sfg-node-branch .sfg-node-body {
-  fill: var(--text-secondary, #94a3b8);
-  stroke: none;
-}
-.sfg-node-branch:hover .sfg-node-body {
-  fill: var(--text-primary, #f1f5f9);
-}
-
-/* Intermediate: blue */
-.sfg-node-intermediate .sfg-node-ring { stroke: rgba(59, 130, 246, 0.35); }
-.sfg-node-intermediate .sfg-node-body { fill: rgba(59, 130, 246, 0.08); stroke: rgba(59, 130, 246, 0.5); }
-.sfg-node-intermediate:hover .sfg-node-body { stroke: rgba(59, 130, 246, 0.85); }
-
-/* Node labels */
-.sfg-node-label {
-  fill: var(--text-primary, #f1f5f9);
-  font-size: 13px;
-  font-weight: 600;
-  font-family: 'Inter', -apple-system, sans-serif;
-  pointer-events: none;
-  user-select: none;
-}
-
-.sfg-node-id {
-  fill: var(--text-muted, #64748b);
-  font-size: 10px;
-  font-weight: 500;
-  font-family: 'Fira Code', monospace;
-  pointer-events: none;
-  user-select: none;
-}
-
-/* --- Edges --- */
-
-.sfg-edge-path {
-  fill: none;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-dasharray: 8 4;
-  animation: sfg-flow 1.8s linear infinite;
-}
-
-.sfg-edge-forward .sfg-edge-path {
-  stroke: var(--accent-color, #00d9ff);
-  opacity: 0.8;
-}
-
-.sfg-edge-feedback .sfg-edge-path {
-  stroke: var(--warning-color, #f59e0b);
-  opacity: 0.8;
-}
-
-.sfg-edge:hover .sfg-edge-path {
-  stroke-width: 3;
-  opacity: 1;
-}
-
-.sfg-edge-unity .sfg-edge-path {
-  opacity: 0.3;
-  stroke-dasharray: 4 6;
-}
-
-/* Edge label pill background */
-.sfg-edge-label-bg {
-  fill: var(--surface-color, #131b2e);
-  fill-opacity: 0.9;
-  stroke: var(--border-color, #1e293b);
-  stroke-width: 1;
-}
-
-.sfg-edge-label-text {
-  fill: var(--accent-color, #00d9ff);
-  font-size: 12px;
-  font-weight: 600;
-  font-family: 'Fira Code', monospace;
-  pointer-events: none;
-  user-select: none;
-}
-
-.sfg-edge-negative .sfg-edge-label-text,
-.sfg-edge-label-negative {
-  fill: var(--error-color, #ef4444);
-}
-
-.sfg-edge-feedback .sfg-edge-label-text {
-  fill: var(--warning-color, #f59e0b);
 }
 
 /* KaTeX label in foreignObject */
@@ -1778,33 +1655,8 @@
 }
 
 .sfg-edge-label-katex .katex {
-  font-size: 0.82rem;
-  color: var(--accent-color, #00d9ff);
+  font-size: 0.85rem;
 }
 
-.sfg-edge-feedback .sfg-edge-label-katex .katex {
-  color: var(--warning-color, #f59e0b);
-}
-
-/* Signal flow animation */
-@keyframes sfg-flow {
-  0% { stroke-dashoffset: 24; }
-  100% { stroke-dashoffset: 0; }
-}
-
-/* --- Light mode overrides --- */
-
-[data-theme="light"] .sfg-node-source .sfg-node-body { fill: rgba(20, 184, 166, 0.08); stroke: rgba(20, 184, 166, 0.6); }
-[data-theme="light"] .sfg-node-sink .sfg-node-body { fill: rgba(20, 184, 166, 0.08); stroke: rgba(20, 184, 166, 0.6); }
-[data-theme="light"] .sfg-node-sum .sfg-node-body { fill: rgba(245, 158, 11, 0.06); stroke: rgba(245, 158, 11, 0.5); }
-[data-theme="light"] .sfg-node-intermediate .sfg-node-body { fill: rgba(59, 130, 246, 0.05); stroke: rgba(59, 130, 246, 0.45); }
-[data-theme="light"] .sfg-node-branch .sfg-node-body { fill: #94a3b8; }
-[data-theme="light"] .sfg-node-label { fill: #1e293b; }
-[data-theme="light"] .sfg-node-id { fill: #64748b; }
-[data-theme="light"] .sfg-edge-label-bg { fill: rgba(255, 255, 255, 0.95); stroke: #e2e8f0; }
-[data-theme="light"] .sfg-edge-label-text { fill: #0891b2; }
-[data-theme="light"] .sfg-edge-forward .sfg-edge-path { stroke: #0891b2; }
-[data-theme="light"] .sfg-edge-feedback .sfg-edge-path { stroke: #d97706; }
-[data-theme="light"] .sfg-edge-feedback .sfg-edge-label-text { fill: #d97706; }
+/* Light mode overrides for SFG labels */
 [data-theme="light"] .sfg-edge-label-katex .katex { color: #0891b2; }
-[data-theme="light"] .sfg-edge-feedback .sfg-edge-label-katex .katex { color: #d97706; }
