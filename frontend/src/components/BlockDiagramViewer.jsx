@@ -56,6 +56,7 @@ const BLOCK_SIZES = {
   delay:      { width: 80, height: 60 },
   integrator: { width: 80, height: 60 },
   junction:   { radius: 6 },
+  custom_tf:  { width: 120, height: 65 },
 };
 
 // Max INCOMING wires per block type (synced with backend BLOCK_TYPES inputs).
@@ -68,6 +69,7 @@ const MAX_WIRES = {
   delay:      { in: 1 },
   integrator: { in: 1 },
   junction:   { in: 1 },
+  custom_tf:  { in: 1 },
 };
 
 // Port distance from block center (all multiples of GRID_SIZE)
@@ -101,7 +103,7 @@ function analyzeSignalFlow(blocks, connections) {
   // Assign directions
   for (const blockId of blockIds) {
     const block = blocks[blockId];
-    if (!['gain', 'delay', 'integrator'].includes(block.type)) {
+    if (!['gain', 'delay', 'integrator', 'custom_tf'].includes(block.type)) {
       dirs[blockId] = 'ltr';
       continue;
     }
@@ -170,7 +172,7 @@ function getPortPosition(block, portType, portIndex, _flowDirMap, adderPortMap) 
     return { x: x - PORT_DIST, y, dir: 'left' };
   }
   // Gain / Delay / Integrator: port 0 = LEFT, port 1 = RIGHT (always)
-  if (type === 'gain' || type === 'delay' || type === 'integrator') {
+  if (type === 'gain' || type === 'delay' || type === 'integrator' || type === 'custom_tf') {
     if (portIndex === 0) return { x: x - PORT_DIST, y, dir: 'left' };
     return { x: x + PORT_DIST, y, dir: 'right' };
   }
@@ -1275,6 +1277,85 @@ function IntegratorBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPo
   );
 }
 
+/**
+ * Convert a TF expression string to LaTeX for display on blocks.
+ * e.g. "(1+2R)/(1-0.5R)" → "\\frac{1+2R}{1-0.5R}"
+ */
+function tfExprToLatex(expression, systemType) {
+  if (!expression || expression === '1') {
+    return systemType === 'ct' ? 'H(s)' : 'H(z)';
+  }
+  const expr = expression.trim();
+  // Try to split on "/" that separates numerator/denominator
+  // Handle parenthesized form: (num)/(den) or num/den
+  const ratioMatch = expr.match(/^\(([^)]+)\)\s*\/\s*\(([^)]+)\)$/) ||
+                     expr.match(/^([^/]+)\/(.+)$/);
+  if (ratioMatch) {
+    const num = ratioMatch[1].trim();
+    const den = ratioMatch[2].trim();
+    return `\\frac{${num}}{${den}}`;
+  }
+  return expr;
+}
+
+function CustomTfBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMouseUp, onTfDoubleClick, flowDir = 'ltr', systemType = 'dt' }) {
+  const { x, y } = block.position;
+  const flipped = flowDir === 'rtl';
+  const hw = BLOCK_SIZES.custom_tf.width / 2, hh = BLOCK_SIZES.custom_tf.height / 2;
+  const expression = block.expression || '1';
+  const latexStr = tfExprToLatex(expression, systemType);
+
+  // Render KaTeX to HTML string
+  let latexHtml = '';
+  try {
+    latexHtml = katex.renderToString(latexStr, { throwOnError: false, displayMode: false });
+  } catch {
+    latexHtml = `<span style="font-family:monospace;font-size:11px">${expression}</span>`;
+  }
+
+  const isDefault = expression === '1';
+
+  return (
+    <g
+      className={`bd-block bd-block-custom-tf ${isSelected ? 'bd-block-selected' : ''}`}
+      onMouseDown={(e) => onMouseDown(e, block.id)}
+      onDoubleClick={(e) => { e.stopPropagation(); onTfDoubleClick(block.id); }}
+      transform={`translate(${x}, ${y})`}
+    >
+      <rect x={-hw} y={-hh} width={hw*2} height={hh*2} rx={8} className="bd-block-shape bd-block-custom-tf-rect" />
+      <foreignObject x={-hw + 4} y={-hh + 2} width={hw*2 - 8} height={hh*2 - 4}
+        style={{ pointerEvents: 'none', overflow: 'visible' }}>
+        <div xmlns="http://www.w3.org/1999/xhtml"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '100%', height: '100%',
+            color: isDefault ? 'rgba(148,163,184,0.7)' : 'var(--text-primary, #f1f5f9)',
+            fontSize: expression.length > 15 ? '10px' : expression.length > 10 ? '11px' : '13px',
+            overflow: 'hidden',
+          }}
+          dangerouslySetInnerHTML={{ __html: latexHtml }}
+        />
+      </foreignObject>
+      <g className="bd-gain-edit-hint" transform={`translate(${flipped ? -hw + 10 : hw - 10}, -${hh + 4})`}>
+        <rect x={-10} y={-10} width={20} height={20} rx={5} className="bd-gain-hint-bg" />
+        <text x={0} y={1} textAnchor="middle" dominantBaseline="middle" className="bd-gain-hint-icon">&#9998;</text>
+      </g>
+      <circle
+        cx={-PORT_DIST} cy={0} r={PORT_RADIUS}
+        className={`bd-port ${flipped ? 'bd-port-output' : 'bd-port-input'}`}
+        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 0, x - PORT_DIST, y, 'left'); }}
+        onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 0); }}
+      />
+      <circle
+        cx={PORT_DIST} cy={0} r={PORT_RADIUS}
+        className={`bd-port ${flipped ? 'bd-port-input' : 'bd-port-output'}`}
+        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, block.id, 'any', 1, x + PORT_DIST, y, 'right'); }}
+        onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(e, block.id, 'any', 1); }}
+      />
+    </g>
+  );
+}
+
 function JunctionBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMouseUp, connections = [] }) {
   const { x, y } = block.position;
   const r = BLOCK_SIZES.junction.radius;
@@ -1490,6 +1571,14 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [ctrlHeld, setCtrlHeld] = useState(false);
+  // Custom TF editing state
+  const [tfDialogOpen, setTfDialogOpen] = useState(false);
+  const [tfDialogBlockId, setTfDialogBlockId] = useState(null);
+  const [tfDialogValue, setTfDialogValue] = useState('');
+  const [tfDialogError, setTfDialogError] = useState('');
+  const [selectedTfBlock, setSelectedTfBlock] = useState(null);
+  // Drag-and-drop from toolbar
+  const [dragOver, setDragOver] = useState(false);
   const panStart = useRef({ x: 0, y: 0, ox: 0, oy: 0 });
 
   const svgRef = useRef(null);
@@ -1790,7 +1879,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       e.preventDefault(); handleUndo(); return;
     }
     const isTyping = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
-    if ((e.key === 'Delete' || e.key === 'Backspace') && !gainEditBlock && !isTyping) {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !gainEditBlock && !tfDialogOpen && !isTyping) {
       e.preventDefault();
       if (selectedWire !== null) {
         mutatingAction('remove_connection', { conn_index: selectedWire });
@@ -1800,7 +1889,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
         setSelectedBlock(null);
       }
     }
-  }, [selectedBlock, selectedWire, gainEditBlock, mutatingAction, handleUndo, handleRedo]);
+  }, [selectedBlock, selectedWire, gainEditBlock, tfDialogOpen, mutatingAction, handleUndo, handleRedo]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -1829,6 +1918,56 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       setGainEditBlock(null);
     }
   }, [gainEditBlock, gainEditValue, mutatingAction]);
+
+  // Custom TF editing
+  const handleTfDoubleClick = useCallback((blockId) => {
+    const block = blocks[blockId];
+    if (block?.type === 'custom_tf') {
+      setTfDialogBlockId(blockId);
+      setTfDialogValue(block.expression || '1');
+      setTfDialogError('');
+      setTfDialogOpen(true);
+      setSelectedBlock(blockId);
+      setSelectedTfBlock(blockId);
+    }
+  }, [blocks]);
+
+  const handleTfDialogSubmit = useCallback(async () => {
+    if (!tfDialogBlockId || !tfDialogValue.trim()) return;
+    try {
+      setTfDialogError('');
+      await mutatingAction('update_block_value', { block_id: tfDialogBlockId, value: tfDialogValue.trim() });
+      setTfDialogOpen(false);
+      setTfDialogBlockId(null);
+    } catch (err) {
+      setTfDialogError(err?.message || err?.toString() || 'Invalid transfer function expression');
+    }
+  }, [tfDialogBlockId, tfDialogValue, mutatingAction]);
+
+  const handleTfDialogCancel = useCallback(() => {
+    setTfDialogOpen(false);
+    setTfDialogBlockId(null);
+    setTfDialogError('');
+  }, []);
+
+  // Custom TF blocks on canvas (for management panel)
+  const customTfBlocks = useMemo(
+    () => Object.values(blocks).filter(b => b.type === 'custom_tf'),
+    [blocks]
+  );
+
+  // Drag-and-drop: convert screen coords to SVG coords
+  const screenToSvg = useCallback((clientX, clientY) => {
+    const svg = svgRef.current;
+    if (!svg) return { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 };
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 };
+    const svgPt = pt.matrixTransform(ctm.inverse());
+    return { x: svgPt.x, y: svgPt.y };
+  }, []);
 
   // Mode/system type
   const handleModeChange = useCallback((newMode) => {
@@ -2156,17 +2295,20 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     const base = ['input', 'output', 'gain', 'adder'];
     if (systemType === 'dt') base.push('delay');
     else base.push('integrator');
+    base.push('custom_tf');
     return base;
   }, [systemType]);
 
   const blockLabels = {
     input: 'Input', output: 'Output', gain: 'Gain',
     adder: 'Adder', delay: 'Delay', integrator: 'Integ', junction: 'Junct',
+    custom_tf: 'Custom TF',
   };
 
   const blockIcons = {
     input: '\u2192', output: '\u2190', gain: '\u25B7',
     adder: '\u2295', delay: '\u25FB', integrator: '\u222B', junction: '\u25CF',
+    custom_tf: '\u0192',  // ƒ
   };
 
   // Gain edit position — only recompute when editing a gain block or view changes
@@ -2202,7 +2344,12 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
         <div className="bd-toolbar-section bd-toolbar-palette">
           <span className="bd-toolbar-label">Blocks</span>
           {availableBlocks.map(type => (
-            <button key={type} className="bd-palette-btn" onClick={() => handleAddBlock(type)} title={`Add ${type} block`}>
+            <button key={type} className="bd-palette-btn"
+              draggable="true"
+              onDragStart={(e) => { e.dataTransfer.setData('block-type', type); e.dataTransfer.effectAllowed = 'copy'; }}
+              onClick={() => handleAddBlock(type)}
+              title={`Add ${blockLabels[type] || type} block — click or drag onto canvas`}
+            >
               <span className="bd-palette-icon">{blockIcons[type]}</span>
               <span className="bd-palette-text">{blockLabels[type]}</span>
             </button>
@@ -2311,8 +2458,56 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
         </div>
       )}
 
+      {/* Custom TF Management Panel */}
+      {customTfBlocks.length > 0 && mode === 'build' && (
+        <div className="bd-tf-panel">
+          <span className="bd-tf-panel-label">Transfer Functions</span>
+          <select
+            className="bd-tf-panel-select"
+            value={selectedTfBlock || ''}
+            onChange={(e) => {
+              const bid = e.target.value || null;
+              setSelectedTfBlock(bid);
+              if (bid) setSelectedBlock(bid);
+            }}
+          >
+            <option value="">Select a block...</option>
+            {customTfBlocks.map(b => (
+              <option key={b.id} value={b.id}>
+                {b.id}: {b.expression || 'H(z)'}
+              </option>
+            ))}
+          </select>
+          <button
+            className="bd-tf-panel-edit-btn"
+            disabled={!selectedTfBlock}
+            onClick={() => { if (selectedTfBlock) handleTfDoubleClick(selectedTfBlock); }}
+          >
+            Edit
+          </button>
+        </div>
+      )}
+
       <div className="bd-main-area">
-        <div className="bd-canvas-container">
+        <div
+          className={`bd-canvas-container ${dragOver ? 'bd-canvas-dragover' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
+          onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={(e) => {
+            // Only clear if leaving the container (not entering a child)
+            if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            const blockType = e.dataTransfer.getData('block-type');
+            if (!blockType) return;
+            const svgPt = screenToSvg(e.clientX, e.clientY);
+            const snappedX = snapToGrid(svgPt.x);
+            const snappedY = snapToGrid(svgPt.y);
+            mutatingAction('add_block', { block_type: blockType, position: { x: snappedX, y: snappedY } });
+          }}
+        >
           <svg
             ref={svgRef} width="100%" height="100%" viewBox={viewBox}
             preserveAspectRatio="xMidYMid meet"
@@ -2400,6 +2595,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
                   return <IntegratorBlock key={block.id} {...commonProps} flowDir={flowDir} />;
                 case 'junction':
                   return <JunctionBlock key={block.id} {...commonProps} connections={connections} />;
+                case 'custom_tf':
+                  return <CustomTfBlock key={block.id} {...commonProps} flowDir={flowDir} onTfDoubleClick={handleTfDoubleClick} systemType={systemType} />;
                 default: return null;
               }
             })}
@@ -2442,6 +2639,43 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
           {error && <div className="bd-canvas-error">{error}</div>}
         </div>
       </div>
+
+      {/* Custom TF Edit Dialog */}
+      {tfDialogOpen && (
+        <div className="bd-tf-dialog-overlay" onClick={handleTfDialogCancel}>
+          <div className="bd-tf-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3 className="bd-tf-dialog-title">
+              Edit Transfer Function {tfDialogBlockId && <span className="bd-tf-dialog-block-id">({tfDialogBlockId})</span>}
+            </h3>
+            <div className="bd-tf-dialog-preview">
+              {(() => {
+                try {
+                  const latex = tfExprToLatex(tfDialogValue || '1', systemType);
+                  return <span dangerouslySetInnerHTML={{ __html: katex.renderToString(latex, { throwOnError: false, displayMode: true }) }} />;
+                } catch {
+                  return <span style={{ color: 'var(--text-muted)' }}>Preview unavailable</span>;
+                }
+              })()}
+            </div>
+            <input
+              className="bd-tf-dialog-input"
+              value={tfDialogValue}
+              onChange={(e) => { setTfDialogValue(e.target.value); setTfDialogError(''); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleTfDialogSubmit();
+                if (e.key === 'Escape') handleTfDialogCancel();
+              }}
+              placeholder={systemType === 'dt' ? 'e.g. (1+2R)/(1-0.5R)' : 'e.g. (s+1)/(s^2+2s+1)'}
+              autoFocus
+            />
+            {tfDialogError && <div className="bd-tf-dialog-error">{tfDialogError}</div>}
+            <div className="bd-tf-dialog-actions">
+              <button className="bd-tf-dialog-btn bd-tf-dialog-cancel" onClick={handleTfDialogCancel}>Cancel</button>
+              <button className="bd-tf-dialog-btn bd-tf-dialog-apply" onClick={handleTfDialogSubmit}>Apply</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

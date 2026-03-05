@@ -43,6 +43,7 @@ class BlockDiagramSimulator(BaseSimulator):
         "delay": {"inputs": 1, "outputs": 1, "label": "R", "system": "dt"},
         "integrator": {"inputs": 1, "outputs": 1, "label": "∫", "system": "ct"},
         "junction": {"inputs": 1, "outputs": 8, "label": ""},
+        "custom_tf": {"inputs": 1, "outputs": 1, "label": "H(z)"},
     }
 
     # Preset diagrams
@@ -149,7 +150,7 @@ class BlockDiagramSimulator(BaseSimulator):
             return 8
         if block_type == "adder":
             return 2   # ports 0=left, 1=bottom, 2=right
-        if block_type in ("gain", "delay", "integrator"):
+        if block_type in ("gain", "delay", "integrator", "custom_tf"):
             return 1   # ports 0=left, 1=right
         return 0       # input/output: single port (index 0)
 
@@ -265,6 +266,11 @@ class BlockDiagramSimulator(BaseSimulator):
         elif block_type == "adder":
             # Signs for each input port: default both positive
             block["signs"] = params.get("signs", ["+", "+", "+"])
+        elif block_type == "custom_tf":
+            # Custom transfer function block: stores expression + parsed coefficients
+            block["expression"] = "1"
+            block["num_coeffs"] = [1.0]
+            block["den_coeffs"] = [1.0]
 
         self.blocks[block_id] = block
         self._recompute_tf()
@@ -309,6 +315,24 @@ class BlockDiagramSimulator(BaseSimulator):
             if not np.isfinite(val):
                 raise ValueError("Gain value must be a finite number.")
             block["value"] = val
+        elif block["type"] == "custom_tf":
+            expr = str(value).strip()
+            if not expr:
+                raise ValueError("Transfer function expression cannot be empty.")
+            if len(expr) > 200:
+                raise ValueError("Transfer function expression too long (max 200 chars).")
+            # Determine variable name based on system type
+            var = "R" if self.system_type == "dt" else "A"
+            # Parse using existing _parse_ratio (returns (num_coeffs, den_coeffs))
+            num_coeffs, den_coeffs = self._parse_ratio(expr, var)
+            # Validate all coefficients are finite
+            if not all(np.isfinite(c) for c in num_coeffs):
+                raise ValueError("Numerator contains non-finite coefficients.")
+            if not all(np.isfinite(c) for c in den_coeffs):
+                raise ValueError("Denominator contains non-finite coefficients.")
+            block["expression"] = expr
+            block["num_coeffs"] = num_coeffs
+            block["den_coeffs"] = den_coeffs
         self._recompute_tf()
 
     def _action_add_connection(self, params: Dict[str, Any]) -> None:
@@ -1157,6 +1181,11 @@ class BlockDiagramSimulator(BaseSimulator):
             elif btype in ("delay", "integrator"):
                 # R or A operator: [0, 1] = 0 + 1*R = R
                 return (np.array([0.0, 1.0]), np.array([1.0]))
+            elif btype == "custom_tf":
+                return (
+                    np.array(block.get("num_coeffs", [1.0]), dtype=float),
+                    np.array(block.get("den_coeffs", [1.0]), dtype=float),
+                )
             else:
                 # input, output, adder, junction: unity (pass-through)
                 return (np.array([1.0]), np.array([1.0]))
@@ -1185,6 +1214,10 @@ class BlockDiagramSimulator(BaseSimulator):
         for loop in all_loops:
             has_memory = any(
                 self.blocks[bid]["type"] in ("delay", "integrator")
+                or (
+                    self.blocks[bid]["type"] == "custom_tf"
+                    and len(self.blocks[bid].get("den_coeffs", [1])) > 1
+                )
                 for bid in loop if bid in self.blocks
             )
             if not has_memory:
@@ -2062,7 +2095,7 @@ class BlockDiagramSimulator(BaseSimulator):
         """
         if block_type == "adder":
             return 2
-        if block_type in ("gain", "delay", "integrator"):
+        if block_type in ("gain", "delay", "integrator", "custom_tf"):
             return 1
         if block_type == "junction":
             return 1

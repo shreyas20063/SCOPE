@@ -1322,3 +1322,259 @@
   background: rgba(59, 130, 246, 0.12);
   border-color: rgba(59, 130, 246, 0.3);
 }
+
+/* ============================================================================
+   Custom TF Block
+   ============================================================================ */
+
+.bd-block-custom-tf-rect {
+  stroke: #10b981;
+  stroke-width: 2;
+  fill: rgba(16, 185, 129, 0.08);
+}
+
+.bd-block-custom-tf .bd-block-value,
+.bd-block-custom-tf text {
+  fill: var(--text-primary, #f1f5f9);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+}
+
+.bd-block-selected .bd-block-custom-tf-rect {
+  stroke: var(--accent-color, #00d9ff);
+  filter: drop-shadow(0 0 8px rgba(0, 217, 255, 0.4));
+}
+
+/* ============================================================================
+   TF Management Panel
+   ============================================================================ */
+
+.bd-tf-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--surface-color, #131b2e);
+  border-bottom: 1px solid var(--border-color, #1e293b);
+  font-size: 13px;
+}
+
+.bd-tf-panel-label {
+  color: var(--text-secondary, #94a3b8);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.bd-tf-panel-select {
+  background: var(--background-secondary, #111827);
+  color: var(--text-primary, #f1f5f9);
+  border: 1px solid var(--border-color, #1e293b);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 8px;
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  min-width: 180px;
+  cursor: pointer;
+}
+
+.bd-tf-panel-select:focus {
+  border-color: var(--accent-color, #00d9ff);
+  outline: none;
+}
+
+.bd-tf-panel-edit-btn {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms) ease;
+}
+
+.bd-tf-panel-edit-btn:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: #10b981;
+}
+
+.bd-tf-panel-edit-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ============================================================================
+   TF Edit Dialog
+   ============================================================================ */
+
+.bd-tf-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(4px);
+}
+
+.bd-tf-dialog {
+  background: var(--surface-color, #131b2e);
+  border: 1px solid var(--border-color, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  padding: 24px;
+  width: 420px;
+  max-width: 90vw;
+  box-shadow: 0 0 40px rgba(0, 217, 255, 0.15), 0 0 80px rgba(0, 217, 255, 0.05);
+}
+
+.bd-tf-dialog-title {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.bd-tf-dialog-block-id {
+  color: var(--text-muted, #64748b);
+  font-weight: 400;
+  font-size: 13px;
+}
+
+.bd-tf-dialog-preview {
+  background: var(--background-secondary, #111827);
+  border-radius: var(--radius-md, 8px);
+  padding: 16px;
+  margin-bottom: 12px;
+  text-align: center;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color, #1e293b);
+  color: var(--text-primary, #f1f5f9);
+}
+
+.bd-tf-dialog-preview .katex {
+  font-size: 1.3em;
+}
+
+.bd-tf-dialog-input {
+  width: 100%;
+  padding: 10px 14px;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 14px;
+  background: var(--background-color, #0a0e27);
+  color: var(--text-primary, #f1f5f9);
+  border: 1px solid var(--border-color, #1e293b);
+  border-radius: var(--radius-sm, 6px);
+  box-sizing: border-box;
+  transition: border-color var(--transition-fast, 150ms) ease;
+}
+
+.bd-tf-dialog-input:focus {
+  border-color: var(--accent-color, #00d9ff);
+  box-shadow: 0 0 0 2px rgba(0, 217, 255, 0.15);
+  outline: none;
+}
+
+.bd-tf-dialog-error {
+  color: var(--error-color, #ef4444);
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.bd-tf-dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.bd-tf-dialog-btn {
+  padding: 8px 20px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms) ease;
+  border: 1px solid transparent;
+}
+
+.bd-tf-dialog-cancel {
+  background: transparent;
+  color: var(--text-secondary, #94a3b8);
+  border-color: var(--border-color, #1e293b);
+}
+
+.bd-tf-dialog-cancel:hover {
+  background: var(--surface-hover, #1e293b);
+  color: var(--text-primary, #f1f5f9);
+}
+
+.bd-tf-dialog-apply {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.bd-tf-dialog-apply:hover {
+  background: rgba(16, 185, 129, 0.3);
+  border-color: #10b981;
+}
+
+/* ============================================================================
+   Drag-and-Drop Feedback
+   ============================================================================ */
+
+.bd-canvas-dragover {
+  outline: 2px dashed var(--accent-color, #00d9ff);
+  outline-offset: -2px;
+}
+
+.bd-palette-btn[draggable="true"] {
+  cursor: grab;
+}
+
+.bd-palette-btn[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* ============================================================================
+   Light Mode Overrides (Custom TF)
+   ============================================================================ */
+
+[data-theme="light"] .bd-block-custom-tf-rect {
+  fill: rgba(16, 185, 129, 0.05);
+}
+
+[data-theme="light"] .bd-tf-dialog {
+  background: #fff;
+  border-color: #e2e8f0;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .bd-tf-dialog-input {
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+[data-theme="light"] .bd-tf-dialog-preview {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #1e293b;
+}
+
+[data-theme="light"] .bd-tf-panel {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .bd-tf-panel-select {
+  background: #fff;
+  color: #1e293b;
+  border-color: #e2e8f0;
+}
