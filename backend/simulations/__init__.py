@@ -54,6 +54,7 @@ from .audio_freq_response import AudioFreqResponseSimulator
 from .delay_instability import DelayInstabilitySimulator
 from .uav_perching import UAVPerchingSimulator
 from .perching_glider import PerchingGliderSimulator
+from .signal_flow_scope import SignalFlowScopeSimulator
 
 # Registry mapping simulation IDs to their simulator classes
 # Add new simulators here as they are implemented
@@ -103,6 +104,7 @@ SIMULATOR_REGISTRY = {
     "delay_instability": DelayInstabilitySimulator,
     "uav_perching": UAVPerchingSimulator,
     "perching_glider": PerchingGliderSimulator,
+    "signal_flow_scope": SignalFlowScopeSimulator,
 }
 
 
@@ -189,6 +191,7 @@ __all__ = [
     "DelayInstabilitySimulator",
     "UAVPerchingSimulator",
     "PerchingGliderSimulator",
+    "SignalFlowScopeSimulator",
     "SIMULATOR_REGISTRY",
     "get_simulator_class",
     "is_simulator_available",

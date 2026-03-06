@@ -2057,6 +2057,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   const [tfDialogLabel, setTfDialogLabel] = useState('');
   const [tfDialogError, setTfDialogError] = useState('');
   const [selectedTfBlock, setSelectedTfBlock] = useState(null);
+  const [toastMessage, setToastMessage] = useState(null);
   // Drag-and-drop from toolbar
   const [dragOver, setDragOver] = useState(false);
   // View mode: 'block' (traditional block diagram) or 'sfg' (Mason's Signal Flow Graph)
@@ -2868,6 +2869,23 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   // Export handlers
   const handleExportSVG = useCallback(() => exportSVG(svgRef.current), []);
   const handleExportPNG = useCallback(() => exportPNG(svgRef.current), []);
+  const handleExportJSON = useCallback(() => {
+    const diagramData = JSON.stringify({
+      blocks,
+      connections,
+      system_type: systemType,
+    });
+    try {
+      localStorage.setItem('sfs_diagram', diagramData);
+      navigator.clipboard.writeText(diagramData).catch(() => {});
+      setToastMessage('Diagram exported — open Signal Flow Scope to import');
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (e) {
+      // localStorage might be full
+      setToastMessage('Export failed');
+      setTimeout(() => setToastMessage(null), 2000);
+    }
+  }, [blocks, connections, systemType]);
 
   // ========================================================================
   // Render
@@ -2953,6 +2971,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
           <div className="bd-toolbar-divider" />
           <button className="bd-action-btn" onClick={handleExportSVG} title="Export SVG">SVG</button>
           <button className="bd-action-btn" onClick={handleExportPNG} title="Export PNG">PNG</button>
+          <button className="bd-action-btn" onClick={handleExportJSON} title="Export diagram for Signal Flow Scope">JSON</button>
         </div>
       </div>
 
@@ -3284,6 +3303,17 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
               <button className="bd-tf-dialog-btn bd-tf-dialog-apply" onClick={handleTfDialogSubmit}>Apply</button>
             </div>
           </div>
+        </div>
+      )}
+      {toastMessage && (
+        <div className="bd-toast" style={{
+          position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--surface-color, #131b2e)', border: '1px solid var(--primary-color, #14b8a6)',
+          borderRadius: 'var(--radius-md, 8px)', padding: '8px 16px',
+          color: 'var(--text-primary, #f1f5f9)', fontSize: '13px', zIndex: 100,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+        }}>
+          {toastMessage}
         </div>
       )}
     </div>
