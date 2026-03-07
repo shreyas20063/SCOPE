@@ -1313,29 +1313,55 @@ function convertToSFG(blocks, connections, systemType) {
   const edges = [];
   const nodeMap = {};
 
+  // ALL transfer-function block types: these become edge gains, NOT nodes
+  const TF_TYPES = new Set(['gain', 'delay', 'integrator', 'custom_tf']);
+
   const addNode = (id, label, x, y, type) => {
-    if (nodeMap[id]) return; // avoid duplicates
+    if (nodeMap[id]) return;
     const node = { id, label, x, y, type };
     nodes.push(node);
     nodeMap[id] = node;
   };
 
-  // Helper to get gain info for a transfer-function block
+  // 1. Create SFG nodes — only signal points (input, output, adder, junction)
+  //    All TF blocks (gain, delay, integrator, custom_tf) become edge gains
+  let varIdx = 0;
+  const subscriptDigit = (n) => {
+    const subs = '₀₁₂₃₄₅₆₇₈₉';
+    return String(n).split('').map(d => subs[parseInt(d)] || d).join('');
+  };
+
+  for (const block of Object.values(blocks)) {
+    const { x, y } = block.position;
+    const type = block.type;
+
+    if (type === 'input') {
+      const lbl = systemType === 'ct' ? 'x(t)' : 'x[n]';
+      addNode(block.id, lbl, x, y, 'source');
+    } else if (type === 'output') {
+      const lbl = systemType === 'ct' ? 'y(t)' : 'y[n]';
+      addNode(block.id, lbl, x, y, 'sink');
+    } else if (type === 'adder') {
+      varIdx++;
+      addNode(block.id, 'e' + subscriptDigit(varIdx), x, y, 'sum');
+    } else if (type === 'junction') {
+      varIdx++;
+      addNode(block.id, 's' + subscriptDigit(varIdx), x, y, 'branch');
+    }
+    // gain, delay, integrator, custom_tf — no node created
+  }
+
+  // 2. Get gain label for a TF block
   const getBlockGain = (block) => {
     const type = block.type;
     if (type === 'gain') {
       const v = block.value ?? 1;
-      return { gain: String(v), gainLatex: String(v) };
+      const s = (v === Math.floor(v)) ? String(Math.floor(v)) : String(v);
+      return { gain: s, gainLatex: s };
     } else if (type === 'delay') {
-      return {
-        gain: systemType === 'ct' ? 'e^{-sT}' : 'R',
-        gainLatex: systemType === 'ct' ? 'e^{-sT}' : 'z^{-1}',
-      };
+      return { gain: 'R', gainLatex: 'R' };
     } else if (type === 'integrator') {
-      return {
-        gain: systemType === 'ct' ? '1/s' : '1/(1-R)',
-        gainLatex: systemType === 'ct' ? '\\frac{1}{s}' : '\\frac{1}{1-z^{-1}}',
-      };
+      return { gain: 'A', gainLatex: 'A' };
     } else if (type === 'custom_tf') {
       const expr = block.expression || '1';
       let gainLatex = tfExprToLatex(expr, systemType);
@@ -1349,87 +1375,33 @@ function convertToSFG(blocks, connections, systemType) {
     return { gain: '1', gainLatex: '1' };
   };
 
-  // Only scalar gains and custom TFs collapse into edge gains.
-  // Delay (R) and integrator (1/s) are kept as visible operator nodes
-  // because they represent actual transfer-function blocks with memory,
-  // not simple scalar multipliers.
-  const TF_TYPES = new Set(['gain', 'custom_tf']);
-
-  // 1. Create SFG nodes — one per non-TF block
-  //    Gain and custom_tf blocks become edges (scalar gains on branches).
-  //    Delay and integrator blocks become labeled operator nodes.
-  for (const block of Object.values(blocks)) {
-    const { x, y } = block.position;
-    const type = block.type;
-
-    if (type === 'input') {
-      const lbl = block.label || (systemType === 'ct' ? 'x(t)' : 'x[n]');
-      addNode(block.id, lbl, x, y, 'source');
-    } else if (type === 'output') {
-      const lbl = block.label || (systemType === 'ct' ? 'y(t)' : 'y[n]');
-      addNode(block.id, lbl, x, y, 'sink');
-    } else if (type === 'adder') {
-      addNode(block.id, '', x, y, 'node');
-    } else if (type === 'junction') {
-      addNode(block.id, '', x, y, 'node');
-    } else if (type === 'delay') {
-      const lbl = systemType === 'ct' ? 'e^{-sT}' : 'R';
-      addNode(block.id, lbl, x, y, 'operator');
-    } else if (type === 'integrator') {
-      const lbl = systemType === 'ct' ? '1/s' : 'A';
-      addNode(block.id, lbl, x, y, 'operator');
-    }
-    // gain and custom_tf don't create nodes — they become edge gains
-  }
-
-  // 2. Build adjacency from connections
-  //    For each wire, resolve through chains of TF blocks to find source/target nodes
-  //    and accumulate the gain along the path
-
-  // Build lookup: for each TF block, find its incoming and outgoing connections
-  const tfIncoming = {}; // blockId -> [conn]
-  const tfOutgoing = {}; // blockId -> [conn]
-  const nodeIncoming = {}; // blockId -> [conn]  (for non-TF blocks)
-  const nodeOutgoing = {}; // blockId -> [conn]
-
+  // 3. Build connection lookup per block
+  const outgoing = {}; // blockId -> [conn]
+  const incoming = {}; // blockId -> [conn]
   for (const conn of connections) {
-    const fromBlock = blocks[conn.from_block];
-    const toBlock = blocks[conn.to_block];
-    if (!fromBlock || !toBlock) continue;
-
-    if (TF_TYPES.has(fromBlock.type)) {
-      if (!tfOutgoing[conn.from_block]) tfOutgoing[conn.from_block] = [];
-      tfOutgoing[conn.from_block].push(conn);
-    } else {
-      if (!nodeOutgoing[conn.from_block]) nodeOutgoing[conn.from_block] = [];
-      nodeOutgoing[conn.from_block].push(conn);
-    }
-
-    if (TF_TYPES.has(toBlock.type)) {
-      if (!tfIncoming[conn.to_block]) tfIncoming[conn.to_block] = [];
-      tfIncoming[conn.to_block].push(conn);
-    } else {
-      if (!nodeIncoming[conn.to_block]) nodeIncoming[conn.to_block] = [];
-      nodeIncoming[conn.to_block].push(conn);
-    }
+    if (!blocks[conn.from_block] || !blocks[conn.to_block]) continue;
+    if (!outgoing[conn.from_block]) outgoing[conn.from_block] = [];
+    outgoing[conn.from_block].push(conn);
+    if (!incoming[conn.to_block]) incoming[conn.to_block] = [];
+    incoming[conn.to_block].push(conn);
   }
 
-  // Trace forward from a TF block through chains of TF blocks to find
-  // the destination node(s) and accumulated gain
+  // 4. Trace forward from a TF block through chains of TF blocks
+  //    to find the destination signal-node and accumulated gain
   const traceForward = (blockId, gains, gainsLatex, visited) => {
     if (visited.has(blockId)) return [];
     visited.add(blockId);
     const results = [];
-    const outConns = tfOutgoing[blockId] || [];
+    const outConns = outgoing[blockId] || [];
     for (const conn of outConns) {
       const targetBlock = blocks[conn.to_block];
       if (!targetBlock) continue;
       if (TF_TYPES.has(targetBlock.type)) {
-        // Chain through another TF block
+        // Chain through another TF block — multiply gains
         const { gain, gainLatex } = getBlockGain(targetBlock);
         results.push(...traceForward(conn.to_block, [...gains, gain], [...gainsLatex, gainLatex], visited));
       } else {
-        // Reached a node
+        // Reached a signal node — record destination with accumulated gains
         results.push({ nodeId: conn.to_block, conn, gains, gainsLatex });
       }
     }
@@ -1442,136 +1414,65 @@ function convertToSFG(blocks, connections, systemType) {
     if (gainArr.length === 1) return gainArr[0];
     return gainArr.join(' \\cdot ');
   };
-
   const multiplyGainsPlain = (gainArr) => {
     if (gainArr.length === 0) return '1';
     if (gainArr.length === 1) return gainArr[0];
     return gainArr.join('·');
   };
 
-  // 3. For each connection from a non-TF source:
+  // 5. Create SFG edges by tracing connections from signal-node sources
   for (const block of Object.values(blocks)) {
-    if (TF_TYPES.has(block.type)) continue;
-    const outConns = nodeOutgoing[block.id] || [];
+    if (TF_TYPES.has(block.type)) continue; // TF blocks are not sources
+    const outConns = outgoing[block.id] || [];
 
     for (const conn of outConns) {
       const targetBlock = blocks[conn.to_block];
       if (!targetBlock) continue;
 
-      // Get adder sign for target
-      let signGain = null;
+      // Get adder sign for the target port
+      let signNeg = false;
       if (targetBlock.type === 'adder' && targetBlock.signs) {
-        const sign = targetBlock.signs[conn.to_port];
-        if (sign === '-') signGain = true;
+        if (targetBlock.signs[conn.to_port] === '-') signNeg = true;
       }
 
       if (TF_TYPES.has(targetBlock.type)) {
-        // Source node -> TF block chain -> destination node(s)
+        // Source signal-node → TF block chain → destination signal-node(s)
         const { gain: firstGain, gainLatex: firstGainLatex } = getBlockGain(targetBlock);
         const destinations = traceForward(conn.to_block, [firstGain], [firstGainLatex], new Set());
 
         for (const dest of destinations) {
-          const sourceNodeId = block.id;
-          const targetNodeId = dest.nodeId;
+          if (!nodeMap[block.id] || !nodeMap[dest.nodeId]) continue;
 
-          if (!nodeMap[sourceNodeId] || !nodeMap[targetNodeId]) continue;
-
-          // Check if destination is an adder with negative sign
+          // Check adder sign at destination
           const destBlock = blocks[dest.nodeId];
-          let destSign = false;
-          if (destBlock && destBlock.type === 'adder' && destBlock.signs) {
-            const s = destBlock.signs[dest.conn.to_port];
-            if (s === '-') destSign = true;
+          let destNeg = false;
+          if (destBlock?.type === 'adder' && destBlock.signs) {
+            if (destBlock.signs[dest.conn.to_port] === '-') destNeg = true;
           }
 
           let gainLatex = multiplyGains(dest.gainsLatex);
           let gain = multiplyGainsPlain(dest.gains);
-          if (destSign) {
-            gainLatex = '-(' + gainLatex + ')';
-            gain = '-(' + gain + ')';
+          if (destNeg) {
+            gainLatex = gain === '1' ? '-1' : '-(' + gainLatex + ')';
+            gain = gain === '1' ? '-1' : '-(' + gain + ')';
           }
 
-          edges.push({ from: sourceNodeId, to: targetNodeId, gain, gainLatex, isInternal: false });
+          edges.push({ from: block.id, to: dest.nodeId, gain, gainLatex });
         }
       } else {
-        // Direct node-to-node connection (unity gain, or -1 for adder negative)
-        const sourceNodeId = block.id;
-        const targetNodeId = conn.to_block;
-        if (!nodeMap[sourceNodeId] || !nodeMap[targetNodeId]) continue;
+        // Direct signal-node to signal-node (unity gain or -1 for negative adder port)
+        if (!nodeMap[block.id] || !nodeMap[conn.to_block]) continue;
 
-        let gain = '1';
-        let gainLatex = '1';
-        if (signGain) {
-          gain = '-1';
-          gainLatex = '-1';
-        }
+        let gain = '1', gainLatex = '1';
+        if (signNeg) { gain = '-1'; gainLatex = '-1'; }
 
-        edges.push({ from: sourceNodeId, to: targetNodeId, gain, gainLatex, isInternal: false });
+        edges.push({ from: block.id, to: conn.to_block, gain, gainLatex });
       }
     }
   }
 
-  // 4. Layout: position nodes in a clean horizontal arrangement
-  //    Use topological ordering for a clean left-to-right layout
-  const nodeIds = nodes.map(n => n.id);
-  const adjList = {};
-  for (const id of nodeIds) adjList[id] = [];
-  for (const e of edges) {
-    if (adjList[e.from]) adjList[e.from].push(e.to);
-  }
-
-  // Topological sort (Kahn's algorithm, handles cycles gracefully)
-  const inDeg = {};
-  for (const id of nodeIds) inDeg[id] = 0;
-  for (const e of edges) {
-    if (inDeg[e.to] !== undefined) inDeg[e.to]++;
-  }
-  const queue = nodeIds.filter(id => inDeg[id] === 0);
-  const topoOrder = [];
-  while (queue.length > 0) {
-    const cur = queue.shift();
-    topoOrder.push(cur);
-    for (const next of (adjList[cur] || [])) {
-      if (inDeg[next] !== undefined) {
-        inDeg[next]--;
-        if (inDeg[next] === 0) queue.push(next);
-      }
-    }
-  }
-  // Add any remaining nodes (in cycles)
-  for (const id of nodeIds) {
-    if (!topoOrder.includes(id)) topoOrder.push(id);
-  }
-
-  // Assign positions: evenly spaced horizontally, centered vertically
-  const padding = 120;
-  const usableW = CANVAS_WIDTH - 2 * padding;
-  const centerY = CANVAS_HEIGHT / 2;
-  const count = topoOrder.length;
-  const spacing = count > 1 ? usableW / (count - 1) : 0;
-
-  for (let i = 0; i < count; i++) {
-    const node = nodeMap[topoOrder[i]];
-    if (node) {
-      node.x = padding + i * spacing;
-      node.y = centerY;
-    }
-  }
-
-  // Offset nodes at the same x to avoid overlap (spread vertically)
-  const xGroups = {};
-  for (const n of nodes) {
-    const xKey = Math.round(n.x);
-    if (!xGroups[xKey]) xGroups[xKey] = [];
-    xGroups[xKey].push(n);
-  }
-  for (const group of Object.values(xGroups)) {
-    if (group.length > 1) {
-      const vSpacing = 80;
-      const startY = centerY - ((group.length - 1) * vSpacing) / 2;
-      group.forEach((n, i) => { n.y = startY + i * vSpacing; });
-    }
-  }
+  // Layout: preserve original block positions from the block diagram
+  // (no topological sort — spatial correspondence makes it easier to relate SFG to diagram)
 
   return { nodes, edges };
 }
@@ -1580,66 +1481,59 @@ function convertToSFG(blocks, connections, systemType) {
 // SFG rendering components
 // ============================================================================
 
-const SFG_NODE_RADIUS = { source: 22, sink: 22, node: 16, operator: 22 };
+// SFG node radii — all circles (textbook convention: nodes = signals)
+const SFG_NODE_RADIUS = { source: 18, sink: 18, sum: 14, branch: 8 };
 
 function SFGNode({ node }) {
   const { x, y, label, type } = node;
   const isIO = type === 'source' || type === 'sink';
-  const isOperator = type === 'operator';
-  const r = SFG_NODE_RADIUS[type] || 16;
-  const ringR = r + 5;
+  const isBranch = type === 'branch';
+  const r = SFG_NODE_RADIUS[type] || 14;
 
-  // Colors: red for input/output, teal for operator blocks, blue for internal nodes
-  const fillColor = isIO ? 'rgba(239, 68, 68, 0.15)'
-    : isOperator ? 'rgba(20, 184, 166, 0.15)'
-    : 'rgba(59, 130, 246, 0.12)';
-  const strokeColor = isIO ? '#ef4444' : isOperator ? '#14b8a6' : '#3b82f6';
-  const ringColor = isIO ? 'rgba(239, 68, 68, 0.25)'
-    : isOperator ? 'rgba(20, 184, 166, 0.25)'
-    : 'rgba(59, 130, 246, 0.2)';
-  const labelColor = isIO ? '#fca5a5' : isOperator ? '#5eead4' : '#93c5fd';
-
-  // Operator nodes render as rounded rectangles (block-like), others as circles
-  if (isOperator) {
-    const hw = 28, hh = 20;
-    return (
-      <g className="sfg-node sfg-node-operator" transform={`translate(${x}, ${y})`} style={{ pointerEvents: 'none' }}>
-        {/* Outer glow */}
-        <rect x={-hw - 4} y={-hh - 4} width={(hw + 4) * 2} height={(hh + 4) * 2}
-          rx={10} fill="none" stroke={ringColor} strokeWidth={1} opacity={0.5} />
-        {/* Main body */}
-        <rect x={-hw} y={-hh} width={hw * 2} height={hh * 2}
-          rx={8} fill={fillColor} stroke={strokeColor} strokeWidth={2} />
-        {/* Label */}
-        {label && (
-          <text x={0} y={1} textAnchor="middle" dominantBaseline="central"
-            fill={labelColor} fontSize={13} fontWeight={700}
-            fontFamily="'Fira Code', monospace" style={{ pointerEvents: 'none', userSelect: 'none' }}>
-            {label}
-          </text>
-        )}
-      </g>
-    );
+  // Colors: teal for input/output, blue for sum, gray for branch
+  let fillColor, strokeColor, labelColor;
+  if (isIO) {
+    fillColor = 'rgba(20, 184, 166, 0.12)';
+    strokeColor = '#14b8a6';
+    labelColor = '#5eead4';
+  } else if (isBranch) {
+    fillColor = 'rgba(148, 163, 184, 0.35)';
+    strokeColor = '#94a3b8';
+    labelColor = '#94a3b8';
+  } else {
+    // sum node
+    fillColor = 'rgba(59, 130, 246, 0.08)';
+    strokeColor = '#3b82f6';
+    labelColor = '#93c5fd';
   }
 
   return (
     <g className="sfg-node" transform={`translate(${x}, ${y})`} style={{ pointerEvents: 'none' }}>
-      {/* Outer glow ring */}
-      <circle r={ringR} fill="none" stroke={ringColor} strokeWidth={1} opacity={0.5} />
-      {/* Main body */}
-      <circle r={r} fill={fillColor} stroke={strokeColor} strokeWidth={2} />
-      {/* Label inside node */}
-      {label && (
+      {/* Outer glow ring (not for branch points) */}
+      {!isBranch && (
+        <circle r={r + 5} fill="none" stroke={strokeColor} strokeWidth={1} opacity={0.2} />
+      )}
+      {/* Main circle */}
+      <circle r={r} fill={fillColor} stroke={strokeColor} strokeWidth={isBranch ? 1.5 : 2} />
+      {/* Label: inside for source/sink/sum, above for branch */}
+      {label && !isBranch && (
         <text x={0} y={1} textAnchor="middle" dominantBaseline="central"
           fill={labelColor} fontSize={isIO ? 11 : 12} fontWeight={600}
           fontFamily="'Fira Code', monospace" style={{ pointerEvents: 'none', userSelect: 'none' }}>
           {label}
         </text>
       )}
-      {/* Node name below */}
+      {label && isBranch && (
+        <text x={0} y={-r - 6} textAnchor="middle" dominantBaseline="auto"
+          fill={labelColor} fontSize={10} fontWeight={500}
+          fontFamily="'Fira Code', monospace" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+          {label}
+        </text>
+      )}
+      {/* "Input" / "Output" label below I/O nodes */}
       {isIO && (
         <text x={0} y={r + 16} textAnchor="middle" fill={strokeColor}
-          fontSize={13} fontWeight={700} fontFamily="'Inter', sans-serif"
+          fontSize={12} fontWeight={700} fontFamily="'Inter', sans-serif"
           style={{ pointerEvents: 'none', userSelect: 'none' }}>
           {type === 'source' ? 'Input' : 'Output'}
         </text>
@@ -1663,15 +1557,18 @@ function SFGEdge({ edge, nodesMap, edgeIndex, parallelOffset }) {
   const isSelfLoop = edge.from === edge.to;
   const isFeedback = dx < -10; // right-to-left
 
-  // Edge colors
+  // Edge colors: cyan forward, amber feedback, red for negative gains
   const edgeColor = isFeedback ? '#f59e0b' : '#00d9ff';
   const labelTextColor = isNegative ? '#ef4444' : (isFeedback ? '#f59e0b' : '#00d9ff');
+
+  // Arrow marker — same for all edges (forward/feedback both get arrows)
+  const markerRef = isFeedback ? 'url(#sfg-arrow-feedback)' : 'url(#sfg-arrow-forward)';
 
   let d, labelX, labelY;
 
   if (isSelfLoop) {
     const loopR = 40;
-    const nr = SFG_NODE_RADIUS[fromNode.type] || 16;
+    const nr = SFG_NODE_RADIUS[fromNode.type] || 14;
     d = `M ${x1 - 8} ${y1 - nr}
          C ${x1 - loopR} ${y1 - loopR * 2.2}, ${x1 + loopR} ${y1 - loopR * 2.2}, ${x1 + 8} ${y1 - nr}`;
     labelX = x1;
@@ -1690,8 +1587,8 @@ function SFGEdge({ edge, nodesMap, edgeIndex, parallelOffset }) {
     const cx = (x1 + x2) / 2 + nx * curveScale * sign;
     const cy = (y1 + y2) / 2 + ny * curveScale * sign;
 
-    const fromR = SFG_NODE_RADIUS[fromNode.type] || 16;
-    const toR = SFG_NODE_RADIUS[toNode.type] || 16;
+    const fromR = SFG_NODE_RADIUS[fromNode.type] || 14;
+    const toR = SFG_NODE_RADIUS[toNode.type] || 14;
 
     const cdx1 = cx - x1, cdy1 = cy - y1;
     const cLen1 = Math.sqrt(cdx1 * cdx1 + cdy1 * cdy1) || 1;
@@ -1709,31 +1606,32 @@ function SFGEdge({ edge, nodesMap, edgeIndex, parallelOffset }) {
     labelY = 0.25 * sy + 0.5 * cy + 0.25 * ey;
   }
 
-  // KaTeX for complex expressions
+  // KaTeX rendering with plain-text fallback
   const needsKatex = edge.gainLatex && (edge.gainLatex.includes('\\') || edge.gainLatex.includes('^') || edge.gainLatex.includes('_'));
   let labelHtml = '';
+  let katexFailed = false;
   if (needsKatex) {
     try {
-      labelHtml = katex.renderToString(edge.gainLatex, { throwOnError: false, displayMode: false });
+      labelHtml = katex.renderToString(edge.gainLatex, { throwOnError: true, displayMode: false });
     } catch {
+      katexFailed = true;
       labelHtml = '';
     }
   }
 
-  const markerRef = isFeedback ? 'url(#sfg-arrow-feedback)' : 'url(#sfg-arrow-forward)';
-
-  // Compute label background dimensions for plain text
+  // Plain text label (used when no KaTeX needed, or as fallback)
   const plainLabel = edge.gain || '';
   const labelWidth = Math.max(30, plainLabel.length * 9 + 16);
+  const showKatex = needsKatex && labelHtml && !katexFailed;
 
   return (
     <g style={{ pointerEvents: 'none' }}>
-      {/* Edge path */}
+      {/* Edge path — self-loops also get markerEnd */}
       <path d={d} fill="none" stroke={edgeColor} strokeWidth={2} strokeLinecap="round"
         opacity={isUnity ? 0.35 : 0.85} markerEnd={markerRef}
         strokeDasharray={isUnity ? '4 6' : 'none'} />
       {/* Gain label — always show, even for unity */}
-      {needsKatex && labelHtml ? (
+      {showKatex ? (
         <foreignObject x={labelX - 50} y={labelY - 16} width={100} height={32}
           style={{ overflow: 'visible', pointerEvents: 'none' }}>
           <div style={{
@@ -1753,7 +1651,7 @@ function SFGEdge({ edge, nodesMap, edgeIndex, parallelOffset }) {
           <text x={labelX} y={labelY + 1} textAnchor="middle" dominantBaseline="central"
             fill={labelTextColor} fontSize={13} fontWeight={700}
             fontFamily="'Fira Code', monospace" style={{ pointerEvents: 'none', userSelect: 'none' }}>
-            {edge.gain}
+            {plainLabel}
           </text>
         </g>
       )}
@@ -2551,9 +2449,10 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     const nMap = {};
     for (const n of sfgGraph.nodes) nMap[n.id] = n;
     // Count parallel edges between same node pairs for offset
+    // Use directed key so A→B and B→A are treated as separate groups
     const pairCount = {};
     const offsets = sfgGraph.edges.map((edge) => {
-      const key = [edge.from, edge.to].sort().join('|');
+      const key = `${edge.from}→${edge.to}`;
       pairCount[key] = (pairCount[key] || 0);
       const offset = pairCount[key];
       pairCount[key]++;
