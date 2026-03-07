@@ -274,6 +274,32 @@ Actions for execute: `init`, `update`, `run`, `reset`, `advance`, `step_forward`
 - **np.trapz**: Deprecated in NumPy 2.0+. Use `_trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz` compat helper instead. Already applied in signal_operations, convolution, impulse_construction, ivt_fvt_visualizer.
 - **Simulator init errors**: `get_or_create_simulator()` in main.py has try/except + threading lock. Always returns `None` on failure (never crashes endpoint).
 
-## Known Bugs
+## Tracking Files
 
-See `.claude/bugs.md` for tracked bugs, fixes, and prevention rules. **Check this file before making changes** to avoid reintroducing fixed bugs.
+- **`.claude/bugs.md`** — Bug tracker with known bugs, fixes, and prevention rules. **Check before making changes** to avoid reintroducing fixed bugs.
+- **`.claude/mistakes.md`** — Mistakes tracker with lessons learned. Check before implementing domain-specific features.
+- **`.claude/implementation_log.md`** — Implementation log for the Block Diagram Builder overhaul.
+
+## Recent Features Added
+
+### Signal Flow Scope (simulation: `signal_flow_scope`)
+- **Backend**: `backend/simulations/signal_flow_scope.py` (~680 lines)
+- **Frontend**: `frontend/src/components/SignalFlowScopeViewer.jsx` (~520 lines)
+- **Purpose**: Import block diagrams from Block Diagram Builder via localStorage, apply input signals (impulse/step/sinusoid/ramp), and probe any node to visualize signal propagation
+- **Key features**: Click-to-probe interaction, Mason's Gain Formula for per-node TF computation, SVG signal flow graph + Plotly scope plots split layout
+- **Import mechanism**: localStorage bridge — Block Diagram Builder exports JSON to `localStorage['blockDiagram_export']`, Signal Flow Scope imports it
+
+### SFG Toggle (in Block Diagram Builder)
+- **File**: `frontend/src/components/BlockDiagramViewer.jsx`
+- **Purpose**: Toggle between block diagram and textbook-correct Signal Flow Graph view
+- **Key implementation**: `convertToSFG()` converts blocks to SFG following Mason/Oppenheim/Nise conventions
+- **Rules**: Nodes = signals (circles), branches = transfer functions (directed edges with gain labels). ALL TF blocks become edge gains. Operator-domain labels: R (delay), A (integrator).
+- **Known constraints**: See `.claude/bugs.md` BUG-001 through BUG-007 for fixed issues and prevention rules
+
+### Block Diagram Builder Enhancements
+- Custom TF blocks with KaTeX expression rendering
+- Wire routing with A* pathfinding and crossing bridges
+- Auto-arrange after TF parsing
+- JSON export for Signal Flow Scope import
+- Block count limit (30), TF string length limit (500 chars)
+- Generalized Mason's Delta computation
