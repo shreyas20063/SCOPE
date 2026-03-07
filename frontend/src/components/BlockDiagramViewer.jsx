@@ -1561,28 +1561,30 @@ function SFGEdge({ edge, nodesMap, edgeIndex, parallelOffset }) {
   const edgeColor = isFeedback ? '#f59e0b' : '#00d9ff';
   const labelTextColor = isNegative ? '#ef4444' : (isFeedback ? '#f59e0b' : '#00d9ff');
 
-  // Arrow marker — same for all edges (forward/feedback both get arrows)
+  // Arrow marker
   const markerRef = isFeedback ? 'url(#sfg-arrow-feedback)' : 'url(#sfg-arrow-forward)';
 
   let d, labelX, labelY;
 
   if (isSelfLoop) {
-    const loopR = 40;
+    // Self-loop: larger arc with more clearance, label well above
+    const loopR = 50;
     const nr = SFG_NODE_RADIUS[fromNode.type] || 14;
-    d = `M ${x1 - 8} ${y1 - nr}
-         C ${x1 - loopR} ${y1 - loopR * 2.2}, ${x1 + loopR} ${y1 - loopR * 2.2}, ${x1 + 8} ${y1 - nr}`;
+    d = `M ${x1 - 10} ${y1 - nr}
+         C ${x1 - loopR} ${y1 - loopR * 2.5}, ${x1 + loopR} ${y1 - loopR * 2.5}, ${x1 + 10} ${y1 - nr}`;
     labelX = x1;
-    labelY = y1 - loopR * 2 - 10;
+    labelY = y1 - loopR * 2.5 - 8;
   } else {
-    // Curvature proportional to distance, with parallel offset
-    const baseCurve = Math.min(55, Math.max(20, dist * 0.12));
-    const offset = baseCurve + (parallelOffset || 0) * 30;
+    // Curvature: stronger base + bigger parallel separation
+    const baseCurve = Math.min(70, Math.max(30, dist * 0.15));
+    const offset = baseCurve + (parallelOffset || 0) * 50;
 
     const nx = -dy / (dist || 1);
     const ny = dx / (dist || 1);
 
+    // Forward curves above (sign=-1), feedback curves below (sign=+1)
     const sign = isFeedback ? 1 : -1;
-    const curveScale = isFeedback ? offset * 1.6 : offset;
+    const curveScale = isFeedback ? offset * 1.8 : offset;
 
     const cx = (x1 + x2) / 2 + nx * curveScale * sign;
     const cy = (y1 + y2) / 2 + ny * curveScale * sign;
@@ -1602,12 +1604,15 @@ function SFGEdge({ edge, nodesMap, edgeIndex, parallelOffset }) {
 
     d = `M ${sx} ${sy} Q ${cx} ${cy}, ${ex} ${ey}`;
 
-    labelX = 0.25 * sx + 0.5 * cx + 0.25 * ex;
-    labelY = 0.25 * sy + 0.5 * cy + 0.25 * ey;
+    // Shift label position along curve based on parallelOffset to avoid stacking
+    const t = parallelOffset ? 0.3 + (parallelOffset % 2) * 0.4 : 0.5;
+    const u = 1 - t;
+    labelX = u * u * sx + 2 * u * t * cx + t * t * ex;
+    labelY = u * u * sy + 2 * u * t * cy + t * t * ey;
   }
 
   // KaTeX rendering with plain-text fallback
-  const needsKatex = edge.gainLatex && (edge.gainLatex.includes('\\') || edge.gainLatex.includes('^') || edge.gainLatex.includes('_'));
+  const needsKatex = edge.gainLatex && (edge.gainLatex.includes('\\') || edge.gainLatex.includes('^') || edge.gainLatex.includes('_') || edge.gainLatex.includes('\\cdot'));
   let labelHtml = '';
   let katexFailed = false;
   if (needsKatex) {
@@ -1619,42 +1624,61 @@ function SFGEdge({ edge, nodesMap, edgeIndex, parallelOffset }) {
     }
   }
 
+  // Always try KaTeX for compound gains (contain ·) even without special LaTeX chars
+  const hasMultiply = !needsKatex && edge.gainLatex && edge.gainLatex.includes('\\cdot');
+  if (hasMultiply && !labelHtml) {
+    try {
+      labelHtml = katex.renderToString(edge.gainLatex, { throwOnError: true, displayMode: false });
+      if (labelHtml) katexFailed = false;
+    } catch {
+      katexFailed = true;
+    }
+  }
+
   // Plain text label (used when no KaTeX needed, or as fallback)
   const plainLabel = edge.gain || '';
-  const labelWidth = Math.max(30, plainLabel.length * 9 + 16);
-  const showKatex = needsKatex && labelHtml && !katexFailed;
+  const labelWidth = Math.max(30, plainLabel.length * 9 + 20);
+  const showKatex = (needsKatex || hasMultiply) && labelHtml && !katexFailed;
+
+  // Unity edges: hide label entirely for cleaner look — the dashed line is enough
+  const hideLabel = isUnity;
 
   return (
     <g style={{ pointerEvents: 'none' }}>
-      {/* Edge path — self-loops also get markerEnd */}
+      {/* Edge path */}
       <path d={d} fill="none" stroke={edgeColor} strokeWidth={2} strokeLinecap="round"
-        opacity={isUnity ? 0.35 : 0.85} markerEnd={markerRef}
+        opacity={isUnity ? 0.3 : 0.85} markerEnd={markerRef}
         strokeDasharray={isUnity ? '4 6' : 'none'} />
-      {/* Gain label — always show, even for unity */}
-      {showKatex ? (
-        <foreignObject x={labelX - 50} y={labelY - 16} width={100} height={32}
+      {/* Gain label — skip for unity edges (dashed line is self-evident) */}
+      {!hideLabel && showKatex ? (
+        <foreignObject x={labelX - 90} y={labelY - 18} width={180} height={36}
           style={{ overflow: 'visible', pointerEvents: 'none' }}>
           <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%',
-            background: 'rgba(19, 27, 46, 0.92)', borderRadius: 8,
-            border: '1px solid rgba(255,255,255,0.08)', padding: '2px 8px',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: '100%', height: '100%',
             pointerEvents: 'none', userSelect: 'none',
           }}>
-            <div className="sfg-edge-label-katex" style={{ color: labelTextColor }}
-              dangerouslySetInnerHTML={{ __html: labelHtml }} />
+            <div style={{
+              background: 'rgba(19, 27, 46, 0.95)', borderRadius: 8,
+              border: '1px solid rgba(255,255,255,0.1)', padding: '3px 10px',
+              whiteSpace: 'nowrap',
+            }}>
+              <div className="sfg-edge-label-katex" style={{ color: labelTextColor }}
+                dangerouslySetInnerHTML={{ __html: labelHtml }} />
+            </div>
           </div>
         </foreignObject>
-      ) : (
+      ) : !hideLabel ? (
         <g>
           <rect x={labelX - labelWidth / 2} y={labelY - 12} width={labelWidth} height={24}
-            rx={8} fill="rgba(19, 27, 46, 0.92)" stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
+            rx={8} fill="rgba(19, 27, 46, 0.95)" stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
           <text x={labelX} y={labelY + 1} textAnchor="middle" dominantBaseline="central"
             fill={labelTextColor} fontSize={13} fontWeight={700}
             fontFamily="'Fira Code', monospace" style={{ pointerEvents: 'none', userSelect: 'none' }}>
             {plainLabel}
           </text>
         </g>
-      )}
+      ) : null}
     </g>
   );
 }
