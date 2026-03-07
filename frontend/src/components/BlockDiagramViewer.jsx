@@ -2413,6 +2413,10 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   const handleModeChange = useCallback((newMode) => {
     setMode(newMode);
     callAction('set_mode', { mode: newMode });
+    // Reset UI state on mode switch
+    setSelectedBlock(null); setSelectedWire(null);
+    setGainEditBlock(null); setTfDialogOpen(false);
+    setError(null); setZoom(1.0); setPanOffset({ x: 0, y: 0 });
     if (onParamChange) onParamChange('mode', newMode);
   }, [callAction, onParamChange]);
 
@@ -2421,6 +2425,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     callAction('set_system_type', { system_type: newType });
     setBlocks({}); setConnections([]); setSelectedBlock(null); setSelectedWire(null);
     setTfResult(null); setError(null); setZoom(1.0); setPanOffset({ x: 0, y: 0 });
+    setViewMode('block'); setGainEditBlock(null); setTfDialogOpen(false); setTfInput('');
     if (onParamChange) onParamChange('system_type', newType);
   }, [callAction, onParamChange]);
 
@@ -2858,8 +2863,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
         <div className="bd-toolbar-section">
           <span className="bd-toolbar-label">View</span>
           <div className="bd-toggle-group">
-            <button className={`bd-toggle-btn ${viewMode === 'block' ? 'active' : ''}`} onClick={() => setViewMode('block')} aria-pressed={viewMode === 'block'} aria-label="Block diagram view">Diagram</button>
-            <button className={`bd-toggle-btn ${viewMode === 'sfg' ? 'active' : ''}`} onClick={() => setViewMode('sfg')} aria-pressed={viewMode === 'sfg'} aria-label="Signal flow graph view">SFG</button>
+            <button className={`bd-toggle-btn ${viewMode === 'block' ? 'active' : ''}`} onClick={() => { setViewMode('block'); setZoom(1.0); setPanOffset({ x: 0, y: 0 }); setSelectedBlock(null); setSelectedWire(null); }} aria-pressed={viewMode === 'block'} aria-label="Block diagram view">Diagram</button>
+            <button className={`bd-toggle-btn ${viewMode === 'sfg' ? 'active' : ''}`} onClick={() => { setViewMode('sfg'); setZoom(1.0); setPanOffset({ x: 0, y: 0 }); setSelectedBlock(null); setSelectedWire(null); }} aria-pressed={viewMode === 'sfg'} aria-label="Signal flow graph view">SFG</button>
           </div>
         </div>
 
