@@ -3,51 +3,53 @@
 .afr-viewer {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
 }
 
-/* ── Transfer function banner ── */
+/* ── TF Banner ── */
 .afr-tf-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 10px 18px;
+  gap: 12px;
+  padding: 8px 16px;
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   border-left: 3px solid var(--primary-color);
   flex-wrap: wrap;
-  min-height: 44px;
+  min-height: 40px;
 }
 
 .afr-tf-expression {
   font-family: 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--text-primary);
   flex: 1;
-  min-width: 180px;
+  min-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .afr-tf-badges {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .afr-tf-info {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
   font-family: 'Fira Code', monospace;
   white-space: nowrap;
 }
 
 .afr-badge {
-  padding: 3px 10px;
+  padding: 2px 8px;
   border-radius: var(--radius-full);
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -80,19 +82,19 @@
 
 /* ── Error ── */
 .afr-error {
-  padding: 8px 16px;
+  padding: 6px 14px;
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: var(--radius-md);
   color: #ef4444;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
 }
 
-/* ── Split layout ── */
+/* ── Split Layout ── */
 .afr-split-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  grid-template-columns: minmax(300px, 1fr) 1fr;
+  gap: 12px;
   align-items: start;
 }
 
@@ -103,32 +105,68 @@
 .afr-split-right {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
 .afr-split-right .js-plotly-plot {
-  min-height: 220px;
+  min-height: 210px;
 }
 
-/* ── S-Plane canvas ── */
+/* ── S-Plane Container ── */
 .afr-splane-container {
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: 10px;
+  padding: 8px;
   position: relative;
 }
 
+/* Integrated toolbar overlay at top of s-plane */
+.afr-splane-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+}
+
+.afr-splane-mode {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.02em;
+}
+
+.afr-splane-mode--pole {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.afr-splane-mode--zero {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.afr-splane-hint {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+/* SVG */
 .afr-splane-svg {
   width: 100%;
-  cursor: crosshair;
+  aspect-ratio: 1;
   user-select: none;
   display: block;
+  border-radius: var(--radius-sm);
 }
 
 .afr-splane-svg .stable-region {
-  fill: rgba(52, 211, 153, 0.06);
+  fill: rgba(52, 211, 153, 0.05);
 }
 
 .afr-splane-svg .axis-line {
@@ -138,7 +176,7 @@
 
 .afr-splane-svg .jw-axis {
   stroke: #a855f7;
-  stroke-width: 2;
+  stroke-width: 1.5;
   stroke-dasharray: 6 4;
 }
 
@@ -149,22 +187,30 @@
 
 .afr-splane-svg .axis-label {
   fill: var(--text-muted);
-  font-size: 10px;
+  font-size: 9px;
   font-family: 'Fira Code', monospace;
 }
 
 .afr-splane-svg .axis-title {
   fill: var(--text-secondary);
-  font-size: 13px;
+  font-size: 12px;
   font-family: 'Fira Code', monospace;
   font-weight: 600;
 }
 
+.afr-splane-svg .placement-hint {
+  fill: var(--text-muted);
+  font-size: 10px;
+  font-family: 'Inter', sans-serif;
+  opacity: 0.5;
+}
+
+/* Markers */
 .afr-splane-svg .pole-marker {
   stroke: #ef4444;
   stroke-width: 2.5;
   fill: none;
-  transition: stroke-width var(--transition-fast);
+  transition: stroke-width 100ms;
 }
 
 .afr-splane-svg g:hover .pole-marker {
@@ -176,7 +222,7 @@
   stroke: #3b82f6;
   stroke-width: 2.5;
   fill: none;
-  transition: stroke-width var(--transition-fast);
+  transition: stroke-width 100ms;
 }
 
 .afr-splane-svg g:hover .zero-marker {
@@ -187,7 +233,12 @@
 .afr-splane-svg .hit-area {
   fill: transparent;
   stroke: none;
-  cursor: grab;
+}
+
+.afr-splane-svg .dragging-marker .pole-marker,
+.afr-splane-svg .dragging-marker .zero-marker {
+  opacity: 0.6;
+  filter: drop-shadow(0 0 8px currentColor);
 }
 
 .afr-splane-svg .conjugate-line {
@@ -196,40 +247,51 @@
   stroke-dasharray: 4 3;
 }
 
+/* Crosshairs */
 .afr-splane-svg .hover-crosshair line {
-  stroke: rgba(148, 163, 184, 0.25);
+  stroke: rgba(148, 163, 184, 0.2);
   stroke-width: 0.5;
   stroke-dasharray: 3 3;
   pointer-events: none;
 }
 
 .afr-splane-svg .drag-crosshair line {
-  stroke: rgba(20, 184, 166, 0.4);
+  stroke: rgba(20, 184, 166, 0.35);
   stroke-width: 1;
   stroke-dasharray: 4 2;
   pointer-events: none;
 }
 
-/* Coordinate readout bar */
+/* Readout bar */
 .afr-splane-readout {
   display: flex;
-  justify-content: space-between;
+  gap: 16px;
   align-items: center;
-  padding: 4px 10px;
+  padding: 3px 8px;
   font-family: 'Fira Code', monospace;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
   border-top: 1px solid var(--border-color);
   margin-top: 4px;
+  min-height: 22px;
+}
+
+.afr-splane-readout strong {
+  color: var(--text-secondary);
+}
+
+.afr-splane-readout__hint {
+  opacity: 0.5;
 }
 
 .afr-splane-readout__drag {
   color: var(--primary-color);
   font-weight: 500;
+  margin-left: auto;
 }
 
-/* ── Toolbar ── */
-.afr-toolbar {
+/* ── Controls Row (toolbar + TF input combined) ── */
+.afr-controls-row {
   display: flex;
   gap: 8px;
   align-items: center;
@@ -238,17 +300,18 @@
 
 .afr-toolbar__group {
   display: flex;
-  gap: 4px;
+  gap: 3px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .afr-toolbar__btn {
-  padding: 6px 14px;
+  padding: 5px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   background: var(--surface-color);
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   cursor: pointer;
   transition: all var(--transition-fast);
   font-family: inherit;
@@ -262,18 +325,12 @@
 }
 
 .afr-toolbar__btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .afr-toolbar__btn--active-pole {
   background: rgba(239, 68, 68, 0.12);
-  border-color: #ef4444;
-  color: #ef4444;
-}
-
-.afr-toolbar__btn--active-pole:hover {
-  background: rgba(239, 68, 68, 0.2);
   border-color: #ef4444;
   color: #ef4444;
 }
@@ -284,14 +341,8 @@
   color: #3b82f6;
 }
 
-.afr-toolbar__btn--active-zero:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: #3b82f6;
-  color: #3b82f6;
-}
-
 .afr-toolbar__btn--danger {
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.2);
   color: var(--text-muted);
 }
 
@@ -301,57 +352,57 @@
   color: #ef4444;
 }
 
-/* ── Transfer function input ── */
-.afr-tf-input-row {
+/* TF input inline */
+.afr-tf-input-group {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+  min-width: 200px;
 }
 
 .afr-tf-input-label {
   font-family: 'Fira Code', monospace;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+  font-size: 0.78rem;
+  color: var(--text-muted);
   white-space: nowrap;
-  font-weight: 500;
 }
 
 .afr-tf-input {
   flex: 1;
-  min-width: 200px;
-  padding: 8px 12px;
+  min-width: 120px;
+  padding: 5px 10px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   background: var(--surface-color);
   color: var(--text-primary);
   font-family: 'Fira Code', monospace;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   transition: border-color var(--transition-fast);
 }
 
 .afr-tf-input:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.15);
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.12);
 }
 
 .afr-tf-input::placeholder {
   color: var(--text-muted);
-  opacity: 0.6;
-}
-
-.afr-tf-input:disabled {
   opacity: 0.5;
 }
 
+.afr-tf-input:disabled {
+  opacity: 0.4;
+}
+
 .afr-tf-input-btn {
-  padding: 8px 18px;
+  padding: 5px 14px;
   border-radius: var(--radius-md);
   border: 1px solid var(--primary-color);
-  background: rgba(20, 184, 166, 0.1);
+  background: rgba(20, 184, 166, 0.08);
   color: var(--primary-color);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -360,47 +411,44 @@
 }
 
 .afr-tf-input-btn:hover:not(:disabled) {
-  background: rgba(20, 184, 166, 0.2);
+  background: rgba(20, 184, 166, 0.18);
 }
 
 .afr-tf-input-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .afr-tf-input-error {
-  width: 100%;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: #ef4444;
-  margin-top: -4px;
+  padding: 0 4px;
+  margin-top: -6px;
 }
 
-/* ── Preset cards ── */
-.afr-presets {
+/* ── Preset Cards ── */
+.afr-presets-row {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 0;
+  scrollbar-width: thin;
 }
 
-.afr-presets-label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
+.afr-presets-row::-webkit-scrollbar {
+  height: 4px;
 }
 
-.afr-presets-grid {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.afr-presets-row::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
 }
 
 .afr-preset-card {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px 14px;
+  gap: 1px;
+  padding: 6px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   background: var(--surface-color);
@@ -408,33 +456,39 @@
   transition: all var(--transition-fast);
   text-align: left;
   font-family: inherit;
-  min-width: 110px;
+  flex-shrink: 0;
+  min-width: 100px;
 }
 
 .afr-preset-card:hover:not(:disabled) {
   background: var(--surface-hover);
   border-color: var(--primary-color);
-  transform: translateY(-1px);
 }
 
 .afr-preset-card:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
+.afr-preset-card--active {
+  border-color: var(--primary-color);
+  background: rgba(20, 184, 166, 0.08);
+  box-shadow: 0 0 0 1px rgba(20, 184, 166, 0.2);
+}
+
 .afr-preset-card__name {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .afr-preset-card__desc {
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   color: var(--text-muted);
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
-/* ── Collapsible section ── */
+/* ── Collapsible ── */
 .afr-collapsible {
   background: var(--surface-color);
   border: 1px solid var(--border-color);
@@ -442,51 +496,50 @@
   overflow: hidden;
 }
 
-.afr-collapsible__summary {
-  padding: 10px 16px;
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  transition: color var(--transition-fast);
-  user-select: none;
-  list-style: none;
+.afr-collapsible__header {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+  user-select: none;
 }
 
-.afr-collapsible__summary::before {
-  content: '▸';
-  font-size: 0.8rem;
-  transition: transform var(--transition-fast);
-}
-
-.afr-collapsible[open] > .afr-collapsible__summary::before {
-  transform: rotate(90deg);
-}
-
-.afr-collapsible__summary::-webkit-details-marker {
-  display: none;
-}
-
-.afr-collapsible__summary:hover {
+.afr-collapsible__header:hover {
   color: var(--text-primary);
 }
 
-.afr-collapsible__content {
-  padding: 0 12px 12px;
+.afr-collapsible__arrow {
+  font-size: 0.7rem;
+  transition: transform var(--transition-fast);
+  display: inline-block;
 }
 
-/* Plots grid (used inside collapsible) */
+.afr-collapsible--open .afr-collapsible__arrow {
+  transform: rotate(90deg);
+}
+
+.afr-collapsible__body {
+  padding: 0 10px 10px;
+}
+
+/* Plots grid (inside collapsible) */
 .afr-plots-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 8px;
 }
 
 .afr-plots-grid .js-plotly-plot {
-  min-height: 260px;
+  min-height: 240px;
 }
 
 /* ── Responsive ── */
@@ -502,7 +555,7 @@
 
   .afr-split-right > * {
     flex: 1;
-    min-width: 280px;
+    min-width: 260px;
   }
 }
 
@@ -516,29 +569,29 @@
   }
 
   .afr-tf-banner {
-    padding: 8px 12px;
-    gap: 8px;
-  }
-
-  .afr-tf-expression {
-    font-size: 0.8rem;
-    min-width: 140px;
-  }
-
-  .afr-presets-grid {
+    padding: 6px 10px;
     gap: 6px;
   }
 
-  .afr-preset-card {
-    min-width: 90px;
-    padding: 6px 10px;
+  .afr-tf-expression {
+    font-size: 0.75rem;
+    min-width: 100px;
+  }
+
+  .afr-controls-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .afr-tf-input-group {
+    min-width: unset;
   }
 
   .afr-plots-grid {
     grid-template-columns: 1fr;
   }
 
-  .afr-tf-input {
-    min-width: 150px;
+  .afr-splane-hint {
+    display: none;
   }
 }
