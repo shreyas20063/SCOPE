@@ -53,6 +53,7 @@ const DelayInstabilityViewer = lazy(() => import('./DelayInstabilityViewer'));
 const UAVPerchingViewer = lazy(() => import('./UAVPerchingViewer'));
 const PerchingGliderViewer = lazy(() => import('./PerchingGliderViewer'));
 const StateSpaceViewer = lazy(() => import('./StateSpaceViewer'));
+const SignalFlowScopeViewer = lazy(() => import('./SignalFlowScopeViewer'));
 
 // Loading fallback for lazy-loaded components
 const LazyLoadFallback = () => (
@@ -1668,6 +1669,17 @@ function SimulationViewer({
               ) : metadata?.simulation_type === 'block_diagram_builder' ? (
                 <Suspense fallback={<LazyLoadFallback />}>
                   <BlockDiagramViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                    onMetadataChange={onMetadataChange}
+                    simId={simulation?.id}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'signal_flow_scope' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <SignalFlowScopeViewer
                     metadata={metadata}
                     plots={plots}
                     currentParams={currentParams}
