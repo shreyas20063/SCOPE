@@ -868,10 +868,9 @@ class SignalFlowScopeSimulator(BaseSimulator):
                 val = from_block.get("value", 1.0)
                 gain_label = str(val) if val != int(val) else str(int(val))
                 gain_value = float(val)
-            elif from_type == "delay":
-                gain_label = "R" if self.system_type == "dt" else "z⁻¹"
-            elif from_type == "integrator":
-                gain_label = "A" if self.system_type == "ct" else "1/s"
+            elif from_type in ("delay", "integrator"):
+                # Both map to the same operator: R in DT, A in CT
+                gain_label = "R" if self.system_type == "dt" else "A"
             elif from_type == "custom_tf":
                 gain_label = from_block.get("label", from_block.get("expression", "H"))
 

@@ -371,7 +371,6 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
     }
     const panel = sfgPanelRef.current;
     if (!panel) return;
-    const rect = panel.getBoundingClientRect();
     const x = (node.position?.x || 0) * zoom + panOffset.x;
     const y = (node.position?.y || 0) * zoom + panOffset.y;
     // Offset for the SFG header height (~33px)
@@ -634,7 +633,7 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
                 )}
                 <button
                   className="sfs-probe-remove-btn"
-                  onClick={() => handleToggleProbe(probe.node_id)}
+                  onClick={(e) => { e.stopPropagation(); handleToggleProbe(probe.node_id); }}
                   title="Remove probe"
                 >&times;</button>
               </div>
