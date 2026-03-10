@@ -1310,7 +1310,8 @@ function CustomTfBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPort
   try {
     latexHtml = katex.renderToString(latexStr, { throwOnError: false, displayMode: false });
   } catch {
-    latexHtml = `<span style="font-family:monospace;font-size:11px">${expression}</span>`;
+    const escaped = expression.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    latexHtml = `<span style="font-family:monospace;font-size:11px">${escaped}</span>`;
   }
 
   const isDefault = expression === '1';
@@ -1934,15 +1935,38 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
 
   const handleTfDialogSubmit = useCallback(async () => {
     if (!tfDialogBlockId || !tfDialogValue.trim()) return;
+    setTfDialogError('');
+    saveUndoSnapshot();
+    setIsLoading(true);
     try {
-      setTfDialogError('');
-      await mutatingAction('update_block_value', { block_id: tfDialogBlockId, value: tfDialogValue.trim() });
-      setTfDialogOpen(false);
-      setTfDialogBlockId(null);
+      const result = await api.executeSimulation(simId, 'update_block_value', {
+        block_id: tfDialogBlockId, value: tfDialogValue.trim(),
+      });
+      if (result.success && result.data) {
+        const meta = result.data.metadata || result.metadata;
+        if (meta) {
+          // Check if backend returned an error (parse failure)
+          if (meta.error) {
+            setTfDialogError(meta.error);
+            return; // keep dialog open
+          }
+          if (meta.blocks !== undefined) setBlocks(meta.blocks);
+          if (meta.connections !== undefined) setConnections(meta.connections);
+          if (meta.transfer_function !== undefined) setTfResult(meta.transfer_function);
+          if (meta.error !== undefined) setError(meta.error);
+          if (onMetadataChange) onMetadataChange(meta);
+        }
+        setTfDialogOpen(false);
+        setTfDialogBlockId(null);
+      } else if (result.error) {
+        setTfDialogError(result.error);
+      }
     } catch (err) {
-      setTfDialogError(err?.message || err?.toString() || 'Invalid transfer function expression');
+      setTfDialogError(err?.message || 'Invalid transfer function expression');
+    } finally {
+      setIsLoading(false);
     }
-  }, [tfDialogBlockId, tfDialogValue, mutatingAction]);
+  }, [tfDialogBlockId, tfDialogValue, simId, saveUndoSnapshot, onMetadataChange]);
 
   const handleTfDialogCancel = useCallback(() => {
     setTfDialogOpen(false);
@@ -1955,6 +1979,13 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     () => Object.values(blocks).filter(b => b.type === 'custom_tf'),
     [blocks]
   );
+
+  // Clear stale selectedTfBlock when its block is deleted
+  useEffect(() => {
+    if (selectedTfBlock && !blocks[selectedTfBlock]) {
+      setSelectedTfBlock(null);
+    }
+  }, [blocks, selectedTfBlock]);
 
   // Drag-and-drop: convert screen coords to SVG coords
   const screenToSvg = useCallback((clientX, clientY) => {
