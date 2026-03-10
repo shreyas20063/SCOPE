@@ -271,6 +271,72 @@
 }
 
 /* ==========================================================================
+   Closed-Loop Poles Readout
+   ========================================================================== */
+
+.rl-cl-poles {
+  padding: 10px 12px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.rl-cl-poles-heading {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.rl-cl-poles-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rl-cl-pole-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.rl-cl-pole-chip.stable {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.rl-cl-pole-chip.unstable {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+/* ==========================================================================
+   Updating Bar
+   ========================================================================== */
+
+.rl-updating-bar {
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
+  background-size: 200% 100%;
+  animation: rl-updating-slide 1.2s ease-in-out infinite;
+  border-radius: 1px;
+}
+
+@keyframes rl-updating-slide {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ==========================================================================
    Performance Section (full width)
    ========================================================================== */
 
@@ -420,4 +486,17 @@
 
 [data-theme="light"] .rl-mobile-tab {
   border-color: #e2e8f0;
+}
+
+[data-theme="light"] .rl-cl-poles {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .rl-cl-pole-chip.stable {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+[data-theme="light"] .rl-cl-pole-chip.unstable {
+  background: rgba(239, 68, 68, 0.08);
 }

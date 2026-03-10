@@ -18,6 +18,7 @@ Features:
 References: Nise Ch.8, Ogata Ch.6, Franklin/Powell/Emami-Naeini Ch.5
 """
 
+import time
 import numpy as np
 from typing import Any, Dict, List, Optional, Tuple
 from scipy import signal
@@ -69,7 +70,7 @@ class RootLocusSimulator(BaseSimulator):
         "third_order": ("1", "1, 5, 4, 0", "1/(s(s+1)(s+4))"),
         "lead_compensated": ("1, 3", "1, 6, 5, 0", "(s+3)/(s(s+1)(s+5))"),
         "non_minimum_phase": ("1, -1", "1, 5, 6, 0", "(s-1)/(s(s+2)(s+3))"),
-        "conditionally_stable": ("1", "1, 9, 26, 24, 0", "1/(s(s+1)(s+2)(s+6)(s+0))"),
+        "conditionally_stable": ("1", "1, 9, 20, 12, 0", "1/(s(s+1)(s+2)(s+6))"),
         "fourth_order": ("1", "1, 10, 35, 50, 24", "1/((s+1)(s+2)(s+3)(s+4))"),
     }
 
@@ -108,7 +109,7 @@ class RootLocusSimulator(BaseSimulator):
         "gain_K": {
             "type": "slider",
             "min": 0,
-            "max": 200,
+            "max": 1000,
             "step": 0.01,
             "default": 1.0,
             "label": "Gain K",
@@ -218,6 +219,12 @@ class RootLocusSimulator(BaseSimulator):
         if name in ("k_max", "negative_k"):
             self._invalidate_cache()
 
+        # Clamp gain_K to k_max
+        k_max = float(self.parameters.get("k_max", 100))
+        gain_k = float(self.parameters.get("gain_K", 1.0))
+        if gain_k > k_max:
+            self.parameters["gain_K"] = k_max
+
         # gain_K change uses cached branches (fast path)
         return self.get_state()
 
@@ -313,6 +320,10 @@ class RootLocusSimulator(BaseSimulator):
 
             if len(num) == 0 or len(den) == 0:
                 self._error = "Coefficients cannot be empty"
+                return
+            # Check for all-zero numerator
+            if np.all(np.abs(num) < 1e-15):
+                self._error = "Numerator cannot be all zeros"
                 return
             if len(den) < 2:
                 self._error = "Denominator must be at least order 1"
@@ -1052,7 +1063,8 @@ class RootLocusSimulator(BaseSimulator):
                     "hovertemplate": "UNSTABLE: %{x:.3f} + %{y:.3f}j<extra>Unstable CL Pole</extra>",
                 })
 
-        # Determine plot bounds
+        # Determine plot bounds from OL poles/zeros and CL poles only
+        # (branch points can go to infinity — don't use them for bounds)
         all_re = [0.0]
         all_im = [0.0]
         for p in ol_poles:
@@ -1062,29 +1074,39 @@ class RootLocusSimulator(BaseSimulator):
             all_re.append(float(np.real(z)))
             all_im.append(float(np.imag(z)))
         for p in cl_poles:
-            all_re.append(float(np.real(p)))
-            all_im.append(float(np.imag(p)))
+            re = float(np.real(p))
+            im = float(np.imag(p))
+            # Only include CL poles that are within a reasonable range
+            if abs(re) < 50 and abs(im) < 50:
+                all_re.append(re)
+                all_im.append(im)
+
+        # Add branch points only within a reasonable range of the OL poles
+        base_range = max(max(abs(r) for r in all_re), max(abs(i) for i in all_im), 2.0)
+        bound_limit = base_range * 3
         if self._cached_branches:
             for branch in self._cached_branches:
                 for p in branch:
-                    if not np.isnan(p):
-                        all_re.append(float(np.real(p)))
-                        all_im.append(float(np.imag(p)))
+                    if np.isnan(p):
+                        continue
+                    re = float(np.real(p))
+                    im = float(np.imag(p))
+                    if abs(re) < bound_limit and abs(im) < bound_limit:
+                        all_re.append(re)
+                        all_im.append(im)
 
         re_min = min(all_re) - 1
         re_max = max(all_re) + 1
-        im_min = min(all_im) - 1
-        im_max = max(all_im) + 1
         # Ensure symmetric about real axis
-        im_abs = max(abs(im_min), abs(im_max), 1.0)
+        im_abs = max(max(abs(i) for i in all_im), 1.0) + 1
         im_min = -im_abs
         im_max = im_abs
 
         # Clamp to reasonable bounds
-        re_min = max(re_min, -50)
-        re_max = min(re_max, 50)
-        im_min = max(im_min, -50)
-        im_max = min(im_max, 50)
+        re_min = max(re_min, -30)
+        re_max = min(re_max, 30)
+        im_min = max(im_min, -30)
+        im_max = min(im_max, 30)
 
         # RHP shading
         shapes.append({
@@ -1230,7 +1252,6 @@ class RootLocusSimulator(BaseSimulator):
                         "borderwidth": 1,
                     })
 
-        import time
         layout = {
             "title": {"text": "Root Locus", "font": {"size": 16, "color": self.TEXT_COLOR}},
             "paper_bgcolor": self.PAPER_BG,
@@ -1285,6 +1306,18 @@ class RootLocusSimulator(BaseSimulator):
         t_max = 10.0
 
         try:
+            # K=0 means open loop — no closed-loop step response
+            if abs(K) < 1e-12:
+                traces.append({
+                    "x": [0, 10],
+                    "y": [0, 0],
+                    "type": "scatter",
+                    "mode": "lines",
+                    "line": {"color": "#3b82f6", "width": 2},
+                    "name": "Step Response (K ≈ 0)",
+                })
+                raise ValueError("_skip_")
+
             num_cl = K * self._num
             num_padded = np.zeros_like(self._den)
             offset = len(self._den) - len(self._num)
@@ -1294,6 +1327,10 @@ class RootLocusSimulator(BaseSimulator):
             # Check if system is proper
             if len(num_cl) > len(den_cl):
                 raise ValueError("Improper system")
+
+            # Check for degenerate denominator
+            if abs(den_cl[0]) < 1e-15:
+                raise ValueError("Degenerate closed-loop system")
 
             tf = signal.TransferFunction(num_cl, den_cl)
 
@@ -1345,15 +1382,16 @@ class RootLocusSimulator(BaseSimulator):
                     })
 
         except Exception as e:
-            # Show error trace
-            traces.append({
-                "x": [0, 1],
-                "y": [0, 0],
-                "type": "scatter",
-                "mode": "lines",
-                "line": {"color": "#ef4444", "width": 1},
-                "name": f"Error: {str(e)[:50]}",
-            })
+            # K=0 skip is not an error — just show the zero line
+            if str(e) != "_skip_":
+                traces.append({
+                    "x": [0, 1],
+                    "y": [0, 0],
+                    "type": "scatter",
+                    "mode": "lines",
+                    "line": {"color": "#ef4444", "width": 1},
+                    "name": f"Error: {str(e)[:50]}",
+                })
 
         layout = {
             "title": {"text": f"Step Response (K = {abs(float(self.parameters['gain_K'])):.2f})", "font": {"size": 14, "color": self.TEXT_COLOR}},
@@ -1382,15 +1420,14 @@ class RootLocusSimulator(BaseSimulator):
 
     def _build_performance_plot(self) -> Dict:
         """Build ζ and ωn vs K sweep plot."""
-        import time
-
         traces = []
         K_current = float(self.parameters["gain_K"])
         k_max = float(self.parameters["k_max"])
         negative = bool(self.parameters["negative_k"])
 
-        # Sweep K and compute dominant pole metrics
-        k_sweep = np.linspace(0.01, k_max, 200)
+        # Sweep K and compute dominant pole metrics (use fewer points for perf)
+        n_sweep = 100
+        k_sweep = np.linspace(0.01, k_max, n_sweep)
         zeta_vals = []
         wn_vals = []
 
@@ -1399,11 +1436,14 @@ class RootLocusSimulator(BaseSimulator):
             cl_p = self._cl_poles_at_k(k_actual)
             dom = self._get_dominant_poles(cl_p)
             if dom:
-                zeta_vals.append(dom[0]["zeta"])
-                wn_vals.append(dom[0]["wn"])
+                z = dom[0]["zeta"]
+                w = dom[0]["wn"]
+                # Clamp to displayable values
+                zeta_vals.append(min(z, 5.0) if z is not None else 0.0)
+                wn_vals.append(min(w, 100.0) if w is not None else 0.0)
             else:
-                zeta_vals.append(None)
-                wn_vals.append(None)
+                zeta_vals.append(0.0)
+                wn_vals.append(0.0)
 
         # ζ vs K
         traces.append({
@@ -1428,9 +1468,10 @@ class RootLocusSimulator(BaseSimulator):
         })
 
         # Current K line
+        zeta_max = max(zeta_vals) if zeta_vals else 1.0
         traces.append({
             "x": [K_current, K_current],
-            "y": [0, max(z for z in zeta_vals if z is not None) * 1.2 if any(z for z in zeta_vals if z is not None) else 1],
+            "y": [0, zeta_max * 1.2 if zeta_max > 0 else 1.0],
             "type": "scatter",
             "mode": "lines",
             "line": {"color": "#f59e0b", "width": 2, "dash": "dash"},

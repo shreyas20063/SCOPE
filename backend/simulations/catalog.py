@@ -2498,7 +2498,7 @@ SIMULATION_CATALOG = [
                 {"value": "conditionally_stable", "label": "Conditionally Stable"},
                 {"value": "fourth_order", "label": "Fourth Order"},
             ]},
-            {"type": "slider", "name": "gain_K", "label": "Gain K", "min": 0, "max": 200, "step": 0.01, "default": 1.0, "group": "Gain"},
+            {"type": "slider", "name": "gain_K", "label": "Gain K", "min": 0, "max": 1000, "step": 0.01, "default": 1.0, "group": "Gain"},
             {"type": "slider", "name": "k_max", "label": "K Maximum", "min": 1, "max": 1000, "step": 1, "default": 100, "group": "Gain"},
             {"type": "checkbox", "name": "negative_k", "label": "Complementary (K < 0)", "default": False, "group": "Gain"},
             {"type": "checkbox", "name": "show_damping_lines", "label": "Damping Ratio Lines", "default": True, "group": "Overlays"},
