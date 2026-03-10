@@ -83,9 +83,22 @@ SIMULATION_CATALOG = [
             "image_bits": 3
         },
         "plots": [
+            # Aliasing mode
             {"id": "original_signal", "title": "Original Signal", "description": "Original audio signal"},
             {"id": "downsampled_signal", "title": "Downsampled", "description": "Downsampled signal"},
             {"id": "frequency_spectrum", "title": "Spectrum", "description": "Frequency spectrum with Nyquist markers"},
+            # Quantization mode
+            {"id": "original_audio", "title": "Original Audio", "description": "Original audio waveform"},
+            {"id": "quantized_audio", "title": "Quantized Audio", "description": "Quantized audio waveform"},
+            {"id": "error_spectrum", "title": "Error Spectrum", "description": "Quantization error spectrum"},
+            {"id": "quant_function", "title": "Quantization Function", "description": "Quantization transfer function"},
+            # Image mode
+            {"id": "original_image", "title": "Original Image", "description": "Original test image"},
+            {"id": "standard_image", "title": "Standard Quantized", "description": "Standard quantized image"},
+            {"id": "dither_image", "title": "Dithered Image", "description": "Dither quantized image"},
+            {"id": "roberts_image", "title": "Roberts Image", "description": "Roberts quantized image"},
+            {"id": "mse_comparison", "title": "MSE Comparison", "description": "Mean squared error comparison"},
+            {"id": "histograms", "title": "Histograms", "description": "Image histograms"},
         ],
     },
 
@@ -386,24 +399,10 @@ SIMULATION_CATALOG = [
             "uniform_phase": 0.0
         },
         "plots": [
-            # Image mode plots
-            {"id": "image1_original", "title": "Image 1 Original", "description": "Original test image 1"},
-            {"id": "image1_magnitude", "title": "Image 1 Magnitude", "description": "Log magnitude spectrum"},
-            {"id": "image1_phase", "title": "Image 1 Phase", "description": "Phase spectrum (-π to π)"},
-            {"id": "image1_reconstructed", "title": "Image 1 Reconstructed", "description": "IFFT reconstruction"},
-            {"id": "image2_original", "title": "Image 2 Original", "description": "Original test image 2"},
-            {"id": "image2_magnitude", "title": "Image 2 Magnitude", "description": "Log magnitude spectrum"},
-            {"id": "image2_phase", "title": "Image 2 Phase", "description": "Phase spectrum (-π to π)"},
-            {"id": "image2_reconstructed", "title": "Image 2 Reconstructed", "description": "IFFT reconstruction"},
-            {"id": "hybrid_mag1_phase2", "title": "Hybrid: Mag1 + Phase2", "description": "Looks like Image 2 (phase dominates!)"},
-            {"id": "hybrid_mag2_phase1", "title": "Hybrid: Mag2 + Phase1", "description": "Looks like Image 1 (phase dominates!)"},
-            # Audio mode plots
+            # Image mode: plots are empty — images delivered via visualization_data
+            # Audio mode: waveform plots only
             {"id": "audio1_waveform", "title": "Audio 1 Waveform", "description": "Time domain signal 1"},
-            {"id": "audio1_magnitude", "title": "Audio 1 Magnitude", "description": "Magnitude spectrum (dB)"},
-            {"id": "audio1_phase", "title": "Audio 1 Phase", "description": "Phase spectrum"},
             {"id": "audio2_waveform", "title": "Audio 2 Waveform", "description": "Time domain signal 2"},
-            {"id": "audio2_magnitude", "title": "Audio 2 Magnitude", "description": "Magnitude spectrum (dB)"},
-            {"id": "audio2_phase", "title": "Audio 2 Phase", "description": "Phase spectrum"},
             {"id": "hybrid1_waveform", "title": "Hybrid: Mag1 + Phase2", "description": "Phase from signal 2"},
             {"id": "hybrid2_waveform", "title": "Hybrid: Mag2 + Phase1", "description": "Phase from signal 1"},
         ],
@@ -447,14 +446,14 @@ SIMULATION_CATALOG = [
         "controls": [
             # Physical Parameters (tuned for stable control)
             {"type": "slider", "name": "mass", "label": "Pendulum Mass", "min": 0.05, "max": 0.3, "step": 0.01, "default": 0.1, "unit": "kg", "group": "Physical", "description": "Mass at end of pendulum"},
-            {"type": "slider", "name": "pendulum_length", "label": "Pendulum Length", "min": 0.1, "max": 0.5, "step": 0.01, "default": 0.3, "unit": "m", "group": "Physical", "description": "Length of pendulum rod"},
-            {"type": "slider", "name": "arm_length", "label": "Arm Length", "min": 0.1, "max": 0.4, "step": 0.01, "default": 0.2, "unit": "m", "group": "Physical", "description": "Length of rotating horizontal arm"},
+            {"type": "slider", "name": "pendulum_length", "label": "Pendulum Length", "min": 0.15, "max": 0.5, "step": 0.01, "default": 0.3, "unit": "m", "group": "Physical", "description": "Length of pendulum rod"},
+            {"type": "slider", "name": "arm_length", "label": "Arm Length", "min": 0.1, "max": 0.3, "step": 0.01, "default": 0.2, "unit": "m", "group": "Physical", "description": "Length of rotating horizontal arm"},
             # PID Controller
-            {"type": "slider", "name": "Kp", "label": "Kp (Proportional)", "min": 0, "max": 150, "step": 1, "default": 1, "unit": "", "group": "PID Controller", "description": "Proportional gain - main restoring force"},
-            {"type": "slider", "name": "Kd", "label": "Kd (Derivative)", "min": 0, "max": 30, "step": 0.5, "default": 0, "unit": "", "group": "PID Controller", "description": "Derivative gain - damping"},
+            {"type": "slider", "name": "Kp", "label": "Kp (Proportional)", "min": 0, "max": 100, "step": 1, "default": 1, "unit": "", "group": "PID Controller", "description": "Proportional gain - main restoring force"},
+            {"type": "slider", "name": "Kd", "label": "Kd (Derivative)", "min": 0, "max": 20, "step": 0.5, "default": 0, "unit": "", "group": "PID Controller", "description": "Derivative gain - damping"},
             {"type": "slider", "name": "Ki", "label": "Ki (Integral)", "min": 0, "max": 10, "step": 0.5, "default": 0.5, "unit": "", "group": "PID Controller", "description": "Integral gain - eliminates steady-state error"},
             # Initial Conditions
-            {"type": "slider", "name": "initial_angle", "label": "Initial Angle", "min": -30, "max": 30, "step": 1, "default": 15, "unit": "deg", "group": "Initial Conditions", "description": "Starting pendulum angle from vertical"},
+            {"type": "slider", "name": "initial_angle", "label": "Initial Angle", "min": -90, "max": 90, "step": 1, "default": 15, "unit": "deg", "group": "Initial Conditions", "description": "Starting pendulum angle from vertical"},
         ],
         "default_params": {"mass": 0.1, "pendulum_length": 0.3, "arm_length": 0.2, "Kp": 1, "Kd": 0, "Ki": 0.5, "initial_angle": 15},
         "plots": [
@@ -566,8 +565,21 @@ SIMULATION_CATALOG = [
             "fdm_channels": 3, "fdm_demod_channel": 1, "fdm_spacing": 10
         },
         "plots": [
-            {"id": "waveforms", "title": "Waveforms", "description": "Time-domain signal visualization"},
-            {"id": "spectrum", "title": "Spectrum", "description": "Power spectral density"},
+            # AM mode
+            {"id": "am_message", "title": "AM Message Signal", "description": "Original message waveform"},
+            {"id": "am_modulated", "title": "AM Modulated", "description": "Modulated carrier signal"},
+            {"id": "am_recovered", "title": "AM Recovered", "description": "Demodulated recovered signal"},
+            {"id": "am_spectrum", "title": "AM Spectrum", "description": "Frequency spectrum of AM signal"},
+            # FM/PM mode
+            {"id": "fm_message", "title": "FM/PM Message", "description": "Original message waveform"},
+            {"id": "fm_modulated", "title": "FM/PM Modulated", "description": "Frequency/phase modulated signal"},
+            {"id": "fm_inst_freq", "title": "Instantaneous Frequency", "description": "Instantaneous frequency over time"},
+            {"id": "fm_recovered", "title": "FM/PM Recovered", "description": "Demodulated recovered signal"},
+            {"id": "fm_spectrum", "title": "FM/PM Spectrum", "description": "Frequency spectrum of FM/PM signal"},
+            # FDM mode
+            {"id": "fdm_multiplexed", "title": "FDM Multiplexed", "description": "Combined multiplexed signal"},
+            {"id": "fdm_spectrum", "title": "FDM Spectrum", "description": "Frequency spectrum of FDM signal"},
+            {"id": "fdm_demodulated", "title": "FDM Demodulated", "description": "Demodulated channel signal"},
         ],
     },
 
