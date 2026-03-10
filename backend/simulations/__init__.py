@@ -53,6 +53,7 @@ from .eigenfunction_tester import EigenfunctionTesterSimulator
 from .audio_freq_response import AudioFreqResponseSimulator
 from .delay_instability import DelayInstabilitySimulator
 from .signal_flow_scope import SignalFlowScopeSimulator
+from .nyquist_bode_comparison import NyquistBodeComparisonSimulator
 
 # Registry mapping simulation IDs to their simulator classes
 # Add new simulators here as they are implemented
@@ -101,6 +102,7 @@ SIMULATOR_REGISTRY = {
     "audio_freq_response": AudioFreqResponseSimulator,
     "delay_instability": DelayInstabilitySimulator,
     "signal_flow_scope": SignalFlowScopeSimulator,
+    "nyquist_bode_comparison": NyquistBodeComparisonSimulator,
 }
 
 
@@ -186,6 +188,7 @@ __all__ = [
     "AudioFreqResponseSimulator",
     "DelayInstabilitySimulator",
     "SignalFlowScopeSimulator",
+    "NyquistBodeComparisonSimulator",
     "SIMULATOR_REGISTRY",
     "get_simulator_class",
     "is_simulator_available",

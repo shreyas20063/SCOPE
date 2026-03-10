@@ -53,6 +53,7 @@ const VectorFreqResponseViewer = lazy(() => import('./VectorFreqResponseViewer')
 const DelayInstabilityViewer = lazy(() => import('./DelayInstabilityViewer'));
 const StateSpaceViewer = lazy(() => import('./StateSpaceViewer'));
 const SignalFlowScopeViewer = lazy(() => import('./SignalFlowScopeViewer'));
+const NyquistBodeViewer = lazy(() => import('./NyquistBodeViewer'));
 
 // Loading fallback for lazy-loaded components
 const LazyLoadFallback = () => (
@@ -1948,6 +1949,15 @@ function SimulationViewer({
                     plots={plots}
                     onButtonClick={onButtonClick}
                     isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'nyquist_bode_comparison' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <NyquistBodeViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
                   />
                 </Suspense>
               ) : (

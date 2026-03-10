@@ -2471,6 +2471,66 @@ SIMULATION_CATALOG = [
             },
         ],
     },
+    # =========================================================================
+    # NYQUIST-BODE COMPARISON
+    # =========================================================================
+    {
+        "id": "nyquist_bode_comparison",
+        "name": "Nyquist-Bode Comparison",
+        "description": "Compare Nyquist and Bode plots side-by-side for the same transfer function. Visualize gain margin, phase margin, and stability with synchronized frequency highlighting.",
+        "category": "Control Systems",
+        "thumbnail": "🔄",
+        "tags": ["nyquist", "bode", "frequency response", "stability", "gain margin", "phase margin", "control"],
+        "has_simulator": True,
+        "controls": [
+            {
+                "type": "select",
+                "name": "preset",
+                "label": "Transfer Function",
+                "options": [
+                    {"value": "first_order", "label": "1st Order: K/(s+a)"},
+                    {"value": "second_order", "label": "2nd Order: Kω₀²/(s²+2ζω₀s+ω₀²)"},
+                    {"value": "lead_lag", "label": "Lead/Lag: K(s+z)/(s+p)"},
+                    {"value": "two_real_poles", "label": "Two Poles: K/((s+a)(s+b))"},
+                    {"value": "integrator_pole", "label": "Integrator: K/(s(s+a))"},
+                    {"value": "custom", "label": "Custom Coefficients"},
+                ],
+                "default": "second_order",
+                "group": "Transfer Function",
+            },
+            {"type": "slider", "name": "gain_K", "label": "Gain K", "min": 0.1, "max": 50.0, "step": 0.1, "default": 1.0, "group": "Parameters"},
+            {"type": "slider", "name": "omega_0", "label": "Natural Freq ω₀", "min": 0.5, "max": 50.0, "step": 0.5, "default": 5.0, "unit": "rad/s", "group": "Parameters", "visible_when": {"preset": "second_order"}},
+            {"type": "slider", "name": "zeta", "label": "Damping ζ", "min": 0.05, "max": 2.0, "step": 0.01, "default": 0.5, "group": "Parameters", "visible_when": {"preset": "second_order"}},
+            {"type": "slider", "name": "pole_a", "label": "Pole a", "min": 0.1, "max": 20.0, "step": 0.1, "default": 2.0, "unit": "rad/s", "group": "Parameters", "visible_when": {"preset": ["first_order", "two_real_poles", "integrator_pole"]}},
+            {"type": "slider", "name": "pole_b", "label": "Pole b", "min": 0.1, "max": 20.0, "step": 0.1, "default": 5.0, "unit": "rad/s", "group": "Parameters", "visible_when": {"preset": "two_real_poles"}},
+            {"type": "slider", "name": "zero_z", "label": "Zero z", "min": 0.1, "max": 20.0, "step": 0.1, "default": 1.0, "unit": "rad/s", "group": "Parameters", "visible_when": {"preset": "lead_lag"}},
+            {"type": "slider", "name": "pole_p", "label": "Pole p", "min": 0.1, "max": 20.0, "step": 0.1, "default": 10.0, "unit": "rad/s", "group": "Parameters", "visible_when": {"preset": "lead_lag"}},
+            {"type": "expression", "name": "custom_num", "label": "Numerator coeffs (high→low)", "default": "1", "group": "Custom TF", "visible_when": {"preset": "custom"}},
+            {"type": "expression", "name": "custom_den", "label": "Denominator coeffs (high→low)", "default": "1, 1", "group": "Custom TF", "visible_when": {"preset": "custom"}},
+            {"type": "slider", "name": "freq_min_exp", "label": "Min Freq (10^x)", "min": -3, "max": 0, "step": 0.1, "default": -2, "group": "Frequency Range"},
+            {"type": "slider", "name": "freq_max_exp", "label": "Max Freq (10^x)", "min": 1, "max": 4, "step": 0.1, "default": 3, "group": "Frequency Range"},
+        ],
+        "default_params": {
+            "preset": "second_order",
+            "gain_K": 1.0,
+            "omega_0": 5.0,
+            "zeta": 0.5,
+            "pole_a": 2.0,
+            "pole_b": 5.0,
+            "zero_z": 1.0,
+            "pole_p": 10.0,
+            "custom_num": "1",
+            "custom_den": "1, 1",
+            "freq_min_exp": -2,
+            "freq_max_exp": 3,
+        },
+        "plots": [
+            {"id": "bode_magnitude", "title": "Bode Magnitude", "description": "|H(jω)| in dB vs frequency"},
+            {"id": "bode_phase", "title": "Bode Phase", "description": "∠H(jω) in degrees vs frequency"},
+            {"id": "nyquist", "title": "Nyquist Plot", "description": "Im vs Re of H(jω) as ω sweeps"},
+            {"id": "pole_zero", "title": "Pole-Zero Map", "description": "Poles and zeros in the s-plane"},
+        ],
+    },
 ]
 
 

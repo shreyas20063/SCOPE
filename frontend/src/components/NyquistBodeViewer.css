@@ -1,0 +1,192 @@
+/* NyquistBodeViewer - Nyquist/Bode comparison layout */
+
+.nyquist-bode-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px;
+  width: 100%;
+}
+
+/* Stability banner */
+.nbc-stability-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-family: var(--font-mono, 'Fira Code', monospace);
+}
+
+.nbc-stability-banner.stable {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--success-color);
+}
+
+.nbc-stability-banner.unstable {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--error-color);
+}
+
+.nbc-stability-banner.marginal {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: var(--warning-color);
+}
+
+.nbc-stability-badge {
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.nbc-margins {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.nbc-margin-item {
+  white-space: nowrap;
+}
+
+.nbc-margin-label {
+  opacity: 0.7;
+  margin-right: 4px;
+}
+
+.nbc-margin-value {
+  font-weight: 600;
+}
+
+/* TF expression */
+.nbc-tf-expression {
+  padding: 8px 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono, 'Fira Code', monospace);
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+/* Animation controls */
+.nbc-animation-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.nbc-transport-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  transition: background var(--transition-fast);
+}
+
+.nbc-transport-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+
+.nbc-transport-btn.active {
+  background: var(--primary-light);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.nbc-scrubber {
+  flex: 1;
+  accent-color: var(--primary-color);
+}
+
+.nbc-freq-readout {
+  font-family: var(--font-mono, 'Fira Code', monospace);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  min-width: 140px;
+  text-align: right;
+}
+
+.nbc-speed-select {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font-size: 0.8rem;
+}
+
+/* Plot grid */
+.nbc-plot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 8px;
+}
+
+.nbc-bode-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nbc-nyquist-cell {
+  grid-row: 1 / 3;
+  grid-column: 2;
+}
+
+.nbc-plot-cell {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  min-height: 220px;
+}
+
+.nbc-plot-cell .js-plotly-plot {
+  width: 100% !important;
+}
+
+/* Pole-zero row */
+.nbc-pz-row {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  min-height: 200px;
+}
+
+/* Responsive: stack on mobile */
+@media (max-width: 768px) {
+  .nbc-plot-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .nbc-nyquist-cell {
+    grid-row: auto;
+    grid-column: auto;
+  }
+
+  .nbc-stability-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nbc-animation-controls {
+    flex-wrap: wrap;
+  }
+}
