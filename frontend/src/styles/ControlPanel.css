@@ -88,10 +88,22 @@
 /* Individual control group */
 .control-group {
   margin-bottom: 1.25rem;
+  animation: controlFadeIn 0.2s ease-out;
 }
 
 .control-group:last-child {
   margin-bottom: 0;
+}
+
+@keyframes controlFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Control header (label + value) */
@@ -396,6 +408,11 @@
   border-color: var(--primary, #14b8a6);
   color: var(--primary, #14b8a6);
   background: rgba(20, 184, 166, 0.1);
+}
+
+.btn-reset:active {
+  transform: scale(0.96);
+  transition-duration: 80ms;
 }
 
 .btn-reset:disabled {

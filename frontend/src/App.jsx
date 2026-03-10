@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { Routes, Route, Link } from 'react-router-dom'
+import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 import SimulationPage from './pages/SimulationPage'
 import WebsiteLaunchAnimation from './components/WebsiteLaunchAnimation'
@@ -25,6 +25,7 @@ function App() {
   });
 
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   const handleLaunchComplete = useCallback(() => {
     sessionStorage.setItem(LAUNCH_KEY, '1');
@@ -37,6 +38,19 @@ function App() {
     if (!savedTheme) {
       document.documentElement.setAttribute('data-theme', 'dark');
     }
+  }, []);
+
+  // Scroll to top on route change
+  const location = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
+  // Header shadow on scroll
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   // Global keyboard shortcuts
@@ -56,7 +70,7 @@ function App() {
         Skip to main content
       </a>
 
-      <header className="app-header">
+      <header className={`app-header ${scrolled ? 'scrolled' : ''}`}>
         <Link to="/" className="logo">
           <h1>Signals & Systems</h1>
         </Link>

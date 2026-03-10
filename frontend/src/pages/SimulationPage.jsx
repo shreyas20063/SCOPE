@@ -82,7 +82,7 @@ function SimulationPage() {
   }
 
   return (
-    <div className="simulation-page">
+    <div className={`simulation-page ${animationComplete ? 'page-ready' : ''}`}>
       {/* Launch animation overlay */}
       {!animationComplete && !error && (
         <SimulationLaunchAnimation
