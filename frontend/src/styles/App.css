@@ -198,6 +198,7 @@ a {
 
 .nav-links {
   display: flex;
+  align-items: center;
   gap: 2rem;
 }
 
@@ -212,6 +213,88 @@ a {
 .nav-links a:hover {
   color: var(--accent-color);
   text-shadow: 0 0 10px rgba(0, 217, 255, 0.3);
+}
+
+/* Header toolbar (shortcuts button + theme toggle) */
+.header-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.5rem;
+}
+
+.toolbar-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast) ease;
+}
+
+.toolbar-button:hover {
+  background: var(--primary-light);
+  color: var(--primary-color);
+}
+
+.toolbar-button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* Error Boundary */
+.error-boundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  padding: 3rem;
+}
+
+.error-boundary-content {
+  text-align: center;
+  max-width: 400px;
+}
+
+.error-boundary-content h3 {
+  font-size: 1.25rem;
+  color: var(--text-primary);
+  margin: 1rem 0 0.5rem;
+}
+
+.error-boundary-content p {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.error-boundary-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.btn-secondary {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast) ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+  background: var(--surface-hover);
 }
 
 /* Main Content */
@@ -972,8 +1055,29 @@ a {
     padding: 1rem;
   }
 
+  .app-header {
+    flex-direction: row;
+    align-items: center;
+  }
+
   .nav-links {
-    gap: 1rem;
+    gap: 0.75rem;
+  }
+
+  .header-toolbar {
+    gap: 0.25rem;
+  }
+
+  .toolbar-button,
+  .theme-toggle {
+    width: 32px;
+    height: 32px;
+  }
+
+  .toolbar-button svg,
+  .theme-toggle svg {
+    width: 16px;
+    height: 16px;
   }
 
   .hero {

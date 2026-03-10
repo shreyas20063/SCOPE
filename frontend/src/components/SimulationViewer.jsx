@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import PlotDisplay from './PlotDisplay';
 import ControlPanel from './ControlPanel';
 import ShareButton from './ShareButton';
+import ErrorBoundary from './ErrorBoundary';
 import ConvolutionViewer from './ConvolutionViewer';
 import RCLowpassViewer from './RCLowpassViewer';
 import SignalOperationsViewer from './SignalOperationsViewer';
@@ -50,8 +51,6 @@ const EigenfunctionTesterViewer = lazy(() => import('./EigenfunctionTesterViewer
 const AudioFreqResponseViewer = lazy(() => import('./AudioFreqResponseViewer'));
 const VectorFreqResponseViewer = lazy(() => import('./VectorFreqResponseViewer'));
 const DelayInstabilityViewer = lazy(() => import('./DelayInstabilityViewer'));
-const UAVPerchingViewer = lazy(() => import('./UAVPerchingViewer'));
-const PerchingGliderViewer = lazy(() => import('./PerchingGliderViewer'));
 const StateSpaceViewer = lazy(() => import('./StateSpaceViewer'));
 const SignalFlowScopeViewer = lazy(() => import('./SignalFlowScopeViewer'));
 
@@ -1569,13 +1568,14 @@ function SimulationViewer({
             hasControls={parameters && parameters.length > 0}
           />
 
-          <div className={`viewer-content ${(!parameters || parameters.length === 0 || metadata?.simulation_type === 'block_diagram_builder') ? 'no-controls' : ''}`}>
+          <div className={`viewer-content ${(!parameters || parameters.length === 0 || metadata?.simulation_type === 'block_diagram_builder' || metadata?.simulation_type === 'signal_flow_scope') ? 'no-controls' : ''}`}>
             {/* Plots section */}
             <div
               className={`plots-section ${
                 mobileActiveTab === 'plots' ? 'mobile-visible' : 'mobile-hidden'
               }`}
             >
+              <ErrorBoundary>
               {/* Convolution Info Panel */}
               <ConvolutionInfoPanel metadata={metadata} params={currentParams} />
 
@@ -1939,20 +1939,6 @@ function SimulationViewer({
                     isUpdating={isUpdating}
                   />
                 </Suspense>
-              ) : metadata?.simulation_type === 'uav_perching' ? (
-                <Suspense fallback={<LazyLoadFallback />}>
-                  <UAVPerchingViewer
-                    metadata={metadata}
-                    plots={plots}
-                  />
-                </Suspense>
-              ) : metadata?.simulation_type === 'perching_glider' ? (
-                <Suspense fallback={<LazyLoadFallback />}>
-                  <PerchingGliderViewer
-                    metadata={metadata}
-                    plots={plots}
-                  />
-                </Suspense>
               ) : metadata?.simulation_type === 'state_space_analyzer' ? (
                 <Suspense fallback={<LazyLoadFallback />}>
                   <StateSpaceViewer
@@ -1973,10 +1959,11 @@ function SimulationViewer({
                   }
                 />
               )}
+              </ErrorBoundary>
             </div>
 
-            {/* Controls section - hide for block_diagram_builder (controls are inline in viewer) */}
-            {parameters && parameters.length > 0 && metadata?.simulation_type !== 'block_diagram_builder' && (
+            {/* Controls section - hide for tool-style viewers (controls are inline) */}
+            {parameters && parameters.length > 0 && metadata?.simulation_type !== 'block_diagram_builder' && metadata?.simulation_type !== 'signal_flow_scope' && (
               <div
                 className={`controls-section ${
                   mobileActiveTab === 'controls' ? 'mobile-visible' : 'mobile-hidden'

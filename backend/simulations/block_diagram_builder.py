@@ -360,6 +360,10 @@ class BlockDiagramSimulator(BaseSimulator):
             elif self.system_type == "dt" and detected_var == "A":
                 # A (CT operator) entered in DT: treat coefficients as R-domain
                 converted_from = "A"
+            elif self.system_type == "ct" and detected_var == "s":
+                # s-domain entered in CT mode: convert s → A (A = 1/s)
+                num_coeffs, den_coeffs = self._s_to_a_coeffs(num_coeffs, den_coeffs)
+                converted_from = "s"
             elif self.system_type == "ct" and detected_var in ("R", "z"):
                 # DT expression entered in CT mode: not a meaningful conversion
                 raise ValueError(
@@ -1258,6 +1262,13 @@ class BlockDiagramSimulator(BaseSimulator):
         if not forward_paths:
             raise ValueError("No forward path from Input to Output found.")
 
+        # Build connection lookup: (from_block, to_block) -> to_port
+        # O(1) lookup instead of linear scan per adder in path/loop gain
+        conn_port_map: Dict[Tuple[str, str], int] = {}
+        for conn in self.connections:
+            key = (conn["from_block"], conn["to_block"])
+            conn_port_map[key] = conn["to_port"]
+
         # ── Algebraic loop detection ──
         # A loop is "algebraic" if it contains NO delay or integrator blocks,
         # meaning it has direct feedthrough (instantaneous feedback).
@@ -1283,11 +1294,7 @@ class BlockDiagramSimulator(BaseSimulator):
                 # Handle adder sign
                 if block["type"] == "adder" and i > 0:
                     prev_bid = path[i - 1]
-                    port_idx = 0
-                    for conn in self.connections:
-                        if conn["from_block"] == prev_bid and conn["to_block"] == bid:
-                            port_idx = conn["to_port"]
-                            break
+                    port_idx = conn_port_map.get((prev_bid, bid), 0)
                     signs = block.get("signs", ["+", "+", "+"])
                     if port_idx < len(signs) and signs[port_idx] == "-":
                         num = self._pscale(num, -1.0)
@@ -1308,11 +1315,7 @@ class BlockDiagramSimulator(BaseSimulator):
                 block = self.blocks[bid]
                 if block["type"] == "adder":
                     prev_bid = loop[i - 1] if i > 0 else loop[-1]
-                    port_idx = 0
-                    for conn in self.connections:
-                        if conn["from_block"] == prev_bid and conn["to_block"] == bid:
-                            port_idx = conn["to_port"]
-                            break
+                    port_idx = conn_port_map.get((prev_bid, bid), 0)
                     signs = block.get("signs", ["+", "+", "+"])
                     if port_idx < len(signs) and signs[port_idx] == "-":
                         num = self._pscale(num, -1.0)
@@ -1640,19 +1643,20 @@ class BlockDiagramSimulator(BaseSimulator):
         z_num[:len(num)] = num
         z_den[:len(den)] = den
 
-        # z_num and z_den are now HIGH-power-first (a0 is coeff of z^k)
-        # Strip trailing zeros (which are leading zeros in polynomial sense)
-        # Actually these are already in the right format.
+        # z_num and z_den are now HIGH-power-first (a0 is coeff of z^k).
+        # np.roots expects [a_n, a_{n-1}, ..., a_0] where a_n is highest.
+        # Our z_num = [a0, a1, ..., an, 0, ...] where a0 is coeff of z^k — correct.
+        #
+        # Strip leading zeros: np.roots and scipy.signal interpret leading zeros
+        # as higher-degree terms with zero coefficient, which causes wrong results.
+        # E.g., np.roots([0, 0, 1]) should be roots of "1" (no roots) but numpy
+        # may interpret differently across versions.
+        z_num = np.trim_zeros(z_num, 'f')
+        z_den = np.trim_zeros(z_den, 'f')
 
-        # But wait — np.roots expects [a_n, a_{n-1}, ..., a_0] where a_n is highest.
-        # Our z_num = [a0, a1, ..., an, 0, ...] where a0 is coeff of z^k.
-        # So z_num IS in high-power-first format already. Good.
-
-        # Don't trim — trailing zeros represent lower-power z terms
-        # Only ensure non-empty
-        if not np.any(z_num != 0):
+        if len(z_num) == 0:
             z_num = np.array([0.0])
-        if not np.any(z_den != 0):
+        if len(z_den) == 0:
             z_den = np.array([1.0])
 
         return z_num, z_den
@@ -1672,9 +1676,13 @@ class BlockDiagramSimulator(BaseSimulator):
         s_num[:len(num)] = num
         s_den[:len(den)] = den
 
-        if not np.any(s_num != 0):
+        # Strip leading zeros for np.roots and scipy.signal compatibility
+        s_num = np.trim_zeros(s_num, 'f')
+        s_den = np.trim_zeros(s_den, 'f')
+
+        if len(s_num) == 0:
             s_num = np.array([0.0])
-        if not np.any(s_den != 0):
+        if len(s_den) == 0:
             s_den = np.array([1.0])
 
         return s_num, s_den
@@ -2156,7 +2164,7 @@ class BlockDiagramSimulator(BaseSimulator):
         self, num_coeffs: List[float], den_coeffs: List[float]
     ) -> None:
         """
-        Generate a Direct Form I block diagram from TF coefficients.
+        Generate a Direct Form block diagram from TF coefficients.
 
         For H(R) = (b0 + b1*R + b2*R^2) / (1 + a1*R + a2*R^2)
         (note: den_coeffs stores as-is, e.g. '1 - 0.5R' -> [1, -0.5])
@@ -2166,8 +2174,8 @@ class BlockDiagramSimulator(BaseSimulator):
         - Each subsequent adder combines delayed numerator and denominator terms
         - Output is taken from the first adder (after the forward chain)
 
-        Direct Form I produces a clean cascaded layout with separate
-        feedforward (numerator) and feedback (denominator) delay chains:
+        Separate feedforward (numerator) and feedback (denominator) delay
+        chains with cascaded 2-input adders:
 
           x ──[b0]──┐
           │         (+)──> y

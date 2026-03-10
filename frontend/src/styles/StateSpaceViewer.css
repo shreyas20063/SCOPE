@@ -1,9 +1,8 @@
 /* ============================================================
-   StateSpaceViewer.css — State Space Analyzer custom viewer
-   All colors via CSS variables, zero hardcoded values.
+   StateSpaceViewer.css — Tabbed workspace layout (v2)
+   All colors via CSS variables.
    ============================================================ */
 
-/* D2: Define font variables locally since App.css :root doesn't declare them */
 :root {
   --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
@@ -12,91 +11,208 @@
 .ss-viewer {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
   font-family: var(--font-primary);
 }
 
 /* -------------------------------------------------------
-   Header row
+   Error banner
 ------------------------------------------------------- */
-.ss-header {
+.ss-error {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 8px;
-  padding: 8px 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-md, 8px);
+  background: color-mix(in srgb, var(--error-color, #ef4444) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error-color, #ef4444) 30%, transparent);
+  color: var(--error-color, #ef4444);
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 
-.ss-header-left {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+.ss-error-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
 }
 
-/* Generic badge base */
-.ss-preset-badge,
-.ss-stability-badge,
-.ss-order-badge,
-.ss-type-badge {
+/* -------------------------------------------------------
+   System Summary banner
+------------------------------------------------------- */
+.ss-summary {
+  background: var(--surface-color, #131b2e);
+  border: 1px solid var(--border-color, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ss-summary-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Badge base */
+.ss-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
+  padding: 2px 10px;
   border-radius: var(--radius-full, 9999px);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   border: 1px solid transparent;
 }
 
-/* D1: Replace hardcoded rgba() with color-mix() so they track CSS variable updates */
-.ss-preset-badge {
+.ss-badge-preset {
   background: color-mix(in srgb, var(--secondary-color, #3b82f6) 12%, transparent);
   color: var(--secondary-color, #3b82f6);
   border-color: color-mix(in srgb, var(--secondary-color, #3b82f6) 30%, transparent);
 }
 
-.ss-stability-badge.stable {
+.ss-badge-stability.stable {
   background: color-mix(in srgb, var(--success-color, #10b981) 12%, transparent);
   color: var(--success-color, #10b981);
   border-color: color-mix(in srgb, var(--success-color, #10b981) 30%, transparent);
 }
-
-.ss-stability-badge.marginal {
+.ss-badge-stability.marginal {
   background: color-mix(in srgb, var(--warning-color, #f59e0b) 12%, transparent);
   color: var(--warning-color, #f59e0b);
   border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 30%, transparent);
 }
-
-.ss-stability-badge.unstable {
+.ss-badge-stability.unstable {
   background: color-mix(in srgb, var(--error-color, #ef4444) 12%, transparent);
   color: var(--error-color, #ef4444);
   border-color: color-mix(in srgb, var(--error-color, #ef4444) 30%, transparent);
 }
-
-.ss-stability-badge.unknown {
+.ss-badge-stability.unknown {
   background: color-mix(in srgb, var(--text-muted, #64748b) 10%, transparent);
   color: var(--text-muted, #64748b);
-  border-color: color-mix(in srgb, var(--text-muted, #64748b) 20%, transparent);
 }
 
-.ss-order-badge {
+.ss-badge-order {
   background: color-mix(in srgb, var(--primary-color, #14b8a6) 10%, transparent);
   color: var(--primary-color, #14b8a6);
-  border-color: color-mix(in srgb, var(--primary-color, #14b8a6) 30%, transparent);
+  border-color: color-mix(in srgb, var(--primary-color, #14b8a6) 25%, transparent);
+  font-family: var(--font-mono);
 }
 
-.ss-type-badge {
+.ss-badge-type {
   background: color-mix(in srgb, var(--warning-color, #f59e0b) 10%, transparent);
   color: var(--warning-color, #f59e0b);
   border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 25%, transparent);
 }
 
-/* Compute button */
+/* Matrix row */
+.ss-summary-matrices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ss-matrix-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  align-items: center;
+}
+
+.ss-matrix-item {
+  font-size: 0.85rem;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.ss-matrix-item .katex { font-size: 0.85rem; }
+
+.ss-core-eqs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.ss-core-eqs .katex { font-size: 0.82rem; }
+
+.ss-eq-sep {
+  color: var(--text-muted, #64748b);
+}
+
+/* Eigenvalue chips */
+.ss-eigenvalue-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ss-eig-chip {
+  padding: 2px 10px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.ss-eig-chip.stable {
+  background: color-mix(in srgb, var(--success-color, #10b981) 10%, transparent);
+  color: var(--success-color, #10b981);
+  border-color: color-mix(in srgb, var(--success-color, #10b981) 25%, transparent);
+}
+.ss-eig-chip.unstable {
+  background: color-mix(in srgb, var(--error-color, #ef4444) 10%, transparent);
+  color: var(--error-color, #ef4444);
+  border-color: color-mix(in srgb, var(--error-color, #ef4444) 25%, transparent);
+}
+
+/* -------------------------------------------------------
+   Equilibrium bar (nonlinear)
+------------------------------------------------------- */
+.ss-eq-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.82rem;
+}
+
+.ss-eq-bar-label {
+  color: var(--text-secondary, #94a3b8);
+  font-weight: 500;
+}
+
+.ss-eq-chip {
+  padding: 2px 9px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.76rem;
+  background: color-mix(in srgb, var(--text-secondary, #94a3b8) 10%, transparent);
+  color: var(--text-secondary, #94a3b8);
+  border: 1px solid color-mix(in srgb, var(--text-secondary, #94a3b8) 20%, transparent);
+  font-family: var(--font-mono);
+}
+
+.ss-eq-chip.selected {
+  background: color-mix(in srgb, var(--error-color, #ef4444) 12%, transparent);
+  color: var(--error-color, #ef4444);
+  border-color: color-mix(in srgb, var(--error-color, #ef4444) 35%, transparent);
+  font-weight: 600;
+}
+
+/* -------------------------------------------------------
+   Toolbar (compute button)
+------------------------------------------------------- */
+.ss-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .ss-compute-btn {
-  padding: 7px 18px;
+  padding: 8px 24px;
   border-radius: var(--radius-md, 8px);
   background: var(--primary-color, #14b8a6);
   color: #fff;
@@ -122,135 +238,213 @@
 }
 
 /* -------------------------------------------------------
-   Error banner
+   Tab bar
 ------------------------------------------------------- */
-.ss-error-banner {
+.ss-tabs {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: var(--radius-md, 8px);
-  background: color-mix(in srgb, var(--error-color, #ef4444) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--error-color, #ef4444) 30%, transparent);
-  color: var(--error-color, #ef4444);
-  font-size: 0.85rem;
-  line-height: 1.5;
+  gap: 2px;
+  border-bottom: 1px solid var(--border-color, #1e293b);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.ss-error-icon {
-  font-size: 1rem;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
+.ss-tabs::-webkit-scrollbar { display: none; }
 
-/* -------------------------------------------------------
-   Equilibrium info row
-------------------------------------------------------- */
-.ss-eq-info {
-  display: flex;
+.ss-tab {
+  display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 6px;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted, #64748b);
   font-size: 0.82rem;
-}
-
-.ss-eq-label {
-  color: var(--text-secondary, #94a3b8);
-  font-weight: 500;
-}
-
-.ss-eq-badge {
-  padding: 2px 9px;
-  border-radius: var(--radius-full, 9999px);
-  font-size: 0.78rem;
-  background: color-mix(in srgb, var(--text-secondary, #94a3b8) 10%, transparent);
-  color: var(--text-secondary, #94a3b8);
-  border: 1px solid color-mix(in srgb, var(--text-secondary, #94a3b8) 20%, transparent);
-  font-family: var(--font-mono);
-}
-
-.ss-eq-badge.selected {
-  background: color-mix(in srgb, var(--error-color, #ef4444) 12%, transparent);
-  color: var(--error-color, #ef4444);
-  border-color: color-mix(in srgb, var(--error-color, #ef4444) 35%, transparent);
   font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast, 150ms), border-color var(--transition-fast, 150ms);
+}
+
+.ss-tab:hover {
+  color: var(--text-secondary, #94a3b8);
+}
+
+.ss-tab.active {
+  color: var(--primary-color, #14b8a6);
+  border-bottom-color: var(--primary-color, #14b8a6);
+}
+
+.ss-tab-icon {
+  font-size: 1rem;
+}
+
+.ss-tab:focus-visible {
+  outline: 2px solid var(--primary-color, #14b8a6);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm, 6px);
 }
 
 /* -------------------------------------------------------
-   Eigenvalue badges
+   Tab content area
 ------------------------------------------------------- */
-.ss-eigenvalue-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 4px;
+.ss-tab-content {
+  min-height: 300px;
 }
 
-.ss-eigenvalue-badge {
-  padding: 3px 12px;
-  border-radius: var(--radius-full, 9999px);
-  font-size: 0.78rem;
-  font-family: var(--font-mono);
-  font-weight: 500;
-  border: 1px solid transparent;
-}
-
-.ss-eigenvalue-badge.stable {
-  background: color-mix(in srgb, var(--success-color, #10b981) 10%, transparent);
-  color: var(--success-color, #10b981);
-  border-color: color-mix(in srgb, var(--success-color, #10b981) 25%, transparent);
-}
-
-.ss-eigenvalue-badge.unstable {
-  background: color-mix(in srgb, var(--error-color, #ef4444) 10%, transparent);
-  color: var(--error-color, #ef4444);
-  border-color: color-mix(in srgb, var(--error-color, #ef4444) 25%, transparent);
-}
-
-/* -------------------------------------------------------
-   Main two-column layout
-------------------------------------------------------- */
-.ss-main-layout {
+/* Plot grids */
+.ss-plot-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  align-items: start;
-  min-height: 600px;
+  gap: 14px;
 }
 
-@media (max-width: 1024px) {
-  .ss-main-layout {
+.ss-plot-grid-1 {
+  grid-template-columns: 1fr;
+}
+
+.ss-plot-grid-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.ss-plot-grid-bode {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 900px) {
+  .ss-plot-grid-2 {
     grid-template-columns: 1fr;
   }
 }
 
-/* -------------------------------------------------------
-   Derivation panel (left column)
-------------------------------------------------------- */
-.ss-derivation-panel {
+/* Individual plot card */
+.ss-plot-card {
+  background: var(--surface-color, #131b2e);
+  border: 1px solid var(--border-color, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-width: 0;
 }
 
-.ss-panel-header {
+.ss-plot-card-title {
+  padding: 8px 14px 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-color, #1e293b);
+}
+
+.ss-plot-card .js-plotly-plot,
+.ss-plot-card > div:last-child {
+  flex: 1;
+  min-height: 260px;
+}
+
+/* -------------------------------------------------------
+   Properties tab
+------------------------------------------------------- */
+.ss-properties-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.ss-prop-card {
+  background: var(--surface-color, #131b2e);
+  border: 1px solid var(--border-color, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  padding: 14px 16px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.ss-panel-title {
-  font-size: 0.95rem;
+.ss-prop-card.ss-prop-wide {
+  grid-column: 1 / -1;
+}
+
+.ss-prop-title {
+  font-size: 0.72rem;
   font-weight: 700;
-  color: var(--text-primary, #f1f5f9);
-  margin: 0;
-  letter-spacing: -0.01em;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
-.ss-panel-actions {
+.ss-prop-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.ss-prop-value.good { color: var(--success-color, #10b981); }
+.ss-prop-value.bad { color: var(--error-color, #ef4444); }
+.ss-prop-value.warn { color: var(--warning-color, #f59e0b); }
+.ss-prop-value.neutral { color: var(--text-primary, #f1f5f9); }
+
+.ss-prop-detail {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #94a3b8);
+  font-family: var(--font-mono);
+}
+
+.ss-prop-explain {
+  font-size: 0.82rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.ss-prop-explain .katex { font-size: 0.82rem; }
+.ss-prop-explain .katex-display { margin: 6px 0 !important; }
+
+/* Pole analysis table */
+.ss-pole-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin-top: 6px;
+}
+
+.ss-pole-table th {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-color, #1e293b);
+  color: var(--text-muted, #64748b);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ss-pole-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color, #1e293b) 50%, transparent);
+  color: var(--text-primary, #f1f5f9);
+}
+
+.ss-pole-table td.mono {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.ss-pole-table td.good { color: var(--success-color, #10b981); }
+.ss-pole-table td.bad { color: var(--error-color, #ef4444); }
+
+.ss-pole-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* -------------------------------------------------------
+   Derivation tab
+------------------------------------------------------- */
+.ss-derivation {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ss-deriv-toolbar {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -273,82 +467,18 @@
   text-decoration: underline;
 }
 
-.ss-text-btn:focus-visible {
-  outline: 1px solid var(--primary-color, #14b8a6);
-}
-
-.ss-divider {
+.ss-sep {
   color: var(--text-muted, #64748b);
 }
 
-/* -------------------------------------------------------
-   Matrix summary block
-------------------------------------------------------- */
-.ss-matrix-summary {
-  background: var(--surface-color, #131b2e);
-  border: 1px solid var(--border-color, #1e293b);
-  border-radius: var(--radius-lg, 12px);
-  padding: 14px 16px;
+/* Step cards */
+.ss-deriv-steps {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 5px;
 }
 
-.ss-matrix-summary-title {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-muted, #64748b);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.ss-matrix-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 20px;
-  align-items: flex-start;
-}
-
-.ss-matrix-display {
-  font-family: var(--font-mono);
-  font-size: 0.88rem;
-  color: var(--text-primary, #f1f5f9);
-}
-
-/* KaTeX display-mode equation centering inside matrix display */
-.ss-matrix-display .katex-display {
-  margin: 0 !important;
-  text-align: left !important;
-}
-
-/* Core equations */
-.ss-core-equations {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 24px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-color, #1e293b);
-}
-
-.ss-core-eq {
-  color: var(--text-primary, #f1f5f9);
-  font-size: 0.9rem;
-}
-
-.ss-core-eq .katex-display {
-  margin: 0 !important;
-}
-
-/* -------------------------------------------------------
-   Derivation step cards
-------------------------------------------------------- */
-.ss-steps-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.ss-step-card {
+.ss-step {
   background: var(--surface-color, #131b2e);
   border: 1px solid var(--border-color, #1e293b);
   border-radius: var(--radius-md, 8px);
@@ -356,12 +486,11 @@
   transition: border-color var(--transition-fast, 150ms);
 }
 
-.ss-step-card:hover {
+.ss-step:hover {
   border-color: var(--border-hover, #334155);
 }
 
-/* D8: Use color-mix instead of hardcoded rgba for expanded border */
-.ss-step-card.expanded {
+.ss-step.open {
   border-color: color-mix(in srgb, var(--primary-color, #14b8a6) 35%, transparent);
 }
 
@@ -370,7 +499,7 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 9px 14px;
+  padding: 8px 14px;
   background: none;
   border: none;
   cursor: pointer;
@@ -386,15 +515,12 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-/* D7: Fix outline-offset — positive value avoids Chromium clip by parent overflow:hidden */
 .ss-step-header:focus-visible {
   outline: 2px solid var(--primary-color, #14b8a6);
   outline-offset: 2px;
 }
 
-.ss-step-title {
-  flex: 1;
-}
+.ss-step-title { flex: 1; }
 
 .ss-step-chevron {
   color: var(--text-muted, #64748b);
@@ -402,7 +528,7 @@
   flex-shrink: 0;
 }
 
-.ss-step-card.expanded .ss-step-chevron {
+.ss-step.open .ss-step-chevron {
   color: var(--primary-color, #14b8a6);
 }
 
@@ -410,78 +536,36 @@
   padding: 0 14px 14px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   border-top: 1px solid var(--border-color, #1e293b);
 }
 
-/* D5: Step latex inset background — define as local variable for clarity */
 .ss-step-latex {
-  --ss-latex-bg: rgba(0, 0, 0, 0.2);
-  padding: 10px 8px;
-  background: var(--ss-latex-bg);
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
   border-radius: var(--radius-sm, 6px);
   overflow-x: auto;
   color: var(--text-primary, #f1f5f9);
-  font-size: 0.93rem;
+  font-size: 0.9rem;
 }
 
-/* KaTeX display inside step body */
-.ss-step-latex .katex-display {
-  margin: 0 !important;
-  text-align: left !important;
-}
+.ss-step-latex .katex-display { margin: 0 !important; text-align: left !important; }
 
-.ss-step-explanation {
+.ss-step-explain {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-secondary, #94a3b8);
-  line-height: 1.55;
-}
-
-/* -------------------------------------------------------
-   Plots panel (right column)
-------------------------------------------------------- */
-.ss-plots-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-width: 0;
-}
-
-.ss-plot-wrapper {
-  background: var(--surface-color, #131b2e);
-  border: 1px solid var(--border-color, #1e293b);
-  border-radius: var(--radius-lg, 12px);
-  overflow: hidden;
-  min-height: 300px;
-  display: flex;
-  flex-direction: column;
-}
-
-.ss-plot-title {
-  padding: 10px 14px 6px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--text-secondary, #94a3b8);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--border-color, #1e293b);
-}
-
-.ss-plot-wrapper .js-plotly-plot,
-.ss-plot-wrapper > div:last-child {
-  flex: 1;
-  min-height: 280px;
+  line-height: 1.5;
 }
 
 /* -------------------------------------------------------
    Empty state
 ------------------------------------------------------- */
-.ss-empty-state {
+.ss-empty-tab {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 120px;
+  min-height: 180px;
   color: var(--text-muted, #64748b);
   font-size: 0.85rem;
   text-align: center;
@@ -491,43 +575,51 @@
   border: 1px dashed var(--border-color, #1e293b);
 }
 
+/* KaTeX display overrides */
+.ss-katex-display .katex-display { margin: 0 !important; }
+.ss-katex-inline .katex { font-size: inherit; }
+
 /* -------------------------------------------------------
-   Light mode overrides
-   D3: Rely on CSS variables already redefined in App.css
-   [data-theme="light"] — only override values that genuinely
-   differ from the variable defaults.
+   Light mode
 ------------------------------------------------------- */
 [data-theme="light"] .ss-step-latex {
-  --ss-latex-bg: rgba(0, 0, 0, 0.04);
+  background: rgba(0, 0, 0, 0.04);
 }
 
-[data-theme="light"] .ss-step-card.expanded {
+[data-theme="light"] .ss-step.open {
   border-color: color-mix(in srgb, var(--primary-color, #14b8a6) 50%, transparent);
 }
 
 /* -------------------------------------------------------
-   D4: Reduced motion — disable all transitions
+   Reduced motion
 ------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   .ss-compute-btn,
   .ss-text-btn,
-  .ss-step-card,
-  .ss-step-header {
+  .ss-step,
+  .ss-step-header,
+  .ss-tab {
     transition: none;
   }
 }
 
 /* -------------------------------------------------------
-   Responsive mobile
+   Responsive
 ------------------------------------------------------- */
 @media (max-width: 768px) {
-  .ss-header {
-    flex-direction: column;
-    align-items: flex-start;
+  .ss-summary {
+    padding: 10px 12px;
   }
 
-  .ss-header-right {
-    width: 100%;
+  .ss-matrix-row {
+    gap: 6px 10px;
+  }
+
+  .ss-matrix-item { font-size: 0.78rem; }
+  .ss-matrix-item .katex { font-size: 0.78rem; }
+
+  .ss-toolbar {
+    justify-content: stretch;
   }
 
   .ss-compute-btn {
@@ -535,19 +627,32 @@
     text-align: center;
   }
 
-  .ss-main-layout {
+  .ss-tabs {
+    gap: 0;
+  }
+
+  .ss-tab {
+    padding: 8px 10px;
+    font-size: 0.76rem;
+  }
+
+  .ss-tab-label {
+    display: none;
+  }
+
+  .ss-tab-icon {
+    font-size: 1.1rem;
+  }
+
+  .ss-properties-grid {
     grid-template-columns: 1fr;
   }
 
-  .ss-matrix-grid {
-    gap: 8px 12px;
+  .ss-plot-grid-2 {
+    grid-template-columns: 1fr;
   }
 
   .ss-step-latex {
-    font-size: 0.82rem;
-  }
-
-  .ss-plot-wrapper {
-    min-height: 240px;
+    font-size: 0.8rem;
   }
 }

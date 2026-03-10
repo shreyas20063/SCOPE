@@ -2155,77 +2155,6 @@ SIMULATION_CATALOG = [
         ],
     },
 
-    # =========================================================================
-    # UAV PERCHING TRAJECTORY
-    # =========================================================================
-    {
-        "id": "uav_perching",
-        "name": "UAV Perching Trajectory",
-        "description": "Simulate a fixed-wing glider performing a bird-like perching maneuver. Control the elevator pitch-up rate to decelerate through high-alpha stall drag and land on a perch. Features animated streamlines showing flow separation.",
-        "category": "Control Systems",
-        "thumbnail": "\U0001f6e9\ufe0f",
-        "tags": ["perching", "UAV", "stall", "drag", "angle of attack", "flight dynamics", "feedback control", "aerodynamics"],
-        "has_simulator": True,
-        "controls": [
-            {"type": "slider", "name": "phi_dot", "label": "Elevator Pitch-Up Rate", "min": 0, "max": 300, "step": 5, "default": 100, "unit": "deg/s", "group": "Control"},
-            {"type": "slider", "name": "initial_speed", "label": "Initial Speed", "min": 2, "max": 10, "step": 0.5, "default": 6.0, "unit": "m/s", "group": "Approach"},
-            {"type": "slider", "name": "initial_altitude", "label": "Initial Altitude", "min": 0.5, "max": 4.0, "step": 0.1, "default": 2.0, "unit": "m", "group": "Approach"},
-        ],
-        "default_params": {"phi_dot": 100, "initial_speed": 6.0, "initial_altitude": 2.0},
-        "plots": [
-            {"id": "trajectory", "title": "Flight Path", "description": "2D trajectory showing horizontal distance vs height"},
-            {"id": "alpha_vs_time", "title": "Angle of Attack vs Time", "description": "Angle of attack with stall threshold"},
-            {"id": "forces_vs_time", "title": "Lift & Drag Coefficients", "description": "Aerodynamic coefficients over time"},
-            {"id": "speed_vs_time", "title": "Speed vs Time", "description": "Airspeed with capture threshold"},
-        ],
-    },
-
-    # =========================================================================
-    # 2D PERCHING GLIDER WITH FEEDBACK CONTROLLER
-    # =========================================================================
-    {
-        "id": "perching_glider",
-        "name": "2D Perching Glider",
-        "description": "Fly a glider onto a perch using open-loop, proportional, or optimal control \u2014 experience why feedback is essential for agile maneuvers. Features flat-plate aerodynamics, animated streamlines, and real-time pole visualization.",
-        "category": "Control Systems",
-        "thumbnail": "\U0001f985",
-        "tags": ["perching", "feedback", "control", "aerodynamics", "open-loop", "LQR", "proportional", "poles", "glider"],
-        "has_simulator": True,
-        "controls": [
-            {"type": "select", "name": "control_mode", "label": "Control Mode", "options": [
-                {"value": "open_loop", "label": "Open-Loop (Manual)"},
-                {"value": "p_controller", "label": "P-Controller (Tune K)"},
-                {"value": "optimal", "label": "Optimal (Pre-tuned)"},
-            ], "default": "open_loop", "group": "Control"},
-            {"type": "slider", "name": "elevator_rate", "label": "Elevator Rate (\u03c6\u0307)", "min": -5.0, "max": 5.0, "step": 0.1, "default": 0.0, "unit": "rad/s", "group": "Control",
-             "visible_when": {"control_mode": "open_loop"}},
-            {"type": "slider", "name": "Kp", "label": "Gain K\u209a", "min": 0.0, "max": 30.0, "step": 0.5, "default": 5.0, "group": "Control",
-             "visible_when": {"control_mode": "p_controller"}},
-            {"type": "slider", "name": "initial_speed", "label": "Initial Speed", "min": 3.0, "max": 8.0, "step": 0.1, "default": 6.0, "unit": "m/s", "group": "Initial Conditions"},
-            {"type": "slider", "name": "initial_altitude", "label": "Initial Altitude", "min": 0.5, "max": 3.0, "step": 0.1, "default": 2.0, "unit": "m", "group": "Initial Conditions"},
-            {"type": "checkbox", "name": "show_forces", "label": "Show Aero Force Vectors", "default": False, "group": "Overlays"},
-            {"type": "checkbox", "name": "show_velocity", "label": "Show Velocity & Streamlines", "default": True, "group": "Overlays"},
-            {"type": "checkbox", "name": "show_aoa", "label": "Show Angle of Attack", "default": False, "group": "Overlays"},
-            {"type": "slider", "name": "animation_speed", "label": "Playback Speed", "min": 0.1, "max": 4.0, "step": 0.1, "default": 1.0, "unit": "\u00d7", "group": "Playback"},
-        ],
-        "default_params": {
-            "control_mode": "open_loop",
-            "elevator_rate": 0.0,
-            "Kp": 5.0,
-            "initial_speed": 6.0,
-            "initial_altitude": 2.0,
-            "show_forces": False,
-            "show_velocity": True,
-            "show_aoa": False,
-            "animation_speed": 1.0,
-        },
-        "plots": [
-            {"id": "trajectory_2d", "title": "Flight Path", "description": "2D trajectory showing the glider approach and perching attempt"},
-            {"id": "state_history", "title": "State History", "description": "Speed, pitch angle, and elevator deflection over time"},
-            {"id": "aero_forces", "title": "Aerodynamic Coefficients", "description": "Lift/drag coefficients and angle of attack vs time"},
-            {"id": "pole_plot", "title": "Closed-Loop Poles", "description": "s-plane pole locations for P-controller (shown only in P-controller mode)"},
-        ],
-    },
 
     # =========================================================================
     # STATE SPACE ANALYZER
@@ -2234,9 +2163,9 @@ SIMULATION_CATALOG = [
         "id": "state_space_analyzer",
         "name": "State Space Analyzer",
         "description": (
-            "Convert transfer functions and differential equations to state-space form (A, B, C, D matrices). "
-            "For nonlinear systems, automatically finds equilibrium points and linearizes via Jacobian. "
-            "Displays step-by-step LaTeX derivations."
+            "Full state-space analysis workbench: enter systems via transfer function, direct A/B/C/D matrices, "
+            "or nonlinear equations.  Computes eigenvalues, step/impulse response, Bode plots, "
+            "controllability, observability, and step-by-step derivations."
         ),
         "category": "Control Systems",
         "thumbnail": "🔢",
@@ -2244,6 +2173,7 @@ SIMULATION_CATALOG = [
             "state space", "matrices", "linearization", "jacobian",
             "transfer function", "equilibrium", "stability", "eigenvalues",
             "controllable", "observable", "nonlinear", "control",
+            "bode", "impulse", "step response", "frequency response",
         ],
         "has_simulator": True,
         "controls": [
@@ -2254,11 +2184,12 @@ SIMULATION_CATALOG = [
                 "label": "System Type",
                 "options": [
                     {"value": "linear_tf", "label": "Linear Transfer Function"},
+                    {"value": "state_space", "label": "State-Space Matrices (A,B,C,D)"},
                     {"value": "nonlinear", "label": "Nonlinear System"},
                 ],
                 "default": "linear_tf",
                 "group": "System",
-                "description": "Choose between a linear TF/ODE or a nonlinear state equation.",
+                "description": "Choose input mode: TF polynomials, direct matrices, or nonlinear ODEs.",
             },
             {
                 "type": "select",
@@ -2276,7 +2207,7 @@ SIMULATION_CATALOG = [
                 ],
                 "default": "rc_lowpass",
                 "group": "System",
-                "description": "Select a preset system or choose Custom to enter your own.",
+                "description": "Select a preset or choose Custom to enter your own.",
             },
             # --- Linear TF Controls ---
             {
@@ -2310,11 +2241,48 @@ SIMULATION_CATALOG = [
                 "description": "Controllable: all states reachable from input. Observable: all states affect output.",
                 "visible_when": {"system_type": "linear_tf"},
             },
+            # --- Direct State-Space Controls ---
+            {
+                "type": "expression",
+                "name": "matrix_a",
+                "label": "A Matrix",
+                "default": "0, 1; -2, -3",
+                "group": "State-Space Matrices",
+                "description": "System matrix.  Rows separated by ';', values by ','.  E.g. '0, 1; -2, -3'.",
+                "visible_when": {"system_type": "state_space"},
+            },
+            {
+                "type": "expression",
+                "name": "matrix_b",
+                "label": "B Matrix",
+                "default": "0; 1",
+                "group": "State-Space Matrices",
+                "description": "Input matrix (column vector).  E.g. '0; 1'.",
+                "visible_when": {"system_type": "state_space"},
+            },
+            {
+                "type": "expression",
+                "name": "matrix_c",
+                "label": "C Matrix",
+                "default": "1, 0",
+                "group": "State-Space Matrices",
+                "description": "Output matrix (row vector).  E.g. '1, 0'.",
+                "visible_when": {"system_type": "state_space"},
+            },
+            {
+                "type": "expression",
+                "name": "matrix_d",
+                "label": "D Matrix",
+                "default": "0",
+                "group": "State-Space Matrices",
+                "description": "Feedthrough scalar/matrix.  E.g. '0'.",
+                "visible_when": {"system_type": "state_space"},
+            },
             # --- Nonlinear System Controls ---
             {
                 "type": "expression",
                 "name": "nl_f1",
-                "label": "ẋ₁ = f₁(x₁, x₂, u)",
+                "label": "\u1e8b\u2081 = f\u2081(x\u2081, x\u2082, u)",
                 "default": "x2",
                 "group": "Nonlinear System",
                 "description": "First state equation. Use x1, x2, u, sin, cos, exp, sqrt.",
@@ -2323,7 +2291,7 @@ SIMULATION_CATALOG = [
             {
                 "type": "expression",
                 "name": "nl_f2",
-                "label": "ẋ₂ = f₂(x₁, x₂, u)",
+                "label": "\u1e8b\u2082 = f\u2082(x\u2081, x\u2082, u)",
                 "default": "-sin(x1) - 0.5*x2 + u",
                 "group": "Nonlinear System",
                 "description": "Second state equation. Use x1, x2, u, sin, cos, exp, sqrt.",
@@ -2332,7 +2300,7 @@ SIMULATION_CATALOG = [
             {
                 "type": "expression",
                 "name": "nl_output",
-                "label": "y = g(x₁, x₂)",
+                "label": "y = g(x\u2081, x\u2082)",
                 "default": "x1",
                 "group": "Nonlinear System",
                 "description": "Output equation (used to compute C matrix).",
@@ -2356,7 +2324,7 @@ SIMULATION_CATALOG = [
                 "name": "compute",
                 "label": "Compute System",
                 "group": "Actions",
-                "description": "Re-compute state-space matrices with current expression inputs.",
+                "description": "Re-compute state-space analysis with current inputs.",
             },
         ],
         "default_params": {
@@ -2365,6 +2333,10 @@ SIMULATION_CATALOG = [
             "tf_numerator": "1",
             "tf_denominator": "1, 1",
             "canonical_form": "controllable",
+            "matrix_a": "0, 1; -2, -3",
+            "matrix_b": "0; 1",
+            "matrix_c": "1, 0",
+            "matrix_d": "0",
             "nl_f1": "x2",
             "nl_f2": "-sin(x1) - 0.5*x2 + u",
             "nl_output": "x1",
@@ -2374,27 +2346,42 @@ SIMULATION_CATALOG = [
             {
                 "id": "eigenvalue_map",
                 "title": "Eigenvalue Map",
-                "description": "Pole-zero map showing eigenvalues of A in the complex plane. All poles left of jω axis → stable.",
+                "description": "Poles of the system in the complex plane.  Left of j\u03c9 axis = stable.",
             },
             {
                 "id": "step_response",
                 "title": "Step Response",
-                "description": "Time-domain step response of the linearized state-space system.",
+                "description": "Unit step response y(t).  Shows settling, overshoot, steady-state.",
+            },
+            {
+                "id": "impulse_response",
+                "title": "Impulse Response",
+                "description": "Impulse response h(t).  The system\u2019s time-domain fingerprint.",
+            },
+            {
+                "id": "bode_magnitude",
+                "title": "Bode Magnitude",
+                "description": "Frequency response magnitude |H(j\u03c9)| in dB vs log frequency.",
+            },
+            {
+                "id": "bode_phase",
+                "title": "Bode Phase",
+                "description": "Frequency response phase \u2220H(j\u03c9) in degrees vs log frequency.",
             },
             {
                 "id": "phase_portrait",
                 "title": "Phase Portrait",
-                "description": "Phase portrait (x₁ vs x₂) with trajectories around the selected equilibrium point.",
+                "description": "Trajectories around selected equilibrium (nonlinear only).",
             },
         ],
     },
     {
         "id": "signal_flow_scope",
-        "name": "Signal Flow Scope",
-        "description": "Import block diagrams, apply input signals, and probe any node to visualize signal propagation through your system. View the Signal Flow Graph with labeled edges and scope signals at every point.",
+        "name": "Signal Scope",
+        "description": "Interactive signal analysis tool — import diagrams or load presets, apply input signals (impulse, step, sinusoid, square, chirp, noise…), and probe any node to visualize signal propagation. Full-screen SFG canvas with dynamic plots.",
         "category": "Control Systems",
-        "thumbnail": "\ud83d\udce1",
-        "tags": ["signal flow", "scope", "probe", "block diagram", "transfer function", "impulse response", "step response"],
+        "thumbnail": "📡",
+        "tags": ["signal flow", "scope", "probe", "block diagram", "transfer function", "impulse response", "step response", "tool"],
         "has_simulator": True,
         "controls": [
             {
@@ -2406,6 +2393,11 @@ SIMULATION_CATALOG = [
                     {"label": "Step", "value": "step"},
                     {"label": "Sinusoid", "value": "sinusoid"},
                     {"label": "Ramp", "value": "ramp"},
+                    {"label": "Square Wave", "value": "square"},
+                    {"label": "Sawtooth", "value": "sawtooth"},
+                    {"label": "Triangle", "value": "triangle"},
+                    {"label": "Chirp", "value": "chirp"},
+                    {"label": "White Noise", "value": "white_noise"},
                 ],
                 "default": "impulse",
                 "group": "Input",
@@ -2420,7 +2412,6 @@ SIMULATION_CATALOG = [
                 "default": 1.0,
                 "unit": "Hz",
                 "group": "Input",
-                "visible_when": {"input_type": "sinusoid"},
             },
             {
                 "type": "slider",
@@ -2442,12 +2433,35 @@ SIMULATION_CATALOG = [
                 "default": 100,
                 "group": "Signal",
             },
+            {
+                "type": "slider",
+                "name": "duty_cycle",
+                "label": "Duty Cycle",
+                "min": 0.1,
+                "max": 0.9,
+                "step": 0.05,
+                "default": 0.5,
+                "group": "Input",
+            },
+            {
+                "type": "slider",
+                "name": "chirp_end_freq",
+                "label": "End Frequency",
+                "min": 1.0,
+                "max": 100,
+                "step": 1,
+                "default": 20.0,
+                "unit": "Hz",
+                "group": "Input",
+            },
         ],
         "default_params": {
             "input_type": "impulse",
             "input_freq": 1.0,
             "input_amplitude": 1.0,
             "num_samples": 100,
+            "duty_cycle": 0.5,
+            "chirp_end_freq": 20.0,
         },
         "plots": [
             {

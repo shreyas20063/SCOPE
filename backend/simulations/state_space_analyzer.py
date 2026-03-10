@@ -84,6 +84,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
             "type": "select",
             "options": [
                 {"value": "linear_tf", "label": "Linear Transfer Function"},
+                {"value": "state_space", "label": "State-Space Matrices (A,B,C,D)"},
                 {"value": "nonlinear", "label": "Nonlinear System"},
             ],
             "default": "linear_tf",
@@ -137,6 +138,22 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
             "step": 1,
             "default": 0,
         },
+        "matrix_a": {
+            "type": "expression",
+            "default": "0, 1; -2, -3",
+        },
+        "matrix_b": {
+            "type": "expression",
+            "default": "0; 1",
+        },
+        "matrix_c": {
+            "type": "expression",
+            "default": "1, 0",
+        },
+        "matrix_d": {
+            "type": "expression",
+            "default": "0",
+        },
     }
 
     DEFAULT_PARAMS: Dict[str, Any] = {
@@ -149,6 +166,10 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
         "nl_f2": "-sin(x1) - 0.5*x2 + u",
         "nl_output": "x1",
         "eq_point_idx": 0,
+        "matrix_a": "0, 1; -2, -3",
+        "matrix_b": "0; 1",
+        "matrix_c": "1, 0",
+        "matrix_d": "0",
     }
 
     _MAX_EXPR_LEN = 256  # character limit for user-supplied expression strings
@@ -172,10 +193,11 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                 self.parameters[name] = self._validate_expression(name, value)
             else:
                 self.parameters[name] = self._validate_param(name, value)
-        # Apply preset defaults for expression fields
-        preset = self.parameters.get("preset", "rc_lowpass")
-        if preset != "custom":
-            self._apply_preset_expressions(preset)
+        # Apply preset defaults for expression fields (skip for direct matrix mode)
+        if self.parameters.get("system_type") != "state_space":
+            preset = self.parameters.get("preset", "rc_lowpass")
+            if preset != "custom":
+                self._apply_preset_expressions(preset)
         self._initialized = True
 
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
@@ -233,6 +255,13 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
     def get_state(self) -> Dict[str, Any]:
         """Compute once, build metadata and plots from the same result."""
         data = self._compute()
+        # Compute system properties (controllability, observability, etc.)
+        properties: Dict[str, Any] = {}
+        if data.get("A") is not None:
+            try:
+                properties = self._compute_properties(data)
+            except Exception:
+                pass
         return {
             "parameters": self.parameters.copy(),
             "plots": self._build_plots(data),
@@ -250,17 +279,38 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                 "selected_eq_idx": data.get("selected_eq_idx", 0),
                 "system_order": data.get("system_order", 0),
                 "error": data.get("error", None),
+                "properties": properties,
             },
         }
 
     def _build_plots(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Assemble plot list from computed data."""
+        """Assemble plot list from computed data.
+
+        Plot IDs produced (frontend uses these to assign plots to tabs):
+          eigenvalue_map  — always
+          step_response   — all system types when A exists
+          impulse_response — all system types when A exists
+          bode_magnitude  — all system types when A exists
+          bode_phase      — all system types when A exists
+          phase_portrait  — nonlinear only
+        """
+        if data.get("A") is None:
+            return [self._eigenvalue_plot(data)]
+
         plots = [self._eigenvalue_plot(data)]
         sys_type = self.parameters.get("system_type", "linear_tf")
-        if sys_type == "linear_tf" and data.get("A") is not None:
-            plots.append(self._step_response_plot(data))
-        elif sys_type == "nonlinear" and data.get("A") is not None:
+
+        # Phase portrait (nonlinear only)
+        if sys_type == "nonlinear":
             plots.append(self._phase_portrait_plot(data))
+
+        # Time-domain responses (all types — for nonlinear, uses linearized system)
+        plots.append(self._step_response_plot(data))
+        plots.append(self._impulse_response_plot(data))
+
+        # Frequency-domain (Bode)
+        plots.extend(self._bode_plots(data))
+
         return plots
 
     # -------------------------------------------------------------------------
@@ -268,10 +318,13 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
     # -------------------------------------------------------------------------
 
     def _compute(self) -> Dict[str, Any]:
-        """Dispatch to linear or nonlinear computation; wrap errors gracefully."""
+        """Dispatch to linear, direct, or nonlinear computation; wrap errors."""
         try:
-            if self.parameters.get("system_type") == "nonlinear":
+            sys_type = self.parameters.get("system_type", "linear_tf")
+            if sys_type == "nonlinear":
                 return self._compute_nonlinear()
+            elif sys_type == "state_space":
+                return self._compute_direct()
             else:
                 return self._compute_linear()
         except Exception as exc:
@@ -281,7 +334,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                 "latex_steps": [
                     {
                         "title": "Computation Error",
-                        "latex": "\\text{{Error: }} " + str(sp.latex(sp.Symbol(err_msg.replace(' ', '\\_')))),
+                        "latex": "\\text{Error: see message below}",
                         "explanation": err_msg,
                     }
                 ],
@@ -306,6 +359,44 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
         if not parts:
             raise ValueError("Empty coefficient string")
         return [float(p) for p in parts if p]
+
+    def _parse_matrix(self, expr_str: str, name: str) -> List[List[float]]:
+        """Parse matrix string.  Rows separated by ';', values by ','.
+
+        Examples:
+            '0, 1; -2, -3'  →  [[0, 1], [-2, -3]]
+            '1, 0'          →  [[1, 0]]
+            '0; 1'          →  [[0], [1]]
+            '0'             →  [[0]]
+        """
+        expr_str = str(expr_str).strip()
+        if not expr_str:
+            raise ValueError(f"Empty matrix {name}")
+        rows = [r.strip() for r in expr_str.split(";")]
+        result: List[List[float]] = []
+        for row_str in rows:
+            if not row_str:
+                continue
+            vals = [v.strip() for v in row_str.split(",") if v.strip()]
+            if not vals:
+                continue
+            try:
+                result.append([float(v) for v in vals])
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid value in matrix {name}: {exc}"
+                ) from exc
+        if not result:
+            raise ValueError(f"Empty matrix {name}")
+        # Validate uniform column count
+        ncols = len(result[0])
+        for i, row in enumerate(result):
+            if len(row) != ncols:
+                raise ValueError(
+                    f"Matrix {name} row {i+1} has {len(row)} values, "
+                    f"expected {ncols}"
+                )
+        return result
 
     def _compute_linear(self) -> Dict[str, Any]:
         """Convert TF to state-space via scipy; build LaTeX derivation steps."""
@@ -529,7 +620,9 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
         dc_gain_str = ""
         if all_negative:
             try:
-                dc_gain = float(C @ np.linalg.solve(-A, B) + D)
+                dc_gain = float((C @ np.linalg.solve(-A, B) + D).flat[0])
+                if not np.isfinite(dc_gain):
+                    raise ValueError("overflow")
                 dc_gain_str = (
                     f" \\\\ &\\text{{DC gain: }} K_{{dc}} = C(-A)^{{-1}}B + D = {dc_gain:.4g}"
                 )
@@ -555,6 +648,267 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
         })
 
         return steps
+
+    # -------------------------------------------------------------------------
+    # Direct state-space matrix path
+    # -------------------------------------------------------------------------
+
+    def _compute_direct(self) -> Dict[str, Any]:
+        """Compute analysis from directly entered A, B, C, D matrices."""
+        A_raw = self._parse_matrix(self.parameters.get("matrix_a", "0"), "A")
+        B_raw = self._parse_matrix(self.parameters.get("matrix_b", "0"), "B")
+        C_raw = self._parse_matrix(self.parameters.get("matrix_c", "0"), "C")
+        D_raw = self._parse_matrix(self.parameters.get("matrix_d", "0"), "D")
+
+        A = np.array(A_raw, dtype=float)
+        B = np.atleast_2d(np.array(B_raw, dtype=float))
+        C = np.atleast_2d(np.array(C_raw, dtype=float))
+        D = np.atleast_2d(np.array(D_raw, dtype=float))
+
+        n = A.shape[0]
+        if A.shape != (n, n):
+            raise ValueError(f"A must be square, got shape {A.shape}")
+        if B.shape[0] != n:
+            raise ValueError(f"B must have {n} rows to match A, got {B.shape[0]}")
+        if C.shape[1] != n:
+            raise ValueError(f"C must have {n} columns to match A, got {C.shape[1]}")
+
+        eigenvalues = np.linalg.eigvals(A)
+        is_stable = bool(np.all(eigenvalues.real < -1e-10))
+        is_marginal = bool(np.all(eigenvalues.real <= 1e-10) and not is_stable)
+
+        latex_steps = self._build_direct_latex(A, B, C, D, eigenvalues, n, is_marginal)
+
+        return {
+            "A": A.tolist(),
+            "B": B.tolist(),
+            "C": C.tolist(),
+            "D": D.tolist(),
+            "eigenvalues": {
+                "real": eigenvalues.real.tolist(),
+                "imag": eigenvalues.imag.tolist(),
+            },
+            "is_stable": is_stable,
+            "is_marginal": is_marginal,
+            "latex_steps": latex_steps,
+            "matrices": {
+                "A": A.tolist(),
+                "B": B.tolist(),
+                "C": C.tolist(),
+                "D": D.tolist(),
+            },
+            "equilibrium_points": [],
+            "selected_eq_idx": 0,
+            "system_order": n,
+            "preset_name": "Direct State-Space Entry",
+        }
+
+    def _build_direct_latex(
+        self,
+        A: np.ndarray,
+        B: np.ndarray,
+        C: np.ndarray,
+        D: np.ndarray,
+        eigenvalues: np.ndarray,
+        n: int,
+        is_marginal: bool = False,
+    ) -> List[Dict[str, str]]:
+        """Generate LaTeX derivation steps for direct matrix entry."""
+        steps: List[Dict[str, str]] = []
+
+        A_lat = self._matrix_to_latex(A)
+        B_lat = self._matrix_to_latex(B)
+        C_lat = self._matrix_to_latex(C)
+        D_val = float(D.flat[0]) if D.size > 0 else 0.0
+
+        # Step 1: Matrices
+        steps.append({
+            "title": "\u2460 State-Space Matrices",
+            "latex": (
+                f"\\begin{{aligned}}"
+                f"A &= {A_lat}, & B &= {B_lat} \\\\"
+                f"C &= {C_lat}, & D &= {self._fmt(D_val)}"
+                f"\\end{{aligned}}"
+            ),
+            "explanation": (
+                f"User-supplied {n}\u00d7{n} state-space realization.  "
+                "A: system dynamics, B: input coupling, C: output, D: feedthrough."
+            ),
+        })
+
+        # Step 2: State + output equations
+        steps.append({
+            "title": "\u2461 State & Output Equations",
+            "latex": (
+                "\\begin{aligned}"
+                "\\dot{\\mathbf{x}}(t) &= A\\,\\mathbf{x}(t) + B\\,u(t) \\\\"
+                "y(t) &= C\\,\\mathbf{x}(t) + D\\,u(t)"
+                "\\end{aligned}"
+            ),
+            "explanation": (
+                "The standard state-space form: a first-order vector ODE (state equation) "
+                "plus a linear output map."
+            ),
+        })
+
+        # Step 3: Expanded form (small systems)
+        if n <= 4:
+            expanded = self._expanded_state_eq_latex(A, B, n)
+            steps.append({
+                "title": "\u2462 Expanded Matrix Form",
+                "latex": expanded,
+                "explanation": "Full matrix multiplication written out explicitly.",
+            })
+
+        # Step 4: Characteristic polynomial
+        char_coeffs = np.real(np.poly(A))
+        poly_lat = self._poly_to_latex(char_coeffs.tolist(), "\\lambda")
+        steps.append({
+            "title": "\u2463 Characteristic Polynomial",
+            "latex": f"\\det(\\lambda I - A) = {poly_lat}",
+            "explanation": (
+                "The eigenvalues are the roots of this polynomial.  "
+                "They determine the system\u2019s natural modes and stability."
+            ),
+        })
+
+        # Step 5: Eigenvalues & stability
+        eig_parts = []
+        for i, (r, im) in enumerate(
+            zip(eigenvalues.real, eigenvalues.imag)
+        ):
+            if abs(im) < 1e-10:
+                eig_parts.append(f"\\lambda_{{{i+1}}} = {r:.4f}")
+            elif im > 0:
+                eig_parts.append(
+                    f"\\lambda_{{{i+1}}} = {r:.4f} + {im:.4f}j"
+                )
+            else:
+                eig_parts.append(
+                    f"\\lambda_{{{i+1}}} = {r:.4f} - {abs(im):.4f}j"
+                )
+
+        all_neg = np.all(eigenvalues.real < -1e-10)
+        if all_neg:
+            stab_note = (
+                "\\text{Asymptotically stable \u2014 all eigenvalues in open LHP}"
+            )
+        elif is_marginal:
+            stab_note = (
+                "\\text{Marginally stable \u2014 eigenvalue(s) on } j\\omega"
+                "\\text{ axis}"
+            )
+        else:
+            stab_note = (
+                "\\text{Unstable \u2014 eigenvalue(s) in right half-plane}"
+            )
+
+        dc_str = ""
+        if all_neg:
+            try:
+                dc = float((C @ np.linalg.solve(-A, B) + D).flat[0])
+                if not np.isfinite(dc):
+                    raise ValueError("overflow")
+                dc_str = (
+                    f" \\\\ &\\text{{DC gain: }} K_{{dc}} = C(-A)^{{-1}}B + D"
+                    f" = {dc:.4g}"
+                )
+            except Exception:
+                pass
+
+        eig_latex = (
+            "\\begin{aligned}"
+            + " \\\\ ".join(f"&{e}" for e in eig_parts)
+            + " \\\\ &" + stab_note
+            + dc_str
+            + "\\end{aligned}"
+        )
+        steps.append({
+            "title": "\u2464 Eigenvalues & Stability",
+            "latex": eig_latex,
+            "explanation": (
+                "Eigenvalues of A = natural modes of the system.  "
+                "Stable iff all real parts < 0."
+            ),
+        })
+
+        return steps
+
+    # -------------------------------------------------------------------------
+    # System properties (controllability, observability, damping, etc.)
+    # -------------------------------------------------------------------------
+
+    def _compute_properties(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Compute system properties for the Properties tab.
+
+        Returns dict with controllability, observability, pole analysis,
+        DC gain, and transfer function coefficients (for display).
+        """
+        A = np.array(data["A"], dtype=float)
+        B = np.atleast_2d(np.array(data["B"], dtype=float))
+        C = np.atleast_2d(np.array(data["C"], dtype=float))
+        D = np.atleast_2d(np.array(data["D"], dtype=float))
+        n = A.shape[0]
+
+        # -- Controllability: rank of [B, AB, A^2 B, ..., A^{n-1} B] --
+        ctrb_cols = [np.linalg.matrix_power(A, i) @ B for i in range(n)]
+        ctrb_matrix = np.hstack(ctrb_cols)
+        ctrb_rank = int(np.linalg.matrix_rank(ctrb_matrix))
+
+        # -- Observability: rank of [C; CA; CA^2; ...; CA^{n-1}] --
+        obsv_rows = [C @ np.linalg.matrix_power(A, i) for i in range(n)]
+        obsv_matrix = np.vstack(obsv_rows)
+        obsv_rank = int(np.linalg.matrix_rank(obsv_matrix))
+
+        # -- Per-pole analysis: natural frequency & damping ratio --
+        eigenvalues = np.linalg.eigvals(A)
+        pole_info: List[Dict[str, Any]] = []
+        for eig in eigenvalues:
+            sigma = float(eig.real)
+            omega = float(eig.imag)
+            omega_n = float(abs(eig))
+            if omega_n > 1e-10:
+                zeta = float(-sigma / omega_n)
+            else:
+                zeta = 1.0 if sigma < 0 else -1.0
+            pole_info.append({
+                "real": round(sigma, 6),
+                "imag": round(omega, 6),
+                "omega_n": round(omega_n, 6),
+                "zeta": round(zeta, 6),
+            })
+
+        # -- DC gain: C (-A)^{-1} B + D (stable systems only) --
+        dc_gain = None
+        if np.all(eigenvalues.real < -1e-10):
+            try:
+                dc_val = float((C @ np.linalg.solve(-A, B) + D).flat[0])
+                dc_gain = round(dc_val, 6) if np.isfinite(dc_val) else None
+            except Exception:
+                pass
+
+        # -- Transfer function from state-space (for display) --
+        tf_num = None
+        tf_den = None
+        try:
+            ss_sys = signal.StateSpace(A, B, C, D)
+            tf_sys = ss_sys.to_tf()
+            tf_num = [round(float(c), 6) for c in tf_sys.num.flatten()]
+            tf_den = [round(float(c), 6) for c in tf_sys.den.flatten()]
+        except Exception:
+            pass
+
+        return {
+            "controllability_rank": ctrb_rank,
+            "is_controllable": ctrb_rank == n,
+            "observability_rank": obsv_rank,
+            "is_observable": obsv_rank == n,
+            "system_order": n,
+            "pole_info": pole_info,
+            "dc_gain": dc_gain,
+            "tf_num": tf_num,
+            "tf_den": tf_den,
+        }
 
     # -------------------------------------------------------------------------
     # Nonlinear path
@@ -1172,6 +1526,237 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                     }],
                 },
             }
+
+    def _impulse_response_plot(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Impulse response h(t) using scipy.signal.impulse."""
+        try:
+            A = np.array(data["A"], dtype=float)
+            B = np.array(data["B"], dtype=float)
+            C = np.array(data["C"], dtype=float)
+            D = np.array(data["D"], dtype=float)
+
+            sys_ss = signal.StateSpace(A, B, C, D)
+            t = np.linspace(0, 15, 1000)
+            t_out, y_out = signal.impulse(sys_ss, T=t)
+            y_flat = y_out.flatten()
+
+            clip_mag = 200.0
+            y_clipped = np.clip(y_flat, -clip_mag, clip_mag)
+
+            traces = [{
+                "x": t_out.tolist(),
+                "y": y_clipped.tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": "h(t)",
+                "line": {"color": "#8b5cf6", "width": 2.5},
+                "hovertemplate": "t = %{x:.3f} s<br>h(t) = %{y:.4f}<extra></extra>",
+            }]
+
+            uirev = (
+                f"impulse-{self.parameters.get('system_type')}"
+                f"-{self.parameters.get('preset')}"
+            )
+
+            return {
+                "id": "impulse_response",
+                "title": "Impulse Response",
+                "data": traces,
+                "layout": {
+                    "xaxis": {
+                        "title": "Time [s]",
+                        "gridcolor": "rgba(148,163,184,0.1)",
+                        "zerolinecolor": "rgba(148,163,184,0.3)",
+                        "color": "#f1f5f9",
+                    },
+                    "yaxis": {
+                        "title": "h(t)",
+                        "gridcolor": "rgba(148,163,184,0.1)",
+                        "zerolinecolor": "rgba(148,163,184,0.3)",
+                        "color": "#f1f5f9",
+                        "autorange": True,
+                    },
+                    "paper_bgcolor": "rgba(0,0,0,0)",
+                    "plot_bgcolor": "rgba(0,0,0,0)",
+                    "font": {
+                        "family": "Inter, sans-serif",
+                        "size": 12,
+                        "color": "#f1f5f9",
+                    },
+                    "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
+                    "showlegend": True,
+                    "legend": {
+                        "font": {"color": "#94a3b8"},
+                        "bgcolor": "rgba(0,0,0,0.3)",
+                    },
+                    "uirevision": uirev,
+                },
+            }
+        except Exception as exc:
+            return {
+                "id": "impulse_response",
+                "title": "Impulse Response (N/A)",
+                "data": [],
+                "layout": {
+                    "paper_bgcolor": "rgba(0,0,0,0)",
+                    "plot_bgcolor": "rgba(0,0,0,0)",
+                    "annotations": [{
+                        "text": f"Cannot compute: {str(exc)[:100]}",
+                        "xref": "paper", "yref": "paper",
+                        "x": 0.5, "y": 0.5,
+                        "showarrow": False,
+                        "font": {"color": "#94a3b8", "size": 13},
+                    }],
+                },
+            }
+
+    def _bode_plots(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Bode magnitude and phase plots using scipy.signal.bode.
+
+        Returns a list of two plot dicts: [bode_magnitude, bode_phase].
+        """
+        try:
+            A = np.array(data["A"], dtype=float)
+            B = np.array(data["B"], dtype=float)
+            C = np.array(data["C"], dtype=float)
+            D = np.array(data["D"], dtype=float)
+
+            sys_ss = signal.StateSpace(A, B, C, D)
+            w, mag, phase = signal.bode(sys_ss, n=500)
+
+            uirev_base = (
+                f"bode-{self.parameters.get('system_type')}"
+                f"-{self.parameters.get('preset')}"
+            )
+
+            # -3 dB line for reference
+            mag_traces = [
+                {
+                    "x": w.tolist(),
+                    "y": mag.tolist(),
+                    "type": "scatter",
+                    "mode": "lines",
+                    "name": "|H(j\u03c9)| [dB]",
+                    "line": {"color": "#3b82f6", "width": 2.5},
+                    "hovertemplate": (
+                        "\u03c9 = %{x:.4g} rad/s<br>"
+                        "|H| = %{y:.2f} dB<extra></extra>"
+                    ),
+                },
+            ]
+            # Add 0 dB reference
+            mag_traces.append({
+                "x": [float(w[0]), float(w[-1])],
+                "y": [0.0, 0.0],
+                "type": "scatter",
+                "mode": "lines",
+                "name": "0 dB",
+                "line": {"color": "rgba(148,163,184,0.4)", "width": 1, "dash": "dash"},
+                "hoverinfo": "skip",
+                "showlegend": False,
+            })
+
+            magnitude_plot = {
+                "id": "bode_magnitude",
+                "title": "Bode \u2014 Magnitude",
+                "data": mag_traces,
+                "layout": {
+                    "xaxis": {
+                        "title": "Frequency [rad/s]",
+                        "type": "log",
+                        "gridcolor": "rgba(148,163,184,0.1)",
+                        "zerolinecolor": "rgba(148,163,184,0.3)",
+                        "color": "#f1f5f9",
+                    },
+                    "yaxis": {
+                        "title": "Magnitude [dB]",
+                        "gridcolor": "rgba(148,163,184,0.1)",
+                        "zerolinecolor": "rgba(148,163,184,0.3)",
+                        "color": "#f1f5f9",
+                    },
+                    "paper_bgcolor": "rgba(0,0,0,0)",
+                    "plot_bgcolor": "rgba(0,0,0,0)",
+                    "font": {
+                        "family": "Inter, sans-serif",
+                        "size": 12,
+                        "color": "#f1f5f9",
+                    },
+                    "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
+                    "showlegend": True,
+                    "legend": {
+                        "font": {"color": "#94a3b8"},
+                        "bgcolor": "rgba(0,0,0,0.3)",
+                    },
+                    "uirevision": f"{uirev_base}-mag",
+                },
+            }
+
+            # Phase plot
+            phase_traces = [
+                {
+                    "x": w.tolist(),
+                    "y": phase.tolist(),
+                    "type": "scatter",
+                    "mode": "lines",
+                    "name": "\u2220H(j\u03c9) [\u00b0]",
+                    "line": {"color": "#ef4444", "width": 2.5},
+                    "hovertemplate": (
+                        "\u03c9 = %{x:.4g} rad/s<br>"
+                        "\u2220H = %{y:.1f}\u00b0<extra></extra>"
+                    ),
+                },
+            ]
+            # -180 deg reference
+            phase_traces.append({
+                "x": [float(w[0]), float(w[-1])],
+                "y": [-180.0, -180.0],
+                "type": "scatter",
+                "mode": "lines",
+                "name": "-180\u00b0",
+                "line": {"color": "rgba(239,68,68,0.3)", "width": 1, "dash": "dash"},
+                "hoverinfo": "skip",
+                "showlegend": False,
+            })
+
+            phase_plot = {
+                "id": "bode_phase",
+                "title": "Bode \u2014 Phase",
+                "data": phase_traces,
+                "layout": {
+                    "xaxis": {
+                        "title": "Frequency [rad/s]",
+                        "type": "log",
+                        "gridcolor": "rgba(148,163,184,0.1)",
+                        "zerolinecolor": "rgba(148,163,184,0.3)",
+                        "color": "#f1f5f9",
+                    },
+                    "yaxis": {
+                        "title": "Phase [\u00b0]",
+                        "gridcolor": "rgba(148,163,184,0.1)",
+                        "zerolinecolor": "rgba(148,163,184,0.3)",
+                        "color": "#f1f5f9",
+                    },
+                    "paper_bgcolor": "rgba(0,0,0,0)",
+                    "plot_bgcolor": "rgba(0,0,0,0)",
+                    "font": {
+                        "family": "Inter, sans-serif",
+                        "size": 12,
+                        "color": "#f1f5f9",
+                    },
+                    "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
+                    "showlegend": True,
+                    "legend": {
+                        "font": {"color": "#94a3b8"},
+                        "bgcolor": "rgba(0,0,0,0.3)",
+                    },
+                    "uirevision": f"{uirev_base}-phase",
+                },
+            }
+
+            return [magnitude_plot, phase_plot]
+
+        except Exception:
+            return []
 
     def _phase_portrait_plot(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Phase portrait with sample trajectories around the equilibrium."""

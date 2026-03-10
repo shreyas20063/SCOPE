@@ -69,8 +69,10 @@ function SliderControl({ param, value, onChange, disabled }) {
     return localValue;
   }, [localValue, param.display_transform]);
 
+  const sliderTitle = `${param.label || param.name}: ${param.min} – ${param.max}${param.unit ? ` ${param.unit}` : ''}`;
+
   return (
-    <div className="control-group">
+    <div className="control-group" title={sliderTitle}>
       <div className="control-header">
         <label htmlFor={param.name} className="control-label">
           {param.label || param.name}

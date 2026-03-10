@@ -9,6 +9,9 @@ import { Routes, Route, Link } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 import SimulationPage from './pages/SimulationPage'
 import WebsiteLaunchAnimation from './components/WebsiteLaunchAnimation'
+import ErrorBoundary from './components/ErrorBoundary'
+import ThemeToggle from './components/ThemeToggle'
+import KeyboardShortcutsModal, { useKeyboardShortcuts } from './components/KeyboardShortcuts'
 
 const LAUNCH_KEY = 'sig_sys_launch_seen';
 
@@ -21,6 +24,8 @@ function App() {
     return !seen && window.location.pathname === '/';
   });
 
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
   const handleLaunchComplete = useCallback(() => {
     sessionStorage.setItem(LAUNCH_KEY, '1');
     setShowLaunch(false);
@@ -28,8 +33,16 @@ function App() {
 
   // Initialize dark theme on first load
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', 'dark');
+    const savedTheme = localStorage.getItem('theme');
+    if (!savedTheme) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
   }, []);
+
+  // Global keyboard shortcuts
+  useKeyboardShortcuts({
+    onShowShortcuts: useCallback(() => setShowShortcuts(prev => !prev), []),
+  });
 
   return (
     <div className="app">
@@ -49,15 +62,44 @@ function App() {
         </Link>
         <nav className="nav-links" role="navigation" aria-label="Main navigation">
           <Link to="/">Home</Link>
+          <div className="header-toolbar">
+            <button
+              className="toolbar-button"
+              onClick={() => setShowShortcuts(true)}
+              aria-label="Keyboard shortcuts"
+              title="Keyboard shortcuts (?)"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
+                <path d="M6 8h.001" />
+                <path d="M10 8h.001" />
+                <path d="M14 8h.001" />
+                <path d="M18 8h.001" />
+                <path d="M8 12h.001" />
+                <path d="M12 12h.001" />
+                <path d="M16 12h.001" />
+                <path d="M7 16h10" />
+              </svg>
+            </button>
+            <ThemeToggle />
+          </div>
         </nav>
       </header>
 
       <main id="main-content" className="app-main" role="main">
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/simulation/:id" element={<SimulationPage />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/simulation/:id" element={<SimulationPage />} />
+          </Routes>
+        </ErrorBoundary>
       </main>
+
+      {/* Keyboard shortcuts modal */}
+      <KeyboardShortcutsModal
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
 
       <footer className="app-footer" role="contentinfo">
         <div className="footer-content">

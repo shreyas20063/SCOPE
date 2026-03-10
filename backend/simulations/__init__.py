@@ -52,8 +52,6 @@ from .vector_freq_response import VectorFreqResponseSimulator
 from .eigenfunction_tester import EigenfunctionTesterSimulator
 from .audio_freq_response import AudioFreqResponseSimulator
 from .delay_instability import DelayInstabilitySimulator
-from .uav_perching import UAVPerchingSimulator
-from .perching_glider import PerchingGliderSimulator
 from .signal_flow_scope import SignalFlowScopeSimulator
 
 # Registry mapping simulation IDs to their simulator classes
@@ -102,8 +100,6 @@ SIMULATOR_REGISTRY = {
     "eigenfunction_tester": EigenfunctionTesterSimulator,
     "audio_freq_response": AudioFreqResponseSimulator,
     "delay_instability": DelayInstabilitySimulator,
-    "uav_perching": UAVPerchingSimulator,
-    "perching_glider": PerchingGliderSimulator,
     "signal_flow_scope": SignalFlowScopeSimulator,
 }
 
@@ -189,8 +185,6 @@ __all__ = [
     "VectorFreqResponseSimulator",
     "AudioFreqResponseSimulator",
     "DelayInstabilitySimulator",
-    "UAVPerchingSimulator",
-    "PerchingGliderSimulator",
     "SignalFlowScopeSimulator",
     "SIMULATOR_REGISTRY",
     "get_simulator_class",

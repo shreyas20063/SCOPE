@@ -1,15 +1,37 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import api from '../services/api';
-import PlotDisplay from './PlotDisplay';
+import Plot from 'react-plotly.js';
 
-// Probe colors
+// ============================================================================
+// Constants
+// ============================================================================
 const PROBE_COLORS = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 const MAX_PROBES = 6;
-
-// SFG node sizing
 const NODE_RADIUS = 18;
 const BRANCH_RADIUS = 6;
 const ARROW_SIZE = 8;
+const PAN_THRESHOLD = 4; // px — must drag this far before it counts as pan
+
+const SIGNAL_OPTIONS = [
+  { value: 'impulse', label: 'Impulse' },
+  { value: 'step', label: 'Step' },
+  { value: 'sinusoid', label: 'Sinusoid' },
+  { value: 'ramp', label: 'Ramp' },
+  { value: 'square', label: 'Square' },
+  { value: 'sawtooth', label: 'Sawtooth' },
+  { value: 'triangle', label: 'Triangle' },
+  { value: 'chirp', label: 'Chirp' },
+  { value: 'white_noise', label: 'Noise' },
+];
+
+const FREQ_SIGNALS = new Set(['sinusoid', 'square', 'sawtooth', 'triangle', 'chirp']);
+
+// Plotly-friendly colors (no CSS vars)
+const PLOT_BG = '#131b2e';
+const PLOT_PAPER = '#0a0e27';
+const PLOT_GRID = 'rgba(148,163,184,0.08)';
+const PLOT_ZERO = 'rgba(148,163,184,0.2)';
+const PLOT_TEXT = '#94a3b8';
 
 // ============================================================================
 // SFG Node Component
@@ -18,92 +40,53 @@ function SFGNode({ node, onToggleProbe, isProbed, probeColor }) {
   const { id, type, label, position, probeable } = node;
   const x = position?.x || 0;
   const y = position?.y || 0;
-
   const radius = type === 'branch' ? BRANCH_RADIUS : NODE_RADIUS;
 
-  // Color by type
   let fill, stroke;
   if (isProbed) {
     fill = `${probeColor}22`;
     stroke = probeColor;
   } else {
     switch (type) {
-      case 'source':
-      case 'sink':
-        fill = 'rgba(20, 184, 166, 0.12)';
-        stroke = 'rgba(20, 184, 166, 0.7)';
-        break;
+      case 'source': case 'sink':
+        fill = 'rgba(20, 184, 166, 0.15)'; stroke = '#14b8a6'; break;
       case 'sum':
-        fill = 'rgba(245, 158, 11, 0.1)';
-        stroke = 'rgba(245, 158, 11, 0.6)';
-        break;
+        fill = 'rgba(245, 158, 11, 0.12)'; stroke = '#f59e0b'; break;
       case 'branch':
-        fill = 'rgba(148, 163, 184, 0.5)';
-        stroke = 'rgba(148, 163, 184, 0.6)';
-        break;
+        fill = 'rgba(148, 163, 184, 0.5)'; stroke = '#94a3b8'; break;
       default:
-        fill = 'rgba(59, 130, 246, 0.08)';
-        stroke = 'rgba(59, 130, 246, 0.5)';
+        fill = 'rgba(59, 130, 246, 0.1)'; stroke = '#3b82f6';
     }
   }
 
+  const handleClick = useCallback((e) => {
+    e.stopPropagation(); // prevent pan from eating this
+    if (probeable) onToggleProbe(id);
+  }, [probeable, onToggleProbe, id]);
+
   return (
     <g
-      className={`sfs-node ${probeable ? 'sfs-node-probeable' : ''} ${isProbed ? 'sfs-node-probed' : ''}`}
+      className={`sfs-node ${probeable ? 'sfs-node-probeable' : ''}`}
       transform={`translate(${x}, ${y})`}
-      onClick={probeable ? () => onToggleProbe(id) : undefined}
+      onMouseDown={(e) => e.stopPropagation()} // don't let SVG pan start
+      onClick={handleClick}
       style={{ cursor: probeable ? 'pointer' : 'default' }}
     >
-      {/* Probe glow ring */}
       {isProbed && (
-        <circle
-          r={radius + 6}
-          fill="none"
-          stroke={probeColor}
-          strokeWidth={2}
-          opacity={0.4}
-          className="sfs-probe-ring"
-        />
+        <circle r={radius + 7} fill="none" stroke={probeColor} strokeWidth={2} opacity={0.35}
+          style={{ animation: 'sfs-glow 2s ease-in-out infinite' }} />
       )}
-      {/* Main circle */}
-      <circle
-        r={radius}
-        fill={fill}
-        stroke={stroke}
-        strokeWidth={type === 'branch' ? 1.5 : 2}
-      />
-      {/* Sum symbol */}
+      <circle r={radius} fill={fill} stroke={stroke} strokeWidth={type === 'branch' ? 1.5 : 2} />
       {type === 'sum' && (
-        <text
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill="rgba(245, 158, 11, 0.8)"
-          fontSize="16"
-          fontWeight="bold"
-        >+</text>
+        <text textAnchor="middle" dominantBaseline="central" fill="#f59e0b" fontSize="16" fontWeight="bold">+</text>
       )}
-      {/* Label */}
       {type !== 'branch' && (
-        <text
-          y={radius + 16}
-          textAnchor="middle"
-          fill="var(--text-secondary, #94a3b8)"
-          fontSize="11"
-          fontFamily="Inter, sans-serif"
-          fontWeight="500"
-        >
-          {label?.length > 12 ? label.slice(0, 10) + '…' : label}
+        <text y={radius + 15} textAnchor="middle" fill="#94a3b8" fontSize="10" fontFamily="Inter, sans-serif" fontWeight="500">
+          {label?.length > 14 ? label.slice(0, 12) + '…' : label}
         </text>
       )}
-      {/* Probeable indicator */}
       {probeable && !isProbed && (
-        <circle
-          r={3}
-          cx={radius - 2}
-          cy={-radius + 2}
-          fill="var(--accent-color, #00d9ff)"
-          opacity={0.6}
-        />
+        <circle r={3} cx={radius - 2} cy={-radius + 2} fill="#00d9ff" opacity={0.7} />
       )}
     </g>
   );
@@ -117,87 +100,46 @@ function SFGEdge({ edge, nodes }) {
   const toNode = nodes.find(n => n.id === edge.to);
   if (!fromNode || !toNode) return null;
 
-  const x1 = fromNode.position?.x || 0;
-  const y1 = fromNode.position?.y || 0;
-  const x2 = toNode.position?.x || 0;
-  const y2 = toNode.position?.y || 0;
-
-  const dx = x2 - x1;
-  const dy = y2 - y1;
+  const x1 = fromNode.position?.x || 0, y1 = fromNode.position?.y || 0;
+  const x2 = toNode.position?.x || 0, y2 = toNode.position?.y || 0;
+  const dx = x2 - x1, dy = y2 - y1;
   const dist = Math.sqrt(dx * dx + dy * dy);
 
-  // Curve offset
   const curvature = edge.is_feedback
     ? Math.max(40, Math.min(80, dist * 0.25))
-    : Math.max(20, Math.min(50, dist * 0.12));
+    : Math.max(15, Math.min(45, dist * 0.1));
   const curveDir = edge.is_feedback ? 1 : -1;
 
-  // Control point for quadratic bezier
-  const mx = (x1 + x2) / 2;
-  const my = (y1 + y2) / 2;
-  // Perpendicular offset
-  const nx = -dy / (dist || 1);
-  const ny = dx / (dist || 1);
+  const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+  const nx = -dy / (dist || 1), ny = dx / (dist || 1);
   const cx = mx + nx * curvature * curveDir;
   const cy = my + ny * curvature * curveDir;
 
-  // Shorten path to stop at node edge
   const fromR = fromNode.type === 'branch' ? BRANCH_RADIUS : NODE_RADIUS;
   const toR = toNode.type === 'branch' ? BRANCH_RADIUS : NODE_RADIUS;
-
   const angle1 = Math.atan2(cy - y1, cx - x1);
-  const sx = x1 + Math.cos(angle1) * fromR;
-  const sy = y1 + Math.sin(angle1) * fromR;
+  const sx = x1 + Math.cos(angle1) * fromR, sy = y1 + Math.sin(angle1) * fromR;
   const angle2 = Math.atan2(cy - y2, cx - x2);
-  const ex = x2 + Math.cos(angle2) * toR;
-  const ey = y2 + Math.sin(angle2) * toR;
+  const ex = x2 + Math.cos(angle2) * toR, ey = y2 + Math.sin(angle2) * toR;
 
   const path = `M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`;
-
-  const edgeColor = edge.is_feedback
-    ? 'var(--warning-color, #f59e0b)'
-    : 'var(--accent-color, #00d9ff)';
-
+  const edgeColor = edge.is_feedback ? '#f59e0b' : '#00d9ff';
   const isUnity = edge.gain_label === '1';
   const isNegative = edge.gain_label?.startsWith('-');
-
-  // Label position at bezier midpoint (t=0.5)
   const lx = 0.25 * sx + 0.5 * cx + 0.25 * ex;
   const ly = 0.25 * sy + 0.5 * cy + 0.25 * ey;
 
   return (
-    <g className={`sfs-edge ${isUnity ? 'sfs-edge-unity' : ''}`}>
-      <path
-        d={path}
-        fill="none"
-        stroke={edgeColor}
-        strokeWidth={2}
-        strokeLinecap="round"
-        opacity={isUnity ? 0.3 : 0.7}
-        markerEnd="url(#sfs-arrowhead)"
-      />
-      {/* Gain label */}
+    <g>
+      <path d={path} fill="none" stroke={edgeColor} strokeWidth={2} strokeLinecap="round"
+        opacity={isUnity ? 0.25 : 0.65} markerEnd="url(#sfs-arrow)" />
       {!isUnity && (
         <g transform={`translate(${lx}, ${ly})`}>
-          <rect
-            x={-20}
-            y={-10}
-            width={40}
-            height={20}
-            rx={6}
-            fill="var(--surface-color, #131b2e)"
-            stroke="var(--border-color, #1e293b)"
-            strokeWidth={1}
-            opacity={0.9}
-          />
-          <text
-            textAnchor="middle"
-            dominantBaseline="central"
-            fill={isNegative ? 'var(--error-color, #ef4444)' : edgeColor}
-            fontSize="11"
-            fontFamily="'Fira Code', monospace"
-            fontWeight="600"
-          >
+          <rect x={-22} y={-11} width={44} height={22} rx={6}
+            fill={PLOT_BG} stroke="#1e293b" strokeWidth={1} opacity={0.92} />
+          <text textAnchor="middle" dominantBaseline="central"
+            fill={isNegative ? '#ef4444' : edgeColor}
+            fontSize="11" fontFamily="'Fira Code', monospace" fontWeight="600">
             {edge.gain_label?.length > 8 ? edge.gain_label.slice(0, 6) + '…' : edge.gain_label}
           </text>
         </g>
@@ -207,19 +149,111 @@ function SFGEdge({ edge, nodes }) {
 }
 
 // ============================================================================
-// Main Signal Flow Scope Viewer
+// Signal Plot Card — uses raw hex colors for Plotly
+// ============================================================================
+function SignalPlotCard({ title, color, time, values, stats, systemType, xLabel }) {
+  if (!time || !values || values.length === 0) return null;
+
+  const mode = systemType === 'dt' ? 'markers+lines' : 'lines';
+  const data = useMemo(() => [{
+    x: time, y: values, type: 'scatter', mode, name: title,
+    line: { color, width: 2 },
+    ...(systemType === 'dt' ? { marker: { color, size: 3 } } : {}),
+  }], [time, values, mode, title, color, systemType]);
+
+  const layout = useMemo(() => ({
+    paper_bgcolor: PLOT_PAPER,
+    plot_bgcolor: PLOT_BG,
+    font: { family: 'Inter, sans-serif', size: 11, color: PLOT_TEXT },
+    margin: { t: 6, r: 10, b: 32, l: 44 },
+    xaxis: { title: { text: xLabel, font: { size: 10 }, standoff: 4 }, gridcolor: PLOT_GRID, zerolinecolor: PLOT_ZERO, color: PLOT_TEXT },
+    yaxis: { gridcolor: PLOT_GRID, zerolinecolor: PLOT_ZERO, color: PLOT_TEXT, autorange: true },
+    showlegend: false,
+    autosize: true,
+    datarevision: `${title}-${values.length > 0 ? values[0] : 0}-${values.length}`,
+    uirevision: title,
+  }), [title, xLabel, values]);
+
+  return (
+    <div className="sfs-plot-card">
+      <div className="sfs-plot-card-hdr">
+        <span className="sfs-plot-dot" style={{ backgroundColor: color }} />
+        <span className="sfs-plot-title">{title}</span>
+        {stats && (
+          <span className="sfs-plot-stats">
+            RMS {stats.rms?.toFixed(3)} | Peak {stats.peak?.toFixed(3)} | Mean {stats.mean?.toFixed(3)}
+          </span>
+        )}
+      </div>
+      <div className="sfs-plot-body">
+        <Plot data={data} layout={layout}
+          config={{ responsive: true, displayModeBar: false, scrollZoom: true }}
+          useResizeHandler style={{ width: '100%', height: '100%' }} />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Overlay Plot
+// ============================================================================
+function OverlayPlot({ signals, systemType, xLabel }) {
+  if (!signals || signals.length === 0) return null;
+  const time = signals[0]?.time;
+  if (!time) return null;
+
+  const data = useMemo(() => signals.map(s => ({
+    x: time, y: s.values, type: 'scatter',
+    mode: systemType === 'dt' ? 'markers+lines' : 'lines',
+    name: s.label, line: { color: s.color, width: 2 },
+    ...(systemType === 'dt' ? { marker: { color: s.color, size: 3 } } : {}),
+  })), [signals, time, systemType]);
+
+  const layout = useMemo(() => ({
+    paper_bgcolor: PLOT_PAPER, plot_bgcolor: PLOT_BG,
+    font: { family: 'Inter, sans-serif', size: 11, color: PLOT_TEXT },
+    margin: { t: 6, r: 10, b: 32, l: 44 },
+    xaxis: { title: { text: xLabel, font: { size: 10 } }, gridcolor: PLOT_GRID, zerolinecolor: PLOT_ZERO, color: PLOT_TEXT },
+    yaxis: { gridcolor: PLOT_GRID, zerolinecolor: PLOT_ZERO, color: PLOT_TEXT, autorange: true },
+    legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(0,0,0,0.5)', font: { size: 10, color: '#e2e8f0' } },
+    showlegend: true, autosize: true,
+    datarevision: `overlay-${signals.length}-${signals.map(s => s.values?.[0] ?? 0).join(',')}`,
+    uirevision: 'overlay',
+  }), [signals, xLabel]);
+
+  return (
+    <div className="sfs-plot-card sfs-plot-overlay">
+      <div className="sfs-plot-card-hdr">
+        <span className="sfs-plot-title">All Signals (Overlay)</span>
+      </div>
+      <div className="sfs-plot-body sfs-plot-body-tall">
+        <Plot data={data} layout={layout}
+          config={{ responsive: true, displayModeBar: false, scrollZoom: true }}
+          useResizeHandler style={{ width: '100%', height: '100%' }} />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Main Component
 // ============================================================================
 function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, onMetadataChange, simId }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [toastMessage, setToastMessage] = useState(null);
+  const [toast, setToast] = useState(null);
   const [zoom, setZoom] = useState(1.0);
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
-  const [isPanning, setIsPanning] = useState(false);
-  const svgRef = useRef(null);
-  const panStart = useRef(null);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [showPresets, setShowPresets] = useState(false);
+  const [overlayMode, setOverlayMode] = useState(false);
+  const [visiblePlots, setVisiblePlots] = useState({ input: true, output: true });
 
-  // Extract data from metadata
+  const svgRef = useRef(null);
+  const dragRef = useRef(null);       // { startX, startY, panX, panY, dragging }
+  const presetsRef = useRef(null);
+  const autoImportDone = useRef(false);
+
+  // Extract metadata
   const sfgNodes = metadata?.sfg_nodes || [];
   const sfgEdges = metadata?.sfg_edges || [];
   const probes = metadata?.probes || [];
@@ -227,22 +261,43 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
   const diagramLoaded = metadata?.diagram_loaded || false;
   const systemType = metadata?.system_type || 'dt';
   const metaError = metadata?.error;
+  const signals = metadata?.signals || {};
+  const presetList = metadata?.presets || [];
 
-  // Build probe lookup
-  const probedNodeIds = useMemo(() => {
-    const set = new Set();
-    probes.forEach(p => set.add(p.node_id));
-    return set;
-  }, [probes]);
+  // Current params
+  const inputType = currentParams?.input_type || 'impulse';
+  const inputFreq = currentParams?.input_freq ?? 1.0;
+  const inputAmplitude = currentParams?.input_amplitude ?? 1.0;
+  const numSamples = currentParams?.num_samples ?? 100;
+  const dutyCycle = currentParams?.duty_cycle ?? 0.5;
+  const chirpEndFreq = currentParams?.chirp_end_freq ?? 20.0;
+  const xLabel = systemType === 'dt' ? 'n (samples)' : 'Time (s)';
 
+  // Probe lookup
+  const probedNodeIds = useMemo(() => new Set(probes.map(p => p.node_id)), [probes]);
   const probeColorMap = useMemo(() => {
-    const map = {};
-    probes.forEach(p => { map[p.node_id] = p.color; });
-    return map;
+    const m = {};
+    probes.forEach(p => { m[p.node_id] = p.color; });
+    return m;
   }, [probes]);
+
+  // Track visible plots for probes
+  useEffect(() => {
+    setVisiblePlots(prev => {
+      const next = { input: prev.input ?? true, output: prev.output ?? true };
+      probes.forEach(p => { next[p.id] = p.id in prev ? prev[p.id] : true; });
+      return next;
+    });
+  }, [probes]);
+
+  // Toast helper
+  const showToast = useCallback((msg, ms = 2500) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), ms);
+  }, []);
 
   // ========================================================================
-  // API call helper
+  // API
   // ========================================================================
   const callAction = useCallback(async (action, params = {}) => {
     setIsLoading(true);
@@ -250,9 +305,7 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
       const result = await api.executeSimulation(simId, action, params);
       if (result.success && result.data) {
         const meta = result.data.metadata || result.metadata;
-        if (meta && onMetadataChange) {
-          onMetadataChange(meta);
-        }
+        if (meta && onMetadataChange) onMetadataChange(meta);
       } else if (result.error) {
         setError(result.error);
         setTimeout(() => setError(null), 5000);
@@ -266,576 +319,555 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
   }, [simId, onMetadataChange]);
 
   // ========================================================================
-  // Import diagram
+  // Import & presets
   // ========================================================================
   const handleImport = useCallback(() => {
+    const stored = localStorage.getItem('sfs_diagram');
+    if (!stored) { showToast('No diagram found — export from Block Diagram Builder first.', 3000); return; }
     try {
-      const stored = localStorage.getItem('sfs_diagram');
-      if (!stored) {
-        setToastMessage('No diagram found. Export from Block Diagram Builder first.');
-        setTimeout(() => setToastMessage(null), 3000);
-        return;
-      }
-      const diagramData = JSON.parse(stored);
-      if (!diagramData.blocks || Object.keys(diagramData.blocks).length === 0) {
-        setToastMessage('Exported diagram is empty.');
-        setTimeout(() => setToastMessage(null), 3000);
-        return;
-      }
-      callAction('import_diagram', diagramData);
-      setToastMessage('Diagram imported successfully');
-      setTimeout(() => setToastMessage(null), 2000);
-    } catch (e) {
-      setToastMessage('Failed to parse diagram data');
-      setTimeout(() => setToastMessage(null), 3000);
-    }
-  }, [callAction]);
+      const d = JSON.parse(stored);
+      if (!d.blocks || Object.keys(d.blocks).length === 0) { showToast('Exported diagram is empty.', 3000); return; }
+      callAction('import_diagram', d);
+      showToast('Diagram imported!');
+    } catch { showToast('Failed to parse diagram data', 3000); }
+  }, [callAction, showToast]);
+
+  // Auto-import once on mount
+  useEffect(() => {
+    if (autoImportDone.current || diagramLoaded) return;
+    autoImportDone.current = true;
+    const stored = localStorage.getItem('sfs_diagram');
+    if (!stored) return;
+    try {
+      const d = JSON.parse(stored);
+      if (d.blocks && Object.keys(d.blocks).length > 0) callAction('import_diagram', d);
+    } catch { /* ignore */ }
+  }, [diagramLoaded, callAction]);
+
+  const handleLoadPreset = useCallback((id) => {
+    callAction('load_preset', { preset_id: id });
+    setShowPresets(false);
+    showToast('Preset loaded!');
+  }, [callAction, showToast]);
 
   // ========================================================================
-  // Probe toggling
+  // Probes
   // ========================================================================
   const handleToggleProbe = useCallback((nodeId) => {
-    if (probedNodeIds.has(nodeId)) {
-      callAction('remove_probe', { node_id: nodeId });
-    } else if (probes.length < MAX_PROBES) {
-      callAction('add_probe', { node_id: nodeId });
-    }
+    if (probedNodeIds.has(nodeId)) callAction('remove_probe', { node_id: nodeId });
+    else if (probes.length < MAX_PROBES) callAction('add_probe', { node_id: nodeId });
   }, [callAction, probedNodeIds, probes.length]);
 
-  const handleClearProbes = useCallback(() => {
-    callAction('clear_probes', {});
-  }, [callAction]);
+  const handleClearProbes = useCallback(() => callAction('clear_probes', {}), [callAction]);
+  const handleProbeAll = useCallback(() => callAction('probe_all', {}), [callAction]);
 
   // ========================================================================
-  // Zoom and pan
+  // Inline params
   // ========================================================================
+  const setParam = useCallback((name, val) => onParamChange?.(name, val), [onParamChange]);
+
+  // ========================================================================
+  // Canvas pan & zoom (drag-threshold approach)
+  // ========================================================================
+  const handleCanvasMouseDown = useCallback((e) => {
+    if (e.button !== 0) return;
+    dragRef.current = {
+      startX: e.clientX, startY: e.clientY,
+      panX: pan.x, panY: pan.y,
+      dragging: false,
+    };
+  }, [pan]);
+
+  const handleCanvasMouseMove = useCallback((e) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (!d.dragging && Math.abs(dx) + Math.abs(dy) > PAN_THRESHOLD) {
+      d.dragging = true;
+    }
+    if (d.dragging) {
+      setPan({ x: d.panX + dx, y: d.panY + dy });
+    }
+  }, []);
+
+  const handleCanvasMouseUp = useCallback(() => { dragRef.current = null; }, []);
+
   const handleWheel = useCallback((e) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom(prev => Math.max(0.3, Math.min(3.0, prev * delta)));
+    setZoom(prev => Math.max(0.2, Math.min(4.0, prev * (e.deltaY > 0 ? 0.9 : 1.1))));
   }, []);
 
-  const handleMouseDown = useCallback((e) => {
-    if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
-      setIsPanning(true);
-      panStart.current = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
-      e.preventDefault();
-    }
-  }, [panOffset]);
+  // Auto-fit viewport when diagram changes
+  useEffect(() => {
+    if (sfgNodes.length === 0) return;
+    const xs = sfgNodes.map(n => n.position?.x || 0);
+    const ys = sfgNodes.map(n => n.position?.y || 0);
+    const pad = 80;
+    const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad;
+    const minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad;
+    const el = svgRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const sx = rect.width / (maxX - minX);
+    const sy = rect.height / (maxY - minY);
+    const z = Math.min(sx, sy, 1.8) * 0.8;
+    setZoom(z);
+    setPan({
+      x: rect.width / 2 - ((minX + maxX) / 2) * z,
+      y: rect.height / 2 - ((minY + maxY) / 2) * z,
+    });
+  }, [sfgNodes.length]);
 
-  const handleMouseMove = useCallback((e) => {
-    if (isPanning && panStart.current) {
-      setPanOffset({
-        x: e.clientX - panStart.current.x,
-        y: e.clientY - panStart.current.y,
+  // Close presets dropdown on outside click
+  useEffect(() => {
+    const h = (e) => { if (presetsRef.current && !presetsRef.current.contains(e.target)) setShowPresets(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const togglePlotVis = useCallback((key) => {
+    setVisiblePlots(prev => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  // ========================================================================
+  // Build signals list for overlay
+  // ========================================================================
+  const allSignals = useMemo(() => {
+    const list = [];
+    if (signals.input) list.push({ key: 'input', ...signals.input, time: signals.time });
+    if (signals.output) list.push({ key: 'output', ...signals.output, time: signals.time });
+    if (signals.probes) {
+      Object.entries(signals.probes).forEach(([pid, ps]) => {
+        list.push({ key: pid, ...ps, time: signals.time });
       });
     }
-  }, [isPanning]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsPanning(false);
-    panStart.current = null;
-  }, []);
-
-  // Auto-fit viewport when diagram is loaded
-  useEffect(() => {
-    if (sfgNodes.length > 0) {
-      const xs = sfgNodes.map(n => n.position?.x || 0);
-      const ys = sfgNodes.map(n => n.position?.y || 0);
-      const minX = Math.min(...xs) - 60;
-      const maxX = Math.max(...xs) + 60;
-      const minY = Math.min(...ys) - 60;
-      const maxY = Math.max(...ys) + 60;
-      const svgEl = svgRef.current;
-      if (svgEl) {
-        const rect = svgEl.getBoundingClientRect();
-        const scaleX = rect.width / (maxX - minX);
-        const scaleY = rect.height / (maxY - minY);
-        const newZoom = Math.min(scaleX, scaleY, 1.5) * 0.85;
-        setZoom(newZoom);
-        const cx = (minX + maxX) / 2;
-        const cy = (minY + maxY) / 2;
-        setPanOffset({
-          x: rect.width / 2 - cx * newZoom,
-          y: rect.height / 2 - cy * newZoom,
-        });
-      }
-    }
-  }, [sfgNodes.length]); // Only re-fit when node count changes (new diagram)
-
-  // Find scope and input plots
-  const scopePlot = plots?.find(p => p.id === 'scope');
-  const inputPlot = plots?.find(p => p.id === 'input_signal');
+    return list;
+  }, [signals]);
 
   // ========================================================================
   // Render
   // ========================================================================
   return (
-    <div className="sfs-viewer">
-      {/* Toolbar */}
+    <div className="sfs-root">
+      {/* ===== TOOLBAR ===== */}
       <div className="sfs-toolbar">
-        <button
-          className="sfs-import-btn"
-          onClick={handleImport}
-          disabled={isLoading}
-        >
-          Import Diagram
-        </button>
+        <button className="sfs-btn sfs-btn-accent" onClick={handleImport} disabled={isLoading}>Import</button>
 
-        {diagramLoaded && (
+        <div className="sfs-dropdown-wrap" ref={presetsRef}>
+          <button className="sfs-btn" onClick={() => setShowPresets(!showPresets)}>Presets ▾</button>
+          {showPresets && (
+            <div className="sfs-dropdown">
+              {(presetList.length > 0 ? presetList : [
+                { id: 'unity_feedback', name: 'Unity Feedback', description: '' },
+                { id: 'cascade', name: 'Cascade', description: '' },
+                { id: 'second_order_dt', name: 'Second-Order DT', description: '' },
+                { id: 'first_order_lowpass', name: 'First-Order Lowpass', description: '' },
+              ]).map(p => (
+                <button key={p.id} className="sfs-dropdown-item" onClick={() => handleLoadPreset(p.id)}>
+                  <strong>{p.name}</strong>
+                  {p.description && <small>{p.description}</small>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <span className="sfs-sep" />
+
+        <label className="sfs-lbl">Signal</label>
+        <select className="sfs-sel" value={inputType} onChange={e => setParam('input_type', e.target.value)}>
+          {SIGNAL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+
+        {FREQ_SIGNALS.has(inputType) && (
           <>
-            <div className="sfs-toolbar-divider" />
-            <span className="sfs-toolbar-label">
-              {systemType === 'dt' ? 'Discrete-Time' : 'Continuous-Time'}
-            </span>
-            <div className="sfs-toolbar-divider" />
-            <span className="sfs-toolbar-label">
-              Probes: {probes.length}/{MAX_PROBES}
-            </span>
-            {probes.length > 0 && (
-              <button className="sfs-clear-btn" onClick={handleClearProbes}>
-                Clear Probes
-              </button>
-            )}
+            <label className="sfs-lbl sfs-lbl-dim">Freq</label>
+            <input type="range" className="sfs-slider" min="0.01" max="50" step="0.01"
+              value={inputFreq} onChange={e => setParam('input_freq', +e.target.value)} />
+            <span className="sfs-val">{inputFreq.toFixed(1)}</span>
           </>
         )}
 
-        {isLoading && <span className="sfs-loading">Computing...</span>}
-      </div>
-
-      {/* Error display */}
-      {(error || metaError) && (
-        <div className="sfs-error">
-          {error || metaError}
-        </div>
-      )}
-
-      {/* Main content */}
-      <div className="sfs-content">
-        {!diagramLoaded ? (
-          /* Empty state */
-          <div className="sfs-empty-state">
-            <div className="sfs-empty-icon">📡</div>
-            <h3>Signal Flow Scope</h3>
-            <p>Import a block diagram to get started.</p>
-            <ol className="sfs-instructions">
-              <li>Go to <strong>Block Diagram Builder</strong></li>
-              <li>Build or load a diagram</li>
-              <li>Click <strong>JSON</strong> to export</li>
-              <li>Come back here and click <strong>Import Diagram</strong></li>
-            </ol>
-            <button className="sfs-import-btn sfs-import-btn-large" onClick={handleImport}>
-              Import Diagram
-            </button>
-          </div>
-        ) : (
-          /* Loaded state: SFG + Plots */
-          <div className="sfs-split-layout">
-            {/* Left: Signal Flow Graph */}
-            <div className="sfs-sfg-panel">
-              <div className="sfs-sfg-header">
-                <span>Signal Flow Graph</span>
-                <span className="sfs-sfg-hint">Click a node to probe</span>
-              </div>
-              <svg
-                ref={svgRef}
-                className="sfs-sfg-canvas"
-                width="100%"
-                height="100%"
-                onWheel={handleWheel}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-              >
-                <defs>
-                  <marker
-                    id="sfs-arrowhead"
-                    markerWidth={ARROW_SIZE}
-                    markerHeight={ARROW_SIZE * 0.75}
-                    refX={ARROW_SIZE}
-                    refY={ARROW_SIZE * 0.375}
-                    orient="auto"
-                  >
-                    <polygon
-                      points={`0 0, ${ARROW_SIZE} ${ARROW_SIZE * 0.375}, 0 ${ARROW_SIZE * 0.75}`}
-                      fill="var(--accent-color, #00d9ff)"
-                      opacity="0.7"
-                    />
-                  </marker>
-                </defs>
-
-                {/* Grid */}
-                <rect width="100%" height="100%" fill="var(--surface-color, #131b2e)" />
-
-                <g transform={`translate(${panOffset.x}, ${panOffset.y}) scale(${zoom})`}>
-                  {/* Edges */}
-                  {sfgEdges.map((edge) => (
-                    <SFGEdge key={edge.id} edge={edge} nodes={sfgNodes} />
-                  ))}
-                  {/* Nodes */}
-                  {sfgNodes.map((node) => (
-                    <SFGNode
-                      key={node.id}
-                      node={node}
-                      onToggleProbe={handleToggleProbe}
-                      isProbed={probedNodeIds.has(node.id)}
-                      probeColor={probeColorMap[node.id]}
-                    />
-                  ))}
-                </g>
-              </svg>
-            </div>
-
-            {/* Right: Plots */}
-            <div className="sfs-plots-panel">
-              {/* Scope plot */}
-              {scopePlot ? (
-                <div className="sfs-plot-container">
-                  <PlotDisplay
-                    plots={[scopePlot]}
-                    isDark={true}
-                  />
-                </div>
-              ) : (
-                <div className="sfs-plot-empty">
-                  <p>Click nodes on the SFG to add probes</p>
-                </div>
-              )}
-
-              {/* Input signal plot */}
-              {inputPlot && (
-                <div className="sfs-plot-container sfs-input-plot">
-                  <PlotDisplay
-                    plots={[inputPlot]}
-                    isDark={true}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+        {inputType === 'square' && (
+          <>
+            <label className="sfs-lbl sfs-lbl-dim">Duty</label>
+            <input type="range" className="sfs-slider sfs-slider-sm" min="0.1" max="0.9" step="0.05"
+              value={dutyCycle} onChange={e => setParam('duty_cycle', +e.target.value)} />
+            <span className="sfs-val">{(dutyCycle * 100).toFixed(0)}%</span>
+          </>
         )}
+
+        {inputType === 'chirp' && (
+          <>
+            <label className="sfs-lbl sfs-lbl-dim">End</label>
+            <input type="range" className="sfs-slider sfs-slider-sm" min="1" max="100" step="1"
+              value={chirpEndFreq} onChange={e => setParam('chirp_end_freq', +e.target.value)} />
+            <span className="sfs-val">{chirpEndFreq}Hz</span>
+          </>
+        )}
+
+        <span className="sfs-sep" />
+
+        <label className="sfs-lbl sfs-lbl-dim">Amp</label>
+        <input type="range" className="sfs-slider sfs-slider-sm" min="0.1" max="10" step="0.1"
+          value={inputAmplitude} onChange={e => setParam('input_amplitude', +e.target.value)} />
+        <span className="sfs-val">{inputAmplitude.toFixed(1)}</span>
+
+        <label className="sfs-lbl sfs-lbl-dim">N</label>
+        <input type="range" className="sfs-slider sfs-slider-sm" min="20" max="500" step="10"
+          value={numSamples} onChange={e => setParam('num_samples', +e.target.value)} />
+        <span className="sfs-val">{numSamples}</span>
+
+        <span className="sfs-sep" />
+        <span className="sfs-badge">{systemType === 'dt' ? 'DT' : 'CT'}</span>
+
+        {diagramLoaded && (
+          <>
+            <button className="sfs-btn sfs-btn-xs" onClick={handleProbeAll}>Probe All</button>
+            {probes.length > 0 && (
+              <button className="sfs-btn sfs-btn-xs sfs-btn-ghost" onClick={handleClearProbes}>Clear</button>
+            )}
+          </>
+        )}
+        {isLoading && <span className="sfs-spin" />}
       </div>
 
-      {/* Probe legend bar */}
-      {probes.length > 0 && (
-        <div className="sfs-probe-legend">
-          {probes.map((probe) => {
-            const tf = nodeTfs[probe.node_id];
-            return (
-              <div
-                key={probe.id}
-                className="sfs-probe-item"
-                onClick={() => handleToggleProbe(probe.node_id)}
-                title="Click to remove probe"
-              >
-                <span
-                  className="sfs-probe-dot"
-                  style={{ backgroundColor: probe.color }}
-                />
-                <span className="sfs-probe-label">{probe.label}</span>
-                {tf?.expression?.operator && (
-                  <span className="sfs-probe-tf">
-                    H = {tf.expression.operator}
-                  </span>
-                )}
+      {/* Error */}
+      {(error || metaError) && <div className="sfs-err">{error || metaError}</div>}
+
+      {/* ===== CONTENT ===== */}
+      {!diagramLoaded ? (
+        /* Empty state */
+        <div className="sfs-empty">
+          <div style={{ fontSize: 48, marginBottom: 8 }}>📡</div>
+          <h3>Signal Scope</h3>
+          <p>Import a diagram or select a preset to get started.</p>
+          <div className="sfs-empty-row">
+            <button className="sfs-btn sfs-btn-accent sfs-btn-lg" onClick={handleImport}>Import Diagram</button>
+          </div>
+          <div className="sfs-empty-row" style={{ marginTop: 12 }}>
+            {['unity_feedback', 'cascade', 'second_order_dt', 'first_order_lowpass'].map(id => (
+              <button key={id} className="sfs-btn" onClick={() => handleLoadPreset(id)}
+                style={{ textTransform: 'capitalize' }}>
+                {id.replace(/_/g, ' ')}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        /* Main view: canvas + plots */
+        <div className="sfs-body">
+          {/* ---- Canvas ---- */}
+          <div className="sfs-canvas-wrap">
+            <div className="sfs-canvas-hdr">
+              <span className="sfs-canvas-label">Signal Flow Graph</span>
+              <span className="sfs-canvas-hint">Click nodes to probe &middot; Drag to pan &middot; Scroll to zoom</span>
+              <span className="sfs-canvas-probes">Probes {probes.length}/{MAX_PROBES}</span>
+            </div>
+            <svg ref={svgRef} className="sfs-svg"
+              onWheel={handleWheel}
+              onMouseDown={handleCanvasMouseDown}
+              onMouseMove={handleCanvasMouseMove}
+              onMouseUp={handleCanvasMouseUp}
+              onMouseLeave={handleCanvasMouseUp}>
+              <defs>
+                <marker id="sfs-arrow" markerWidth={ARROW_SIZE} markerHeight={ARROW_SIZE * 0.75}
+                  refX={ARROW_SIZE} refY={ARROW_SIZE * 0.375} orient="auto">
+                  <polygon points={`0 0, ${ARROW_SIZE} ${ARROW_SIZE * 0.375}, 0 ${ARROW_SIZE * 0.75}`}
+                    fill="#00d9ff" opacity="0.7" />
+                </marker>
+              </defs>
+              <rect width="100%" height="100%" fill={PLOT_BG} />
+              <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
+                {sfgEdges.map(e => <SFGEdge key={e.id} edge={e} nodes={sfgNodes} />)}
+                {sfgNodes.map(n => (
+                  <SFGNode key={n.id} node={n}
+                    onToggleProbe={handleToggleProbe}
+                    isProbed={probedNodeIds.has(n.id)}
+                    probeColor={probeColorMap[n.id]} />
+                ))}
+              </g>
+            </svg>
+
+            {/* Probe chips */}
+            {probes.length > 0 && (
+              <div className="sfs-probe-bar">
+                {probes.map(p => {
+                  const tf = nodeTfs[p.node_id];
+                  return (
+                    <div key={p.id} className="sfs-chip" onClick={() => handleToggleProbe(p.node_id)}>
+                      <span className="sfs-chip-dot" style={{ background: p.color }} />
+                      <span className="sfs-chip-name">{p.label}</span>
+                      {tf?.expression?.domain && <span className="sfs-chip-tf">H={tf.expression.domain}</span>}
+                      <span className="sfs-chip-x">&times;</span>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            )}
+          </div>
+
+          {/* ---- Plots ---- */}
+          <div className="sfs-plots-wrap">
+            <div className="sfs-plots-bar">
+              <span className="sfs-plots-lbl">Plots</span>
+              <button className={`sfs-pill ${visiblePlots.input ? 'on' : ''}`} onClick={() => togglePlotVis('input')}>
+                <i style={{ background: '#14b8a6' }} /> Input
+              </button>
+              <button className={`sfs-pill ${visiblePlots.output ? 'on' : ''}`} onClick={() => togglePlotVis('output')}>
+                <i style={{ background: '#f59e0b' }} /> Output
+              </button>
+              {probes.map(p => (
+                <button key={p.id} className={`sfs-pill ${visiblePlots[p.id] ? 'on' : ''}`} onClick={() => togglePlotVis(p.id)}>
+                  <i style={{ background: p.color }} /> {p.label}
+                </button>
+              ))}
+              <span style={{ flex: 1 }} />
+              <button className={`sfs-pill sfs-pill-ov ${overlayMode ? 'on' : ''}`} onClick={() => setOverlayMode(!overlayMode)}>
+                Overlay
+              </button>
+            </div>
+
+            <div className="sfs-plots-grid">
+              {overlayMode ? (
+                <OverlayPlot signals={allSignals.filter(s => visiblePlots[s.key])} systemType={systemType} xLabel={xLabel} />
+              ) : (
+                <>
+                  {visiblePlots.input && signals.input && (
+                    <SignalPlotCard title={signals.input.label || 'Input'} color={signals.input.color || '#14b8a6'}
+                      time={signals.time} values={signals.input.values} stats={signals.input.stats}
+                      systemType={systemType} xLabel={xLabel} />
+                  )}
+                  {visiblePlots.output && signals.output && (
+                    <SignalPlotCard title={signals.output.label || 'Output'} color={signals.output.color || '#f59e0b'}
+                      time={signals.time} values={signals.output.values} stats={signals.output.stats}
+                      systemType={systemType} xLabel={xLabel} />
+                  )}
+                  {probes.map(p => {
+                    const ps = signals.probes?.[p.id];
+                    if (!visiblePlots[p.id] || !ps) return null;
+                    return (
+                      <SignalPlotCard key={p.id} title={ps.label} color={ps.color}
+                        time={signals.time} values={ps.values} stats={ps.stats}
+                        systemType={systemType} xLabel={xLabel} />
+                    );
+                  })}
+                  {!signals.time && (
+                    <div className="sfs-plots-empty">Click nodes on the graph to probe signals</div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Toast */}
-      {toastMessage && (
-        <div className="sfs-toast">
-          {toastMessage}
-        </div>
-      )}
+      {toast && <div className="sfs-toast">{toast}</div>}
 
+      {/* ===== STYLES ===== */}
       <style>{`
-        .sfs-viewer {
-          display: flex;
-          flex-direction: column;
-          height: 100%;
-          min-height: 500px;
-          position: relative;
-          background: var(--background-color, #0a0e27);
-          border-radius: var(--radius-lg, 12px);
-          overflow: hidden;
-        }
+/* Root */
+.sfs-root {
+  display: flex; flex-direction: column;
+  height: 100%; min-height: 550px;
+  position: relative;
+  background: ${PLOT_PAPER};
+  border-radius: 12px;
+  overflow: hidden;
+}
 
-        .sfs-toolbar {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 8px 14px;
-          background: var(--surface-color, #131b2e);
-          border-bottom: 1px solid var(--border-color, #1e293b);
-          flex-shrink: 0;
-        }
+/* --- Toolbar --- */
+.sfs-toolbar {
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 10px; flex-shrink: 0; flex-wrap: wrap;
+  background: ${PLOT_BG}; border-bottom: 1px solid #1e293b;
+}
+.sfs-sep { width: 1px; height: 18px; background: #1e293b; flex-shrink: 0; }
+.sfs-lbl { font-size: 11px; color: #94a3b8; font-weight: 600; white-space: nowrap; }
+.sfs-lbl-dim { font-weight: 400; color: #64748b; }
+.sfs-val { font-size: 11px; color: #00d9ff; font-family: 'Fira Code', monospace; min-width: 32px; text-align: right; }
 
-        .sfs-toolbar-divider {
-          width: 1px;
-          height: 20px;
-          background: var(--border-color, #1e293b);
-        }
+/* Buttons */
+.sfs-btn {
+  padding: 4px 10px; border: 1px solid #1e293b; background: transparent;
+  color: #94a3b8; border-radius: 6px; font-size: 11px; font-weight: 500;
+  cursor: pointer; transition: all 150ms; white-space: nowrap;
+}
+.sfs-btn:hover { border-color: #14b8a6; color: #14b8a6; background: rgba(20,184,166,0.08); }
+.sfs-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.sfs-btn-accent { border-color: #14b8a6; color: #14b8a6; background: rgba(20,184,166,0.08); }
+.sfs-btn-accent:hover { background: #14b8a6; color: #fff; }
+.sfs-btn-xs { padding: 2px 7px; font-size: 10px; }
+.sfs-btn-ghost:hover { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.08); }
+.sfs-btn-lg { padding: 10px 24px; font-size: 14px; border-radius: 8px; }
 
-        .sfs-toolbar-label {
-          font-size: 12px;
-          color: var(--text-secondary, #94a3b8);
-          font-weight: 500;
-        }
+/* Select / slider */
+.sfs-sel {
+  padding: 3px 6px; border: 1px solid #1e293b; background: #111827;
+  color: #f1f5f9; border-radius: 5px; font-size: 11px; outline: none; cursor: pointer;
+}
+.sfs-sel:focus { border-color: #14b8a6; }
+.sfs-slider { width: 70px; height: 3px; accent-color: #14b8a6; cursor: pointer; }
+.sfs-slider-sm { width: 52px; }
 
-        .sfs-import-btn {
-          padding: 6px 14px;
-          border: 1px solid var(--primary-color, #14b8a6);
-          background: var(--primary-light, rgba(20, 184, 166, 0.1));
-          color: var(--primary-color, #14b8a6);
-          border-radius: var(--radius-md, 8px);
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all var(--transition-fast, 150ms);
-        }
-        .sfs-import-btn:hover {
-          background: var(--primary-color, #14b8a6);
-          color: #fff;
-        }
-        .sfs-import-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .sfs-import-btn-large {
-          padding: 10px 24px;
-          font-size: 14px;
-        }
+/* Badge */
+.sfs-badge {
+  padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.5px; background: rgba(59,130,246,0.15);
+  color: #3b82f6; border: 1px solid rgba(59,130,246,0.3);
+}
 
-        .sfs-clear-btn {
-          padding: 4px 10px;
-          border: 1px solid var(--border-color, #1e293b);
-          background: transparent;
-          color: var(--text-muted, #64748b);
-          border-radius: var(--radius-sm, 6px);
-          font-size: 11px;
-          cursor: pointer;
-          transition: all var(--transition-fast, 150ms);
-        }
-        .sfs-clear-btn:hover {
-          border-color: var(--error-color, #ef4444);
-          color: var(--error-color, #ef4444);
-        }
+/* Spinner */
+.sfs-spin {
+  width: 12px; height: 12px; border: 2px solid #14b8a6; border-top-color: transparent;
+  border-radius: 50%; animation: sfs-sp 0.6s linear infinite;
+}
+@keyframes sfs-sp { to { transform: rotate(360deg); } }
 
-        .sfs-loading {
-          font-size: 12px;
-          color: var(--primary-color, #14b8a6);
-          animation: sfs-pulse 1.5s ease-in-out infinite;
-        }
-        @keyframes sfs-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
+/* Dropdown */
+.sfs-dropdown-wrap { position: relative; }
+.sfs-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 50;
+  min-width: 260px; padding: 4px;
+  background: ${PLOT_BG}; border: 1px solid #1e293b; border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.sfs-dropdown-item {
+  display: flex; flex-direction: column; width: 100%; padding: 8px 12px;
+  border: none; background: transparent; color: #f1f5f9; cursor: pointer;
+  border-radius: 5px; text-align: left;
+}
+.sfs-dropdown-item:hover { background: rgba(20,184,166,0.1); }
+.sfs-dropdown-item strong { font-size: 12px; }
+.sfs-dropdown-item small { font-size: 10px; color: #64748b; margin-top: 2px; }
 
-        .sfs-error {
-          padding: 8px 14px;
-          background: rgba(239, 68, 68, 0.1);
-          border-bottom: 1px solid rgba(239, 68, 68, 0.3);
-          color: var(--error-color, #ef4444);
-          font-size: 12px;
-        }
+/* Error */
+.sfs-err {
+  padding: 5px 12px; background: rgba(239,68,68,0.1);
+  border-bottom: 1px solid rgba(239,68,68,0.3);
+  color: #ef4444; font-size: 12px; flex-shrink: 0;
+}
 
-        .sfs-content {
-          flex: 1;
-          overflow: hidden;
-        }
+/* --- Empty state --- */
+.sfs-empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 32px; text-align: center; color: #94a3b8;
+}
+.sfs-empty h3 { font-size: 22px; color: #f1f5f9; margin: 0 0 6px; }
+.sfs-empty p { font-size: 14px; color: #64748b; margin: 0 0 20px; }
+.sfs-empty-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 
-        .sfs-empty-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          height: 100%;
-          padding: 40px;
-          text-align: center;
-          color: var(--text-secondary, #94a3b8);
-        }
-        .sfs-empty-icon {
-          font-size: 48px;
-          margin-bottom: 16px;
-        }
-        .sfs-empty-state h3 {
-          font-size: 20px;
-          color: var(--text-primary, #f1f5f9);
-          margin: 0 0 8px 0;
-        }
-        .sfs-empty-state p {
-          margin: 0 0 20px 0;
-          font-size: 14px;
-        }
-        .sfs-instructions {
-          text-align: left;
-          margin: 0 0 24px 0;
-          padding-left: 20px;
-          font-size: 13px;
-          line-height: 1.8;
-          color: var(--text-muted, #64748b);
-        }
-        .sfs-instructions strong {
-          color: var(--text-secondary, #94a3b8);
-        }
+/* --- Main body --- */
+.sfs-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
-        .sfs-split-layout {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          height: 100%;
-          gap: 0;
-        }
+/* Canvas */
+.sfs-canvas-wrap {
+  flex: 1 1 0; min-height: 250px;
+  display: flex; flex-direction: column;
+  position: relative; border-bottom: 1px solid #1e293b;
+}
+.sfs-canvas-hdr {
+  display: flex; align-items: center; gap: 10px;
+  padding: 3px 10px; background: rgba(19,27,46,0.85);
+  border-bottom: 1px solid #1e293b; flex-shrink: 0;
+}
+.sfs-canvas-label { font-size: 11px; font-weight: 600; color: #f1f5f9; }
+.sfs-canvas-hint { font-size: 10px; color: #475569; }
+.sfs-canvas-probes { margin-left: auto; font-size: 10px; color: #64748b; }
+.sfs-svg { flex: 1; cursor: grab; display: block; }
+.sfs-svg:active { cursor: grabbing; }
 
-        .sfs-sfg-panel {
-          display: flex;
-          flex-direction: column;
-          border-right: 1px solid var(--border-color, #1e293b);
-          overflow: hidden;
-        }
+/* Node hover */
+.sfs-node-probeable:hover circle { filter: brightness(1.4); }
+@keyframes sfs-glow { 0%,100% { opacity: 0.35; } 50% { opacity: 0.65; } }
 
-        .sfs-sfg-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 6px 12px;
-          background: var(--surface-color, #131b2e);
-          border-bottom: 1px solid var(--border-color, #1e293b);
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--text-primary, #f1f5f9);
-        }
-        .sfs-sfg-hint {
-          font-size: 11px;
-          font-weight: 400;
-          color: var(--text-muted, #64748b);
-        }
+/* Probe bar */
+.sfs-probe-bar {
+  position: absolute; bottom: 6px; left: 6px; right: 6px;
+  display: flex; gap: 5px; flex-wrap: wrap; pointer-events: none;
+}
+.sfs-chip {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 8px; background: rgba(10,14,39,0.92);
+  border: 1px solid #1e293b; border-radius: 999px;
+  cursor: pointer; pointer-events: all; backdrop-filter: blur(6px);
+  transition: border-color 150ms;
+}
+.sfs-chip:hover { border-color: #ef4444; }
+.sfs-chip-dot { width: 7px; height: 7px; border-radius: 50%; }
+.sfs-chip-name { font-size: 10px; font-weight: 500; color: #e2e8f0; }
+.sfs-chip-tf { font-size: 9px; font-family: 'Fira Code', monospace; color: #64748b; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sfs-chip-x { font-size: 11px; color: #64748b; margin-left: 2px; }
 
-        .sfs-sfg-canvas {
-          flex: 1;
-          cursor: grab;
-        }
-        .sfs-sfg-canvas:active {
-          cursor: grabbing;
-        }
+/* --- Plots section --- */
+.sfs-plots-wrap {
+  flex: 0 0 auto; display: flex; flex-direction: column;
+  max-height: 45vh; overflow: hidden;
+}
 
-        .sfs-node-probeable:hover circle:first-of-type {
-          filter: brightness(1.3);
-        }
-        .sfs-probe-ring {
-          animation: sfs-probe-glow 2s ease-in-out infinite;
-        }
-        @keyframes sfs-probe-glow {
-          0%, 100% { opacity: 0.4; }
-          50% { opacity: 0.7; }
-        }
+/* Plot toggle bar */
+.sfs-plots-bar {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; background: ${PLOT_BG};
+  border-bottom: 1px solid #1e293b; flex-shrink: 0; flex-wrap: wrap;
+}
+.sfs-plots-lbl { font-size: 11px; font-weight: 600; color: #f1f5f9; margin-right: 2px; }
+.sfs-pill {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 8px; border: 1px solid #1e293b; background: transparent;
+  color: #64748b; border-radius: 999px; font-size: 10px;
+  cursor: pointer; transition: all 150ms;
+}
+.sfs-pill i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+.sfs-pill:hover { border-color: #14b8a6; }
+.sfs-pill.on { border-color: #14b8a680; color: #e2e8f0; background: rgba(20,184,166,0.08); }
+.sfs-pill-ov { font-weight: 600; }
 
-        .sfs-edge-unity {
-          opacity: 0.3;
-        }
+/* Plot grid */
+.sfs-plots-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 1px; background: #1e293b;
+  overflow-y: auto; flex: 1;
+}
 
-        .sfs-plots-panel {
-          display: flex;
-          flex-direction: column;
-          overflow-y: auto;
-        }
+.sfs-plot-card { background: ${PLOT_PAPER}; display: flex; flex-direction: column; }
+.sfs-plot-overlay { grid-column: 1 / -1; }
+.sfs-plot-card-hdr {
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 8px; flex-shrink: 0;
+}
+.sfs-plot-dot { width: 7px; height: 7px; border-radius: 50%; }
+.sfs-plot-title { font-size: 11px; font-weight: 600; color: #e2e8f0; }
+.sfs-plot-stats { font-size: 9px; font-family: 'Fira Code', monospace; color: #475569; margin-left: auto; }
+.sfs-plot-body { height: 170px; }  /* explicit height for Plotly */
+.sfs-plot-body-tall { height: 240px; }
+.sfs-plots-empty {
+  grid-column: 1 / -1; display: flex; align-items: center;
+  justify-content: center; padding: 24px;
+  color: #475569; font-size: 13px; background: ${PLOT_PAPER};
+}
 
-        .sfs-plot-container {
-          flex: 1;
-          min-height: 200px;
-          padding: 8px;
-        }
-        .sfs-input-plot {
-          flex: 0.6;
-          border-top: 1px solid var(--border-color, #1e293b);
-        }
+/* Toast */
+.sfs-toast {
+  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+  background: ${PLOT_BG}; border: 1px solid #14b8a6; border-radius: 8px;
+  padding: 7px 16px; color: #e2e8f0; font-size: 12px;
+  z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.5); pointer-events: none;
+}
 
-        .sfs-plot-empty {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex: 1;
-          color: var(--text-muted, #64748b);
-          font-size: 14px;
-        }
-
-        .sfs-probe-legend {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          padding: 8px 14px;
-          background: var(--surface-color, #131b2e);
-          border-top: 1px solid var(--border-color, #1e293b);
-          flex-shrink: 0;
-        }
-
-        .sfs-probe-item {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 4px 10px;
-          border: 1px solid var(--border-color, #1e293b);
-          border-radius: var(--radius-full, 9999px);
-          cursor: pointer;
-          transition: all var(--transition-fast, 150ms);
-          font-size: 11px;
-        }
-        .sfs-probe-item:hover {
-          border-color: var(--error-color, #ef4444);
-          background: rgba(239, 68, 68, 0.05);
-        }
-
-        .sfs-probe-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-
-        .sfs-probe-label {
-          color: var(--text-primary, #f1f5f9);
-          font-weight: 500;
-        }
-
-        .sfs-probe-tf {
-          color: var(--text-muted, #64748b);
-          font-family: 'Fira Code', monospace;
-          font-size: 10px;
-          max-width: 200px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .sfs-toast {
-          position: absolute;
-          bottom: 60px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: var(--surface-color, #131b2e);
-          border: 1px solid var(--primary-color, #14b8a6);
-          border-radius: var(--radius-md, 8px);
-          padding: 8px 16px;
-          color: var(--text-primary, #f1f5f9);
-          font-size: 13px;
-          z-index: 100;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-          pointer-events: none;
-        }
-
-        @media (max-width: 768px) {
-          .sfs-split-layout {
-            grid-template-columns: 1fr;
-            grid-template-rows: 1fr 1fr;
-          }
-          .sfs-sfg-panel {
-            border-right: none;
-            border-bottom: 1px solid var(--border-color, #1e293b);
-          }
-        }
+/* Responsive */
+@media (max-width: 1024px) {
+  .sfs-slider { width: 48px; }
+  .sfs-slider-sm { width: 36px; }
+}
+@media (max-width: 768px) {
+  .sfs-plots-grid { grid-template-columns: 1fr; }
+  .sfs-lbl-dim, .sfs-val { display: none; }
+  .sfs-canvas-wrap { min-height: 180px; }
+}
       `}</style>
     </div>
   );

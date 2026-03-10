@@ -274,11 +274,74 @@ Actions for execute: `init`, `update`, `run`, `reset`, `advance`, `step_forward`
 - **np.trapz**: Deprecated in NumPy 2.0+. Use `_trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz` compat helper instead. Already applied in signal_operations, convolution, impulse_construction, ivt_fvt_visualizer.
 - **Simulator init errors**: `get_or_create_simulator()` in main.py has try/except + threading lock. Always returns `None` on failure (never crashes endpoint).
 
-## Tracking Files
+## Tracking Files & Auto-Logging Rules
 
-- **`.claude/bugs.md`** — Bug tracker with known bugs, fixes, and prevention rules. **Check before making changes** to avoid reintroducing fixed bugs.
-- **`.claude/mistakes.md`** — Mistakes tracker with lessons learned. Check before implementing domain-specific features.
-- **`.claude/implementation_log.md`** — Implementation log for the Block Diagram Builder overhaul.
+All tracking files live in `.claude/`. **Read them before starting work. Update them as you go — don't wait to be asked.**
+
+| File | Purpose | When to read |
+|------|---------|--------------|
+| `.claude/bugs.md` | Bug tracker with fixes and prevention rules | Before making any code changes |
+| `.claude/mistakes.md` | Process failures and lessons learned | Before implementing or testing |
+
+### Auto-Log: Bugs (`.claude/bugs.md`)
+
+**Trigger:** Any time you fix a bug, find a bug, or introduce a regression.
+
+**Action:** Immediately append a new `BUG-NNN` entry. Do this BEFORE moving on to the next task.
+
+```markdown
+## BUG-NNN: Short title
+
+**Date:** YYYY-MM-DD
+**Status:** Fixed / Open / Regression
+**File:** file path(s) affected
+
+**Bug:** What was broken, factually.
+
+**Fix:** What was changed and why.
+
+**Prevention:** Rule to avoid reintroduction.
+```
+
+### Auto-Log: Mistakes (`.claude/mistakes.md`)
+
+**Trigger:** Any time you produce wrong output, make false claims ("all tests pass" when they don't), use bad assumptions, or the user catches an error.
+
+**Action:** Log BEFORE fixing. The mistake entry matters more than the fix.
+
+```markdown
+## MISTAKE-NNN: Short title
+
+**Date:** YYYY-MM-DD
+**Severity:** Critical / High / Medium / Low
+**Context:** Where it happened
+
+**What happened:** What went wrong, factually.
+
+**Root cause:** Why it happened — the actual misunderstanding or process failure.
+
+**Rule:** Concrete, actionable rule(s) to prevent recurrence.
+```
+
+### Auto-Log: New Simulations (CLAUDE.md → "Recent Features Added")
+
+**Trigger:** Any time you add a new simulation (backend simulator + catalog entry + optional viewer).
+
+**Action:** Append to the "Recent Features Added" section below with:
+
+```markdown
+### Simulation Name (simulation: `sim_id`)
+- **Backend**: `backend/simulations/<sim_id>.py` (~N lines)
+- **Frontend**: `frontend/src/components/<Name>Viewer.jsx` (~N lines) [if custom viewer]
+- **Purpose**: One-line description
+- **Key features**: Bullet list of notable capabilities
+```
+
+### Auto-Log: Significant Changes to Existing Sims
+
+**Trigger:** Any non-trivial change to an existing simulation (new controls, new modes, algorithm changes, UI overhaul).
+
+**Action:** Add a bullet under the relevant simulation's section in "Recent Features Added", or create a new subsection if the change is large.
 
 ## Recent Features Added
 

@@ -1555,7 +1555,9 @@ function SFGEdge({ edge, nodesMap, edgeIndex, parallelOffset }) {
   const isUnity = edge.gain === '1';
   const isNegative = edge.gain === '-1' || edge.gain?.startsWith('-');
   const isSelfLoop = edge.from === edge.to;
-  const isFeedback = dx < -10; // right-to-left
+  // Feedback detection: right-to-left (dx < -10) OR negative gain edges
+  // that go roughly horizontal (small vertical displacement relative to horizontal)
+  const isFeedback = dx < -10 || (isNegative && Math.abs(dx) > 30);
 
   // Edge colors: cyan forward, amber feedback, red for negative gains
   const edgeColor = isFeedback ? '#f59e0b' : '#00d9ff';
@@ -2899,7 +2901,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
           <div className="bd-toolbar-divider" />
           <button className="bd-action-btn" onClick={handleExportSVG} title="Export SVG">SVG</button>
           <button className="bd-action-btn" onClick={handleExportPNG} title="Export PNG">PNG</button>
-          <button className="bd-action-btn" onClick={handleExportJSON} title="Export diagram for Signal Flow Scope">JSON</button>
+          <button className="bd-action-btn" onClick={handleExportJSON} title="Export diagram for Signal Flow Scope">Export to Signal Scope</button>
         </div>
       </div>
 
