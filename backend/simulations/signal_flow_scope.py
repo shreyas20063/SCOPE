@@ -77,7 +77,7 @@ class SignalFlowScopeSimulator(BaseSimulator):
             "min": 0.1,
             "max": 10.0,
             "step": 0.1,
-            "default": 1.0,
+            "default": 5.0,
         },
         "num_samples": {
             "type": "slider",
@@ -92,7 +92,7 @@ class SignalFlowScopeSimulator(BaseSimulator):
     DEFAULT_PARAMS = {
         "input_type": "impulse",
         "input_freq": 1.0,
-        "input_amplitude": 1.0,
+        "input_amplitude": 5.0,
         "num_samples": 100,
     }
 

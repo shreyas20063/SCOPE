@@ -2429,7 +2429,7 @@ SIMULATION_CATALOG = [
                 "min": 0.1,
                 "max": 10,
                 "step": 0.1,
-                "default": 1.0,
+                "default": 5.0,
                 "group": "Input",
             },
             {
@@ -2446,7 +2446,7 @@ SIMULATION_CATALOG = [
         "default_params": {
             "input_type": "impulse",
             "input_freq": 1.0,
-            "input_amplitude": 1.0,
+            "input_amplitude": 5.0,
             "num_samples": 100,
         },
         "plots": [
