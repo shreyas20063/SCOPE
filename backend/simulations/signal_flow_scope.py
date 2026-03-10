@@ -404,6 +404,11 @@ class SignalFlowScopeSimulator(BaseSimulator):
         if not node_id or node_id not in self.blocks:
             return self.get_state()
 
+        # Input/output nodes are not probeable (already shown by default)
+        btype = self.blocks[node_id].get("type")
+        if btype in ("input", "output"):
+            return self.get_state()
+
         existing = [p for p in self.probes if p["node_id"] == node_id]
         if existing:
             return self._action_remove_probe({"node_id": node_id})
@@ -1113,7 +1118,9 @@ class SignalFlowScopeSimulator(BaseSimulator):
             pos = block.get("position", {"x": 0, "y": 0})
             label = self._node_labels.get(bid, bid)
 
-            has_tf = bid in self._node_tfs
+            # Input/output nodes are not probeable — input is already plotted
+            # by default and output is the overall system response.
+            has_tf = bid in self._node_tfs and btype not in ("input", "output")
             tf_info = None
             if has_tf:
                 num, den = self._node_tfs[bid]
