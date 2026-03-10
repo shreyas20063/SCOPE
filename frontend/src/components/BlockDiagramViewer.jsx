@@ -58,15 +58,16 @@ const BLOCK_SIZES = {
   junction:   { radius: 6 },
 };
 
-// Max wires per block type (synced with backend BLOCK_TYPES inputs/outputs)
+// Max INCOMING wires per block type (synced with backend BLOCK_TYPES inputs).
+// Outgoing (fan-out) is unlimited for all types — signal splitting is always valid.
 const MAX_WIRES = {
-  input:      { in: 0, out: 1 },
-  output:     { in: 1, out: 0 },
-  gain:       { in: 1, out: 1 },
-  adder:      { in: 2, out: 1 },
-  delay:      { in: 1, out: 1 },
-  integrator: { in: 1, out: 1 },
-  junction:   { in: 1, out: Infinity },
+  input:      { in: 0 },
+  output:     { in: 1 },
+  gain:       { in: 1 },
+  adder:      { in: 2 },
+  delay:      { in: 1 },
+  integrator: { in: 1 },
+  junction:   { in: 1 },
 };
 
 // Port distance from block center (all multiples of GRID_SIZE)
@@ -1748,12 +1749,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
         if (targetPos) setConnectionFlash({ position: targetPos, success: false });
         setWireStart(null); return;
       }
-      // Enforce max wire limits per block type
-      const srcLimits = MAX_WIRES[sourceBlock?.type];
-      if (srcLimits && connections.filter(c => c.from_block === wireStart.blockId).length >= srcLimits.out) {
-        if (targetPos) setConnectionFlash({ position: targetPos, success: false });
-        setWireStart(null); return;
-      }
+      // Enforce max incoming wire limits per block type (fan-out is unlimited)
       const tgtLimits = MAX_WIRES[targetBlock?.type];
       if (tgtLimits && connections.filter(c => c.to_block === blockId).length >= tgtLimits.in) {
         if (targetPos) setConnectionFlash({ position: targetPos, success: false });

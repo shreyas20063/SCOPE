@@ -356,15 +356,10 @@ class BlockDiagramSimulator(BaseSimulator):
             raise ValueError("Input blocks cannot be wire targets")
 
         # --- 3b. Max wire enforcement based on block type definitions ---
-        from_type_def = self.BLOCK_TYPES.get(from_block_data["type"], {})
-        max_outgoing = from_type_def.get("outputs", 1)
-        # Junctions are fan-out nodes — no outgoing limit
-        outgoing_count = sum(1 for c in self.connections if c["from_block"] == from_block)
-        if from_block_data["type"] != "junction" and outgoing_count >= max_outgoing:
-            raise ValueError(
-                f"{from_block_data['type'].capitalize()} block already has "
-                f"the maximum {max_outgoing} outgoing connection(s)"
-            )
+        # Outgoing: fan-out (signal splitting) is always allowed — any output
+        # port can drive multiple targets.  This is fundamental to block diagram
+        # theory and required for feedback taps (e.g., adder → output + delay).
+        # Only INPUT port count is limited (each input accepts one signal).
 
         to_type_def = self.BLOCK_TYPES.get(to_block_data["type"], {})
         max_incoming = to_type_def.get("inputs", 1)
