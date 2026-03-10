@@ -12,9 +12,19 @@ const BRANCH_RADIUS = 6;
 const ARROW_SIZE = 8;
 
 // ============================================================================
+// Helpers
+// ============================================================================
+function friendlyNodeType(type, blockType) {
+  const typeMap = { source: 'Input Signal', sink: 'Output Signal', sum: 'Adder', branch: 'Junction' };
+  if (typeMap[type]) return typeMap[type];
+  const btMap = { gain: 'Gain Block', delay: 'Delay', integrator: 'Integrator', custom_tf: 'Transfer Function' };
+  return btMap[blockType] || 'Signal Node';
+}
+
+// ============================================================================
 // SFG Node Component
 // ============================================================================
-function SFGNode({ node, onToggleProbe, isProbed, probeColor }) {
+function SFGNode({ node, onToggleProbe, isProbed, probeColor, onNodeHover }) {
   const { id, type, label, position, probeable } = node;
   const x = position?.x || 0;
   const y = position?.y || 0;
@@ -52,6 +62,8 @@ function SFGNode({ node, onToggleProbe, isProbed, probeColor }) {
       className={`sfs-node ${probeable ? 'sfs-node-probeable' : ''} ${isProbed ? 'sfs-node-probed' : ''}`}
       transform={`translate(${x}, ${y})`}
       onClick={probeable ? () => onToggleProbe(id) : undefined}
+      onMouseEnter={probeable && onNodeHover ? () => onNodeHover(node) : undefined}
+      onMouseLeave={onNodeHover ? () => onNodeHover(null) : undefined}
       style={{ cursor: probeable ? 'pointer' : 'default' }}
     >
       {/* Probe glow ring */}
@@ -216,7 +228,9 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
   const [zoom, setZoom] = useState(1.0);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
+  const [hoveredNode, setHoveredNode] = useState(null);
   const svgRef = useRef(null);
+  const sfgPanelRef = useRef(null);
   const panStart = useRef(null);
 
   // Extract data from metadata
@@ -337,6 +351,34 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
     panStart.current = null;
   }, []);
 
+  const handleZoomIn = useCallback(() => {
+    setZoom(prev => Math.min(3.0, prev * 1.2));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoom(prev => Math.max(0.3, prev / 1.2));
+  }, []);
+
+  const handleResetView = useCallback(() => {
+    setZoom(1.0);
+    setPanOffset({ x: 0, y: 0 });
+  }, []);
+
+  const handleNodeHover = useCallback((node) => {
+    if (!node) {
+      setHoveredNode(null);
+      return;
+    }
+    const panel = sfgPanelRef.current;
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    const x = (node.position?.x || 0) * zoom + panOffset.x;
+    const y = (node.position?.y || 0) * zoom + panOffset.y;
+    // Offset for the SFG header height (~33px)
+    const headerOffset = 33;
+    setHoveredNode({ node, x, y: y + headerOffset });
+  }, [zoom, panOffset]);
+
   // Auto-fit viewport when diagram is loaded
   useEffect(() => {
     if (sfgNodes.length > 0) {
@@ -385,8 +427,12 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
         {diagramLoaded && (
           <>
             <div className="sfs-toolbar-divider" />
-            <span className="sfs-toolbar-label">
+            <span className="sfs-system-badge" data-type={systemType}>
               {systemType === 'dt' ? 'Discrete-Time' : 'Continuous-Time'}
+            </span>
+            <div className="sfs-toolbar-divider" />
+            <span className="sfs-toolbar-stats">
+              {sfgNodes.length} nodes &middot; {sfgEdges.length} edges
             </span>
             <div className="sfs-toolbar-divider" />
             <span className="sfs-toolbar-label">
@@ -432,7 +478,7 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
           /* Loaded state: SFG + Plots */
           <div className="sfs-split-layout">
             {/* Left: Signal Flow Graph */}
-            <div className="sfs-sfg-panel">
+            <div className="sfs-sfg-panel" ref={sfgPanelRef}>
               <div className="sfs-sfg-header">
                 <span>Signal Flow Graph</span>
                 <span className="sfs-sfg-hint">Click a node to probe</span>
@@ -481,10 +527,47 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
                       onToggleProbe={handleToggleProbe}
                       isProbed={probedNodeIds.has(node.id)}
                       probeColor={probeColorMap[node.id]}
+                      onNodeHover={handleNodeHover}
                     />
                   ))}
                 </g>
               </svg>
+
+              {/* Node tooltip */}
+              {hoveredNode && (() => {
+                const tf = nodeTfs[hoveredNode.node.id];
+                const showAbove = hoveredNode.y > 100;
+                return (
+                  <div
+                    className="sfs-node-tooltip"
+                    style={{
+                      left: hoveredNode.x,
+                      top: showAbove ? hoveredNode.y - 10 : hoveredNode.y + 30,
+                      transform: showAbove ? 'translate(-50%, -100%)' : 'translateX(-50%)',
+                    }}
+                  >
+                    <div className="sfs-tooltip-label">{hoveredNode.node.label}</div>
+                    <div className="sfs-tooltip-type">
+                      {friendlyNodeType(hoveredNode.node.type, hoveredNode.node.block_type)}
+                    </div>
+                    {tf?.expression && (
+                      <>
+                        <div className="sfs-tooltip-tf-header">Transfer Function</div>
+                        <div className="sfs-tooltip-tf">{tf.expression.operator}</div>
+                        <div className="sfs-tooltip-tf sfs-tooltip-tf-domain">{tf.expression.domain}</div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Zoom/Pan controls */}
+              <div className="sfs-view-controls">
+                <button className="sfs-view-btn" onClick={handleZoomIn} title="Zoom in">+</button>
+                <button className="sfs-view-btn" onClick={handleZoomOut} title="Zoom out">&minus;</button>
+                <button className="sfs-view-btn sfs-view-btn-reset" onClick={handleResetView} title="Reset view">&#x27F2;</button>
+                <span className="sfs-view-hint">Scroll: Zoom &middot; Ctrl+Drag: Pan</span>
+              </div>
             </div>
 
             {/* Right: Plots */}
@@ -522,23 +605,38 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
         <div className="sfs-probe-legend">
           {probes.map((probe) => {
             const tf = nodeTfs[probe.node_id];
+            const domainVar = systemType === 'dt' ? 'z' : 's';
+            const domainExpr = tf?.expression?.domain;
+            const fullExpr = domainExpr ? `H(${domainVar}) = ${domainExpr}` : null;
             return (
-              <div
-                key={probe.id}
-                className="sfs-probe-item"
-                onClick={() => handleToggleProbe(probe.node_id)}
-                title="Click to remove probe"
-              >
+              <div key={probe.id} className="sfs-probe-item">
                 <span
                   className="sfs-probe-dot"
                   style={{ backgroundColor: probe.color }}
                 />
                 <span className="sfs-probe-label">{probe.label}</span>
-                {tf?.expression?.operator && (
-                  <span className="sfs-probe-tf">
-                    H = {tf.expression.operator}
+                {fullExpr && (
+                  <span className="sfs-probe-tf" title={fullExpr}>
+                    {fullExpr}
                   </span>
                 )}
+                {fullExpr && (
+                  <button
+                    className="sfs-probe-copy-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(fullExpr);
+                      setToastMessage('TF copied to clipboard');
+                      setTimeout(() => setToastMessage(null), 1500);
+                    }}
+                    title="Copy transfer function"
+                  >&#x2398;</button>
+                )}
+                <button
+                  className="sfs-probe-remove-btn"
+                  onClick={() => handleToggleProbe(probe.node_id)}
+                  title="Remove probe"
+                >&times;</button>
               </div>
             );
           })}
@@ -584,6 +682,32 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
           font-size: 12px;
           color: var(--text-secondary, #94a3b8);
           font-weight: 500;
+        }
+
+        .sfs-system-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 2px 10px;
+          border-radius: var(--radius-full, 9999px);
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.3px;
+        }
+        .sfs-system-badge[data-type="dt"] {
+          background: rgba(59, 130, 246, 0.12);
+          color: var(--secondary-color, #3b82f6);
+          border: 1px solid rgba(59, 130, 246, 0.25);
+        }
+        .sfs-system-badge[data-type="ct"] {
+          background: rgba(16, 185, 129, 0.12);
+          color: var(--success-color, #10b981);
+          border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+
+        .sfs-toolbar-stats {
+          font-size: 11px;
+          color: var(--text-muted, #64748b);
+          font-family: 'Fira Code', monospace;
         }
 
         .sfs-import-btn {
@@ -695,6 +819,7 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
           flex-direction: column;
           border-right: 1px solid var(--border-color, #1e293b);
           overflow: hidden;
+          position: relative;
         }
 
         .sfs-sfg-header {
@@ -779,13 +904,8 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
           padding: 4px 10px;
           border: 1px solid var(--border-color, #1e293b);
           border-radius: var(--radius-full, 9999px);
-          cursor: pointer;
           transition: all var(--transition-fast, 150ms);
           font-size: 11px;
-        }
-        .sfs-probe-item:hover {
-          border-color: var(--error-color, #ef4444);
-          background: rgba(239, 68, 68, 0.05);
         }
 
         .sfs-probe-dot {
@@ -804,10 +924,42 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
           color: var(--text-muted, #64748b);
           font-family: 'Fira Code', monospace;
           font-size: 10px;
-          max-width: 200px;
+          max-width: 280px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        .sfs-probe-copy-btn {
+          background: none;
+          border: 1px solid var(--border-color, #1e293b);
+          color: var(--text-muted, #64748b);
+          border-radius: var(--radius-sm, 6px);
+          cursor: pointer;
+          padding: 1px 5px;
+          font-size: 12px;
+          line-height: 1;
+          transition: all var(--transition-fast, 150ms);
+          flex-shrink: 0;
+        }
+        .sfs-probe-copy-btn:hover {
+          border-color: var(--primary-color, #14b8a6);
+          color: var(--primary-color, #14b8a6);
+        }
+
+        .sfs-probe-remove-btn {
+          background: none;
+          border: none;
+          color: var(--text-muted, #64748b);
+          cursor: pointer;
+          font-size: 14px;
+          line-height: 1;
+          padding: 0 2px;
+          flex-shrink: 0;
+          transition: color var(--transition-fast, 150ms);
+        }
+        .sfs-probe-remove-btn:hover {
+          color: var(--error-color, #ef4444);
         }
 
         .sfs-toast {
@@ -824,6 +976,90 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
           z-index: 100;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
           pointer-events: none;
+        }
+
+        .sfs-node-tooltip {
+          position: absolute;
+          z-index: 50;
+          background: rgba(19, 27, 46, 0.92);
+          backdrop-filter: blur(12px);
+          border: 1px solid var(--border-hover, #334155);
+          border-radius: var(--radius-md, 8px);
+          padding: 10px 14px;
+          pointer-events: none;
+          min-width: 180px;
+          max-width: 320px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        .sfs-tooltip-label {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-primary, #f1f5f9);
+          margin-bottom: 2px;
+        }
+        .sfs-tooltip-type {
+          font-size: 11px;
+          color: var(--text-muted, #64748b);
+          margin-bottom: 8px;
+        }
+        .sfs-tooltip-tf-header {
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: var(--text-muted, #64748b);
+          margin-bottom: 4px;
+        }
+        .sfs-tooltip-tf {
+          font-family: 'Fira Code', monospace;
+          font-size: 11px;
+          color: var(--accent-color, #00d9ff);
+          word-break: break-all;
+          line-height: 1.5;
+        }
+        .sfs-tooltip-tf-domain {
+          color: var(--text-secondary, #94a3b8);
+        }
+
+        .sfs-view-controls {
+          position: absolute;
+          bottom: 10px;
+          right: 10px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          z-index: 10;
+        }
+        .sfs-view-btn {
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(19, 27, 46, 0.85);
+          backdrop-filter: blur(8px);
+          border: 1px solid var(--border-color, #1e293b);
+          border-radius: var(--radius-sm, 6px);
+          color: var(--text-secondary, #94a3b8);
+          font-size: 16px;
+          cursor: pointer;
+          transition: all var(--transition-fast, 150ms);
+        }
+        .sfs-view-btn:hover {
+          border-color: var(--primary-color, #14b8a6);
+          color: var(--primary-color, #14b8a6);
+          background: rgba(19, 27, 46, 0.95);
+        }
+        .sfs-view-btn-reset {
+          font-size: 14px;
+        }
+        .sfs-view-hint {
+          font-size: 10px;
+          color: var(--text-muted, #64748b);
+          background: rgba(19, 27, 46, 0.7);
+          padding: 4px 8px;
+          border-radius: var(--radius-sm, 6px);
+          margin-left: 4px;
+          white-space: nowrap;
         }
 
         @media (max-width: 768px) {
