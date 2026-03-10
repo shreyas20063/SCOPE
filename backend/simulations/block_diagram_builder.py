@@ -313,6 +313,12 @@ class BlockDiagramSimulator(BaseSimulator):
         if block_id not in self.blocks:
             raise ValueError(f"Block not found: {block_id}")
         block = self.blocks[block_id]
+        # Validate label early (before any mutations) to prevent partial updates
+        label = params.get("label")
+        if label is not None and block["type"] == "custom_tf":
+            label_str = str(label).strip()
+            if len(label_str) > 30:
+                raise ValueError("Label too long (max 30 characters).")
         if block["type"] == "gain":
             val = float(value)
             if not np.isfinite(val):
@@ -374,15 +380,10 @@ class BlockDiagramSimulator(BaseSimulator):
             block["expression"] = expr
             block["num_coeffs"] = list(num_coeffs)
             block["den_coeffs"] = list(den_coeffs)
-            if converted_from:
-                block["converted_from"] = converted_from
-        # Update label if provided (for custom_tf blocks)
-        label = params.get("label")
+            block["converted_from"] = converted_from  # None clears previous conversion
+        # Update label if provided (already validated above)
         if label is not None and block["type"] == "custom_tf":
-            label_str = str(label).strip()
-            if len(label_str) > 30:
-                raise ValueError("Label too long (max 30 characters).")
-            block["label"] = label_str
+            block["label"] = str(label).strip()
         self._recompute_tf()
 
     def _action_add_connection(self, params: Dict[str, Any]) -> None:
