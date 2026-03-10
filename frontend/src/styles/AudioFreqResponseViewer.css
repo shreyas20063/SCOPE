@@ -1,38 +1,53 @@
-/* Audio Frequency Response Playground - Custom Viewer Styles */
+/* Filter Design Tool - AudioFreqResponseViewer Styles */
 
 .afr-viewer {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   width: 100%;
 }
 
-/* Transfer function banner */
+/* ── Transfer function banner ── */
 .afr-tf-banner {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  padding: 12px 20px;
+  padding: 10px 18px;
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   border-left: 3px solid var(--primary-color);
   flex-wrap: wrap;
-  min-height: 48px;
+  min-height: 44px;
 }
 
 .afr-tf-expression {
   font-family: 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-primary);
   flex: 1;
-  min-width: 200px;
+  min-width: 180px;
+}
+
+.afr-tf-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.afr-tf-info {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: 'Fira Code', monospace;
+  white-space: nowrap;
 }
 
 .afr-badge {
-  padding: 3px 12px;
+  padding: 3px 10px;
   border-radius: var(--radius-full);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -63,51 +78,50 @@
   border: 1px solid rgba(20, 184, 166, 0.3);
 }
 
-/* Info cards row */
-.afr-info-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+/* ── Error ── */
+.afr-error {
+  padding: 8px 16px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  color: #ef4444;
+  font-size: 0.8rem;
 }
 
-.afr-info-card {
-  flex: 1;
-  min-width: 100px;
-  padding: 8px 14px;
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+/* ── Split layout ── */
+.afr-split-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.afr-split-left {
+  min-width: 0;
+}
+
+.afr-split-right {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 10px;
+  min-width: 0;
 }
 
-.afr-info-card__label {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.afr-split-right .js-plotly-plot {
+  min-height: 220px;
 }
 
-.afr-info-card__value {
-  font-family: 'Fira Code', monospace;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-/* S-Plane interactive canvas */
+/* ── S-Plane canvas ── */
 .afr-splane-container {
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: 12px;
+  padding: 10px;
   position: relative;
 }
 
 .afr-splane-svg {
   width: 100%;
-  max-height: 400px;
   cursor: crosshair;
   user-select: none;
   display: block;
@@ -133,28 +147,47 @@
   stroke-width: 0.5;
 }
 
+.afr-splane-svg .axis-label {
+  fill: var(--text-muted);
+  font-size: 10px;
+  font-family: 'Fira Code', monospace;
+}
+
+.afr-splane-svg .axis-title {
+  fill: var(--text-secondary);
+  font-size: 13px;
+  font-family: 'Fira Code', monospace;
+  font-weight: 600;
+}
+
 .afr-splane-svg .pole-marker {
   stroke: #ef4444;
   stroke-width: 2.5;
   fill: none;
-  cursor: pointer;
   transition: stroke-width var(--transition-fast);
 }
 
-.afr-splane-svg .pole-marker:hover {
+.afr-splane-svg g:hover .pole-marker {
   stroke-width: 3.5;
+  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.5));
 }
 
 .afr-splane-svg .zero-marker {
   stroke: #3b82f6;
   stroke-width: 2.5;
   fill: none;
-  cursor: pointer;
   transition: stroke-width var(--transition-fast);
 }
 
-.afr-splane-svg .zero-marker:hover {
+.afr-splane-svg g:hover .zero-marker {
   stroke-width: 3.5;
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.5));
+}
+
+.afr-splane-svg .hit-area {
+  fill: transparent;
+  stroke: none;
+  cursor: grab;
 }
 
 .afr-splane-svg .conjugate-line {
@@ -163,27 +196,39 @@
   stroke-dasharray: 4 3;
 }
 
-.afr-splane-svg .axis-label {
-  fill: var(--text-muted);
-  font-size: 11px;
+.afr-splane-svg .hover-crosshair line {
+  stroke: rgba(148, 163, 184, 0.25);
+  stroke-width: 0.5;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+
+.afr-splane-svg .drag-crosshair line {
+  stroke: rgba(20, 184, 166, 0.4);
+  stroke-width: 1;
+  stroke-dasharray: 4 2;
+  pointer-events: none;
+}
+
+/* Coordinate readout bar */
+.afr-splane-readout {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 10px;
   font-family: 'Fira Code', monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-color);
+  margin-top: 4px;
 }
 
-.afr-splane-svg .target-pole {
-  stroke: #f59e0b;
-  stroke-width: 2;
-  fill: none;
-  opacity: 0.7;
+.afr-splane-readout__drag {
+  color: var(--primary-color);
+  font-weight: 500;
 }
 
-.afr-splane-svg .target-zero {
-  stroke: #f59e0b;
-  stroke-width: 2;
-  fill: none;
-  opacity: 0.7;
-}
-
-/* Placement toolbar */
+/* ── Toolbar ── */
 .afr-toolbar {
   display: flex;
   gap: 8px;
@@ -195,13 +240,6 @@
   display: flex;
   gap: 4px;
   align-items: center;
-}
-
-.afr-toolbar__separator {
-  width: 1px;
-  height: 28px;
-  background: var(--border-color);
-  margin: 0 8px;
 }
 
 .afr-toolbar__btn {
@@ -252,16 +290,6 @@
   color: #3b82f6;
 }
 
-.afr-toolbar__btn--preset {
-  font-size: 0.75rem;
-  padding: 5px 10px;
-}
-
-.afr-toolbar__btn--preset:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-}
-
 .afr-toolbar__btn--danger {
   border-color: rgba(239, 68, 68, 0.3);
   color: var(--text-muted);
@@ -273,159 +301,244 @@
   color: #ef4444;
 }
 
-/* Plots grid */
-.afr-plots-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.afr-plots-grid .js-plotly-plot {
-  min-height: 280px;
-}
-
-@media (max-width: 768px) {
-  .afr-plots-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Challenge panel */
-.afr-challenge-panel {
-  padding: 14px 20px;
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  border-left: 3px solid #f59e0b;
+/* ── Transfer function input ── */
+.afr-tf-input-row {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.afr-challenge-panel__prompt {
-  color: var(--text-secondary);
+.afr-tf-input-label {
+  font-family: 'Fira Code', monospace;
   font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.afr-tf-input {
   flex: 1;
   min-width: 200px;
-}
-
-.afr-challenge-panel__hint {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  font-style: italic;
-}
-
-.afr-challenge-panel__score {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--surface-color);
+  color: var(--text-primary);
   font-family: 'Fira Code', monospace;
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: 0.82rem;
+  transition: border-color var(--transition-fast);
 }
 
-.afr-challenge-panel__score--excellent {
-  color: #10b981;
+.afr-tf-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.15);
 }
 
-.afr-challenge-panel__score--good {
-  color: #f59e0b;
+.afr-tf-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
 }
 
-.afr-challenge-panel__score--poor {
-  color: #ef4444;
+.afr-tf-input:disabled {
+  opacity: 0.5;
 }
 
-.afr-challenge-panel__btn {
+.afr-tf-input-btn {
   padding: 8px 18px;
   border-radius: var(--radius-md);
-  border: 1px solid #f59e0b;
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
-  font-size: 0.85rem;
+  border: 1px solid var(--primary-color);
+  background: rgba(20, 184, 166, 0.1);
+  color: var(--primary-color);
+  font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition-fast);
   font-family: inherit;
+  white-space: nowrap;
 }
 
-.afr-challenge-panel__btn:hover:not(:disabled) {
-  background: rgba(245, 158, 11, 0.2);
+.afr-tf-input-btn:hover:not(:disabled) {
+  background: rgba(20, 184, 166, 0.2);
 }
 
-.afr-challenge-panel__btn:disabled {
+.afr-tf-input-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.afr-challenge-panel__difficulty {
-  display: flex;
-  gap: 4px;
+.afr-tf-input-error {
+  width: 100%;
+  font-size: 0.75rem;
+  color: #ef4444;
+  margin-top: -4px;
 }
 
-.afr-challenge-panel__diff-btn {
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-color);
-  background: transparent;
+/* ── Preset cards ── */
+.afr-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.afr-presets-label {
+  font-size: 0.75rem;
   color: var(--text-muted);
-  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.afr-presets-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.afr-preset-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--surface-color);
   cursor: pointer;
   transition: all var(--transition-fast);
+  text-align: left;
   font-family: inherit;
-  text-transform: uppercase;
+  min-width: 110px;
 }
 
-.afr-challenge-panel__diff-btn--active {
-  background: rgba(245, 158, 11, 0.12);
-  border-color: #f59e0b;
-  color: #f59e0b;
+.afr-preset-card:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
 }
 
-.afr-challenge-panel__diff-btn:hover {
-  border-color: var(--border-hover);
+.afr-preset-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.afr-preset-card__name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.afr-preset-card__desc {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+/* ── Collapsible section ── */
+.afr-collapsible {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.afr-collapsible__summary {
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 500;
   color: var(--text-secondary);
+  transition: color var(--transition-fast);
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-/* Error message */
-.afr-error {
-  padding: 8px 16px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: var(--radius-md);
-  color: #ef4444;
+.afr-collapsible__summary::before {
+  content: '▸';
   font-size: 0.8rem;
+  transition: transform var(--transition-fast);
 }
 
-/* Responsive adjustments */
+.afr-collapsible[open] > .afr-collapsible__summary::before {
+  transform: rotate(90deg);
+}
+
+.afr-collapsible__summary::-webkit-details-marker {
+  display: none;
+}
+
+.afr-collapsible__summary:hover {
+  color: var(--text-primary);
+}
+
+.afr-collapsible__content {
+  padding: 0 12px 12px;
+}
+
+/* Plots grid (used inside collapsible) */
+.afr-plots-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.afr-plots-grid .js-plotly-plot {
+  min-height: 260px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .afr-split-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .afr-split-right {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .afr-split-right > * {
+    flex: 1;
+    min-width: 280px;
+  }
+}
+
 @media (max-width: 768px) {
+  .afr-split-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .afr-split-right {
+    flex-direction: column;
+  }
+
   .afr-tf-banner {
-    padding: 10px 14px;
-    gap: 10px;
-  }
-
-  .afr-tf-expression {
-    font-size: 0.85rem;
-    min-width: 150px;
-  }
-
-  .afr-info-row {
+    padding: 8px 12px;
     gap: 8px;
   }
 
-  .afr-info-card {
-    min-width: 80px;
-    padding: 6px 10px;
+  .afr-tf-expression {
+    font-size: 0.8rem;
+    min-width: 140px;
   }
 
-  .afr-toolbar {
+  .afr-presets-grid {
     gap: 6px;
   }
 
-  .afr-toolbar__separator {
-    display: none;
+  .afr-preset-card {
+    min-width: 90px;
+    padding: 6px 10px;
   }
 
-  .afr-challenge-panel {
-    padding: 12px 14px;
-    gap: 10px;
+  .afr-plots-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .afr-tf-input {
+    min-width: 150px;
   }
 }

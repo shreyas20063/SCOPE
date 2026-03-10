@@ -1,16 +1,16 @@
 """
-Audio Frequency Response Playground Simulator
+Audio Frequency Response Playground — Filter Design Tool
 
 Interactive pole/zero placement on the s-plane to explore how H(jw) shapes
-frequency response. Users click to place poles and zeros, see magnitude/phase
-response, and observe filtered signal effects. Includes preset filters and
-a challenge mode.
+frequency response. Users click to place poles and zeros, enter transfer
+function expressions, or load presets — then observe magnitude/phase response
+and filtered signal effects.
 
 Based on MIT 6.003 Lecture 9: Frequency Response.
 """
 
-import random
-from typing import Any, Dict, List, Optional
+import re
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from scipy.signal import chirp as scipy_chirp, lsim, lti, zpk2tf
@@ -20,12 +20,12 @@ from .base_simulator import BaseSimulator
 
 class AudioFreqResponseSimulator(BaseSimulator):
     """
-    Audio Frequency Response Playground.
+    Audio Frequency Response Playground — Filter Design Tool.
 
     Users place poles/zeros on the s-plane to define H(s), then observe:
     - |H(jw)| magnitude and phase response
     - Filtered signal in time and frequency domains
-    - Preset filter configurations and challenge mode
+    - Preset filter configurations
     """
 
     # Constants
@@ -33,8 +33,8 @@ class AudioFreqResponseSimulator(BaseSimulator):
     NUM_FREQ_POINTS = 1000
     FREQ_MIN_HZ = 1.0
     FREQ_MAX_HZ = 10000.0
-    MAX_POLES = 8
-    MAX_ZEROS = 8
+    MAX_POLES = 12
+    MAX_ZEROS = 12
     IMAG_THRESHOLD = 1e-6  # Below this, treat as real (no conjugate)
     BASE_FREQ_HZ = 500.0   # Default center frequency for presets
 
@@ -43,7 +43,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
         "phase": "#8b5cf6",          # purple
         "input": "#3b82f6",          # blue
         "output": "#ef4444",         # red
-        "target": "#f59e0b",         # amber
         "reference": "#10b981",      # green
         "pole": "#ef4444",           # red
         "zero": "#3b82f6",           # blue
@@ -54,16 +53,16 @@ class AudioFreqResponseSimulator(BaseSimulator):
         "text_secondary": "#94a3b8",
     }
 
+    PRESET_DESCRIPTIONS = {
+        "lowpass": "2nd-order Butterworth, -40 dB/dec rolloff",
+        "highpass": "2nd-order Butterworth, two zeros at origin",
+        "bandpass": "2nd-order, Q = 5, passes center band",
+        "notch": "2nd-order, Q = 10, rejects center frequency",
+        "resonant": "2nd-order, Q = 50, sharp peak",
+        "allpass": "Flat magnitude, phase-only filter",
+    }
+
     PARAMETER_SCHEMA = {
-        "mode": {
-            "type": "select",
-            "label": "Mode",
-            "options": [
-                {"value": "explore", "label": "Explore"},
-                {"value": "challenge", "label": "Challenge"},
-            ],
-            "default": "explore",
-        },
         "signal_type": {
             "type": "select",
             "label": "Test Signal",
@@ -108,7 +107,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
     }
 
     DEFAULT_PARAMS = {
-        "mode": "explore",
         "signal_type": "multi_tone",
         "signal_freq": 440,
         "show_db_scale": True,
@@ -116,73 +114,11 @@ class AudioFreqResponseSimulator(BaseSimulator):
         "gain_K": 1.0,
     }
 
-    # Challenge configurations by difficulty
-    CHALLENGE_CONFIGS = {
-        "easy": [
-            {
-                "name": "Simple Lowpass",
-                "poles": [(-2000 + 0j)],
-                "zeros": [],
-                "K": 2000.0,
-                "hint": "Single real pole in the LHP. Where should it go?",
-            },
-            {
-                "name": "Simple Highpass",
-                "poles": [(-2000 + 0j)],
-                "zeros": [(0 + 0j)],
-                "K": 1.0,
-                "hint": "One zero at the origin, one real pole.",
-            },
-            {
-                "name": "Two Real Poles",
-                "poles": [(-500 + 0j), (-3000 + 0j)],
-                "zeros": [],
-                "K": 1500000.0,
-                "hint": "Two real poles, no zeros. Low frequencies pass through.",
-            },
-        ],
-        "medium": [
-            {
-                "name": "2nd Order Lowpass",
-                "preset": "lowpass",
-                "hint": "Complex conjugate poles, no zeros. Classic Butterworth shape.",
-            },
-            {
-                "name": "Bandpass Filter",
-                "preset": "bandpass",
-                "hint": "Complex poles with one zero at the origin. Passes a band of frequencies.",
-            },
-            {
-                "name": "2nd Order Highpass",
-                "preset": "highpass",
-                "hint": "Complex conjugate poles, two zeros at origin.",
-            },
-        ],
-        "hard": [
-            {
-                "name": "Notch Filter",
-                "preset": "notch",
-                "hint": "Zeros on the imaginary axis cancel a specific frequency. Poles nearby for sharpness.",
-            },
-            {
-                "name": "Resonant Peak",
-                "preset": "resonant",
-                "hint": "Very lightly damped complex poles. Huge gain at one frequency.",
-            },
-            {
-                "name": "Allpass Filter",
-                "preset": "allpass",
-                "hint": "Flat magnitude response! Zeros mirror poles across the jw axis.",
-            },
-        ],
-    }
-
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         # Pole/zero state
         self._poles: List[complex] = []
         self._zeros: List[complex] = []
-        self._placement_mode: str = "pole"
 
         # Precomputed data
         self._freq_axis: Optional[np.ndarray] = None
@@ -200,18 +136,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
         self._has_marginal_poles: bool = False
         self._system_order: int = 0
 
-        # Challenge state
-        self._challenge_active: bool = False
-        self._challenge_answered: bool = False
-        self._challenge_score: Optional[float] = None
-        self._challenge_target_poles: List[complex] = []
-        self._challenge_target_zeros: List[complex] = []
-        self._challenge_target_gain: float = 1.0
-        self._challenge_target_magnitude: Optional[np.ndarray] = None
-        self._challenge_hint: Optional[str] = None
-        self._challenge_filter_name: Optional[str] = None
-        self._challenge_difficulty: str = "easy"
-
         self._error: Optional[str] = None
         self._filter_failed: bool = False
 
@@ -226,18 +150,7 @@ class AudioFreqResponseSimulator(BaseSimulator):
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
         """Update a single parameter and recompute."""
         if name in self.parameters:
-            old_value = self.parameters[name]
             self.parameters[name] = self._validate_param(name, value)
-
-            # Mode switch: auto-trigger challenge generation or cleanup
-            if name == "mode":
-                if value == "challenge" and not self._challenge_active:
-                    self._action_new_challenge({"difficulty": "easy"})
-                elif value == "explore":
-                    self._challenge_active = False
-                    self._challenge_answered = False
-                    self._challenge_score = None
-
         self._compute()
         return self.get_state()
 
@@ -246,15 +159,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
         self.parameters = self.DEFAULT_PARAMS.copy()
         self._poles = []
         self._zeros = []
-        self._placement_mode = "pole"
-        self._challenge_active = False
-        self._challenge_answered = False
-        self._challenge_score = None
-        self._challenge_target_poles = []
-        self._challenge_target_zeros = []
-        self._challenge_target_magnitude = None
-        self._challenge_hint = None
-        self._challenge_filter_name = None
         self._error = None
         self._filter_failed = False
         self._initialized = True
@@ -268,12 +172,13 @@ class AudioFreqResponseSimulator(BaseSimulator):
             "add_zero": self._action_add_zero,
             "remove_pole": self._action_remove_pole,
             "remove_zero": self._action_remove_zero,
+            "move_pole": self._action_move_pole,
+            "move_zero": self._action_move_zero,
             "clear_all": self._action_clear_all,
             "load_preset": self._action_load_preset,
-            "set_placement_mode": self._action_set_placement_mode,
             "add_at_click": self._action_add_at_click,
-            "new_challenge": self._action_new_challenge,
-            "check_answer": self._action_check_answer,
+            "set_placement_mode": self._action_set_placement_mode,
+            "parse_tf": self._action_parse_tf,
         }
 
         handler = action_map.get(action)
@@ -373,6 +278,64 @@ class AudioFreqResponseSimulator(BaseSimulator):
 
         self._compute()
 
+    def _action_move_pole(self, params: Dict[str, Any]) -> None:
+        """Move a pole to a new position (remove old + add new)."""
+        index = int(params.get("index", -1))
+        real = float(params.get("real", 0))
+        imag = float(params.get("imag", 0))
+
+        if index < 0 or index >= len(self._poles):
+            self._error = "Invalid pole index"
+            return
+
+        # Remove old pole (and conjugate)
+        old_pole = self._poles[index]
+        self._poles.pop(index)
+        if abs(old_pole.imag) > self.IMAG_THRESHOLD:
+            conjugate = complex(old_pole.real, -old_pole.imag)
+            for i, p in enumerate(self._poles):
+                if abs(p - conjugate) < 1e-4:
+                    self._poles.pop(i)
+                    break
+
+        # Add new pole at target position
+        if abs(imag) > self.IMAG_THRESHOLD:
+            self._poles.append(complex(real, imag))
+            self._poles.append(complex(real, -imag))
+        else:
+            self._poles.append(complex(real, 0))
+
+        self._compute()
+
+    def _action_move_zero(self, params: Dict[str, Any]) -> None:
+        """Move a zero to a new position (remove old + add new)."""
+        index = int(params.get("index", -1))
+        real = float(params.get("real", 0))
+        imag = float(params.get("imag", 0))
+
+        if index < 0 or index >= len(self._zeros):
+            self._error = "Invalid zero index"
+            return
+
+        # Remove old zero (and conjugate)
+        old_zero = self._zeros[index]
+        self._zeros.pop(index)
+        if abs(old_zero.imag) > self.IMAG_THRESHOLD:
+            conjugate = complex(old_zero.real, -old_zero.imag)
+            for i, z in enumerate(self._zeros):
+                if abs(z - conjugate) < 1e-4:
+                    self._zeros.pop(i)
+                    break
+
+        # Add new zero at target position
+        if abs(imag) > self.IMAG_THRESHOLD:
+            self._zeros.append(complex(real, imag))
+            self._zeros.append(complex(real, -imag))
+        else:
+            self._zeros.append(complex(real, 0))
+
+        self._compute()
+
     def _action_clear_all(self, params: Dict[str, Any]) -> None:
         """Clear all poles and zeros."""
         self._poles = []
@@ -389,77 +352,234 @@ class AudioFreqResponseSimulator(BaseSimulator):
         self._compute()
 
     def _action_set_placement_mode(self, params: Dict[str, Any]) -> None:
-        """Switch between pole and zero placement."""
-        mode = params.get("mode", "pole")
-        if mode in ("pole", "zero"):
-            self._placement_mode = mode
+        """Switch between pole and zero placement (kept for backwards compat)."""
+        pass  # Placement mode is now frontend-only state
 
     def _action_add_at_click(self, params: Dict[str, Any]) -> None:
-        """Add pole or zero based on current placement mode."""
-        if self._placement_mode == "pole":
-            self._action_add_pole(params)
-        else:
+        """Add pole or zero based on placement_mode param from frontend."""
+        mode = params.get("placement_mode", "pole")
+        if mode == "zero":
             self._action_add_zero(params)
-
-    def _action_new_challenge(self, params: Dict[str, Any]) -> None:
-        """Generate a new challenge target filter."""
-        difficulty = params.get("difficulty", "easy")
-        configs = self.CHALLENGE_CONFIGS.get(difficulty, self.CHALLENGE_CONFIGS["easy"])
-        config = random.choice(configs)
-
-        if "preset" in config:
-            poles, zeros, K = self._get_preset_config(config["preset"])
         else:
-            poles = list(config["poles"])
-            zeros = list(config["zeros"])
-            K = config["K"]
+            self._action_add_pole(params)
 
-        # Add random variation (+/- 30%) to prevent memorization
-        variation = 0.7 + 0.6 * random.random()
-        poles = [p * variation for p in poles]
-        zeros = [z * variation for z in zeros if abs(z) > self.IMAG_THRESHOLD]
-        # Keep origin zeros exactly at origin
-        origin_zeros = [z for z in (config.get("zeros") or zeros) if abs(z) < self.IMAG_THRESHOLD]
-        zeros = origin_zeros + zeros
+    def _action_parse_tf(self, params: Dict[str, Any]) -> None:
+        """Parse a transfer function string and set poles/zeros from roots.
 
-        self._challenge_target_poles = poles
-        self._challenge_target_zeros = zeros
-        self._challenge_target_gain = K * (variation ** len(poles))
-        self._challenge_target_magnitude = self._compute_magnitude_for(
-            poles, zeros, self._challenge_target_gain
-        )
-        self._challenge_active = True
-        self._challenge_answered = False
-        self._challenge_score = None
-        self._challenge_difficulty = difficulty
-        self._challenge_hint = config.get("hint")
-        self._challenge_filter_name = config["name"]
-
-        # Clear user state
-        self._poles = []
-        self._zeros = []
-        self._compute()
-
-    def _action_check_answer(self, params: Dict[str, Any]) -> None:
-        """Compare user's frequency response to target."""
-        if not self._challenge_active or self._challenge_answered:
+        Supports formats like:
+        - "1/(s+1)"
+        - "(s+2)/(s^2+3s+1)"
+        - "s^2/(s^3+2s^2+s+1)"
+        - "(s^2+4)/(s^2+2s+4)"
+        """
+        tf_string = params.get("tf_string", "").strip()
+        if not tf_string:
+            self._error = "Please enter a transfer function expression."
+            return
+        if len(tf_string) > 500:
+            self._error = "Expression too long (max 500 characters)."
             return
 
-        if self._magnitude is None or self._challenge_target_magnitude is None:
-            self._challenge_score = 0
-            self._challenge_answered = True
-            return
+        try:
+            num_coeffs, den_coeffs = self._parse_ratio(tf_string)
+            # Compute roots
+            # np.roots expects highest-power-first, our parser gives low-power-first
+            num_hp = list(reversed(num_coeffs))
+            den_hp = list(reversed(den_coeffs))
 
-        # Compare in dB domain
-        user_db = 20 * np.log10(np.clip(self._magnitude, 1e-10, None))
-        target_db = 20 * np.log10(np.clip(self._challenge_target_magnitude, 1e-10, None))
+            # Extract gain from leading coefficients
+            K = num_hp[0] / den_hp[0] if den_hp[0] != 0 else 1.0
 
-        mse = float(np.mean((user_db - target_db) ** 2))
-        score = max(0, min(100, int(100 * np.exp(-mse / 100))))
+            # Normalize so leading coeff of denominator is 1
+            den_hp = [c / den_hp[0] for c in den_hp]
+            num_hp = [c / num_hp[0] for c in num_hp] if num_hp[0] != 0 else num_hp
 
-        self._challenge_score = score
-        self._challenge_answered = True
-        self._compute()
+            # Find roots
+            new_zeros: List[complex] = []
+            new_poles: List[complex] = []
+
+            if len(num_hp) > 1:
+                z_roots = np.roots(num_hp)
+                for z in z_roots:
+                    new_zeros.append(complex(z))
+            elif len(num_hp) == 1 and abs(num_hp[0]) < 1e-12:
+                pass  # Numerator is zero
+
+            if len(den_hp) > 1:
+                p_roots = np.roots(den_hp)
+                for p in p_roots:
+                    new_poles.append(complex(p))
+
+            if len(new_poles) > self.MAX_POLES:
+                self._error = f"Transfer function has {len(new_poles)} poles (max {self.MAX_POLES})"
+                return
+            if len(new_zeros) > self.MAX_ZEROS:
+                self._error = f"Transfer function has {len(new_zeros)} zeros (max {self.MAX_ZEROS})"
+                return
+
+            self._poles = new_poles
+            self._zeros = new_zeros
+            self.parameters["gain_K"] = round(abs(K), 4)
+            self._compute()
+
+        except ValueError as e:
+            self._error = str(e)
+        except Exception as e:
+            self._error = f"Could not parse expression: {e}"
+
+    # =========================================================================
+    # Transfer function parsing (adapted from block_diagram_builder.py)
+    # =========================================================================
+
+    def _parse_ratio(self, expr: str) -> Tuple[List[float], List[float]]:
+        """Parse a ratio of polynomials in s, e.g. '(s+2)/(s^2+3s+1)'."""
+        # Remove H(s)= prefix if present
+        expr = re.sub(r'H\s*\(\s*s\s*\)\s*=\s*', '', expr).strip()
+
+        # Find the division point (not inside parentheses)
+        split_idx = -1
+        depth = 0
+        for i, ch in enumerate(expr):
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth -= 1
+            elif ch == '/' and depth == 0:
+                split_idx = i
+                break
+
+        if split_idx >= 0:
+            num_str = self._strip_outer_parens(expr[:split_idx])
+            den_str = self._strip_outer_parens(expr[split_idx + 1:])
+        else:
+            num_str = self._strip_outer_parens(expr)
+            den_str = "1"
+
+        num_coeffs = self._parse_polynomial(num_str)
+        den_coeffs = self._parse_polynomial(den_str)
+
+        return num_coeffs, den_coeffs
+
+    @staticmethod
+    def _strip_outer_parens(s: str) -> str:
+        """Strip matched outer parentheses only if they wrap the entire expression."""
+        s = s.strip()
+        while len(s) >= 2 and s[0] == '(' and s[-1] == ')':
+            depth = 0
+            matched = True
+            for i, ch in enumerate(s):
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
+                if depth == 0 and i < len(s) - 1:
+                    matched = False
+                    break
+            if matched:
+                s = s[1:-1].strip()
+            else:
+                break
+        return s
+
+    def _parse_polynomial(self, poly_str: str) -> List[float]:
+        """Parse polynomial string like 's^2 + 3s + 1'.
+
+        Returns coefficients [c0, c1, c2, ...] where c_i is coefficient of s^i
+        (low-power-first).
+        """
+        poly_str = poly_str.strip()
+
+        if not poly_str or poly_str == "0":
+            return [0.0]
+
+        # Handle pure number
+        try:
+            val = float(poly_str)
+            return [val]
+        except ValueError:
+            pass
+
+        terms = self._tokenize_polynomial(poly_str)
+
+        coeffs: Dict[int, float] = {}
+        for term in terms:
+            term = term.strip()
+            if not term:
+                continue
+
+            has_var = bool(re.search(r'(?<![a-zA-Z])s(?![a-zA-Z])', term))
+
+            if not has_var:
+                try:
+                    coeffs[0] = coeffs.get(0, 0) + float(term.replace(" ", ""))
+                except ValueError:
+                    pass
+                continue
+
+            # Find the power of s
+            power_match = re.search(r's\s*\^\s*(-?\d+)', term)
+            if power_match:
+                power = int(power_match.group(1))
+            else:
+                power = 1
+
+            # Extract coefficient
+            coeff_str = re.sub(
+                r'\s*\*?\s*s(\s*\^\s*-?\d+)?', '', term
+            ).strip()
+            coeff_str = coeff_str.rstrip("*·").strip()
+            coeff_str = coeff_str.replace(" ", "")
+
+            if coeff_str in ("", "+"):
+                coeff = 1.0
+            elif coeff_str == "-":
+                coeff = -1.0
+            else:
+                try:
+                    coeff = float(coeff_str)
+                except ValueError:
+                    coeff = 1.0
+
+            coeffs[power] = coeffs.get(power, 0) + coeff
+
+        if not coeffs:
+            return [1.0]
+
+        max_power = max(coeffs.keys())
+        if max_power < 0:
+            return [0.0]
+        return [coeffs.get(i, 0.0) for i in range(max_power + 1)]
+
+    @staticmethod
+    def _tokenize_polynomial(poly_str: str) -> List[str]:
+        """Split polynomial string into signed terms."""
+        terms = []
+        current = ""
+        i = 0
+        s = poly_str.strip()
+
+        while i < len(s):
+            ch = s[i]
+            if ch in ('+', '-') and i > 0:
+                j = i - 1
+                while j >= 0 and s[j] == ' ':
+                    j -= 1
+                if j >= 0 and s[j] == '^':
+                    current += ch
+                    i += 1
+                    continue
+                if current.strip():
+                    terms.append(current.strip())
+                current = ch if ch == '-' else ""
+                i += 1
+                continue
+            current += ch
+            i += 1
+
+        if current.strip():
+            terms.append(current.strip())
+
+        return terms
 
     # =========================================================================
     # Preset configurations
@@ -470,20 +590,17 @@ class AudioFreqResponseSimulator(BaseSimulator):
         omega_c = 2 * np.pi * self.BASE_FREQ_HZ
 
         if preset == "lowpass":
-            # 2nd order Butterworth lowpass
             p1 = omega_c * np.exp(1j * 3 * np.pi / 4)
             p2 = np.conj(p1)
             K = float(omega_c ** 2)
             return [p1, p2], [], K
 
         elif preset == "highpass":
-            # 2nd order Butterworth highpass
             p1 = omega_c * np.exp(1j * 3 * np.pi / 4)
             p2 = np.conj(p1)
             return [p1, p2], [0 + 0j, 0 + 0j], 1.0
 
         elif preset == "bandpass":
-            # 2nd order bandpass, Q=5
             Q = 5.0
             sigma = omega_c / (2 * Q)
             omega_d = omega_c * np.sqrt(max(0, 1 - 1 / (4 * Q ** 2)))
@@ -493,7 +610,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
             return [p1, p2], [0 + 0j], K
 
         elif preset == "notch":
-            # 2nd order notch at omega_c, Q=10
             Q = 10.0
             sigma = omega_c / (2 * Q)
             omega_d = omega_c * np.sqrt(max(0, 1 - 1 / (4 * Q ** 2)))
@@ -504,7 +620,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
             return [p1, p2], [z1, z2], 1.0
 
         elif preset == "resonant":
-            # Highly resonant, Q=50
             Q = 50.0
             sigma = omega_c / (2 * Q)
             omega_d = omega_c * np.sqrt(max(0, 1 - 1 / (4 * Q ** 2)))
@@ -514,7 +629,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
             return [p1, p2], [], K
 
         elif preset == "allpass":
-            # 2nd order allpass
             Q = 5.0
             sigma = omega_c / (2 * Q)
             omega_d = omega_c * np.sqrt(max(0, 1 - 1 / (4 * Q ** 2)))
@@ -580,44 +694,16 @@ class AudioFreqResponseSimulator(BaseSimulator):
         for p in self._poles:
             denominator *= (s - p)
 
-        # Clamp denominator to avoid division by zero
         denom_mag = np.abs(denominator)
         denominator = np.where(denom_mag < 1e-12, 1e-12, denominator)
 
         H = K * numerator / denominator
         self._magnitude = np.abs(H)
-        # Unwrap phase for cleaner display
         self._phase = np.rad2deg(np.unwrap(np.angle(H)))
-
-    def _compute_magnitude_for(
-        self, poles: List[complex], zeros: List[complex], K: float
-    ) -> np.ndarray:
-        """Compute magnitude response for arbitrary poles/zeros (for challenge targets)."""
-        freq_hz = np.logspace(
-            np.log10(self.FREQ_MIN_HZ),
-            np.log10(self.FREQ_MAX_HZ),
-            self.NUM_FREQ_POINTS,
-        )
-        omega = 2 * np.pi * freq_hz
-        s = 1j * omega
-
-        numerator = np.ones_like(s, dtype=complex)
-        for z in zeros:
-            numerator *= (s - z)
-
-        denominator = np.ones_like(s, dtype=complex)
-        for p in poles:
-            denominator *= (s - p)
-
-        denom_mag = np.abs(denominator)
-        denominator = np.where(denom_mag < 1e-12, 1e-12, denominator)
-
-        H = K * numerator / denominator
-        return np.abs(H)
 
     def _generate_signal(self) -> None:
         """Generate test input signal."""
-        duration = 0.2  # Fixed 200ms for display clarity
+        duration = 0.2
         sr = self.SAMPLE_RATE
         N = int(duration * sr)
         self._time_axis = np.linspace(0, duration, N, endpoint=False)
@@ -627,27 +713,22 @@ class AudioFreqResponseSimulator(BaseSimulator):
         if sig_type == "sine":
             freq = float(self.parameters.get("signal_freq", 440))
             self._input_signal = np.sin(2 * np.pi * freq * t)
-
         elif sig_type == "multi_tone":
             self._input_signal = (
                 np.sin(2 * np.pi * 200 * t)
                 + 0.7 * np.sin(2 * np.pi * 800 * t)
                 + 0.5 * np.sin(2 * np.pi * 2000 * t)
             ) / 2.2
-
         elif sig_type == "chirp":
             self._input_signal = scipy_chirp(
                 t, f0=20, f1=4000, t1=duration, method="logarithmic"
             )
-
         elif sig_type == "square":
             freq = float(self.parameters.get("signal_freq", 440))
             self._input_signal = np.sign(np.sin(2 * np.pi * freq * t))
-
         elif sig_type == "white_noise":
             rng = np.random.default_rng(42)
             self._input_signal = rng.standard_normal(N) * 0.5
-
         else:
             self._input_signal = np.sin(2 * np.pi * 440 * t)
 
@@ -669,12 +750,9 @@ class AudioFreqResponseSimulator(BaseSimulator):
             p_array = np.array(self._poles) if self._poles else np.array([])
 
             num, den = zpk2tf(z_array, p_array, K)
-
-            # Ensure real coefficients
             num = np.real(num)
             den = np.real(den)
 
-            # Check for extremely large coefficients
             if np.any(np.abs(num) > 1e18) or np.any(np.abs(den) > 1e18):
                 self._output_signal = self._input_signal.copy()
                 self._filter_failed = True
@@ -685,7 +763,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
             _, y_out, _ = lsim(system, U=self._input_signal, T=self._time_axis)
             self._output_signal = np.real(y_out)
 
-            # Clamp for unstable systems
             max_val = float(np.max(np.abs(self._input_signal))) * 100
             if max_val > 0:
                 self._output_signal = np.clip(self._output_signal, -max_val, max_val)
@@ -726,22 +803,26 @@ class AudioFreqResponseSimulator(BaseSimulator):
             return f"H(s) = {K:.2g}"
 
         def format_factor(root: complex) -> str:
+            def fmt(v: float) -> str:
+                """Format a number: use integers when close, else 2 decimals."""
+                if abs(v - round(v)) < 0.01:
+                    return f"{int(round(v))}"
+                return f"{v:.2f}"
+
             if abs(root.imag) < self.IMAG_THRESHOLD:
                 if abs(root.real) < 1e-4:
                     return "s"
                 elif root.real > 0:
-                    return f"(s - {root.real:.0f})"
+                    return f"(s - {fmt(root.real)})"
                 else:
-                    return f"(s + {abs(root.real):.0f})"
+                    return f"(s + {fmt(abs(root.real))})"
             else:
-                # Quadratic factor for conjugate pair
                 sigma = -root.real
                 omega_sq = root.real ** 2 + root.imag ** 2
                 if abs(sigma) < 1:
-                    return f"(s\u00b2 + {omega_sq:.0f})"
-                return f"(s\u00b2 + {2*sigma:.0f}s + {omega_sq:.0f})"
+                    return f"(s\u00b2 + {fmt(omega_sq)})"
+                return f"(s\u00b2 + {fmt(2*sigma)}s + {fmt(omega_sq)})"
 
-        # Build numerator from unique zeros (skip conjugates)
         num_parts = []
         seen_zeros = set()
         for z in self._zeros:
@@ -750,7 +831,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
                 seen_zeros.add(key)
                 num_parts.append(format_factor(z))
 
-        # Build denominator from unique poles
         den_parts = []
         seen_poles = set()
         for p in self._poles:
@@ -767,7 +847,7 @@ class AudioFreqResponseSimulator(BaseSimulator):
         if den_str == "1":
             return f"H(s) = {k_str}{num_str}"
         if num_str == "1":
-            return f"H(s) = {k_str}/ {den_str}"
+            return f"H(s) = {k_str}1 / {den_str}"
         return f"H(s) = {k_str}{num_str} / {den_str}"
 
     def _classify_filter(self) -> str:
@@ -776,42 +856,30 @@ class AudioFreqResponseSimulator(BaseSimulator):
             return "custom"
 
         mag = self._magnitude
-        low_avg = float(np.mean(mag[:50]))       # ~1-4 Hz
-        mid_avg = float(np.mean(mag[400:600]))    # ~100-1000 Hz
-        high_avg = float(np.mean(mag[-50:]))      # ~6000-10000 Hz
+        low_avg = float(np.mean(mag[:50]))
+        mid_avg = float(np.mean(mag[400:600]))
+        high_avg = float(np.mean(mag[-50:]))
         peak_mag = float(np.max(mag))
         min_mag = float(np.min(mag))
 
         if not self._poles and not self._zeros:
             return "flat"
 
-        # Avoid division by zero
         safe_low = max(low_avg, 1e-12)
         safe_high = max(high_avg, 1e-12)
         safe_mid = max(mid_avg, 1e-12)
         edge_max = max(safe_low, safe_high)
 
-        # 1. Notch: deep dip while edges stay high (check BEFORE allpass)
         if edge_max > 1e-6 and min_mag < 0.1 * edge_max and low_avg > 0.3 * edge_max and high_avg > 0.3 * edge_max:
             return "notch"
-
-        # 2. Allpass: flat magnitude across all frequencies, no deep dips
         if safe_low > 1e-6 and abs(safe_high / safe_low - 1) < 0.15 and abs(safe_mid / safe_low - 1) < 0.15 and min_mag > 0.5 * safe_low:
             return "allpass"
-
-        # 3. Bandpass: peak in the middle, both edges lower
         if mid_avg > 3 * safe_low and mid_avg > 3 * safe_high:
             return "bandpass"
-
-        # 4. Resonant: very sharp peak relative to both edges
         if peak_mag > 5 * safe_low and peak_mag > 5 * safe_high and peak_mag > 3 * safe_mid:
             return "resonant"
-
-        # 5. Lowpass: high at DC, low at high frequencies
         if low_avg > 3 * safe_high:
             return "lowpass"
-
-        # 6. Highpass: low at DC, high at high frequencies
         if high_avg > 3 * safe_low:
             return "highpass"
 
@@ -859,7 +927,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
 
     def _create_s_plane_plot(self) -> Dict[str, Any]:
         """S-plane pole-zero map."""
-        # Determine range from current poles/zeros
         all_pz = self._poles + self._zeros
         if all_pz:
             max_val = max(max(abs(c.real), abs(c.imag)) for c in all_pz)
@@ -942,40 +1009,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
                 "hoverinfo": "text",
             })
 
-        # Challenge target (only after answered)
-        if self._challenge_active and self._challenge_answered:
-            if self._challenge_target_poles:
-                traces.append({
-                    "x": [float(p.real) for p in self._challenge_target_poles],
-                    "y": [float(p.imag) for p in self._challenge_target_poles],
-                    "type": "scatter",
-                    "mode": "markers",
-                    "name": "Target Poles",
-                    "marker": {
-                        "symbol": "x",
-                        "size": 12,
-                        "color": self.COLORS["target"],
-                        "line": {"width": 2, "color": self.COLORS["target"]},
-                    },
-                    "opacity": 0.7,
-                })
-            if self._challenge_target_zeros:
-                traces.append({
-                    "x": [float(z.real) for z in self._challenge_target_zeros],
-                    "y": [float(z.imag) for z in self._challenge_target_zeros],
-                    "type": "scatter",
-                    "mode": "markers",
-                    "name": "Target Zeros",
-                    "marker": {
-                        "symbol": "circle-open",
-                        "size": 12,
-                        "color": self.COLORS["target"],
-                        "line": {"width": 2, "color": self.COLORS["target"]},
-                    },
-                    "opacity": 0.7,
-                })
-
-        # Fingerprint for uirevision
         pz_fingerprint = (
             f"s_plane-{len(self._poles)}-{len(self._zeros)}"
             f"-{sum(hash(p) for p in self._poles)}"
@@ -1020,10 +1053,8 @@ class AudioFreqResponseSimulator(BaseSimulator):
         if self._magnitude is not None and self._freq_axis is not None:
             if show_db:
                 y_data = 20 * np.log10(np.clip(self._magnitude, 1e-10, None))
-                y_label = "|H(j\u03c9)| (dB)"
             else:
                 y_data = self._magnitude
-                y_label = "|H(j\u03c9)|"
 
             traces.append({
                 "x": self._freq_axis.tolist(),
@@ -1032,28 +1063,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
                 "mode": "lines",
                 "name": "|H(j\u03c9)|",
                 "line": {"color": self.COLORS["magnitude"], "width": 3},
-            })
-
-        # Challenge target overlay
-        if (
-            self._challenge_active
-            and self._challenge_target_magnitude is not None
-            and self._freq_axis is not None
-        ):
-            if show_db:
-                target_y = 20 * np.log10(
-                    np.clip(self._challenge_target_magnitude, 1e-10, None)
-                )
-            else:
-                target_y = self._challenge_target_magnitude
-
-            traces.append({
-                "x": self._freq_axis.tolist(),
-                "y": np.nan_to_num(target_y, nan=0, posinf=60, neginf=-60).tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": "Target",
-                "line": {"color": self.COLORS["target"], "width": 2, "dash": "dot"},
             })
 
         # Reference lines (dB mode)
@@ -1120,36 +1129,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
                 "line": {"color": self.COLORS["phase"], "width": 2.5},
             })
 
-        # Challenge target phase
-        if (
-            self._challenge_active
-            and self._challenge_target_magnitude is not None
-            and self._freq_axis is not None
-        ):
-            # Recompute target phase
-            omega = 2 * np.pi * self._freq_axis
-            s = 1j * omega
-            K = self._challenge_target_gain
-            num = np.ones_like(s, dtype=complex)
-            for z in self._challenge_target_zeros:
-                num *= (s - z)
-            den = np.ones_like(s, dtype=complex)
-            for p in self._challenge_target_poles:
-                den *= (s - p)
-            den_mag = np.abs(den)
-            den = np.where(den_mag < 1e-12, 1e-12, den)
-            H_target = K * num / den
-            target_phase = np.rad2deg(np.unwrap(np.angle(H_target)))
-
-            traces.append({
-                "x": self._freq_axis.tolist(),
-                "y": np.nan_to_num(target_phase, nan=0).tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": "Target Phase",
-                "line": {"color": self.COLORS["target"], "width": 2, "dash": "dot"},
-            })
-
         # 0-degree reference
         traces.append({
             "x": [self.FREQ_MIN_HZ, self.FREQ_MAX_HZ],
@@ -1191,10 +1170,8 @@ class AudioFreqResponseSimulator(BaseSimulator):
         traces = []
 
         if self._time_axis is not None and self._input_signal is not None:
-            # Show time in milliseconds
             t_ms = (self._time_axis * 1000).tolist()
 
-            # Subsample for performance (max 2000 points)
             step = max(1, len(t_ms) // 2000)
             t_sub = t_ms[::step]
             input_sub = self._input_signal[::step].tolist()
@@ -1275,7 +1252,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
         traces = []
 
         if self._freq_spectrum_axis is not None and self._input_spectrum is not None:
-            # Only show positive frequencies up to Nyquist/2 for clarity
             max_freq_idx = np.searchsorted(self._freq_spectrum_axis, 8000)
             min_freq_idx = np.searchsorted(self._freq_spectrum_axis, 20)
             freq_slice = slice(min_freq_idx, max_freq_idx)
@@ -1333,6 +1309,14 @@ class AudioFreqResponseSimulator(BaseSimulator):
     # State
     # =========================================================================
 
+    def _compute_s_plane_range(self) -> float:
+        """Compute a sensible s-plane display range from current poles/zeros."""
+        all_pz = self._poles + self._zeros
+        if not all_pz:
+            return 2000.0
+        max_val = max(max(abs(c.real), abs(c.imag)) for c in all_pz)
+        return max(max_val * 1.5, 500.0)
+
     def get_state(self) -> Dict[str, Any]:
         """Return complete simulation state."""
         if not self._initialized:
@@ -1365,33 +1349,16 @@ class AudioFreqResponseSimulator(BaseSimulator):
                 "filter_type": self._classify_filter(),
                 "tf_expression": self._format_transfer_function(),
 
+                # Display hint
+                "s_plane_range": self._compute_s_plane_range(),
+
                 # Interaction state
-                "placement_mode": self._placement_mode,
                 "error": self._error,
                 "filter_failed": self._filter_failed,
 
-                # Presets
-                "presets": ["lowpass", "highpass", "bandpass", "notch", "resonant", "allpass"],
-
-                # Challenge
-                "challenge": {
-                    "active": self._challenge_active,
-                    "answered": self._challenge_answered,
-                    "score": self._challenge_score,
-                    "difficulty": self._challenge_difficulty,
-                    "hint": self._challenge_hint,
-                    "filter_name": self._challenge_filter_name,
-                    "target_poles": (
-                        [{"real": round(p.real, 2), "imag": round(p.imag, 2)}
-                         for p in self._challenge_target_poles]
-                        if self._challenge_answered else None
-                    ),
-                    "target_zeros": (
-                        [{"real": round(z.real, 2), "imag": round(z.imag, 2)}
-                         for z in self._challenge_target_zeros]
-                        if self._challenge_answered else None
-                    ),
-                } if self._challenge_active else None,
+                # Presets with descriptions
+                "presets": list(self.PRESET_DESCRIPTIONS.keys()),
+                "preset_descriptions": self.PRESET_DESCRIPTIONS,
             },
         }
 

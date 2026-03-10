@@ -2074,8 +2074,8 @@ SIMULATION_CATALOG = [
     # =========================================================================
     {
         "id": "audio_freq_response",
-        "name": "Audio Frequency Response Playground",
-        "description": "Place poles and zeros on the s-plane to define a transfer function H(s) and instantly see how it shapes the frequency response. Apply the filter to test signals (sine, multi-tone, chirp, square wave) and compare input vs output in time and frequency domains. Includes preset filters (lowpass, highpass, bandpass, notch, resonant) and a challenge mode.",
+        "name": "Filter Design Tool",
+        "description": "Design analog filters by placing poles and zeros on the s-plane or typing a transfer function expression. Instantly see magnitude response, phase response, and time-domain behavior. Drag to reposition, use presets for common filter types, or enter H(s) directly for higher-order systems.",
         "category": "Signal Processing",
         "thumbnail": "\U0001f39b\ufe0f",
         "tags": [
@@ -2086,10 +2086,6 @@ SIMULATION_CATALOG = [
         "has_simulator": True,
         "sticky_controls": True,
         "controls": [
-            {"type": "select", "name": "mode", "label": "Mode", "options": [
-                {"value": "explore", "label": "Explore"},
-                {"value": "challenge", "label": "Challenge"},
-            ], "default": "explore", "group": "Mode"},
             {"type": "select", "name": "signal_type", "label": "Test Signal", "options": [
                 {"value": "multi_tone", "label": "Multi-Tone (3 freq)"},
                 {"value": "sine", "label": "Sine Wave"},
@@ -2104,7 +2100,6 @@ SIMULATION_CATALOG = [
             {"type": "slider", "name": "gain_K", "label": "System Gain (K)", "min": 0.1, "max": 10.0, "step": 0.1, "default": 1.0, "unit": "", "group": "Gain"},
         ],
         "default_params": {
-            "mode": "explore",
             "signal_type": "multi_tone",
             "signal_freq": 440,
             "show_db_scale": True,
