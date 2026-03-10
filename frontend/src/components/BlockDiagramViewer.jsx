@@ -1349,10 +1349,15 @@ function convertToSFG(blocks, connections, systemType) {
     return { gain: '1', gainLatex: '1' };
   };
 
-  const TF_TYPES = new Set(['gain', 'delay', 'integrator', 'custom_tf']);
+  // Only scalar gains and custom TFs collapse into edge gains.
+  // Delay (R) and integrator (1/s) are kept as visible operator nodes
+  // because they represent actual transfer-function blocks with memory,
+  // not simple scalar multipliers.
+  const TF_TYPES = new Set(['gain', 'custom_tf']);
 
-  // 1. Create SFG nodes — one node per non-TF block (input, output, adder, junction)
-  //    TF blocks (gain, delay, integrator, custom_tf) become edges, not nodes
+  // 1. Create SFG nodes — one per non-TF block
+  //    Gain and custom_tf blocks become edges (scalar gains on branches).
+  //    Delay and integrator blocks become labeled operator nodes.
   for (const block of Object.values(blocks)) {
     const { x, y } = block.position;
     const type = block.type;
@@ -1364,12 +1369,17 @@ function convertToSFG(blocks, connections, systemType) {
       const lbl = block.label || (systemType === 'ct' ? 'y(t)' : 'y[n]');
       addNode(block.id, lbl, x, y, 'sink');
     } else if (type === 'adder') {
-      // In SFG, adders are just regular nodes (summation is implicit)
       addNode(block.id, '', x, y, 'node');
     } else if (type === 'junction') {
       addNode(block.id, '', x, y, 'node');
+    } else if (type === 'delay') {
+      const lbl = systemType === 'ct' ? 'e^{-sT}' : 'R';
+      addNode(block.id, lbl, x, y, 'operator');
+    } else if (type === 'integrator') {
+      const lbl = systemType === 'ct' ? '1/s' : 'A';
+      addNode(block.id, lbl, x, y, 'operator');
     }
-    // TF blocks don't create nodes — they'll be edges
+    // gain and custom_tf don't create nodes — they become edge gains
   }
 
   // 2. Build adjacency from connections
@@ -1570,19 +1580,47 @@ function convertToSFG(blocks, connections, systemType) {
 // SFG rendering components
 // ============================================================================
 
-const SFG_NODE_RADIUS = { source: 22, sink: 22, node: 16 };
+const SFG_NODE_RADIUS = { source: 22, sink: 22, node: 16, operator: 22 };
 
 function SFGNode({ node }) {
   const { x, y, label, type } = node;
   const isIO = type === 'source' || type === 'sink';
+  const isOperator = type === 'operator';
   const r = SFG_NODE_RADIUS[type] || 16;
   const ringR = r + 5;
 
-  // Colors: red for input/output, blue for everything else
-  const fillColor = isIO ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.12)';
-  const strokeColor = isIO ? '#ef4444' : '#3b82f6';
-  const ringColor = isIO ? 'rgba(239, 68, 68, 0.25)' : 'rgba(59, 130, 246, 0.2)';
-  const labelColor = isIO ? '#fca5a5' : '#93c5fd';
+  // Colors: red for input/output, teal for operator blocks, blue for internal nodes
+  const fillColor = isIO ? 'rgba(239, 68, 68, 0.15)'
+    : isOperator ? 'rgba(20, 184, 166, 0.15)'
+    : 'rgba(59, 130, 246, 0.12)';
+  const strokeColor = isIO ? '#ef4444' : isOperator ? '#14b8a6' : '#3b82f6';
+  const ringColor = isIO ? 'rgba(239, 68, 68, 0.25)'
+    : isOperator ? 'rgba(20, 184, 166, 0.25)'
+    : 'rgba(59, 130, 246, 0.2)';
+  const labelColor = isIO ? '#fca5a5' : isOperator ? '#5eead4' : '#93c5fd';
+
+  // Operator nodes render as rounded rectangles (block-like), others as circles
+  if (isOperator) {
+    const hw = 28, hh = 20;
+    return (
+      <g className="sfg-node sfg-node-operator" transform={`translate(${x}, ${y})`} style={{ pointerEvents: 'none' }}>
+        {/* Outer glow */}
+        <rect x={-hw - 4} y={-hh - 4} width={(hw + 4) * 2} height={(hh + 4) * 2}
+          rx={10} fill="none" stroke={ringColor} strokeWidth={1} opacity={0.5} />
+        {/* Main body */}
+        <rect x={-hw} y={-hh} width={hw * 2} height={hh * 2}
+          rx={8} fill={fillColor} stroke={strokeColor} strokeWidth={2} />
+        {/* Label */}
+        {label && (
+          <text x={0} y={1} textAnchor="middle" dominantBaseline="central"
+            fill={labelColor} fontSize={13} fontWeight={700}
+            fontFamily="'Fira Code', monospace" style={{ pointerEvents: 'none', userSelect: 'none' }}>
+            {label}
+          </text>
+        )}
+      </g>
+    );
+  }
 
   return (
     <g className="sfg-node" transform={`translate(${x}, ${y})`} style={{ pointerEvents: 'none' }}>
