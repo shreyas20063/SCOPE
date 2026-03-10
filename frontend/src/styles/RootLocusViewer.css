@@ -1,0 +1,423 @@
+/* ==========================================================================
+   Root Locus Viewer Styles
+   ========================================================================== */
+
+.root-locus-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* ==========================================================================
+   Transfer Function Banner
+   ========================================================================== */
+
+.rl-tf-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.rl-tf-display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rl-tf-label {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.rl-tf-fraction {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.rl-tf-num,
+.rl-tf-den {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.rl-tf-line {
+  width: 100%;
+  min-width: 40px;
+  height: 1px;
+  background: var(--text-secondary);
+}
+
+.rl-tf-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rl-stability-badge,
+.rl-type-badge,
+.rl-order-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.rl-type-badge {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+}
+
+.rl-order-badge {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text-secondary);
+}
+
+.rl-import-btn {
+  padding: 5px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--primary-color);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.rl-import-btn:hover {
+  background: var(--primary-light);
+  border-color: var(--primary-color);
+}
+
+.rl-error-banner {
+  width: 100%;
+  padding: 8px 12px;
+  margin-top: 8px;
+  border-radius: var(--radius-md);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--error-color);
+  font-size: 0.85rem;
+}
+
+/* ==========================================================================
+   Main Grid Layout
+   ========================================================================== */
+
+.rl-main-grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 16px;
+  min-height: 500px;
+}
+
+.rl-splane-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rl-splane-container {
+  width: 100%;
+  min-height: 480px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.rl-splane-container .js-plotly-plot {
+  cursor: crosshair !important;
+}
+
+.rl-splane-hint {
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.rl-side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rl-step-section {
+  min-height: 200px;
+}
+
+.rl-empty-plot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 300px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ==========================================================================
+   Metrics Grid
+   ========================================================================== */
+
+.rl-metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.rl-metric-card {
+  padding: 10px 12px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--primary-color);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast);
+}
+
+.rl-metric-value {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.rl-metric-unit {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.rl-metric-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   Special Points Panel
+   ========================================================================== */
+
+.rl-special-points {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.rl-special-toggle {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--surface-color);
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.rl-special-toggle:hover {
+  background: var(--surface-hover);
+}
+
+.rl-special-content {
+  padding: 8px 12px;
+  background: var(--surface-color);
+  border-top: 1px solid var(--border-color);
+}
+
+.rl-special-section {
+  margin-bottom: 8px;
+}
+
+.rl-special-section:last-child {
+  margin-bottom: 0;
+}
+
+.rl-special-heading {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rl-special-item {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  padding: 2px 0;
+}
+
+/* ==========================================================================
+   Performance Section (full width)
+   ========================================================================== */
+
+.rl-perf-section {
+  width: 100%;
+}
+
+.rl-ss-error-note {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 4px;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+/* ==========================================================================
+   Toast
+   ========================================================================== */
+
+.rl-toast {
+  padding: 8px 16px;
+  background: var(--surface-color);
+  border: 1px solid var(--primary-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  text-align: center;
+  animation: rl-toast-in 0.3s ease-out;
+}
+
+@keyframes rl-toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================================
+   Responsive: Desktop / Mobile
+   ========================================================================== */
+
+.rl-desktop-only {
+  display: block;
+}
+
+.rl-mobile-only {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .rl-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .rl-desktop-only {
+    display: none;
+  }
+
+  .rl-mobile-only {
+    display: block;
+  }
+
+  .rl-tf-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rl-splane-container {
+    min-height: 350px;
+  }
+}
+
+/* ==========================================================================
+   Mobile Tabs
+   ========================================================================== */
+
+.rl-mobile-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rl-mobile-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 4px;
+}
+
+.rl-mobile-tab {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.rl-mobile-tab.active {
+  background: var(--primary-light);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.rl-mobile-tab:hover:not(.active) {
+  background: var(--surface-hover);
+}
+
+.rl-mobile-response,
+.rl-mobile-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ==========================================================================
+   Light Theme Overrides
+   ========================================================================== */
+
+[data-theme="light"] .rl-tf-banner {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .rl-metric-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .rl-special-toggle,
+[data-theme="light"] .rl-special-content {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="light"] .rl-special-points {
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .rl-toast {
+  background: #ffffff;
+  border-color: var(--primary-color);
+}
+
+[data-theme="light"] .rl-mobile-tab {
+  border-color: #e2e8f0;
+}

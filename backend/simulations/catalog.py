@@ -2472,6 +2472,59 @@ SIMULATION_CATALOG = [
         ],
     },
     # =========================================================================
+    # ROOT LOCUS ANALYZER
+    # =========================================================================
+    {
+        "id": "root_locus",
+        "name": "Root Locus Analyzer",
+        "description": "Visualize how closed-loop poles migrate in the s-plane as gain K varies. Full textbook Evans root locus with breakaway points, asymptotes, jω crossings, departure/arrival angles, step response, and gain/phase margins.",
+        "category": "Control Systems",
+        "thumbnail": "🎯",
+        "tags": ["root locus", "control", "stability", "poles", "zeros", "gain", "feedback", "Evans", "s-plane"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "expression", "name": "num_coeffs", "label": "Numerator N(s)", "default": "1", "group": "Transfer Function", "description": "Comma-separated coefficients, highest power first (e.g. '1, 2' for s+2)"},
+            {"type": "expression", "name": "den_coeffs", "label": "Denominator D(s)", "default": "1, 5, 4, 0", "group": "Transfer Function", "description": "Comma-separated coefficients, highest power first (e.g. '1, 5, 4, 0' for s³+5s²+4s)"},
+            {"type": "select", "name": "preset", "label": "Preset System", "default": "third_order", "group": "Transfer Function", "options": [
+                {"value": "custom", "label": "Custom"},
+                {"value": "two_real_poles", "label": "Two Real Poles"},
+                {"value": "integrator_pole", "label": "Integrator + Pole"},
+                {"value": "with_zero", "label": "With Zero (Break-in)"},
+                {"value": "double_integrator", "label": "Double Integrator"},
+                {"value": "complex_poles", "label": "Complex Poles"},
+                {"value": "third_order", "label": "Third Order (Asymptotes)"},
+                {"value": "lead_compensated", "label": "Lead Compensated"},
+                {"value": "non_minimum_phase", "label": "Non-minimum Phase"},
+                {"value": "conditionally_stable", "label": "Conditionally Stable"},
+                {"value": "fourth_order", "label": "Fourth Order"},
+            ]},
+            {"type": "slider", "name": "gain_K", "label": "Gain K", "min": 0, "max": 200, "step": 0.01, "default": 1.0, "group": "Gain"},
+            {"type": "slider", "name": "k_max", "label": "K Maximum", "min": 1, "max": 1000, "step": 1, "default": 100, "group": "Gain"},
+            {"type": "checkbox", "name": "negative_k", "label": "Complementary (K < 0)", "default": False, "group": "Gain"},
+            {"type": "checkbox", "name": "show_damping_lines", "label": "Damping Ratio Lines", "default": True, "group": "Overlays"},
+            {"type": "checkbox", "name": "show_wn_circles", "label": "Natural Freq Circles", "default": False, "group": "Overlays"},
+            {"type": "checkbox", "name": "show_asymptotes", "label": "Asymptotes", "default": True, "group": "Overlays"},
+            {"type": "checkbox", "name": "show_annotations", "label": "Special Points", "default": True, "group": "Overlays"},
+        ],
+        "default_params": {
+            "num_coeffs": "1",
+            "den_coeffs": "1, 5, 4, 0",
+            "preset": "third_order",
+            "gain_K": 1.0,
+            "k_max": 100,
+            "negative_k": False,
+            "show_damping_lines": True,
+            "show_wn_circles": False,
+            "show_asymptotes": True,
+            "show_annotations": True,
+        },
+        "plots": [
+            {"id": "root_locus", "title": "Root Locus", "description": "S-plane root locus showing pole trajectories as K varies"},
+            {"id": "step_response", "title": "Step Response", "description": "Closed-loop step response at selected gain K"},
+            {"id": "performance_vs_k", "title": "Performance vs Gain", "description": "Damping ratio and natural frequency vs K"},
+        ],
+    },
+    # =========================================================================
     # NYQUIST-BODE COMPARISON
     # =========================================================================
     {
