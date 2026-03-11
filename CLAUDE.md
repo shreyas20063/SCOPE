@@ -359,6 +359,11 @@ All tracking files live in `.claude/`. **Read them before starting work. Update 
 - **Rules**: Nodes = signals (circles), branches = transfer functions (directed edges with gain labels). ALL TF blocks become edge gains. Operator-domain labels: R (delay), A (integrator).
 - **Known constraints**: See `.claude/bugs.md` BUG-001 through BUG-007 for fixed issues and prevention rules
 
+### Root Locus Analyzer Major Overhaul
+- **Backend**: Inline TF expression parser (expanded + factored forms), Routh-Hurwitz table computation, stability K-ranges from jω crossings, locus data export for animation
+- **Frontend**: Full vertical layout (s-plane full-width 600px), inline KaTeX TF input, K-sweep animation with trail, Routh-Hurwitz table with sign-change highlighting, stability ranges bar visualization
+- **Key features**: Play/pause K animation, speed control (0.5x–4x), throttled step response sync, collapsible construction rules, responsive mobile tabs
+
 ### Block Diagram Builder Enhancements
 - Custom TF blocks with KaTeX expression rendering
 - Wire routing with A* pathfinding and crossing bridges
