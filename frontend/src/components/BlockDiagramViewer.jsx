@@ -1308,6 +1308,42 @@ function tfExprToLatex(expression, systemType) {
 //   - Gain/delay/integrator/custom_tf blocks become edges with gain between nodes
 // ============================================================================
 
+// Iterative repulsion to resolve overlapping SFG nodes while preserving spatial layout
+function resolveNodeOverlaps(nodes) {
+  if (nodes.length < 2) return;
+  const MIN_SPACING = 80;
+  const MAX_ITER = 30;
+  const DAMPING = 0.7;
+  const ANCHOR = 0.15;
+
+  for (let iter = 0; iter < MAX_ITER; iter++) {
+    let maxDisp = 0;
+    // Pairwise repulsion
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        let dx = nodes[j].x - nodes[i].x;
+        let dy = nodes[j].y - nodes[i].y;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < MIN_SPACING) {
+          if (dist < 1) { dx = (Math.random() - 0.5) * 2; dy = (Math.random() - 0.5) * 2; dist = Math.sqrt(dx * dx + dy * dy) || 1; }
+          const overlap = MIN_SPACING - dist;
+          const fx = (dx / dist) * overlap * 0.5 * DAMPING;
+          const fy = (dy / dist) * overlap * 0.5 * DAMPING;
+          nodes[i].x -= fx; nodes[i].y -= fy;
+          nodes[j].x += fx; nodes[j].y += fy;
+          maxDisp = Math.max(maxDisp, Math.abs(fx), Math.abs(fy));
+        }
+      }
+    }
+    // Anchor spring back to original positions
+    for (const n of nodes) {
+      n.x += (n.originalX - n.x) * ANCHOR;
+      n.y += (n.originalY - n.y) * ANCHOR;
+    }
+    if (maxDisp < 0.5) break;
+  }
+}
+
 function convertToSFG(blocks, connections, systemType) {
   const nodes = [];
   const edges = [];
@@ -1318,7 +1354,7 @@ function convertToSFG(blocks, connections, systemType) {
 
   const addNode = (id, label, x, y, type) => {
     if (nodeMap[id]) return;
-    const node = { id, label, x, y, type };
+    const node = { id, label, x, y, type, originalX: x, originalY: y };
     nodes.push(node);
     nodeMap[id] = node;
   };
@@ -1471,8 +1507,8 @@ function convertToSFG(blocks, connections, systemType) {
     }
   }
 
-  // Layout: preserve original block positions from the block diagram
-  // (no topological sort — spatial correspondence makes it easier to relate SFG to diagram)
+  // Layout: spread overlapping nodes apart while preserving spatial correspondence
+  resolveNodeOverlaps(nodes);
 
   return { nodes, edges };
 }
@@ -1542,7 +1578,7 @@ function SFGNode({ node }) {
   );
 }
 
-function SFGEdge({ edge, nodesMap, edgeIndex, parallelOffset }) {
+function SFGEdge({ edge, nodesMap, edgeIndex, parallelOffset, allNodes }) {
   const fromNode = nodesMap[edge.from];
   const toNode = nodesMap[edge.to];
   if (!fromNode || !toNode) return null;
@@ -1611,6 +1647,27 @@ function SFGEdge({ edge, nodesMap, edgeIndex, parallelOffset }) {
     const u = 1 - t;
     labelX = u * u * sx + 2 * u * t * cx + t * t * ex;
     labelY = u * u * sy + 2 * u * t * cy + t * t * ey;
+  }
+
+  // Push label away from any node it overlaps
+  if (allNodes) {
+    const LABEL_CLEARANCE = 14;
+    for (const node of allNodes) {
+      const nr = SFG_NODE_RADIUS[node.type] || 14;
+      const clearance = nr + LABEL_CLEARANCE + 8;
+      const dlx = labelX - node.x;
+      const dly = labelY - node.y;
+      const dld = Math.sqrt(dlx * dlx + dly * dly);
+      if (dld < clearance) {
+        const pushDist = clearance - dld + 4;
+        if (dld > 0.1) {
+          labelX += (dlx / dld) * pushDist;
+          labelY += (dly / dld) * pushDist;
+        } else {
+          labelY -= pushDist;
+        }
+      }
+    }
   }
 
   // KaTeX rendering with plain-text fallback
@@ -3120,7 +3177,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
               <>
                 {/* Signal Flow Graph view */}
                 {sfgGraph && sfgGraph.edges.map((edge, i) => (
-                  <SFGEdge key={`sfg-e-${i}`} edge={edge} nodesMap={sfgNodesMap} edgeIndex={i} parallelOffset={sfgEdgeOffsets[i]} />
+                  <SFGEdge key={`sfg-e-${i}`} edge={edge} nodesMap={sfgNodesMap} edgeIndex={i} parallelOffset={sfgEdgeOffsets[i]} allNodes={sfgGraph.nodes} />
                 ))}
                 {sfgGraph && sfgGraph.nodes.map(node => (
                   <SFGNode key={`sfg-n-${node.id}`} node={node} />
