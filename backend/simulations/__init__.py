@@ -56,6 +56,7 @@ from .signal_flow_scope import SignalFlowScopeSimulator
 from .nyquist_bode_comparison import NyquistBodeComparisonSimulator
 from .root_locus import RootLocusSimulator
 from .routh_hurwitz import RouthHurwitzSimulator
+from .nyquist_stability import NyquistStabilitySimulator
 
 # Registry mapping simulation IDs to their simulator classes
 # Add new simulators here as they are implemented
@@ -107,6 +108,7 @@ SIMULATOR_REGISTRY = {
     "nyquist_bode_comparison": NyquistBodeComparisonSimulator,
     "root_locus": RootLocusSimulator,
     "routh_hurwitz": RouthHurwitzSimulator,
+    "nyquist_stability": NyquistStabilitySimulator,
 }
 
 
@@ -195,6 +197,7 @@ __all__ = [
     "NyquistBodeComparisonSimulator",
     "RootLocusSimulator",
     "RouthHurwitzSimulator",
+    "NyquistStabilitySimulator",
     "SIMULATOR_REGISTRY",
     "get_simulator_class",
     "is_simulator_available",

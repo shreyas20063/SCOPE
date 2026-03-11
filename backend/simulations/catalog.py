@@ -2652,6 +2652,67 @@ SIMULATION_CATALOG = [
             {"id": "k_stability_map", "title": "RHP Poles vs K", "description": "Number of right-half-plane poles as gain K varies"},
         ],
     },
+    # =========================================================================
+    # NYQUIST STABILITY CRITERION
+    # =========================================================================
+    {
+        "id": "nyquist_stability",
+        "name": "Nyquist Stability Criterion",
+        "description": "Visualize the Nyquist stability criterion with D-contour mapping, encirclement counting, and the N=Z\u2212P relationship. Explore how gain affects closed-loop stability through preset systems including conditionally stable and time-delay cases.",
+        "category": "Control Systems",
+        "thumbnail": "\ud83d\udd04",
+        "tags": ["nyquist", "stability", "encirclement", "criterion", "feedback", "control", "transfer function", "D-contour"],
+        "has_simulator": True,
+        "controls": [
+            {
+                "type": "select",
+                "name": "preset",
+                "label": "System Preset",
+                "options": [
+                    {"value": "stable_simple", "label": "Stable: K/(s+1)(s+2)"},
+                    {"value": "stable_second_order", "label": "2nd Order: K\u03c9\u2080\u00b2/(s\u00b2+2\u03b6\u03c9\u2080s+\u03c9\u2080\u00b2)"},
+                    {"value": "unstable_third_order", "label": "Type-1: K/(s(s+1)(s+2))"},
+                    {"value": "conditionally_stable", "label": "Conditional: K(s+6)/(s(s+1)(s+3)(s+4))"},
+                    {"value": "rhp_pole_stable", "label": "RHP Pole: K(s+3)/((s\u22121)(s+2))"},
+                    {"value": "double_integrator", "label": "Double Integrator: K/s\u00b2"},
+                    {"value": "time_delay", "label": "Time Delay: Ke^(\u2212sT)/(s+1) [Pad\u00e9]"},
+                    {"value": "custom", "label": "Custom Coefficients"},
+                ],
+                "default": "stable_simple",
+                "group": "System",
+            },
+            {"type": "slider", "name": "gain_K", "label": "Gain K", "min": 0.1, "max": 100.0, "step": 0.1, "default": 1.0, "group": "Parameters"},
+            {"type": "slider", "name": "omega_0", "label": "Natural Freq \u03c9\u2080", "min": 0.5, "max": 50.0, "step": 0.5, "default": 5.0, "unit": "rad/s", "group": "Parameters", "visible_when": {"preset": "stable_second_order"}},
+            {"type": "slider", "name": "zeta", "label": "Damping \u03b6", "min": 0.05, "max": 2.0, "step": 0.01, "default": 0.5, "group": "Parameters", "visible_when": {"preset": "stable_second_order"}},
+            {"type": "slider", "name": "pole_a", "label": "Pole a", "min": 0.1, "max": 20.0, "step": 0.1, "default": 1.0, "unit": "rad/s", "group": "Parameters", "visible_when": {"preset": ["stable_simple", "unstable_third_order", "time_delay"]}},
+            {"type": "slider", "name": "pole_b", "label": "Pole b", "min": 0.1, "max": 20.0, "step": 0.1, "default": 2.0, "unit": "rad/s", "group": "Parameters", "visible_when": {"preset": ["stable_simple", "unstable_third_order", "rhp_pole_stable"]}},
+            {"type": "slider", "name": "zero_z", "label": "Zero z", "min": 0.1, "max": 20.0, "step": 0.1, "default": 3.0, "unit": "rad/s", "group": "Parameters", "visible_when": {"preset": ["conditionally_stable", "rhp_pole_stable"]}},
+            {"type": "slider", "name": "delay_T", "label": "Delay T", "min": 0.01, "max": 5.0, "step": 0.01, "default": 0.5, "unit": "s", "group": "Parameters", "visible_when": {"preset": "time_delay"}},
+            {"type": "expression", "name": "custom_num", "label": "Numerator coeffs (high\u2192low)", "default": "1", "group": "Custom TF", "visible_when": {"preset": "custom"}},
+            {"type": "expression", "name": "custom_den", "label": "Denominator coeffs (high\u2192low)", "default": "1, 3, 2", "group": "Custom TF", "visible_when": {"preset": "custom"}},
+            {"type": "slider", "name": "freq_min_exp", "label": "Min Freq (10^x)", "min": -3, "max": 0, "step": 0.1, "default": -2, "group": "Frequency Range"},
+            {"type": "slider", "name": "freq_max_exp", "label": "Max Freq (10^x)", "min": 1, "max": 4, "step": 0.1, "default": 3, "group": "Frequency Range"},
+        ],
+        "default_params": {
+            "preset": "stable_simple",
+            "gain_K": 1.0,
+            "omega_0": 5.0,
+            "zeta": 0.5,
+            "pole_a": 1.0,
+            "pole_b": 2.0,
+            "zero_z": 3.0,
+            "delay_T": 0.5,
+            "custom_num": "1",
+            "custom_den": "1, 3, 2",
+            "freq_min_exp": -2,
+            "freq_max_exp": 3,
+        },
+        "plots": [
+            {"id": "nyquist_plot", "title": "Nyquist Plot", "description": "L(j\u03c9) mapped from D-contour with encirclement analysis"},
+            {"id": "d_contour_plot", "title": "D-Contour (S-Plane)", "description": "Nyquist contour path with OL poles and zeros"},
+            {"id": "cl_pole_map", "title": "Closed-Loop Poles", "description": "Roots of 1+KL(s)=0 confirming stability via Z count"},
+        ],
+    },
 ]
 
 

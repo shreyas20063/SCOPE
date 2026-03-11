@@ -1,0 +1,222 @@
+/* NyquistStabilityViewer - Nyquist Stability Criterion layout */
+
+.nyquist-stability-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px;
+  width: 100%;
+}
+
+/* Criterion banner */
+.nsc-criterion-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono, 'Fira Code', monospace);
+  font-size: 0.85rem;
+}
+
+.nsc-criterion-banner.stable {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--success-color);
+}
+
+.nsc-criterion-banner.unstable {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--error-color);
+}
+
+.nsc-criterion-banner.marginal {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: var(--warning-color);
+}
+
+.nsc-stability-badge {
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.nsc-equation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.nsc-equation-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 700;
+}
+
+.nsc-equation-label {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-left: 2px;
+}
+
+.nsc-margins {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.nsc-margin-item {
+  white-space: nowrap;
+}
+
+.nsc-margin-label {
+  opacity: 0.7;
+  margin-right: 4px;
+  font-size: 0.8rem;
+}
+
+.nsc-margin-value {
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+/* Explanation row */
+.nsc-explanation {
+  padding: 6px 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono, 'Fira Code', monospace);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* TF expression */
+.nsc-tf-expression {
+  padding: 8px 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono, 'Fira Code', monospace);
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+/* Animation controls */
+.nsc-animation-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.nsc-transport-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  transition: background var(--transition-fast);
+}
+
+.nsc-transport-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+
+.nsc-transport-btn.active {
+  background: var(--primary-light);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.nsc-scrubber {
+  flex: 1;
+  accent-color: var(--primary-color);
+}
+
+.nsc-speed-select {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font-size: 0.8rem;
+}
+
+.nsc-freq-readout {
+  font-family: var(--font-mono, 'Fira Code', monospace);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  min-width: 100px;
+  text-align: right;
+}
+
+/* Plot grid: D-contour left, Nyquist right */
+.nsc-plot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.nsc-plot-cell {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  min-height: 320px;
+}
+
+.nsc-plot-cell .js-plotly-plot {
+  width: 100% !important;
+}
+
+/* CL pole map row */
+.nsc-cl-row {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  min-height: 240px;
+}
+
+/* Responsive: stack on mobile */
+@media (max-width: 768px) {
+  .nsc-plot-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nsc-criterion-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .nsc-margins {
+    margin-left: 0;
+  }
+
+  .nsc-animation-controls {
+    flex-wrap: wrap;
+  }
+}

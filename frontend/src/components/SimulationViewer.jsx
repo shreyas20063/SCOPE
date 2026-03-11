@@ -55,7 +55,8 @@ const StateSpaceViewer = lazy(() => import('./StateSpaceViewer'));
 const SignalFlowScopeViewer = lazy(() => import('./SignalFlowScopeViewer'));
 const NyquistBodeViewer = lazy(() => import('./NyquistBodeViewer'));
 const RootLocusViewer = lazy(() => import('./RootLocusViewer'));
-import RouthHurwitzViewer from './RouthHurwitzViewer';
+const RouthHurwitzViewer = lazy(() => import('./RouthHurwitzViewer'));
+const NyquistStabilityViewer = lazy(() => import('./NyquistStabilityViewer'));
 
 // Loading fallback for lazy-loaded components
 const LazyLoadFallback = () => (
@@ -1977,12 +1978,23 @@ function SimulationViewer({
                   />
                 </Suspense>
               ) : metadata?.simulation_type === 'routh_hurwitz' ? (
-                <RouthHurwitzViewer
-                  metadata={metadata}
-                  plots={plots}
-                  currentParams={currentParams}
-                  onParamChange={onParamChange}
-                />
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <RouthHurwitzViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'nyquist_stability' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <NyquistStabilityViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                  />
+                </Suspense>
               ) : (
                 <PlotDisplay
                   plots={plots}
