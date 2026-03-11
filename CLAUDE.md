@@ -371,3 +371,9 @@ All tracking files live in `.claude/`. **Read them before starting work. Update 
 - JSON export for Signal Flow Scope import
 - Block count limit (30), TF string length limit (500 chars)
 - Generalized Mason's Delta computation
+
+### Routh-Hurwitz Stability Criterion Tool (simulation: `routh_hurwitz`)
+- **Backend**: `backend/simulations/routh_hurwitz.py` (~310 lines), shared utility `backend/core/routh_hurwitz.py` (~130 lines)
+- **Frontend**: `frontend/src/components/RouthHurwitzViewer.jsx` (~280 lines), `frontend/src/styles/RouthHurwitzViewer.css` (~350 lines)
+- **Purpose**: Standalone educational tool for building Routh arrays step-by-step with sign-change highlighting
+- **Key features**: KaTeX polynomial display, 8 educational presets (including special cases), parametric K analysis with stability ranges bar, pole-zero map, shared Routh utility extracted from root_locus.py

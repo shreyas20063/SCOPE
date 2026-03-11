@@ -2574,6 +2574,84 @@ SIMULATION_CATALOG = [
             {"id": "pole_zero", "title": "Pole-Zero Map", "description": "Poles and zeros in the s-plane"},
         ],
     },
+    # =========================================================================
+    # ROUTH-HURWITZ STABILITY CRITERION
+    # =========================================================================
+    {
+        "id": "routh_hurwitz",
+        "name": "Routh-Hurwitz Stability Criterion",
+        "description": "Build the Routh array step-by-step for any characteristic polynomial. Visualize sign changes, identify RHP poles, handle special cases (zero pivot, all-zero row), and explore stability ranges with parametric gain K.",
+        "category": "Control Systems",
+        "thumbnail": "📊",
+        "tags": ["routh", "hurwitz", "stability", "characteristic polynomial", "sign changes", "control systems", "poles"],
+        "has_simulator": True,
+        "controls": [
+            {
+                "type": "select",
+                "name": "preset",
+                "label": "Preset Polynomial",
+                "options": [
+                    {"value": "custom", "label": "Custom"},
+                    {"value": "stable_3rd", "label": "Stable 3rd Order"},
+                    {"value": "unstable_3rd", "label": "Unstable 3rd Order"},
+                    {"value": "marginal_3rd", "label": "Marginal Stability"},
+                    {"value": "stable_4th", "label": "Stable 4th Order"},
+                    {"value": "parametric", "label": "Parametric (K-dependent)"},
+                    {"value": "zero_row", "label": "Special: All-Zero Row"},
+                    {"value": "zero_pivot", "label": "Special: Zero in First Column"},
+                ],
+                "default": "stable_3rd",
+                "group": "Polynomial",
+            },
+            {
+                "type": "expression",
+                "name": "poly_coeffs",
+                "label": "Coefficients (highest power first)",
+                "default": "1, 6, 11, 6",
+                "group": "Polynomial",
+            },
+            {
+                "type": "checkbox",
+                "name": "use_parametric_k",
+                "label": "Enable Parametric K",
+                "default": False,
+                "group": "Parametric Analysis",
+            },
+            {
+                "type": "slider",
+                "name": "gain_k",
+                "label": "Gain K",
+                "min": 0,
+                "max": 200,
+                "step": 0.1,
+                "default": 1.0,
+                "group": "Parametric Analysis",
+                "visible_when": {"use_parametric_k": True},
+            },
+            {
+                "type": "slider",
+                "name": "k_max",
+                "label": "K Range Maximum",
+                "min": 10,
+                "max": 1000,
+                "step": 10,
+                "default": 100,
+                "group": "Parametric Analysis",
+                "visible_when": {"use_parametric_k": True},
+            },
+        ],
+        "default_params": {
+            "preset": "stable_3rd",
+            "poly_coeffs": "1, 6, 11, 6",
+            "use_parametric_k": False,
+            "gain_k": 1.0,
+            "k_max": 100,
+        },
+        "plots": [
+            {"id": "pole_zero_map", "title": "Pole Locations", "description": "S-plane showing roots of the characteristic polynomial"},
+            {"id": "k_stability_map", "title": "RHP Poles vs K", "description": "Number of right-half-plane poles as gain K varies"},
+        ],
+    },
 ]
 
 

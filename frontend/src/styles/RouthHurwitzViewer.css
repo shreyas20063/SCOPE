@@ -1,0 +1,517 @@
+/* ==========================================================================
+   Routh-Hurwitz Stability Criterion Viewer
+   Spacious, polished layout focused on the Routh array
+   ========================================================================== */
+
+.rh-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 8px 0;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ==========================================================================
+   Polynomial Display Banner
+   ========================================================================== */
+
+.rh-poly-banner {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 24px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.rh-poly-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.rh-poly-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.rh-poly-equation {
+  font-size: 1.15rem;
+  color: var(--text-primary);
+  overflow-x: auto;
+  padding: 4px 0;
+}
+
+.rh-poly-equation .katex {
+  font-size: 1.15rem;
+}
+
+.rh-poly-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.rh-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.rh-badge-degree {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.rh-badge-stable {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success-color);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.rh-badge-unstable {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--error-color);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.rh-badge-marginal {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--warning-color);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.rh-preset-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* ==========================================================================
+   Routh Array Section
+   ========================================================================== */
+
+.rh-routh-section {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.rh-section-header {
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rh-section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.rh-section-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.rh-routh-body {
+  padding: 28px 32px;
+}
+
+.rh-routh-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.88rem;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.rh-routh-table thead th {
+  padding: 10px 18px;
+  background: rgba(148, 163, 184, 0.06);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: center;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.rh-routh-table tbody td {
+  padding: 12px 18px;
+  text-align: center;
+  color: var(--text-primary);
+  border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+  transition: background var(--transition-fast);
+}
+
+.rh-routh-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.rh-routh-table tbody tr:hover td {
+  background: rgba(148, 163, 184, 0.04);
+}
+
+.rh-routh-power {
+  font-weight: 700;
+  color: var(--text-secondary) !important;
+  background: rgba(148, 163, 184, 0.04);
+  min-width: 50px;
+  border-right: 2px solid var(--border-color) !important;
+  font-size: 0.85rem;
+}
+
+.rh-routh-cell {
+  min-width: 80px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-routh-cell.sign-change {
+  background: rgba(239, 68, 68, 0.1) !important;
+  color: #ef4444 !important;
+  font-weight: 700;
+  position: relative;
+}
+
+.rh-routh-cell.sign-change::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--error-color);
+  border-radius: 0 2px 2px 0;
+}
+
+.rh-routh-flagged td {
+  background: rgba(245, 158, 11, 0.04) !important;
+}
+
+.rh-routh-flag-cell {
+  min-width: 50px;
+}
+
+.rh-routh-flag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--warning-color);
+  letter-spacing: 0.03em;
+}
+
+/* Summary row */
+.rh-routh-summary {
+  margin-top: 20px;
+  padding: 14px 20px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.rh-routh-summary.stable {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  color: var(--success-color);
+}
+
+.rh-routh-summary.unstable {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  color: var(--error-color);
+}
+
+.rh-routh-summary.marginal {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  color: var(--warning-color);
+}
+
+.rh-summary-icon {
+  font-size: 1.1rem;
+}
+
+/* ==========================================================================
+   Stability Ranges Bar (Parametric K)
+   ========================================================================== */
+
+.rh-stability-section {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.rh-stability-body {
+  padding: 24px 32px;
+}
+
+.rh-stability-bar-container {
+  margin-bottom: 20px;
+}
+
+.rh-stability-bar-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.rh-stability-bar {
+  height: 32px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  position: relative;
+  border: 1px solid var(--border-color);
+}
+
+.rh-stability-segment {
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity var(--transition-fast);
+}
+
+.rh-stability-segment.stable {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.rh-stability-segment.unstable {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.rh-stability-segment-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 8px;
+}
+
+.rh-stability-k-indicator {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 3px;
+  background: var(--primary-color);
+  border-radius: 2px;
+  z-index: 2;
+  box-shadow: 0 0 8px rgba(20, 184, 166, 0.5);
+}
+
+.rh-stability-k-label {
+  position: absolute;
+  top: -22px;
+  transform: translateX(-50%);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  white-space: nowrap;
+}
+
+.rh-stability-ranges-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.rh-stability-range-tag {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-family: 'Fira Code', monospace;
+}
+
+.rh-stability-range-tag.stable {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success-color);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.rh-stability-range-tag.unstable {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--error-color);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* ==========================================================================
+   Plots Row (Pole-Zero + K Stability side-by-side)
+   ========================================================================== */
+
+.rh-plots-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.rh-plots-row.single {
+  grid-template-columns: 1fr;
+}
+
+.rh-plot-card {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  min-height: 380px;
+}
+
+.rh-plot-header {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.rh-plot-body {
+  padding: 8px;
+}
+
+/* Roots Info Panel */
+.rh-roots-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 28px;
+  border-top: 1px solid var(--border-color);
+}
+
+.rh-root-chip {
+  font-size: 0.72rem;
+  font-family: 'Fira Code', monospace;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.rh-root-chip.stable {
+  border-color: rgba(16, 185, 129, 0.3);
+  color: var(--success-color);
+}
+
+.rh-root-chip.unstable {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--error-color);
+}
+
+.rh-root-chip.marginal {
+  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--warning-color);
+}
+
+/* ==========================================================================
+   Light Theme
+   ========================================================================== */
+
+[data-theme="light"] .rh-poly-banner {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .rh-routh-section,
+[data-theme="light"] .rh-stability-section,
+[data-theme="light"] .rh-plot-card {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .rh-routh-table {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .rh-routh-table thead th {
+  background: rgba(0, 0, 0, 0.03);
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .rh-routh-table tbody td {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .rh-routh-power {
+  background: rgba(0, 0, 0, 0.02);
+  border-right-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-theme="light"] .rh-stability-bar {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .rh-plots-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .rh-poly-banner {
+    padding: 18px 20px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rh-routh-body {
+    padding: 18px 16px;
+  }
+
+  .rh-routh-table {
+    font-size: 0.78rem;
+  }
+
+  .rh-routh-table tbody td {
+    padding: 8px 10px;
+  }
+
+  .rh-stability-body {
+    padding: 18px 16px;
+  }
+
+  .rh-section-header {
+    padding: 14px 20px;
+  }
+}

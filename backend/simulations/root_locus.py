@@ -1956,9 +1956,13 @@ class RootLocusSimulator(BaseSimulator):
         """Compute the Routh-Hurwitz stability array for the CL characteristic polynomial.
 
         The CL characteristic polynomial is D(s) + K*N(s).
+        Delegates to shared utility in backend/core/routh_hurwitz.py.
         """
+        from core.routh_hurwitz import compute_routh_array
+
         if self._error:
-            return {"rows": [], "powers": [], "sign_changes": 0, "flags": [], "stable": True}
+            return {"rows": [], "powers": [], "first_column": [], "sign_changes": 0,
+                    "rhp_poles": 0, "flags": [], "stable": True}
 
         # Build CL characteristic polynomial
         num_padded = np.zeros_like(self._den)
@@ -1966,82 +1970,7 @@ class RootLocusSimulator(BaseSimulator):
         num_padded[offset:] = self._num
         char_poly = self._den + K * num_padded
 
-        n = len(char_poly) - 1  # degree
-        if n < 1:
-            return {"rows": [], "powers": [], "sign_changes": 0, "flags": [], "stable": True}
-
-        # Build Routh table
-        # Number of rows = n + 1
-        n_rows = n + 1
-        n_cols = (n + 2) // 2  # ceiling division
-        routh = np.zeros((n_rows, n_cols))
-        flags: List[Dict[str, Any]] = []
-
-        # Fill first two rows from char_poly coefficients
-        for j in range(n_cols):
-            idx = 2 * j
-            if idx < len(char_poly):
-                routh[0][j] = char_poly[idx]
-            idx = 2 * j + 1
-            if idx < len(char_poly):
-                routh[1][j] = char_poly[idx]
-
-        # Compute remaining rows
-        epsilon = 1e-6
-        for i in range(2, n_rows):
-            if abs(routh[i - 1][0]) < 1e-12:
-                # Check if entire row is zero
-                if np.all(np.abs(routh[i - 1]) < 1e-12):
-                    # All-zero row: use derivative of auxiliary polynomial
-                    # The auxiliary polynomial comes from the row above (i-2)
-                    aux_order = n - (i - 2)
-                    aux_coeffs = []
-                    for j in range(n_cols):
-                        if routh[i - 2][j] != 0 or j == 0:
-                            aux_coeffs.append(routh[i - 2][j])
-                    # Derivative: multiply each coeff by its power (descending by 2)
-                    for j in range(n_cols):
-                        power = aux_order - 2 * j
-                        if power >= 0 and j < n_cols:
-                            routh[i - 1][j] = power * routh[i - 2][j]
-                    flags.append({"row": i - 1, "type": "auxiliary", "aux_order": aux_order})
-                else:
-                    # Zero in first column only: replace with epsilon
-                    routh[i - 1][0] = epsilon
-                    flags.append({"row": i - 1, "type": "epsilon"})
-
-            pivot = routh[i - 1][0]
-            for j in range(n_cols - 1):
-                upper = routh[i - 2][j + 1] if (j + 1) < n_cols else 0.0
-                lower = routh[i - 1][j + 1] if (j + 1) < n_cols else 0.0
-                routh[i][j] = (pivot * upper - routh[i - 2][0] * lower) / pivot
-
-        # Count sign changes in first column
-        first_col = routh[:, 0]
-        sign_changes = 0
-        for i in range(1, len(first_col)):
-            if first_col[i - 1] * first_col[i] < 0:
-                sign_changes += 1
-
-        # Power labels
-        powers = [f"s^{n - i}" if (n - i) > 1 else ("s" if (n - i) == 1 else "1") for i in range(n_rows)]
-
-        # Convert to serializable format
-        rows_list = []
-        for i in range(n_rows):
-            # Only include non-zero trailing columns
-            row = [float(routh[i][j]) for j in range(n_cols)]
-            rows_list.append(row)
-
-        return {
-            "rows": rows_list,
-            "powers": powers,
-            "first_column": [float(first_col[i]) for i in range(n_rows)],
-            "sign_changes": int(sign_changes),
-            "rhp_poles": int(sign_changes),
-            "flags": flags,
-            "stable": sign_changes == 0,
-        }
+        return compute_routh_array(char_poly)
 
     def _compute_stability_ranges(self) -> Dict[str, Any]:
         """Determine K ranges where the closed-loop system is stable.
