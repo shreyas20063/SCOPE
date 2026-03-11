@@ -377,3 +377,18 @@ All tracking files live in `.claude/`. **Read them before starting work. Update 
 - **Frontend**: `frontend/src/components/RouthHurwitzViewer.jsx` (~280 lines), `frontend/src/styles/RouthHurwitzViewer.css` (~350 lines)
 - **Purpose**: Standalone educational tool for building Routh arrays step-by-step with sign-change highlighting
 - **Key features**: KaTeX polynomial display, 8 educational presets (including special cases), parametric K analysis with stability ranges bar, pole-zero map, shared Routh utility extracted from root_locus.py
+
+### Controller Tuning Lab (simulation: `controller_tuning_lab`)
+- **Backend**: `backend/simulations/controller_tuning_lab.py` (~750 lines)
+- **Frontend**: `frontend/src/components/ControllerTuningLabViewer.jsx` (~437 lines)
+- **CSS**: `frontend/src/styles/ControllerTuningLab.css` (~260 lines)
+- **Purpose**: Unified PID/Lead-Lag controller design and auto-tuning environment
+- **Key features**:
+  - 7 plant presets (1st/2nd order, integrator, FOPDT, DC motor, unstable, custom TF)
+  - PID with derivative filter + Lead-Lag compensator
+  - 6 auto-tuning methods: ZN open/closed-loop, Cohen-Coon, Lambda, IMC, ITAE optimal
+  - 7 analysis plots: step response, Bode mag/phase, pole-zero map, control effort, error signal, Nyquist
+  - SVG feedback loop block diagram with KaTeX transfer function rendering
+  - Performance metrics strip (rise time, settling time, overshoot, margins, ISE/IAE/ITAE)
+  - Save up to 5 reference responses for comparison
+  - Fullscreen comparison overlay with overlaid traces and metrics table

@@ -57,6 +57,7 @@ const NyquistBodeViewer = lazy(() => import('./NyquistBodeViewer'));
 const RootLocusViewer = lazy(() => import('./RootLocusViewer'));
 const RouthHurwitzViewer = lazy(() => import('./RouthHurwitzViewer'));
 const NyquistStabilityViewer = lazy(() => import('./NyquistStabilityViewer'));
+const ControllerTuningLabViewer = lazy(() => import('./ControllerTuningLabViewer'));
 
 // Loading fallback for lazy-loaded components
 const LazyLoadFallback = () => (
@@ -1993,6 +1994,17 @@ function SimulationViewer({
                     plots={plots}
                     currentParams={currentParams}
                     onParamChange={onParamChange}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'controller_tuning_lab' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <ControllerTuningLabViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                    onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
                   />
                 </Suspense>
               ) : (
