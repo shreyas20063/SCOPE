@@ -18,6 +18,7 @@ Features:
 References: Nise Ch.8, Ogata Ch.6, Franklin/Powell/Emami-Naeini Ch.5
 """
 
+import re
 import time
 import numpy as np
 from typing import Any, Dict, List, Optional, Tuple
@@ -235,6 +236,7 @@ class RootLocusSimulator(BaseSimulator):
             "move_pole": self._action_move_pole,
             "move_zero": self._action_move_zero,
             "import_tf": self._action_import_tf,
+            "parse_expression": self._action_parse_expression,
         }
         handler = action_map.get(action)
         if handler:
@@ -283,6 +285,15 @@ class RootLocusSimulator(BaseSimulator):
         den_display = self._poly_to_str(self._den)
         system_type = self._count_origin_poles(self._den)
 
+        # Routh-Hurwitz analysis at current K
+        routh_table = self._compute_routh_array(K)
+
+        # Stability ranges from jω crossings
+        stability_ranges = self._compute_stability_ranges()
+
+        # Locus data for frontend animation
+        locus_data = self._get_locus_data()
+
         base["metadata"] = {
             "simulation_type": "root_locus",
             "has_custom_viewer": True,
@@ -299,7 +310,12 @@ class RootLocusSimulator(BaseSimulator):
                 "den_display": den_display,
                 "system_type": system_type,
                 "order": len(self._den) - 1,
+                "num_coeffs": self.parameters.get("num_coeffs", "1"),
+                "den_coeffs": self.parameters.get("den_coeffs", "1"),
             },
+            "routh_table": routh_table,
+            "stability_ranges": stability_ranges,
+            "locus_data": locus_data,
             "error": self._error,
         }
         return base
@@ -1633,6 +1649,25 @@ class RootLocusSimulator(BaseSimulator):
         self._invalidate_cache()
         return self.get_state()
 
+    def _action_parse_expression(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse a TF expression like '(s+1)/(s^2+2s+1)' and update the system."""
+        expr = str(params.get("expression", "")).strip()
+        if not expr:
+            self._error = "Empty expression"
+            return self.get_state()
+
+        try:
+            num_str, den_str = self._parse_tf_expression(expr)
+            self.parameters["num_coeffs"] = num_str
+            self.parameters["den_coeffs"] = den_str
+            self.parameters["preset"] = "custom"
+            self._parse_coefficients()
+            self._invalidate_cache()
+        except Exception as e:
+            self._error = f"Parse error: {str(e)}"
+
+        return self.get_state()
+
     def _action_import_tf(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Import transfer function from Block Diagram Builder."""
         numerator = params.get("numerator", [])
@@ -1653,6 +1688,448 @@ class RootLocusSimulator(BaseSimulator):
         self._parse_coefficients()
         self._invalidate_cache()
         return self.get_state()
+
+    # =========================================================================
+    # Helpers
+    # =========================================================================
+
+    # =========================================================================
+    # TF Expression Parser
+    # =========================================================================
+
+    def _parse_tf_expression(self, expr: str) -> Tuple[str, str]:
+        """Parse a TF expression like '(s+1)/(s^2+2s+1)' into coefficient strings.
+
+        Returns (num_coeffs_str, den_coeffs_str) as comma-separated strings
+        in descending power order (matching existing format).
+        """
+        expr = expr.strip()
+        # Remove G(s) = or H(s) = prefix
+        expr = re.sub(r'[GH]\s*\(\s*s\s*\)\s*=\s*', '', expr).strip()
+
+        # Find the division point — '/' not inside parentheses
+        split_idx = -1
+        depth = 0
+        for i, ch in enumerate(expr):
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth -= 1
+            elif ch == '/' and depth == 0:
+                split_idx = i
+                break
+
+        if split_idx >= 0:
+            num_str = self._strip_outer_parens(expr[:split_idx])
+            den_str = self._strip_outer_parens(expr[split_idx + 1:])
+        else:
+            num_str = self._strip_outer_parens(expr)
+            den_str = "1"
+
+        num_coeffs = self._parse_polynomial_expr(num_str)
+        den_coeffs = self._parse_polynomial_expr(den_str)
+
+        # Convert to comma-separated strings (high-power-first)
+        return (
+            ", ".join(f"{c:.6g}" for c in num_coeffs),
+            ", ".join(f"{c:.6g}" for c in den_coeffs),
+        )
+
+    @staticmethod
+    def _strip_outer_parens(s: str) -> str:
+        """Strip matched outer parentheses: '((s+1))' -> 's+1'."""
+        s = s.strip()
+        while len(s) >= 2 and s[0] == '(' and s[-1] == ')':
+            # Check if they're actually matched
+            depth = 0
+            matched = True
+            for i, ch in enumerate(s):
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
+                if depth == 0 and i < len(s) - 1:
+                    matched = False
+                    break
+            if matched:
+                s = s[1:-1].strip()
+            else:
+                break
+        return s
+
+    def _parse_polynomial_expr(self, poly_str: str) -> List[float]:
+        """Parse polynomial expression like 's^2 + 3s + 1' or '(s+1)(s+3)'.
+
+        Returns coefficients in descending power order (high-power-first).
+        """
+        poly_str = poly_str.strip()
+        if not poly_str or poly_str == "0":
+            return [0.0]
+
+        # Pure number
+        try:
+            val = float(poly_str)
+            return [val]
+        except ValueError:
+            pass
+
+        # Check for factored form: (s+a)(s+b)... with optional leading coefficient
+        # Match patterns like: 2(s+1)(s+3), (s+1)(s+3), s(s+1)(s+3)
+        factored = self._try_parse_factored(poly_str)
+        if factored is not None:
+            return factored
+
+        # Polynomial form: s^2 + 3s + 1
+        return self._parse_expanded_poly(poly_str)
+
+    def _try_parse_factored(self, expr: str) -> Optional[List[float]]:
+        """Try to parse as product of factors like (s+1)(s-2) or s(s+1).
+
+        Returns coefficients (high-power-first) or None if not factored form.
+        """
+        expr = expr.strip()
+
+        # Check if there's a multiplication of parenthesized factors
+        # Pattern: optional_coeff * (factor)(factor)... or s * (factor)...
+        factors = []
+        leading_coeff = 1.0
+        i = 0
+
+        # Try to extract leading coefficient
+        coeff_match = re.match(r'^(-?\d*\.?\d+)\s*\*?\s*(?=[\(s])', expr)
+        if coeff_match:
+            leading_coeff = float(coeff_match.group(1))
+            i = coeff_match.end()
+
+        # Collect factors
+        while i < len(expr):
+            ch = expr[i]
+            if ch == ' ':
+                i += 1
+                continue
+            if ch == '*':
+                i += 1
+                continue
+
+            if ch == '(':
+                # Find matching close paren
+                depth = 1
+                j = i + 1
+                while j < len(expr) and depth > 0:
+                    if expr[j] == '(':
+                        depth += 1
+                    elif expr[j] == ')':
+                        depth -= 1
+                    j += 1
+                factor_str = expr[i + 1:j - 1].strip()
+                factor_coeffs = self._parse_expanded_poly(factor_str)
+                factors.append(factor_coeffs)
+                i = j
+            elif expr[i:i + 1].lower() == 's':
+                # Bare 's' factor (s alone = pole at origin)
+                # Check if it's s^n
+                power_match = re.match(r's\s*\^\s*(\d+)', expr[i:])
+                if power_match:
+                    power = int(power_match.group(1))
+                    # s^n = [1, 0, 0, ..., 0] with n zeros
+                    factor = [1.0] + [0.0] * power
+                    factors.append(factor)
+                    i += power_match.end()
+                else:
+                    factors.append([1.0, 0.0])  # s = [1, 0]
+                    i += 1
+            else:
+                # Not a factored form
+                return None
+
+        if not factors:
+            return None
+
+        # Multiply all factors together using np.polymul
+        result = np.array([leading_coeff])
+        for f in factors:
+            result = np.polymul(result, np.array(f))
+
+        return [float(c) for c in result]
+
+    def _parse_expanded_poly(self, poly_str: str) -> List[float]:
+        """Parse expanded polynomial like 's^2 + 3s + 1'.
+
+        Returns coefficients in descending power order.
+        """
+        poly_str = poly_str.strip()
+        if not poly_str or poly_str == "0":
+            return [0.0]
+
+        try:
+            val = float(poly_str)
+            return [val]
+        except ValueError:
+            pass
+
+        # Tokenize into signed terms
+        terms = self._tokenize_poly_terms(poly_str)
+        coeffs: Dict[int, float] = {}
+
+        for term in terms:
+            term = term.strip()
+            if not term:
+                continue
+
+            has_s = bool(re.search(r's', term, re.IGNORECASE))
+
+            if not has_s:
+                try:
+                    coeffs[0] = coeffs.get(0, 0) + float(term.replace(" ", ""))
+                except ValueError:
+                    pass
+                continue
+
+            # Find the power of s
+            power_match = re.search(r's\s*\^\s*(-?\d+)', term, re.IGNORECASE)
+            if power_match:
+                power = int(power_match.group(1))
+            else:
+                power = 1
+
+            # Extract coefficient
+            coeff_str = re.sub(r'\s*\*?\s*s(\s*\^\s*-?\d+)?', '', term, flags=re.IGNORECASE).strip()
+            coeff_str = coeff_str.rstrip("*").strip().replace(" ", "")
+
+            if coeff_str in ("", "+"):
+                coeff = 1.0
+            elif coeff_str == "-":
+                coeff = -1.0
+            else:
+                try:
+                    coeff = float(coeff_str)
+                except ValueError:
+                    coeff = 1.0
+
+            coeffs[power] = coeffs.get(power, 0) + coeff
+
+        if not coeffs:
+            return [1.0]
+
+        max_power = max(coeffs.keys())
+        # Return in descending power order (high-power-first)
+        return [coeffs.get(i, 0.0) for i in range(max_power, -1, -1)]
+
+    @staticmethod
+    def _tokenize_poly_terms(poly_str: str) -> List[str]:
+        """Split polynomial string into signed terms."""
+        terms = []
+        current = ""
+        s = poly_str.strip()
+        i = 0
+
+        while i < len(s):
+            ch = s[i]
+            if ch in ('+', '-') and i > 0:
+                # Check if this sign is part of an exponent (e.g., s^-1)
+                j = i - 1
+                while j >= 0 and s[j] == ' ':
+                    j -= 1
+                if j >= 0 and s[j] == '^':
+                    current += ch
+                    i += 1
+                    continue
+                # Term separator
+                if current.strip():
+                    terms.append(current.strip())
+                current = ch if ch == '-' else ""
+                i += 1
+                continue
+            current += ch
+            i += 1
+
+        if current.strip():
+            terms.append(current.strip())
+
+        return terms
+
+    # =========================================================================
+    # Routh-Hurwitz Analysis
+    # =========================================================================
+
+    def _compute_routh_array(self, K: float) -> Dict[str, Any]:
+        """Compute the Routh-Hurwitz stability array for the CL characteristic polynomial.
+
+        The CL characteristic polynomial is D(s) + K*N(s).
+        """
+        if self._error:
+            return {"rows": [], "powers": [], "sign_changes": 0, "flags": [], "stable": True}
+
+        # Build CL characteristic polynomial
+        num_padded = np.zeros_like(self._den)
+        offset = len(self._den) - len(self._num)
+        num_padded[offset:] = self._num
+        char_poly = self._den + K * num_padded
+
+        n = len(char_poly) - 1  # degree
+        if n < 1:
+            return {"rows": [], "powers": [], "sign_changes": 0, "flags": [], "stable": True}
+
+        # Build Routh table
+        # Number of rows = n + 1
+        n_rows = n + 1
+        n_cols = (n + 2) // 2  # ceiling division
+        routh = np.zeros((n_rows, n_cols))
+        flags: List[Dict[str, Any]] = []
+
+        # Fill first two rows from char_poly coefficients
+        for j in range(n_cols):
+            idx = 2 * j
+            if idx < len(char_poly):
+                routh[0][j] = char_poly[idx]
+            idx = 2 * j + 1
+            if idx < len(char_poly):
+                routh[1][j] = char_poly[idx]
+
+        # Compute remaining rows
+        epsilon = 1e-6
+        for i in range(2, n_rows):
+            if abs(routh[i - 1][0]) < 1e-12:
+                # Check if entire row is zero
+                if np.all(np.abs(routh[i - 1]) < 1e-12):
+                    # All-zero row: use derivative of auxiliary polynomial
+                    # The auxiliary polynomial comes from the row above (i-2)
+                    aux_order = n - (i - 2)
+                    aux_coeffs = []
+                    for j in range(n_cols):
+                        if routh[i - 2][j] != 0 or j == 0:
+                            aux_coeffs.append(routh[i - 2][j])
+                    # Derivative: multiply each coeff by its power (descending by 2)
+                    for j in range(n_cols):
+                        power = aux_order - 2 * j
+                        if power >= 0 and j < n_cols:
+                            routh[i - 1][j] = power * routh[i - 2][j]
+                    flags.append({"row": i - 1, "type": "auxiliary", "aux_order": aux_order})
+                else:
+                    # Zero in first column only: replace with epsilon
+                    routh[i - 1][0] = epsilon
+                    flags.append({"row": i - 1, "type": "epsilon"})
+
+            pivot = routh[i - 1][0]
+            for j in range(n_cols - 1):
+                upper = routh[i - 2][j + 1] if (j + 1) < n_cols else 0.0
+                lower = routh[i - 1][j + 1] if (j + 1) < n_cols else 0.0
+                routh[i][j] = (pivot * upper - routh[i - 2][0] * lower) / pivot
+
+        # Count sign changes in first column
+        first_col = routh[:, 0]
+        sign_changes = 0
+        for i in range(1, len(first_col)):
+            if first_col[i - 1] * first_col[i] < 0:
+                sign_changes += 1
+
+        # Power labels
+        powers = [f"s^{n - i}" if (n - i) > 1 else ("s" if (n - i) == 1 else "1") for i in range(n_rows)]
+
+        # Convert to serializable format
+        rows_list = []
+        for i in range(n_rows):
+            # Only include non-zero trailing columns
+            row = [float(routh[i][j]) for j in range(n_cols)]
+            rows_list.append(row)
+
+        return {
+            "rows": rows_list,
+            "powers": powers,
+            "first_column": [float(first_col[i]) for i in range(n_rows)],
+            "sign_changes": int(sign_changes),
+            "rhp_poles": int(sign_changes),
+            "flags": flags,
+            "stable": sign_changes == 0,
+        }
+
+    def _compute_stability_ranges(self) -> Dict[str, Any]:
+        """Determine K ranges where the closed-loop system is stable.
+
+        Uses jω-axis crossing K values from special points to partition K into intervals,
+        then checks stability at each interval midpoint.
+        """
+        if self._error:
+            return {"ranges": [], "crossings": []}
+
+        k_max = float(self.parameters["k_max"])
+        negative = bool(self.parameters["negative_k"])
+        special = self._cached_special or {}
+        jw_crossings = special.get("jw_crossings", [])
+
+        # Collect critical K values where branches cross jω axis
+        critical_k_values = sorted(set(
+            float(jw["K"]) for jw in jw_crossings if 0 < float(jw["K"]) <= k_max
+        ))
+
+        # Build K intervals: [0, k1], [k1, k2], ..., [kn, k_max]
+        boundaries = [0.0] + critical_k_values + [k_max]
+        ranges = []
+
+        for i in range(len(boundaries) - 1):
+            k_lo = boundaries[i]
+            k_hi = boundaries[i + 1]
+            if k_hi - k_lo < 1e-10:
+                continue
+
+            # Test stability at midpoint
+            k_test = (k_lo + k_hi) / 2.0
+            k_actual = -k_test if negative else k_test
+            cl_poles = self._cl_poles_at_k(k_actual)
+
+            if len(cl_poles) == 0:
+                stable = True
+            else:
+                stable = bool(np.all(np.real(cl_poles) < 1e-8))
+
+            ranges.append({
+                "start": float(k_lo),
+                "end": float(k_hi),
+                "stable": stable,
+            })
+
+        crossings_data = [
+            {"k": float(jw["K"]), "omega": float(jw["omega"])}
+            for jw in jw_crossings if 0 < float(jw["K"]) <= k_max
+        ]
+
+        return {"ranges": ranges, "crossings": crossings_data}
+
+    # =========================================================================
+    # Locus Data for Animation
+    # =========================================================================
+
+    def _get_locus_data(self) -> Optional[Dict[str, Any]]:
+        """Expose pre-computed locus branch data for frontend animation.
+
+        Returns k_values and branch positions so the frontend can animate
+        CL poles moving along branches as K sweeps.
+        """
+        if self._cached_k_values is None or self._cached_branches is None:
+            return None
+        if len(self._cached_branches) == 0:
+            return None
+
+        # Downsample to ~200 points for reasonable payload size
+        total = len(self._cached_k_values)
+        if total > 200:
+            indices = np.linspace(0, total - 1, 200, dtype=int)
+        else:
+            indices = np.arange(total)
+
+        k_values = [float(self._cached_k_values[i]) for i in indices]
+        branches = []
+        for branch in self._cached_branches:
+            branch_data = []
+            for i in indices:
+                p = branch[i] if i < len(branch) else complex(np.nan, np.nan)
+                if np.isnan(p):
+                    branch_data.append(None)
+                else:
+                    branch_data.append({"re": float(np.real(p)), "im": float(np.imag(p))})
+            branches.append(branch_data)
+
+        return {"k_values": k_values, "branches": branches}
 
     # =========================================================================
     # Helpers
