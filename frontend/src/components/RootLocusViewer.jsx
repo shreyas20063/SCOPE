@@ -22,6 +22,13 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import '../styles/RootLocusViewer.css';
 
+// Lazy Plotly reference — react-plotly.js already loads plotly.js statically,
+// so the dynamic import just hits the module cache (no extra bundle cost).
+// Using a static `import Plotly from 'plotly.js'` caused a CJS double-init
+// "Cannot read properties of undefined (reading 'prototype')" error at startup.
+const _plotlyRef = { current: null };
+import('plotly.js').then(m => { _plotlyRef.current = m.default ?? m; }).catch(() => {});
+
 /* ======================================================================
    Theme hook
    ====================================================================== */
@@ -129,7 +136,6 @@ function TransferFunctionBanner({ metadata, onImport, onParseExpression }) {
             value={tfInput}
             onChange={(e) => setTfInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            onBlur={handleSubmit}
             placeholder="e.g. (s+1)/(s^2+2s+1)"
             spellCheck={false}
           />
@@ -197,17 +203,25 @@ function MetricsStrip({ metrics, currentK }) {
 
 function AnimationControlBar({
   isPlaying, onPlayPause, onReset, speed, onSpeedChange,
-  currentK, progress, kMax,
+  currentK, progress, onSeek,
 }) {
+  const handleBarClick = useCallback((e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    onSeek?.(fraction);
+  }, [onSeek]);
+
   return (
     <div className="rl-animation-bar">
       <div className="rl-anim-controls">
-        <button className="rl-anim-btn" onClick={onPlayPause} title={isPlaying ? 'Pause' : 'Play'}>
+        <button
+          className="rl-anim-btn rl-anim-play"
+          onClick={onPlayPause}
+          title={isPlaying ? 'Pause' : 'Play'}
+        >
           {isPlaying ? '⏸' : '▶'}
         </button>
-        <button className="rl-anim-btn rl-anim-reset" onClick={onReset} title="Reset">
-          ↺
-        </button>
+        <button className="rl-anim-btn rl-anim-reset" onClick={onReset} title="Reset">↺</button>
       </div>
 
       <div className="rl-anim-speed">
@@ -223,13 +237,23 @@ function AnimationControlBar({
       </div>
 
       <div className="rl-anim-progress-area">
-        <div className="rl-anim-progress-bar">
+        <div
+          className="rl-anim-progress-track"
+          onClick={handleBarClick}
+          title="Click to seek"
+        >
           <div
             className="rl-anim-progress-fill"
             style={{ width: `${(progress || 0) * 100}%` }}
           />
+          <div
+            className="rl-anim-progress-thumb"
+            style={{ left: `${(progress || 0) * 100}%` }}
+          />
         </div>
-        <span className="rl-anim-k-display">K = {(currentK ?? 0).toFixed(2)}</span>
+        <span className="rl-anim-k-display">
+          K = <strong>{(currentK ?? 0).toFixed(3)}</strong>
+        </span>
       </div>
     </div>
   );
@@ -460,11 +484,17 @@ export default function RootLocusViewer({
   const [toastMessage, setToastMessage] = useState(null);
 
   // Animation state
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [animSpeed, setAnimSpeed] = useState(1);
-  const [animIndex, setAnimIndex] = useState(0);
-  const animRef = useRef(null);
+  const [isPlaying, setIsPlaying]   = useState(false);
+  const [animActive, setAnimActive] = useState(false); // true once play has been engaged
+  const [animSpeed, setAnimSpeed]   = useState(1);
+  const [animIndex, setAnimIndex]   = useState(0);
+  const animRef        = useRef(null);
   const lastStepUpdate = useRef(0);
+  const trailRef       = useRef([]);
+
+  // Imperative Plotly refs — animation runs through restyle, NOT React re-renders
+  const graphDivRef      = useRef(null);
+  const animTraceIndices = useRef({ trail: -1, poles: -1 });
 
   // Separate plots by ID
   const splanePlot = useMemo(() => plots?.find(p => p.id === 'root_locus'), [plots]);
@@ -497,14 +527,46 @@ export default function RootLocusViewer({
     return locusData.branches.map(branch => branch[animIndex]).filter(p => p != null);
   }, [locusData, animIndex, totalFrames]);
 
-  // Trail: last 20 positions
-  const trailRef = useRef([]);
+  // ── Effect A: trail accumulation (must run before Effect B) ──────────
   useEffect(() => {
     if (animatedPoles && isPlaying) {
-      trailRef.current = [...trailRef.current, animatedPoles].slice(-20);
+      trailRef.current = [...trailRef.current, animatedPoles].slice(-25);
     }
   }, [animatedPoles, isPlaying]);
 
+  // ── Effect B: imperative Plotly overlay — ZERO React re-renders ───────
+  // Directly calls Plotly.restyle() on the two placeholder traces so the
+  // static locus background is never redrawn during animation.
+  useEffect(() => {
+    const graphDiv = graphDivRef.current;
+    const { trail: tIdx, poles: pIdx } = animTraceIndices.current;
+    if (!graphDiv || !graphDiv._fullLayout || tIdx < 0 || pIdx < 0) return;
+    if (!animActive || !animatedPoles || animatedPoles.length === 0) return;
+
+    // Graduated-opacity trail
+    const trail    = trailRef.current;
+    const trailX   = [];
+    const trailY   = [];
+    const trailClr = [];
+    trail.forEach((poles, ti) => {
+      const alpha = 0.06 + 0.60 * (ti / Math.max(trail.length - 1, 1));
+      poles.forEach(p => {
+        trailX.push(p.re);
+        trailY.push(p.im);
+        trailClr.push(`rgba(0,217,255,${alpha.toFixed(2)})`);
+      });
+    });
+
+    const Plotly = _plotlyRef.current;
+    if (!Plotly?.restyle) return;
+    Plotly.restyle(graphDiv, {
+      x:              [trailX, animatedPoles.map(p => p.re)],
+      y:              [trailY, animatedPoles.map(p => p.im)],
+      'marker.color': [trailClr, '#00d9ff'],
+    }, [tIdx, pIdx]).catch(() => {});
+  }, [animActive, animatedPoles]); // trail read from ref (in-order with Effect A)
+
+  // ── rAF animation loop ────────────────────────────────────────────────
   useEffect(() => {
     if (!isPlaying || totalFrames === 0) {
       if (animRef.current) cancelAnimationFrame(animRef.current);
@@ -512,13 +574,13 @@ export default function RootLocusViewer({
     }
 
     let lastTime = 0;
-    const stepsPerSecond = 25 * animSpeed; // base ~25 steps/sec at 1x
+    const stepsPerSecond = 30 * animSpeed;
 
-    const animate = (timestamp) => {
+    const tick = (timestamp) => {
       if (!lastTime) lastTime = timestamp;
       const dt = timestamp - lastTime;
 
-      if (dt > 1000 / stepsPerSecond) {
+      if (dt >= 1000 / stepsPerSecond) {
         lastTime = timestamp;
         setAnimIndex(prev => {
           const next = prev + 1;
@@ -526,25 +588,21 @@ export default function RootLocusViewer({
             setIsPlaying(false);
             return prev;
           }
-
-          // Throttled step response update (~5 fps)
+          // Throttled step response sync (~4 fps)
           const now = Date.now();
-          if (now - lastStepUpdate.current > 200 && locusData?.k_values) {
+          if (now - lastStepUpdate.current > 250 && locusData?.k_values && onParamChange) {
             lastStepUpdate.current = now;
             const newK = locusData.k_values[next];
-            if (onParamChange && newK != null) {
-              onParamChange('gain_K', Math.abs(newK));
-            }
+            if (newK != null) onParamChange('gain_K', Math.abs(newK));
           }
-
           return next;
         });
       }
 
-      animRef.current = requestAnimationFrame(animate);
+      animRef.current = requestAnimationFrame(tick);
     };
 
-    animRef.current = requestAnimationFrame(animate);
+    animRef.current = requestAnimationFrame(tick);
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
@@ -555,14 +613,43 @@ export default function RootLocusViewer({
       setAnimIndex(0);
       trailRef.current = [];
     }
+    setAnimActive(true);
     setIsPlaying(prev => !prev);
   }, [isPlaying, animIndex, totalFrames]);
 
   const handleReset = useCallback(() => {
     setIsPlaying(false);
     setAnimIndex(0);
+    setAnimActive(false);
     trailRef.current = [];
+    // Imperatively clear animation traces on the Plotly canvas
+    const gd = graphDivRef.current;
+    const { trail: tIdx, poles: pIdx } = animTraceIndices.current;
+    const Plotly = _plotlyRef.current;
+    if (gd && gd._fullLayout && tIdx >= 0 && pIdx >= 0 && Plotly?.restyle) {
+      Plotly.restyle(gd, { x: [[], []], y: [[], []] }, [tIdx, pIdx]).catch(() => {});
+    }
   }, []);
+
+  const handleSeek = useCallback((fraction) => {
+    if (totalFrames === 0) return;
+    const idx = Math.round(fraction * (totalFrames - 1));
+    setAnimIndex(Math.max(0, Math.min(idx, totalFrames - 1)));
+    setAnimActive(true);
+    if (isPlaying) setIsPlaying(false);
+  }, [totalFrames, isPlaying]);
+
+  // ── Plotly graphDiv capture (for imperative calls) ───────────────────
+  const handlePlotInitialized = useCallback((_figure, graphDiv) => {
+    graphDivRef.current = graphDiv;
+  }, []);
+  const handlePlotUpdated = useCallback((_figure, graphDiv) => {
+    graphDivRef.current = graphDiv;
+  }, []);
+
+  // ── Keep animTraceIndices in sync when static data changes ───────────
+  // (trace count can change if TF changes; indices are re-calculated)
+  // This is computed inside splanePlotData and stored here for effects.
 
   // ====================================================================
   // Click-to-select-K on s-plane
@@ -620,103 +707,85 @@ export default function RootLocusViewer({
   }, [onButtonClick]);
 
   // ====================================================================
-  // S-plane plot with animation overlay
+  // S-plane plot — STATIC only (no animation state in deps)
+  //
+  // Two empty placeholder traces are appended after the backend traces.
+  // Their x/y are updated imperatively via Plotly.restyle() in Effect B,
+  // so animation never triggers a React re-render or full Plotly redraw.
+  // uirevision: 'root-locus-splane' preserves zoom/pan across all updates.
   // ====================================================================
-  const splanePlotData = useMemo(() => {
-    if (!splanePlot) return { data: [], layout: {} };
+  const { splaneData, splaneLayout } = useMemo(() => {
+    if (!splanePlot) return { splaneData: [], splaneLayout: {} };
 
-    const data = [...(splanePlot.data || [])];
+    const baseData = [...(splanePlot.data || [])];
+    const tIdx = baseData.length;
+    const pIdx = baseData.length + 1;
+    // Store indices for the imperative effects
+    animTraceIndices.current = { trail: tIdx, poles: pIdx };
+
+    const data = [
+      ...baseData,
+      // Placeholder trace: trail (updated imperatively)
+      {
+        x: [], y: [],
+        type: 'scatter', mode: 'markers',
+        marker: { symbol: 'circle', size: 6, color: [] },
+        name: 'Trail',
+        showlegend: false,
+        hoverinfo: 'skip',
+      },
+      // Placeholder trace: current animated poles (updated imperatively)
+      {
+        x: [], y: [],
+        type: 'scatter', mode: 'markers',
+        marker: {
+          symbol: 'diamond', size: 18,
+          color: '#00d9ff',
+          line: { width: 2.5, color: '#ffffff' },
+        },
+        name: 'Animated poles',
+        showlegend: false,
+        hovertemplate: 'σ = %{x:.3f}<br>jω = %{y:.3f}<extra>Animated</extra>',
+      },
+    ];
+
     const layout = {
       ...(splanePlot.layout || {}),
       autosize: true,
+      // Stable uirevision → Plotly preserves zoom/pan across React re-renders
+      uirevision: 'root-locus-splane',
     };
 
     // Light theme overrides
     if (!isDark) {
-      layout.paper_bgcolor = 'rgba(255, 255, 255, 0.98)';
-      layout.plot_bgcolor = '#f8fafc';
+      layout.paper_bgcolor = 'rgba(255,255,255,0.98)';
+      layout.plot_bgcolor  = '#f8fafc';
       layout.font = { ...layout.font, color: '#1e293b' };
       if (layout.xaxis) {
         layout.xaxis = {
           ...layout.xaxis,
-          gridcolor: 'rgba(100, 116, 139, 0.2)',
-          zerolinecolor: 'rgba(100, 116, 139, 0.5)',
+          gridcolor:     'rgba(100,116,139,0.2)',
+          zerolinecolor: 'rgba(100,116,139,0.5)',
         };
       }
       if (layout.yaxis) {
         layout.yaxis = {
           ...layout.yaxis,
-          gridcolor: 'rgba(100, 116, 139, 0.2)',
-          zerolinecolor: 'rgba(100, 116, 139, 0.5)',
+          gridcolor:     'rgba(100,116,139,0.2)',
+          zerolinecolor: 'rgba(100,116,139,0.5)',
         };
       }
       if (layout.shapes) {
-        layout.shapes = layout.shapes.map(s => {
-          if (s.fillcolor?.includes('239, 68, 68')) {
-            return { ...s, fillcolor: 'rgba(239, 68, 68, 0.03)' };
-          }
-          return s;
-        });
+        layout.shapes = layout.shapes.map(s =>
+          s.fillcolor?.includes('239, 68, 68')
+            ? { ...s, fillcolor: 'rgba(239,68,68,0.03)' }
+            : s,
+        );
       }
     }
 
-    // Add animated pole markers if animation is active
-    if (isPlaying && animatedPoles && animatedPoles.length > 0) {
-      // Trail dots
-      const trail = trailRef.current;
-      if (trail.length > 0) {
-        const trailX = [];
-        const trailY = [];
-        const trailOpacity = [];
-        trail.forEach((poles, ti) => {
-          const opacity = 0.1 + 0.6 * (ti / trail.length);
-          poles.forEach(p => {
-            trailX.push(p.re);
-            trailY.push(p.im);
-            trailOpacity.push(opacity);
-          });
-        });
-
-        data.push({
-          x: trailX,
-          y: trailY,
-          type: 'scatter',
-          mode: 'markers',
-          marker: {
-            symbol: 'circle',
-            size: 5,
-            color: '#00d9ff',
-            opacity: trailOpacity,
-          },
-          name: 'Trail',
-          showlegend: false,
-          hoverinfo: 'skip',
-        });
-      }
-
-      // Current animated poles
-      data.push({
-        x: animatedPoles.map(p => p.re),
-        y: animatedPoles.map(p => p.im),
-        type: 'scatter',
-        mode: 'markers',
-        marker: {
-          symbol: 'diamond',
-          size: 16,
-          color: '#00d9ff',
-          line: { width: 2, color: '#ffffff' },
-        },
-        name: `Animated (K=${(animatedK ?? 0).toFixed(2)})`,
-        showlegend: false,
-        hovertemplate: 'σ = %{x:.3f}<br>jω = %{y:.3f}<extra>Animated</extra>',
-      });
-
-      // Update datarevision to force re-render
-      layout.datarevision = `anim-${Date.now()}`;
-    }
-
-    return { data, layout };
-  }, [splanePlot, isDark, isPlaying, animatedPoles, animatedK]);
+    return { splaneData: data, splaneLayout: layout };
+  }, [splanePlot, isDark]); // ← NO isPlaying / animatedPoles / animatedK
 
   const splaneConfig = useMemo(() => ({
     responsive: true,
@@ -726,24 +795,30 @@ export default function RootLocusViewer({
     toImageButtonOptions: { format: 'png', filename: 'root_locus', height: 800, width: 1200 },
   }), []);
 
+  // Show animated K during active animation, otherwise the backend's current K
+  const displayK = animActive ? (animatedK ?? currentK) : currentK;
+  const progress = totalFrames > 0 ? animIndex / totalFrames : 0;
+
   // ====================================================================
   // Render
   // ====================================================================
 
   const splanePlotComponent = (height) => (
     <div className="rl-splane-container" style={height ? { minHeight: height } : undefined}>
-      {splanePlotData.data.length > 0 ? (
+      {splaneData.length > 0 ? (
         <Plot
-          data={splanePlotData.data}
-          layout={{ ...splanePlotData.layout, ...(height ? { height } : {}) }}
+          data={splaneData}
+          layout={height ? { ...splaneLayout, height } : splaneLayout}
           config={splaneConfig}
           onClick={handleSplaneClick}
+          onInitialized={handlePlotInitialized}
+          onUpdate={handlePlotUpdated}
           useResizeHandler
           style={{ width: '100%', height: '100%' }}
         />
       ) : (
         <div className="rl-empty-plot">
-          {metadata?.error ? metadata.error : 'No root locus data'}
+          {metadata?.error || 'No root locus data'}
         </div>
       )}
     </div>
@@ -765,7 +840,9 @@ export default function RootLocusViewer({
       <div className="rl-desktop-only">
         {/* 2. S-plane — full width, tall */}
         {splanePlotComponent(600)}
-        <div className="rl-splane-hint">Click on a branch to select K at that point</div>
+        <div className="rl-splane-hint">
+          Click on a branch to select K · Press ▶ to animate · Click the scrubber to seek
+        </div>
 
         {/* 3. Animation controls */}
         <AnimationControlBar
@@ -774,13 +851,13 @@ export default function RootLocusViewer({
           onReset={handleReset}
           speed={animSpeed}
           onSpeedChange={setAnimSpeed}
-          currentK={isPlaying ? animatedK : currentK}
-          progress={totalFrames > 0 ? animIndex / totalFrames : 0}
-          kMax={kMax}
+          currentK={displayK}
+          progress={progress}
+          onSeek={handleSeek}
         />
 
         {/* 4. Horizontal metrics strip */}
-        <MetricsStrip metrics={metrics} currentK={currentK} />
+        <MetricsStrip metrics={metrics} currentK={displayK} />
 
         {/* 5. Step Response + Stability Analysis side by side */}
         <div className="rl-analysis-row">
@@ -791,7 +868,7 @@ export default function RootLocusViewer({
             <RouthTablePanel routhTable={routhTable} />
             <StabilityRangesBar
               stabilityRanges={stabilityRanges}
-              currentK={currentK}
+              currentK={displayK}
               kMax={kMax}
             />
           </div>
@@ -800,7 +877,7 @@ export default function RootLocusViewer({
         {/* 6. Collapsible CL Poles + Special Points */}
         <details className="rl-details-collapsible">
           <summary className="rl-details-summary">
-            Closed-Loop Poles & Construction Rules
+            Closed-Loop Poles &amp; Construction Rules
           </summary>
           <div className="rl-details-content">
             <CLPolesReadout clPoles={clPoles} />
@@ -818,10 +895,10 @@ export default function RootLocusViewer({
       <div className="rl-mobile-only">
         <div className="rl-mobile-tabs">
           {[
-            { key: 'splane', label: 'S-Plane' },
-            { key: 'response', label: 'Response' },
+            { key: 'splane',    label: 'S-Plane'   },
+            { key: 'response',  label: 'Response'  },
             { key: 'stability', label: 'Stability' },
-            { key: 'analysis', label: 'Analysis' },
+            { key: 'analysis',  label: 'Analysis'  },
           ].map(tab => (
             <button
               key={tab.key}
@@ -842,11 +919,11 @@ export default function RootLocusViewer({
               onReset={handleReset}
               speed={animSpeed}
               onSpeedChange={setAnimSpeed}
-              currentK={isPlaying ? animatedK : currentK}
-              progress={totalFrames > 0 ? animIndex / totalFrames : 0}
-              kMax={kMax}
+              currentK={displayK}
+              progress={progress}
+              onSeek={handleSeek}
             />
-            <MetricsStrip metrics={metrics} currentK={currentK} />
+            <MetricsStrip metrics={metrics} currentK={displayK} />
           </>
         )}
         {activeTab === 'response' && (
@@ -858,7 +935,7 @@ export default function RootLocusViewer({
         {activeTab === 'stability' && (
           <div className="rl-mobile-stability">
             <RouthTablePanel routhTable={routhTable} />
-            <StabilityRangesBar stabilityRanges={stabilityRanges} currentK={currentK} kMax={kMax} />
+            <StabilityRangesBar stabilityRanges={stabilityRanges} currentK={displayK} kMax={kMax} />
           </div>
         )}
         {activeTab === 'analysis' && (

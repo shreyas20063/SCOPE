@@ -526,7 +526,7 @@ function ComparisonOverlay({ references, currentStepPlot, currentMetrics, curren
 }
 
 // ============================================================================
-// TrainingPanel (ES / PPO training UI)
+// TrainingPanel (ES / Policy Gradient training UI)
 // ============================================================================
 
 const RL_METHODS = ['es_adaptive', 'ppo_rl'];
@@ -538,7 +538,7 @@ const TrainingPanel = memo(function TrainingPanel({ currentParams }) {
 
   const method = currentParams?.tuning_method;
   const isES = method === 'es_adaptive';
-  const isPPO = method === 'ppo_rl';
+  const isPG = method === 'ppo_rl';
 
   // Reset status when switching methods
   useEffect(() => {
@@ -555,7 +555,7 @@ const TrainingPanel = memo(function TrainingPanel({ currentParams }) {
       : '/api/simulations/controller_tuning_lab/ppo/train';
     const body = isES
       ? { generations: currentParams?.es_generations || 200, pop_size: 50 }
-      : { timesteps: currentParams?.rl_timesteps || 100000 };
+      : { timesteps: currentParams?.rl_timesteps || 5000 };
     try {
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -574,12 +574,12 @@ const TrainingPanel = memo(function TrainingPanel({ currentParams }) {
   }, [isES, currentParams]);
 
   const cancelTraining = useCallback(async () => {
-    if (!isPPO) return;
+    if (!isPG) return;
     try {
       await fetch('/api/simulations/controller_tuning_lab/ppo/cancel', { method: 'POST' });
       setStatus('cancelled');
     } catch { /* ignore */ }
-  }, [isPPO]);
+  }, [isPG]);
 
   // Poll status during training
   useEffect(() => {
@@ -606,33 +606,45 @@ const TrainingPanel = memo(function TrainingPanel({ currentParams }) {
 
   if (!RL_METHODS.includes(method)) return null;
 
+  const methodLabel = isES ? 'Evolution Strategies' : 'Actor-Critic RL (A2C)';
+  const trainLabel = isES ? 'Train ES Policy' : 'Train A2C Agent';
+
   return (
     <div className="ctl-training-panel">
       <div className="ctl-training-header">
         <span className={`ctl-training-status ctl-training-status--${status}`} />
-        <span>{isES ? 'Evolution Strategies' : 'PPO (Reinforcement Learning)'}</span>
+        <span>{methodLabel}</span>
       </div>
 
-      {status === 'idle' && (
-        <button className="ctl-compare-btn" onClick={startTraining}>
-          {isES ? 'Train ES Policy' : 'Train PPO Agent'}
+      {(status === 'idle' || status === 'complete' || status === 'cancelled' || status === 'error') && (
+        <button className="ctl-compare-btn" onClick={startTraining}
+          style={status === 'complete' ? { opacity: 0.75 } : {}}>
+          {status === 'complete' || status === 'cancelled' || status === 'error'
+            ? `Re-train ${isES ? 'ES' : 'PG'}`
+            : trainLabel}
         </button>
       )}
 
-      {status === 'training' && progress && (
+      {status === 'training' && (
         <div className="ctl-training-progress">
-          <div className="ctl-progress-bar">
-            <div className="ctl-progress-fill"
-              style={{ width: `${progress.progress_pct || 0}%` }} />
-          </div>
-          <div className="ctl-training-metrics">
-            <span>{isES
-              ? `Gen ${progress.generation || 0}/${progress.total_generations || '?'}`
-              : `Step ${progress.timestep || 0}/${progress.total_timesteps || '?'}`}</span>
-            <span>Best: {(progress.best_fitness || progress.reward_mean || 0).toFixed(2)}</span>
-            <span>{(progress.progress_pct || 0).toFixed(0)}%</span>
-          </div>
-          {isPPO && (
+          {progress ? (
+            <>
+              <div className="ctl-progress-bar">
+                <div className="ctl-progress-fill"
+                  style={{ width: `${progress.progress_pct || 0}%` }} />
+              </div>
+              <div className="ctl-training-metrics">
+                <span>{isES
+                  ? `Gen ${progress.generation || 0}/${progress.total_generations || '?'}`
+                  : `Ep ${progress.timestep || 0}/${progress.total_timesteps || '?'}`}</span>
+                <span>Best: {(progress.best_fitness ?? progress.reward_mean ?? 0).toFixed(2)}</span>
+                <span>{(progress.progress_pct || 0).toFixed(0)}%</span>
+              </div>
+            </>
+          ) : (
+            <div className="ctl-training-metrics"><span>Starting...</span></div>
+          )}
+          {isPG && (
             <button className="ctl-compare-btn" onClick={cancelTraining}
               style={{ marginTop: 8, background: 'var(--error-color)' }}>
               Cancel Training
@@ -643,7 +655,7 @@ const TrainingPanel = memo(function TrainingPanel({ currentParams }) {
 
       {status === 'complete' && (
         <div className="ctl-training-complete">
-          Training complete. Click "Apply Auto-Tune" to use the trained model.
+          Training complete — click "Apply Auto-Tune" to use the model.
         </div>
       )}
 

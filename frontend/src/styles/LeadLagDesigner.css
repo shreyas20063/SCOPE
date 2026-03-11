@@ -1,0 +1,315 @@
+/* Lead-Lag Compensator Designer — Dedicated Styles */
+/* All values use CSS variables from App.css :root */
+
+.lld-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0;
+}
+
+/* ===== DESIGN INFO PANEL ===== */
+.lld-design-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast);
+}
+
+.lld-design-info:hover {
+  border-color: var(--border-hover);
+}
+
+.lld-design-section {
+  flex: 1 1 220px;
+  min-width: 200px;
+  padding: 8px 12px;
+  background: rgba(20, 184, 166, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.lld-design-section--lead {
+  border-left: 3px solid #10b981;
+}
+
+.lld-design-section--lag {
+  border-left: 3px solid #ef4444;
+}
+
+.lld-design-section--disabled {
+  opacity: 0.4;
+}
+
+.lld-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 6px;
+}
+
+.lld-design-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.lld-design-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+.lld-design-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+.lld-design-value .katex {
+  font-size: 0.9em;
+}
+
+/* ===== METRICS STRIP ===== */
+.lld-metrics-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.lld-metric-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 68px;
+  padding: 6px 8px;
+  background: rgba(20, 184, 166, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.lld-metric-badge:hover {
+  border-color: var(--border-hover);
+  background: rgba(20, 184, 166, 0.07);
+}
+
+.lld-metric-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.lld-metric-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  white-space: nowrap;
+}
+
+.lld-stability-badge {
+  border-width: 2px;
+}
+
+/* ===== BLOCK DIAGRAM ===== */
+.lld-block-diagram {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 10px 14px;
+  transition: border-color var(--transition-fast);
+}
+
+.lld-block-diagram:hover {
+  border-color: var(--border-hover);
+}
+
+.lld-tf-block {
+  fill: rgba(20, 184, 166, 0.08);
+  stroke: var(--primary-color);
+  stroke-width: 1.5;
+}
+
+.lld-katex-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--text-primary);
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.lld-signal-label {
+  fill: var(--text-secondary);
+  font-size: 12px;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+.lld-sum-label {
+  fill: var(--accent-color, #00d9ff);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.lld-sign-label {
+  fill: var(--text-muted);
+  font-size: 11px;
+}
+
+/* ===== PLOT GRID ===== */
+.lld-plot-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lld-plot-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lld-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 0 4px;
+}
+
+.lld-plot-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.lld-plot-card {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 4px 2px 0 2px;
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.lld-plot-card:hover {
+  border-color: var(--border-hover);
+}
+
+.lld-plot-card .js-plotly-plot,
+.lld-plot-card .plot-container {
+  margin: 0 !important;
+}
+
+.lld-plot-card .modebar-container {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.lld-plot-card:hover .modebar-container {
+  opacity: 1;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+  .lld-metrics-strip {
+    gap: 5px;
+  }
+
+  .lld-metric-badge {
+    min-width: 58px;
+    padding: 5px 6px;
+  }
+
+  .lld-metric-value {
+    font-size: 13px;
+  }
+
+  .lld-design-section {
+    min-width: 160px;
+  }
+}
+
+@media (max-width: 768px) {
+  .lld-viewer {
+    gap: 10px;
+  }
+
+  .lld-plot-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .lld-metrics-strip {
+    gap: 4px;
+    padding: 8px;
+  }
+
+  .lld-metric-badge {
+    min-width: 52px;
+    padding: 4px 6px;
+  }
+
+  .lld-metric-label {
+    font-size: 9px;
+  }
+
+  .lld-metric-value {
+    font-size: 12px;
+  }
+
+  .lld-design-info {
+    gap: 6px;
+    padding: 8px 10px;
+  }
+
+  .lld-design-section {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .lld-section-label {
+    font-size: 10px;
+  }
+}
+
+/* ===== LIGHT MODE OVERRIDES ===== */
+[data-theme="light"] .lld-tf-block {
+  fill: rgba(20, 184, 166, 0.06);
+}
+
+[data-theme="light"] .lld-metric-badge {
+  background: rgba(20, 184, 166, 0.03);
+}
+
+[data-theme="light"] .lld-design-section {
+  background: rgba(20, 184, 166, 0.02);
+}
+
+[data-theme="light"] .lld-plot-card {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="light"] .lld-section-label {
+  color: var(--text-secondary);
+}

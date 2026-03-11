@@ -46,7 +46,9 @@ class LinearPolicy:
         self.n_actions = n_actions
         self.W = np.random.randn(n_actions, n_features) * 0.1
         self.b = np.zeros(n_actions)
-        self.scales = np.array([50.0, 20.0, 10.0])
+        # Scales chosen so sigmoid(0)=0.5 → midpoint gains (5, 2, 1) which are
+        # reasonable defaults. The ES then learns to push up/down per plant type.
+        self.scales = np.array([10.0, 4.0, 2.0])
 
     @property
     def params(self) -> np.ndarray:

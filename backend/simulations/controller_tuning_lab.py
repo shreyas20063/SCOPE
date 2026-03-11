@@ -1231,9 +1231,9 @@ class ControllerTuningLabSimulator(BaseSimulator):
         """Extract 8D plant feature vector for RL/ES policies."""
         from pathlib import Path
         import sys
-        rl_path = str(Path(__file__).parent.parent / "rl")
-        if rl_path not in sys.path:
-            sys.path.insert(0, str(Path(__file__).parent.parent))
+        backend_dir = str(Path(__file__).parent.parent)
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
         from rl.plant_features import extract_plant_features
         fopdt = self._fit_fopdt_model()
         return extract_plant_features(self._plant_num, self._plant_den, fopdt)
@@ -1268,29 +1268,26 @@ class ControllerTuningLabSimulator(BaseSimulator):
         return gains
 
     def _ppo_tune(self, ctype: str) -> dict | None:
-        """Use trained PPO agent to predict PID gains."""
-        try:
-            from pathlib import Path
-            import sys
-            backend_dir = Path(__file__).parent.parent
-            if str(backend_dir) not in sys.path:
-                sys.path.insert(0, str(backend_dir))
-            from rl.ppo_agent import PPOAgent
-        except ImportError:
-            self._tuning_info = "PPO: Install stable-baselines3, gymnasium, torch"
-            return None
+        """Use trained A2C agent to predict PID gains via multi-step rollout."""
+        from pathlib import Path
+        import sys
+        backend_dir = Path(__file__).parent.parent
+        if str(backend_dir) not in sys.path:
+            sys.path.insert(0, str(backend_dir))
+        from rl.ppo_agent import PPOAgent
 
         agent = PPOAgent()
         if not agent.is_available():
-            self._tuning_info = "PPO: No trained model. Train first."
+            self._tuning_info = "A2C RL: No trained model. Train first."
             return None
 
         features = self._extract_plant_features()
-        gains = agent.predict(features)
+        # Pass plant TF so the rollout can evaluate each refinement step
+        gains = agent.predict(features, plant_num=self._plant_num, plant_den=self._plant_den)
         if gains is None:
             return None
 
-        self._tuning_info = (f"PPO RL → Kp={gains['Kp']:.4g}, "
+        self._tuning_info = (f"A2C RL → Kp={gains['Kp']:.4g}, "
                              f"Ki={gains['Ki']:.4g}, Kd={gains['Kd']:.4g}")
         return gains
 

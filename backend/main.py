@@ -685,7 +685,7 @@ class ESTrainRequest(BaseModel):
 
 
 class PPOTrainRequest(BaseModel):
-    timesteps: int = 100_000
+    timesteps: int = 5_000
 
 
 @app.post(f"{API_PREFIX}/simulations/controller_tuning_lab/es/train")
@@ -779,22 +779,20 @@ _ppo_trainer = None
 
 @app.post(f"{API_PREFIX}/simulations/controller_tuning_lab/ppo/train")
 async def start_ppo_training(request: PPOTrainRequest):
-    """Start PPO training as background task."""
+    """Start Policy Gradient (REINFORCE) training as background task."""
     global _ppo_trainer
 
-    try:
-        from rl.ppo_trainer import PPOTrainer
-    except ImportError:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "PPO requires: pip install stable-baselines3 gymnasium torch"}
-        )
+    from rl.ppo_trainer import PPOTrainer
 
     if _ppo_trainer is None:
         _ppo_trainer = PPOTrainer()
 
     if _ppo_trainer.state == "training":
         return JSONResponse(status_code=409, content={"error": "Training already in progress"})
+
+    # Reset trainer state so it can be re-run after completion/error
+    if _ppo_trainer.state in ("complete", "error", "cancelled"):
+        _ppo_trainer = PPOTrainer()
 
     async def broadcast_progress(data: dict):
         await websocket_manager.broadcast("controller_tuning_lab", data)

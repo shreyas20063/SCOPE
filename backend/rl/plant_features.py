@@ -36,10 +36,14 @@ def extract_plant_features(
     else:
         dom_re, dom_im = 0.0, 0.0
 
-    # DC gain: G(0) = num(0)/den(0)
+    # DC gain: G(0) = num(0)/den(0); integrators have den(0)=0 → use 0.0 sentinel
     try:
-        dc = float(np.polyval(plant_num, 0) / np.polyval(plant_den, 0))
-        dc = np.clip(dc, -100, 100)
+        denom_at_0 = float(np.polyval(plant_den, 0))
+        if abs(denom_at_0) < 1e-10:
+            dc = 0.0  # integrator/double-integrator — no finite DC gain
+        else:
+            dc = float(np.polyval(plant_num, 0) / denom_at_0)
+            dc = np.clip(dc, -100, 100)
     except (ZeroDivisionError, FloatingPointError):
         dc = 0.0
 

@@ -397,3 +397,18 @@ All tracking files live in `.claude/`. **Read them before starting work. Update 
   - KaTeX-rendered state-space matrices (A, B, C, D) with `\dot{x} = Ax + Bu` equations
   - State-feedback SVG block diagram variant (K on feedback path instead of C(s))
   - Controllability badge and plant order display in metrics strip
+
+### Lead-Lag Compensator Designer (simulation: `lead_lag_designer`)
+- **Backend**: `backend/simulations/lead_lag_designer.py` (~580 lines)
+- **Frontend**: `frontend/src/components/LeadLagDesignerViewer.jsx` (~360 lines)
+- **CSS**: `frontend/src/styles/LeadLagDesigner.css` (~280 lines)
+- **Purpose**: Dedicated frequency-domain lead-lag compensator design tool with textbook α/ωm parameterization
+- **Key features**:
+  - Independent lead (α, ωm) and lag (β, ωm) section controls with enable/disable
+  - 6 plant presets: 1st order, type 1, 2nd order, type 1+2P, DC motor, custom TF
+  - 6 analysis plots: Bode mag/phase, step response, pole-zero map, compensator phase breakdown, Nichols chart
+  - Phase contribution breakdown showing individual lead and lag phase curves with φ_max markers
+  - PM/GM target lines on Bode plots, stability-colored metrics strip
+  - Design info panel showing computed zero/pole locations, max phase, HF gain, LF boost
+  - SVG feedback loop block diagram with KaTeX transfer function rendering
+  - Nichols chart (unique to this tool — not available in Controller Tuning Lab)
