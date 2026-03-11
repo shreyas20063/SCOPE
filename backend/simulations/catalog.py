@@ -2010,7 +2010,7 @@ SIMULATION_CATALOG = [
         "name": "Vector Diagram Frequency Response",
         "description": "Build frequency response curves from vector diagrams. Type any transfer function or pick a preset, then watch animated vectors from poles and zeros to the j\u03c9 axis trace out magnitude and phase. Based on MIT 6.003 Lecture 9.",
         "category": "Transforms",
-        "thumbnail": "\ud83d\udcd0",
+        "thumbnail": "📐",
         "tags": [
             "frequency response", "vector diagram", "poles", "zeros",
             "magnitude", "phase", "s-plane", "eigenfunction",
@@ -2660,7 +2660,7 @@ SIMULATION_CATALOG = [
         "name": "Nyquist Stability Criterion",
         "description": "Visualize the Nyquist stability criterion with D-contour mapping, encirclement counting, and the N=Z\u2212P relationship. Explore how gain affects closed-loop stability through preset systems including conditionally stable and time-delay cases.",
         "category": "Control Systems",
-        "thumbnail": "\ud83d\udd04",
+        "thumbnail": "🔄",
         "tags": ["nyquist", "stability", "encirclement", "criterion", "feedback", "control", "transfer function", "D-contour"],
         "has_simulator": True,
         "controls": [
