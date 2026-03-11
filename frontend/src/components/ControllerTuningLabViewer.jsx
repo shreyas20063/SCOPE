@@ -357,38 +357,60 @@ function TuningInfoBanner({ tuningInfo }) {
 // TuningPlot (Plotly wrapper with theme)
 // ============================================================================
 
-const TuningPlot = memo(function TuningPlot({ plot, height = 300 }) {
+const TuningPlot = memo(function TuningPlot({ plot, height = 300, compact = false }) {
   const isDark = useIsDark();
 
-  const layout = useMemo(() => ({
-    ...(plot.layout || {}),
-    title: { text: plot.title, font: { size: 14, color: isDark ? '#f1f5f9' : '#1e293b' } },
-    paper_bgcolor: isDark ? '#0a0e27' : 'rgba(255,255,255,0.98)',
-    plot_bgcolor: isDark ? '#131b2e' : '#f8fafc',
-    font: { family: 'Inter, sans-serif', size: 12, color: isDark ? '#94a3b8' : '#64748b' },
-    xaxis: {
-      ...(plot.layout?.xaxis || {}),
-      gridcolor: 'rgba(148,163,184,0.1)',
-      zerolinecolor: 'rgba(148,163,184,0.3)',
-    },
-    yaxis: {
-      ...(plot.layout?.yaxis || {}),
-      gridcolor: 'rgba(148,163,184,0.1)',
-      zerolinecolor: 'rgba(148,163,184,0.3)',
-    },
-    margin: { t: 45, r: 25, b: 55, l: 60 },
-    height,
-    datarevision: `${plot.id}-${Date.now()}`,
-    uirevision: plot.id,
-    legend: { font: { size: 11 }, bgcolor: 'rgba(0,0,0,0)' },
-    annotations: plot.layout?.annotations || [],
-  }), [plot, isDark, height]);
+  const layout = useMemo(() => {
+    const plotXaxis = plot.layout?.xaxis || {};
+    const plotYaxis = plot.layout?.yaxis || {};
+    const margins = compact
+      ? { t: 36, r: 16, b: 44, l: 52 }
+      : { t: 40, r: 20, b: 50, l: 56 };
+
+    return {
+      ...(plot.layout || {}),
+      title: {
+        text: plot.title,
+        font: { size: compact ? 13 : 14, color: isDark ? '#f1f5f9' : '#1e293b' },
+        y: 0.98, yanchor: 'top',
+      },
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: isDark ? 'rgba(19,27,46,0.6)' : 'rgba(248,250,252,0.8)',
+      font: { family: 'Inter, sans-serif', size: compact ? 11 : 12, color: isDark ? '#94a3b8' : '#64748b' },
+      xaxis: {
+        ...plotXaxis,
+        autorange: plotXaxis.range ? undefined : true,
+        gridcolor: isDark ? 'rgba(148,163,184,0.08)' : 'rgba(148,163,184,0.15)',
+        zerolinecolor: isDark ? 'rgba(148,163,184,0.2)' : 'rgba(148,163,184,0.3)',
+        title: { ...((typeof plotXaxis.title === 'string') ? { text: plotXaxis.title } : (plotXaxis.title || {})), font: { size: compact ? 11 : 12 } },
+      },
+      yaxis: {
+        ...plotYaxis,
+        autorange: plotYaxis.range ? undefined : true,
+        gridcolor: isDark ? 'rgba(148,163,184,0.08)' : 'rgba(148,163,184,0.15)',
+        zerolinecolor: isDark ? 'rgba(148,163,184,0.2)' : 'rgba(148,163,184,0.3)',
+        title: { ...((typeof plotYaxis.title === 'string') ? { text: plotYaxis.title } : (plotYaxis.title || {})), font: { size: compact ? 11 : 12 } },
+      },
+      margin: margins,
+      height,
+      autosize: true,
+      datarevision: `${plot.id}-${Date.now()}`,
+      uirevision: plot.id,
+      legend: {
+        font: { size: compact ? 10 : 11 },
+        bgcolor: 'rgba(0,0,0,0)',
+        orientation: compact ? 'h' : 'v',
+        ...(compact ? { y: -0.18, x: 0.5, xanchor: 'center' } : {}),
+      },
+      annotations: plot.layout?.annotations || [],
+    };
+  }, [plot, isDark, height, compact]);
 
   const config = useMemo(() => ({
     responsive: true,
-    displayModeBar: true,
+    displayModeBar: 'hover',
     displaylogo: false,
-    modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d'],
+    modeBarButtonsToRemove: ['select2d', 'lasso2d'],
   }), []);
 
   return (
@@ -640,20 +662,17 @@ const TrainingPanel = memo(function TrainingPanel({ currentParams }) {
 // Main Component: ControllerTuningLabViewer
 // ============================================================================
 
-const PLOT_ORDER = [
-  'step_response', 'bode_magnitude', 'bode_phase',
-  'pole_zero_map', 'control_effort', 'error_signal', 'nyquist',
+// Plot pair definitions for 2-column grid layout
+const PLOT_PAIRS = [
+  // Hero plot: step response (full width)
+  { type: 'hero', ids: ['step_response'], height: 340 },
+  // Bode pair
+  { type: 'pair', ids: ['bode_magnitude', 'bode_phase'], height: 260, label: 'Frequency Response' },
+  // Pole-zero + Nyquist
+  { type: 'pair', ids: ['pole_zero_map', 'nyquist'], height: 280, label: 'Stability Analysis' },
+  // Control effort + Error
+  { type: 'pair', ids: ['control_effort', 'error_signal'], height: 240, label: 'Signals' },
 ];
-
-const PLOT_HEIGHTS = {
-  step_response: 350,
-  bode_magnitude: 250,
-  bode_phase: 250,
-  pole_zero_map: 300,
-  control_effort: 250,
-  error_signal: 250,
-  nyquist: 300,
-};
 
 function ControllerTuningLabViewer({ metadata, plots, currentParams }) {
   const [showComparison, setShowComparison] = useState(false);
@@ -673,43 +692,60 @@ function ControllerTuningLabViewer({ metadata, plots, currentParams }) {
     return `Current: ${ctype} (${method})`;
   }, [currentParams]);
 
-  const orderedPlots = useMemo(() =>
-    PLOT_ORDER.map(id => plots?.find(p => p.id === id)).filter(Boolean),
+  // Resolve plot pairs
+  const resolvedPairs = useMemo(() =>
+    PLOT_PAIRS.map(pair => ({
+      ...pair,
+      plots: pair.ids.map(id => plots?.find(p => p.id === id)).filter(Boolean),
+    })).filter(pair => pair.plots.length > 0),
     [plots]
   );
 
   return (
     <div className="ctl-viewer">
-      {/* 1. Feedback Loop Block Diagram */}
+      {/* Block Diagram */}
       <FeedbackLoopDiagram metadata={metadata} />
 
-      {/* 1b. State-space matrices (modern controllers only) */}
+      {/* State-space matrices (modern controllers only) */}
       <StateSpaceDisplay metadata={metadata} />
 
-      {/* 2. Performance Metrics Strip */}
+      {/* Performance Metrics Strip */}
       <PerformanceMetricsStrip metrics={performance} metadata={metadata} />
 
-      {/* 3. Tuning Info Banner */}
+      {/* Tuning Info Banner */}
       <TuningInfoBanner tuningInfo={tuningInfo} />
 
-      {/* 3b. RL Training Panel (ES/PPO) */}
+      {/* RL Training Panel (ES/PPO) */}
       <TrainingPanel currentParams={currentParams} />
 
-      {/* 4. All plots stacked vertically */}
+      {/* Plot sections */}
       <div className="ctl-plot-stack">
-        {orderedPlots.map(plot => (
-          <TuningPlot key={plot.id} plot={plot} height={PLOT_HEIGHTS[plot.id] || 300} />
+        {resolvedPairs.map((pair, idx) => (
+          <div key={idx} className={pair.type === 'hero' ? 'ctl-plot-hero' : 'ctl-plot-section'}>
+            {pair.label && (
+              <div className="ctl-section-label">{pair.label}</div>
+            )}
+            <div className={pair.type === 'pair' ? 'ctl-plot-row' : ''}>
+              {pair.plots.map(plot => (
+                <TuningPlot
+                  key={plot.id}
+                  plot={plot}
+                  height={pair.height}
+                  compact={pair.type === 'pair'}
+                />
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* 5. Compare Mode Button */}
+      {/* Compare Mode */}
       {references.length > 0 && (
         <button className="ctl-compare-btn" onClick={() => setShowComparison(true)}>
           Compare ({references.length} saved)
         </button>
       )}
 
-      {/* 6. Comparison Overlay */}
       {showComparison && (
         <ComparisonOverlay
           references={references}
