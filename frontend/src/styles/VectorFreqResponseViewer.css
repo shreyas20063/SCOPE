@@ -1,4 +1,4 @@
-/* Vector Diagram Frequency Response Builder Viewer */
+/* Vector Diagram Frequency Response Builder Viewer — Overhauled */
 
 .vfr-viewer {
   display: flex;
@@ -7,12 +7,15 @@
   width: 100%;
 }
 
-/* Equation banner */
-.vfr-equation-banner {
+/* ======================================================================
+   TF Input Banner
+   ====================================================================== */
+.vfr-tf-banner {
   display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 12px 20px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 20px;
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -20,28 +23,99 @@
   flex-wrap: wrap;
 }
 
-.vfr-hs-expression {
+.vfr-tf-input-area {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 280px;
 }
 
-.vfr-label {
+.vfr-tf-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vfr-tf-label {
   color: var(--text-muted);
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
+  white-space: nowrap;
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+.vfr-tf-input {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.vfr-tf-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.15);
+}
+
+.vfr-tf-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.vfr-tf-apply-btn {
+  padding: 8px 16px;
+  background: var(--primary-color);
+  color: var(--background-color);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
   white-space: nowrap;
 }
 
-.vfr-expression {
-  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
-  font-size: 1rem;
+.vfr-tf-apply-btn:hover {
+  background: var(--primary-hover);
+}
+
+.vfr-tf-preview {
+  padding: 6px 12px;
+  background: rgba(20, 184, 166, 0.05);
+  border-radius: var(--radius-sm);
+  font-size: 1.05rem;
   color: var(--text-primary);
-  letter-spacing: 0.02em;
+  overflow-x: auto;
+}
+
+.vfr-tf-preview .katex {
+  font-size: 1.15em;
+}
+
+.vfr-error-banner {
+  padding: 6px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--error-color);
+  font-size: 0.8rem;
+}
+
+.vfr-tf-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .vfr-preset-badge {
-  padding: 3px 10px;
+  padding: 4px 12px;
   background: var(--primary-light);
   border: 1px solid rgba(20, 184, 166, 0.25);
   border-radius: var(--radius-full);
@@ -51,31 +125,51 @@
   white-space: nowrap;
 }
 
-/* Main layout: s-plane left, response plots right */
-.vfr-plots-grid {
+.vfr-order-badge,
+.vfr-pz-badge {
+  padding: 4px 10px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--secondary-color);
+  white-space: nowrap;
+  font-family: 'Fira Code', monospace;
+}
+
+/* ======================================================================
+   S-Plane Container — FULL WIDTH, generous height
+   ====================================================================== */
+.vfr-splane-container {
+  position: relative;
+  width: 100%;
+  min-height: 550px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.vfr-splane-container .plot-container {
+  height: 100%;
+  min-height: 550px;
+}
+
+/* ======================================================================
+   Response plots — side by side
+   ====================================================================== */
+.vfr-response-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  min-height: 400px;
 }
 
-.vfr-splane-container {
-  position: relative;
-  min-height: 350px;
+.vfr-response-row .vfr-plot-wrapper {
+  min-height: 300px;
 }
 
-.vfr-response-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.vfr-response-container .vfr-plot-wrapper {
-  flex: 1;
-  min-height: 175px;
-}
-
-/* Animation controls bar */
+/* ======================================================================
+   Animation controls bar
+   ====================================================================== */
 .vfr-controls-bar {
   display: flex;
   align-items: center;
@@ -211,12 +305,14 @@
   outline-offset: 1px;
 }
 
-/* Info readout */
+/* ======================================================================
+   Info readout
+   ====================================================================== */
 .vfr-info-readout {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 8px 16px;
+  padding: 10px 16px;
   background: rgba(20, 184, 166, 0.05);
   border: 1px solid rgba(20, 184, 166, 0.15);
   border-radius: var(--radius-md);
@@ -247,7 +343,9 @@
   background: var(--border-color);
 }
 
-/* Individual contributions section */
+/* ======================================================================
+   Individual contributions section
+   ====================================================================== */
 .vfr-individual-section {
   padding-top: 8px;
 }
@@ -268,7 +366,7 @@
 }
 
 .vfr-individual-card {
-  padding: 8px 12px;
+  padding: 10px 14px;
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -278,7 +376,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .vfr-dot {
@@ -317,16 +415,26 @@
   font-weight: 500;
 }
 
-/* Responsive */
+/* ======================================================================
+   Responsive
+   ====================================================================== */
 @media (max-width: 768px) {
-  .vfr-plots-grid {
+  .vfr-splane-container {
+    min-height: 400px;
+  }
+
+  .vfr-splane-container .plot-container {
+    min-height: 400px;
+  }
+
+  .vfr-response-row {
     grid-template-columns: 1fr;
   }
 
-  .vfr-equation-banner {
+  .vfr-tf-banner {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+    align-items: stretch;
+    gap: 10px;
   }
 
   .vfr-controls-bar {

@@ -2,15 +2,18 @@
 Vector Diagram Frequency Response Builder Simulator
 
 Recreates the animated vector-diagram-to-frequency-response construction from
-MIT 6.003 Lecture 9 (slides 26–56). Users configure poles, zeros, and gain.
+MIT 6.003 Lecture 9 (slides 26–56). Users configure poles, zeros, and gain
+via a LaTeX-style transfer function expression or presets.
 The backend computes the full frequency response and per-factor contributions.
 The frontend custom viewer animates the ω sweep with synchronized vectors.
 
 Based on MIT 6.003 Lecture 09: Frequency Response.
 """
 
+import re
 import numpy as np
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
 from .base_simulator import BaseSimulator
 
 
@@ -18,18 +21,16 @@ class VectorFreqResponseSimulator(BaseSimulator):
     """
     Vector Diagram Frequency Response simulation.
 
-    For H(s) = K × ∏(s - zᵢ) / ∏(s - pⱼ), computes:
+    For H(s) = K × N(s)/D(s), computes:
+    - Poles/zeros from polynomial coefficients via np.roots
     - Full |H(jω)| and ∠H(jω) over a frequency sweep
     - Per-factor magnitudes and phases for individual contribution views
     - Static s-plane plot with poles and zeros
 
-    Parameters:
-    - preset: Pedagogical preset (single_zero, single_pole, pole_zero_pair,
-              conjugate_poles, custom)
-    - gain: Overall gain constant K
-    - zero1_real/imag, pole1_real/imag, pole2_real/imag: Pole/zero positions
-    - omega_max: Sweep range ±ω_max
-    - show_individual: Show per-vector contribution traces
+    Accepts transfer functions as:
+    - Inline expressions: (s+1)/(s^2+2s+1)
+    - Comma-separated coefficients: num_coeffs / den_coeffs
+    - Presets with pedagogical defaults
     """
 
     # Colors
@@ -49,45 +50,51 @@ class VectorFreqResponseSimulator(BaseSimulator):
     NUM_POINTS = 500
     MAX_MAG_CLIP = 50.0
     MIN_AXIS_RANGE = 2.0
-    MAX_AXIS_RANGE = 8.0
-    AXIS_PADDING = 1.0
+    AXIS_PADDING = 1.5
 
-    # Preset configurations: {poles: [(real, imag), ...], zeros: [...], gain: K}
+    # Preset TF expressions: {num_coeffs, den_coeffs, gain, name, description}
     PRESETS = {
-        "single_zero": {
-            "poles": [],
-            "zeros": [(-3.0, 0.0)],
-            "gain": 1.0,
-            "name": "Single Zero",
-            "expression_template": "s + {z1}",
-        },
         "single_pole": {
-            "poles": [(-3.0, 0.0)],
-            "zeros": [],
-            "gain": 9.0,
-            "name": "Single Pole",
-            "expression_template": "{K} / (s + {p1})",
+            "num_coeffs": "1",
+            "den_coeffs": "1, 3",
+            "gain": 3.0,
+            "name": "Single Real Pole",
+            "description": "H(s) = 3/(s + 3) — first-order low-pass",
+        },
+        "single_zero": {
+            "num_coeffs": "1, 2",
+            "den_coeffs": "1",
+            "gain": 1.0,
+            "name": "Single Real Zero",
+            "description": "H(s) = (s + 2) — first-order high-pass factor",
         },
         "pole_zero_pair": {
-            "poles": [(-4.0, 0.0)],
-            "zeros": [(-2.0, 0.0)],
+            "num_coeffs": "1, 2",
+            "den_coeffs": "1, 4",
             "gain": 3.0,
             "name": "Pole-Zero Pair",
-            "expression_template": "{K}(s + {z1}) / (s + {p1})",
+            "description": "H(s) = 3(s + 2)/(s + 4) — lead network",
         },
         "conjugate_poles": {
-            "poles": [(-1.0, 3.0)],  # Will be mirrored to create conjugate
-            "zeros": [],
-            "gain": 15.0,
+            "num_coeffs": "1",
+            "den_coeffs": "1, 2, 10",
+            "gain": 10.0,
             "name": "Conjugate Pole Pair",
-            "expression_template": "{K} / ((s - p₁)(s - p₁*))",
+            "description": "H(s) = 10/(s² + 2s + 10) — resonant second-order",
+        },
+        "complex_system": {
+            "num_coeffs": "1, 1",
+            "den_coeffs": "1, 2, 10",
+            "gain": 10.0,
+            "name": "Complex System",
+            "description": "H(s) = 10(s + 1)/(s² + 2s + 10) — zero near resonance",
         },
         "custom": {
-            "poles": [(-3.0, 0.0)],
-            "zeros": [(-1.0, 0.0)],
+            "num_coeffs": "1",
+            "den_coeffs": "1, 3",
             "gain": 1.0,
             "name": "Custom",
-            "expression_template": "",
+            "description": "Enter your own transfer function",
         },
     }
 
@@ -95,43 +102,38 @@ class VectorFreqResponseSimulator(BaseSimulator):
         "preset": {
             "type": "select",
             "options": [
-                {"value": "single_zero", "label": "Single Zero: H(s) = s − z₁"},
-                {"value": "single_pole", "label": "Single Pole: H(s) = K/(s − p₁)"},
-                {"value": "pole_zero_pair", "label": "Pole-Zero: H(s) = K(s − z₁)/(s − p₁)"},
-                {"value": "conjugate_poles", "label": "Conjugate Poles: H(s) = K/((s − p₁)(s − p₁*))"},
-                {"value": "custom", "label": "Custom Configuration"},
+                {"value": "single_pole", "label": "Single Real Pole: 3/(s + 3)"},
+                {"value": "single_zero", "label": "Single Real Zero: (s + 2)"},
+                {"value": "pole_zero_pair", "label": "Pole-Zero Pair: 3(s+2)/(s+4)"},
+                {"value": "conjugate_poles", "label": "Conjugate Poles: 10/(s²+2s+10)"},
+                {"value": "complex_system", "label": "Complex: 10(s+1)/(s²+2s+10)"},
+                {"value": "custom", "label": "Custom Expression"},
             ],
-            "default": "single_zero",
+            "default": "single_pole",
         },
-        "gain": {"type": "slider", "min": 0.1, "max": 20.0, "step": 0.1, "default": 1.0},
-        "zero1_real": {"type": "slider", "min": -5.0, "max": 5.0, "step": 0.1, "default": -3.0},
-        "zero1_imag": {"type": "slider", "min": -5.0, "max": 5.0, "step": 0.1, "default": 0.0},
-        "pole1_real": {"type": "slider", "min": -5.0, "max": 1.0, "step": 0.1, "default": -3.0},
-        "pole1_imag": {"type": "slider", "min": 0.0, "max": 5.0, "step": 0.1, "default": 3.0},
-        "pole2_real": {"type": "slider", "min": -5.0, "max": 1.0, "step": 0.1, "default": -1.0},
-        "pole2_imag": {"type": "slider", "min": -5.0, "max": 5.0, "step": 0.1, "default": 0.0},
-        "omega_max": {"type": "slider", "min": 2.0, "max": 15.0, "step": 0.5, "default": 5.0},
+        "num_coeffs": {"type": "expression", "default": "1"},
+        "den_coeffs": {"type": "expression", "default": "1, 3"},
+        "gain": {"type": "slider", "min": 0.1, "max": 50.0, "step": 0.1, "default": 3.0},
+        "omega_max": {"type": "slider", "min": 1.0, "max": 30.0, "step": 0.5, "default": 8.0},
         "show_individual": {"type": "checkbox", "default": False},
     }
 
     DEFAULT_PARAMS = {
-        "preset": "single_zero",
-        "gain": 1.0,
-        "zero1_real": -3.0,
-        "zero1_imag": 0.0,
-        "pole1_real": -3.0,
-        "pole1_imag": 3.0,
-        "pole2_real": -1.0,
-        "pole2_imag": 0.0,
-        "omega_max": 5.0,
+        "preset": "single_pole",
+        "num_coeffs": "1",
+        "den_coeffs": "1, 3",
+        "gain": 3.0,
+        "omega_max": 8.0,
         "show_individual": False,
     }
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
+        self._num: np.ndarray = np.array([1.0])
+        self._den: np.ndarray = np.array([1.0, 3.0])
         self._poles: List[complex] = []
         self._zeros: List[complex] = []
-        self._gain: float = 1.0
+        self._gain: float = 3.0
         self._omega: np.ndarray = np.array([])
         self._h_jw: np.ndarray = np.array([])
         self._magnitude: np.ndarray = np.array([])
@@ -140,6 +142,7 @@ class VectorFreqResponseSimulator(BaseSimulator):
         self._individual_zero_phases: List[np.ndarray] = []
         self._individual_pole_mags: List[np.ndarray] = []
         self._individual_pole_phases: List[np.ndarray] = []
+        self._error: Optional[str] = None
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         """Initialize simulation with parameters."""
@@ -150,6 +153,7 @@ class VectorFreqResponseSimulator(BaseSimulator):
                     self.parameters[name] = self._validate_param(name, value)
         self._initialized = True
         self._apply_preset_defaults()
+        self._parse_coefficients()
         self._compute()
 
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
@@ -159,19 +163,39 @@ class VectorFreqResponseSimulator(BaseSimulator):
         if name in self.parameters:
             self.parameters[name] = self._validate_param(name, value)
 
-        # When preset changes, reset to lecture defaults
+        # When preset changes, load its defaults
         if name == "preset" and value != old_preset:
             self._apply_preset_defaults()
 
+        self._parse_coefficients()
         self._compute()
         return self.get_state()
 
     def reset(self) -> Dict[str, Any]:
         """Reset to default parameters."""
         self.parameters = self.DEFAULT_PARAMS.copy()
+        self._error = None
         self._initialized = True
         self._apply_preset_defaults()
+        self._parse_coefficients()
         self._compute()
+        return self.get_state()
+
+    def execute(self, action: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Handle custom actions."""
+        params = params or {}
+        if action == "parse_expression":
+            return self._action_parse_expression(params)
+        elif action == "reset":
+            return self.reset()
+        elif action in ("init", "run", "update"):
+            if params:
+                for k, v in params.items():
+                    if k in self.parameters:
+                        self.parameters[k] = self._validate_param(k, v)
+                self._parse_coefficients()
+                self._compute()
+            return self.get_state()
         return self.get_state()
 
     # =========================================================================
@@ -179,93 +203,320 @@ class VectorFreqResponseSimulator(BaseSimulator):
     # =========================================================================
 
     def _apply_preset_defaults(self) -> None:
-        """Apply preset-specific pole/zero/gain defaults."""
+        """Apply preset-specific defaults."""
         preset = self.parameters["preset"]
         if preset not in self.PRESETS or preset == "custom":
             return
 
         config = self.PRESETS[preset]
-
+        self.parameters["num_coeffs"] = config["num_coeffs"]
+        self.parameters["den_coeffs"] = config["den_coeffs"]
         self.parameters["gain"] = config["gain"]
 
-        # Set zero1 if preset has zeros
-        if config["zeros"]:
-            self.parameters["zero1_real"] = config["zeros"][0][0]
-            self.parameters["zero1_imag"] = config["zeros"][0][1]
+    # =========================================================================
+    # TF Expression Parser (adapted from root locus)
+    # =========================================================================
 
-        # Set pole1 if preset has poles
-        if config["poles"]:
-            self.parameters["pole1_real"] = config["poles"][0][0]
-            self.parameters["pole1_imag"] = config["poles"][0][1]
+    def _action_parse_expression(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse a TF expression like '(s+1)/(s^2+2s+1)' and update."""
+        expr = str(params.get("expression", "")).strip()
+        if not expr:
+            self._error = "Empty expression"
+            return self.get_state()
+
+        try:
+            num_str, den_str = self._parse_tf_expression(expr)
+            self.parameters["num_coeffs"] = num_str
+            self.parameters["den_coeffs"] = den_str
+            self.parameters["preset"] = "custom"
+            self._error = None
+            self._parse_coefficients()
+            self._compute()
+        except Exception as e:
+            self._error = f"Parse error: {str(e)}"
+
+        return self.get_state()
+
+    def _parse_tf_expression(self, expr: str) -> Tuple[str, str]:
+        """Parse a TF expression into coefficient strings.
+
+        Returns (num_coeffs_str, den_coeffs_str) as comma-separated strings
+        in descending power order.
+        """
+        expr = expr.strip()
+        # Remove H(s) = or G(s) = prefix
+        expr = re.sub(r'[GH]\s*\(\s*s\s*\)\s*=\s*', '', expr).strip()
+
+        # Find the division point — '/' not inside parentheses
+        split_idx = -1
+        depth = 0
+        for i, ch in enumerate(expr):
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth -= 1
+            elif ch == '/' and depth == 0:
+                split_idx = i
+                break
+
+        if split_idx >= 0:
+            num_str = self._strip_outer_parens(expr[:split_idx])
+            den_str = self._strip_outer_parens(expr[split_idx + 1:])
+        else:
+            num_str = self._strip_outer_parens(expr)
+            den_str = "1"
+
+        num_coeffs = self._parse_polynomial_expr(num_str)
+        den_coeffs = self._parse_polynomial_expr(den_str)
+
+        return (
+            ", ".join(f"{c:.6g}" for c in num_coeffs),
+            ", ".join(f"{c:.6g}" for c in den_coeffs),
+        )
+
+    @staticmethod
+    def _strip_outer_parens(s: str) -> str:
+        """Strip matched outer parentheses: '((s+1))' -> 's+1'."""
+        s = s.strip()
+        while len(s) >= 2 and s[0] == '(' and s[-1] == ')':
+            depth = 0
+            matched = True
+            for i, ch in enumerate(s):
+                if ch == '(':
+                    depth += 1
+                elif ch == ')':
+                    depth -= 1
+                if depth == 0 and i < len(s) - 1:
+                    matched = False
+                    break
+            if matched:
+                s = s[1:-1].strip()
+            else:
+                break
+        return s
+
+    def _parse_polynomial_expr(self, poly_str: str) -> List[float]:
+        """Parse polynomial expression like 's^2 + 3s + 1' or '(s+1)(s+3)'.
+
+        Returns coefficients in descending power order.
+        """
+        poly_str = poly_str.strip()
+        if not poly_str or poly_str == "0":
+            return [0.0]
+
+        # Pure number
+        try:
+            val = float(poly_str)
+            return [val]
+        except ValueError:
+            pass
+
+        # Check for factored form
+        factored = self._try_parse_factored(poly_str)
+        if factored is not None:
+            return factored
+
+        # Polynomial form: s^2 + 3s + 1
+        return self._parse_expanded_poly(poly_str)
+
+    def _try_parse_factored(self, expr: str) -> Optional[List[float]]:
+        """Try to parse as product of factors like (s+1)(s-2) or s(s+1).
+
+        Returns coefficients (high-power-first) or None if not factored form.
+        """
+        expr = expr.strip()
+        factors: List[List[float]] = []
+        leading_coeff = 1.0
+        i = 0
+
+        # Try to extract leading coefficient
+        coeff_match = re.match(r'^(-?\d*\.?\d+)\s*\*?\s*(?=[\(s])', expr)
+        if coeff_match:
+            leading_coeff = float(coeff_match.group(1))
+            i = coeff_match.end()
+
+        while i < len(expr):
+            ch = expr[i]
+            if ch in (' ', '*'):
+                i += 1
+                continue
+
+            if ch == '(':
+                depth = 1
+                j = i + 1
+                while j < len(expr) and depth > 0:
+                    if expr[j] == '(':
+                        depth += 1
+                    elif expr[j] == ')':
+                        depth -= 1
+                    j += 1
+                factor_str = expr[i + 1:j - 1].strip()
+                factor_coeffs = self._parse_expanded_poly(factor_str)
+                factors.append(factor_coeffs)
+                i = j
+            elif expr[i:i + 1].lower() == 's':
+                power_match = re.match(r's\s*\^\s*(\d+)', expr[i:])
+                if power_match:
+                    power = int(power_match.group(1))
+                    factor = [1.0] + [0.0] * power
+                    factors.append(factor)
+                    i += power_match.end()
+                else:
+                    factors.append([1.0, 0.0])
+                    i += 1
+            else:
+                return None
+
+        if not factors:
+            return None
+
+        result = np.array([leading_coeff])
+        for f in factors:
+            result = np.polymul(result, np.array(f))
+        return [float(c) for c in result]
+
+    def _parse_expanded_poly(self, poly_str: str) -> List[float]:
+        """Parse expanded polynomial like 's^2 + 3s + 1'."""
+        poly_str = poly_str.strip()
+        if not poly_str or poly_str == "0":
+            return [0.0]
+
+        try:
+            val = float(poly_str)
+            return [val]
+        except ValueError:
+            pass
+
+        terms = self._tokenize_poly_terms(poly_str)
+        coeffs: Dict[int, float] = {}
+
+        for term in terms:
+            term = term.strip()
+            if not term:
+                continue
+
+            has_s = bool(re.search(r's', term, re.IGNORECASE))
+
+            if not has_s:
+                try:
+                    coeffs[0] = coeffs.get(0, 0) + float(term.replace(" ", ""))
+                except ValueError:
+                    pass
+                continue
+
+            power_match = re.search(r's\s*\^\s*(-?\d+)', term, re.IGNORECASE)
+            if power_match:
+                power = int(power_match.group(1))
+            else:
+                power = 1
+
+            coeff_str = re.sub(r'\s*\*?\s*s(\s*\^\s*-?\d+)?', '', term, flags=re.IGNORECASE).strip()
+            coeff_str = coeff_str.rstrip("*").strip().replace(" ", "")
+
+            if coeff_str in ("", "+"):
+                coeff = 1.0
+            elif coeff_str == "-":
+                coeff = -1.0
+            else:
+                try:
+                    coeff = float(coeff_str)
+                except ValueError:
+                    coeff = 1.0
+
+            coeffs[power] = coeffs.get(power, 0) + coeff
+
+        if not coeffs:
+            return [1.0]
+
+        max_power = max(coeffs.keys())
+        return [coeffs.get(i, 0.0) for i in range(max_power, -1, -1)]
+
+    @staticmethod
+    def _tokenize_poly_terms(poly_str: str) -> List[str]:
+        """Split polynomial string into signed terms."""
+        terms: List[str] = []
+        current = ""
+        s = poly_str.strip()
+        i = 0
+
+        while i < len(s):
+            ch = s[i]
+            if ch in ('+', '-') and i > 0:
+                j = i - 1
+                while j >= 0 and s[j] == ' ':
+                    j -= 1
+                if j >= 0 and s[j] == '^':
+                    current += ch
+                    i += 1
+                    continue
+                if current.strip():
+                    terms.append(current.strip())
+                current = ch if ch == '-' else ""
+                i += 1
+                continue
+            current += ch
+            i += 1
+
+        if current.strip():
+            terms.append(current.strip())
+
+        return terms
+
+    # =========================================================================
+    # Coefficient parsing and pole/zero extraction
+    # =========================================================================
+
+    def _parse_coefficients(self) -> None:
+        """Parse num_coeffs/den_coeffs strings into arrays and extract poles/zeros."""
+        self._error = None
+
+        try:
+            num_str = str(self.parameters.get("num_coeffs", "1")).strip()
+            den_str = str(self.parameters.get("den_coeffs", "1")).strip()
+
+            num_list = [float(x.strip()) for x in num_str.split(",") if x.strip()]
+            den_list = [float(x.strip()) for x in den_str.split(",") if x.strip()]
+
+            if not num_list:
+                num_list = [1.0]
+            if not den_list:
+                den_list = [1.0]
+
+            self._num = np.array(num_list, dtype=float)
+            self._den = np.array(den_list, dtype=float)
+
+            # Extract poles and zeros via np.roots
+            if len(self._num) > 1:
+                self._zeros = list(np.roots(self._num))
+            else:
+                self._zeros = []
+
+            if len(self._den) > 1:
+                self._poles = list(np.roots(self._den))
+            else:
+                self._poles = []
+
+            self._gain = float(self.parameters.get("gain", 1.0))
+
+        except Exception as e:
+            self._error = f"Coefficient error: {str(e)}"
+            self._num = np.array([1.0])
+            self._den = np.array([1.0, 1.0])
+            self._poles = [complex(-1, 0)]
+            self._zeros = []
+            self._gain = 1.0
 
     # =========================================================================
     # Core computation
     # =========================================================================
 
-    def _build_poles_zeros(self) -> None:
-        """Build pole/zero lists from current parameters and preset."""
-        preset = self.parameters["preset"]
-        self._gain = float(self.parameters["gain"])
-
-        self._zeros = []
-        self._poles = []
-
-        if preset == "single_zero":
-            z1 = complex(float(self.parameters["zero1_real"]),
-                         float(self.parameters["zero1_imag"]))
-            self._zeros = [z1]
-            self._gain = 1.0  # Single zero always gain 1
-
-        elif preset == "single_pole":
-            p1 = complex(float(self.parameters["pole1_real"]), 0.0)
-            self._poles = [p1]
-
-        elif preset == "pole_zero_pair":
-            z1 = complex(float(self.parameters["zero1_real"]), 0.0)
-            p1 = complex(float(self.parameters["pole1_real"]), 0.0)
-            self._zeros = [z1]
-            self._poles = [p1]
-
-        elif preset == "conjugate_poles":
-            sigma = float(self.parameters["pole1_real"])
-            omega_p = float(self.parameters["pole1_imag"])
-            if abs(omega_p) < 1e-6:
-                # Degenerate: single real pole
-                self._poles = [complex(sigma, 0.0)]
-            else:
-                p1 = complex(sigma, omega_p)
-                p2 = complex(sigma, -omega_p)
-                self._poles = [p1, p2]
-
-        elif preset == "custom":
-            z1 = complex(float(self.parameters["zero1_real"]),
-                         float(self.parameters["zero1_imag"]))
-            p1 = complex(float(self.parameters["pole1_real"]),
-                         float(self.parameters["pole1_imag"]))
-            p2 = complex(float(self.parameters["pole2_real"]),
-                         float(self.parameters["pole2_imag"]))
-
-            # Only include if not at origin (convention: zero at origin = unused)
-            if abs(z1) > 1e-10:
-                self._zeros = [z1]
-            if abs(p1) > 1e-10:
-                self._poles = [p1]
-            if abs(p2) > 1e-10:
-                self._poles.append(p2)
-            # If custom with pole1 having nonzero imag, add conjugate
-            if abs(p1.imag) > 1e-6 and len(self._poles) == 1:
-                self._poles.append(complex(p1.real, -p1.imag))
-
     def _compute(self) -> None:
         """Compute the full frequency response and per-factor data."""
-        self._build_poles_zeros()
-
         omega_max = float(self.parameters["omega_max"])
         self._omega = np.linspace(-omega_max, omega_max, self.NUM_POINTS)
-        s = 1j * self._omega  # s₀ = jω for all ω values
+        s = 1j * self._omega
 
-        # Compute H(jω) as product of factors
-        # H(s) = K × ∏(s - zᵢ) / ∏(s - pⱼ)
+        # Compute H(jω) = K × N(jω) / D(jω) using factor form
         numerator = np.ones(self.NUM_POINTS, dtype=complex) * self._gain
         denominator = np.ones(self.NUM_POINTS, dtype=complex)
 
@@ -273,7 +524,7 @@ class VectorFreqResponseSimulator(BaseSimulator):
         self._individual_zero_mags = []
         self._individual_zero_phases = []
         for z in self._zeros:
-            factor = s - z  # vector from zero to jω
+            factor = s - z
             numerator *= factor
             self._individual_zero_mags.append(np.abs(factor))
             self._individual_zero_phases.append(np.angle(factor))
@@ -282,12 +533,12 @@ class VectorFreqResponseSimulator(BaseSimulator):
         self._individual_pole_mags = []
         self._individual_pole_phases = []
         for p in self._poles:
-            factor = s - p  # vector from pole to jω
+            factor = s - p
             denominator *= factor
             self._individual_pole_mags.append(np.abs(factor))
             self._individual_pole_phases.append(np.angle(factor))
 
-        # Compute H(jω) with safeguard against zero denominator
+        # Compute H(jω) with safeguard
         with np.errstate(divide='ignore', invalid='ignore'):
             self._h_jw = np.where(
                 np.abs(denominator) < 1e-12,
@@ -296,83 +547,116 @@ class VectorFreqResponseSimulator(BaseSimulator):
             )
 
         self._magnitude = np.clip(np.abs(self._h_jw), 0, self.MAX_MAG_CLIP)
-        self._phase = np.angle(self._h_jw)
-        # Unwrap phase for smooth curves
-        self._phase = np.unwrap(self._phase)
+        self._phase = np.unwrap(np.angle(self._h_jw))
 
     # =========================================================================
     # Expression formatting
     # =========================================================================
 
-    def _format_hs(self) -> str:
-        """Format H(s) expression as readable string."""
-        preset = self.parameters["preset"]
+    def _format_num_display(self) -> str:
+        """Format numerator polynomial for LaTeX display."""
+        return self._poly_to_latex(self._num)
+
+    def _format_den_display(self) -> str:
+        """Format denominator polynomial for LaTeX display."""
+        return self._poly_to_latex(self._den)
+
+    @staticmethod
+    def _poly_to_latex(coeffs: np.ndarray) -> str:
+        """Convert coefficient array to LaTeX polynomial string."""
+        n = len(coeffs) - 1
+        if n < 0:
+            return "0"
+        if n == 0:
+            return f"{coeffs[0]:.4g}"
+
+        terms = []
+        for i, c in enumerate(coeffs):
+            power = n - i
+            if abs(c) < 1e-10:
+                continue
+
+            # Coefficient display
+            if power == 0:
+                coeff_str = f"{abs(c):.4g}"
+            elif abs(abs(c) - 1.0) < 1e-10:
+                coeff_str = ""
+            else:
+                coeff_str = f"{abs(c):.4g}"
+
+            # Variable display
+            if power == 0:
+                var_str = ""
+            elif power == 1:
+                var_str = "s"
+            else:
+                var_str = f"s^{{{power}}}"
+
+            # Sign
+            if len(terms) == 0:
+                sign = "-" if c < 0 else ""
+            else:
+                sign = " - " if c < 0 else " + "
+
+            terms.append(f"{sign}{coeff_str}{var_str}")
+
+        return "".join(terms) if terms else "0"
+
+    def _format_hs_expression(self) -> str:
+        """Format H(s) as a readable text string."""
+        num_str = self._poly_to_text(self._num)
+        den_str = self._poly_to_text(self._den)
         K = self._gain
 
-        if preset == "single_zero":
-            z = self._zeros[0] if self._zeros else complex(-3, 0)
-            if abs(z.imag) < 1e-6:
-                if z.real >= 0:
-                    return f"s \u2212 {abs(z.real):.3g}"
-                else:
-                    return f"s + {abs(z.real):.3g}"
-            return f"s \u2212 ({self._format_complex(z)})"
+        if den_str == "1":
+            if abs(K - 1.0) < 1e-6:
+                return num_str
+            return f"{K:.4g} \u00b7 ({num_str})"
 
-        elif preset == "single_pole":
-            p = self._poles[0] if self._poles else complex(-3, 0)
-            den = self._format_factor(p)
-            return f"{K:.3g} / ({den})"
+        if abs(K - 1.0) < 1e-6:
+            return f"({num_str}) / ({den_str})"
+        return f"{K:.4g} \u00b7 ({num_str}) / ({den_str})"
 
-        elif preset == "pole_zero_pair":
-            z = self._zeros[0] if self._zeros else complex(-2, 0)
-            p = self._poles[0] if self._poles else complex(-4, 0)
-            num = self._format_factor(z)
-            den = self._format_factor(p)
-            return f"{K:.3g}\u00b7({num}) / ({den})"
+    @staticmethod
+    def _poly_to_text(coeffs: np.ndarray) -> str:
+        """Convert coefficient array to readable text polynomial."""
+        n = len(coeffs) - 1
+        if n < 0:
+            return "0"
+        if n == 0:
+            return f"{coeffs[0]:.4g}"
 
-        elif preset == "conjugate_poles":
-            if len(self._poles) >= 2:
-                sigma = self._poles[0].real
-                omega = abs(self._poles[0].imag)
-                # Display as K / (s² + as + b) polynomial form
-                a = -2 * sigma
-                b = sigma**2 + omega**2
-                a_str = f"+ {a:.3g}" if a >= 0 else f"\u2212 {abs(a):.3g}"
-                return f"{K:.3g} / (s\u00b2 {a_str}s + {b:.3g})"
-            elif len(self._poles) == 1:
-                p1 = self._poles[0]
-                den = self._format_factor(p1)
-                return f"{K:.3g} / ({den})"
-            return f"{K:.3g}"
+        terms = []
+        for i, c in enumerate(coeffs):
+            power = n - i
+            if abs(c) < 1e-10:
+                continue
 
-        elif preset == "custom":
-            parts_num = []
-            parts_den = []
-            if abs(K - 1.0) > 1e-6:
-                parts_num.append(f"{K:.3g}")
-            for z in self._zeros:
-                parts_num.append(f"({self._format_factor(z)})")
-            for p in self._poles:
-                parts_den.append(f"({self._format_factor(p)})")
-            num_str = "\u00b7".join(parts_num) if parts_num else "1"
-            den_str = "\u00b7".join(parts_den) if parts_den else "1"
-            if parts_den:
-                return f"{num_str} / {den_str}"
-            return num_str
-
-        return "H(s)"
-
-    def _format_factor(self, z: complex) -> str:
-        """Format a single (s - z) factor."""
-        if abs(z.imag) < 1e-6:
-            r = z.real
-            if r >= 0:
-                return f"s \u2212 {r:.3g}"
+            if power == 0:
+                coeff_str = f"{abs(c):.4g}"
+            elif abs(abs(c) - 1.0) < 1e-10:
+                coeff_str = ""
             else:
-                return f"s + {abs(r):.3g}"
-        return f"s \u2212 ({self._format_complex(z)})"
+                coeff_str = f"{abs(c):.4g}"
 
-    def _format_complex(self, z: complex) -> str:
+            if power == 0:
+                var_str = ""
+            elif power == 1:
+                var_str = "s"
+            else:
+                var_str = f"s\u00b2" if power == 2 else f"s^{power}"
+
+            if len(terms) == 0:
+                sign = "\u2212" if c < 0 else ""
+            else:
+                sign = " \u2212 " if c < 0 else " + "
+
+            terms.append(f"{sign}{coeff_str}{var_str}")
+
+        return "".join(terms) if terms else "0"
+
+    @staticmethod
+    def _format_complex(z: complex) -> str:
         """Format a complex number for display."""
         if abs(z.imag) < 1e-6:
             return f"{z.real:.3g}"
@@ -381,17 +665,12 @@ class VectorFreqResponseSimulator(BaseSimulator):
         sign = "+" if z.imag >= 0 else "\u2212"
         return f"{z.real:.3g} {sign} {abs(z.imag):.3g}j"
 
-    def _get_preset_display_name(self) -> str:
-        """Get human-readable name for current preset."""
-        preset = self.parameters["preset"]
-        return self.PRESETS.get(preset, {}).get("name", preset)
-
     # =========================================================================
     # s-Plane axis range
     # =========================================================================
 
     def _compute_axis_range(self) -> float:
-        """Compute dynamic axis range based on poles and zeros."""
+        """Compute dynamic axis range based on poles, zeros, and omega_max."""
         max_r = self.MIN_AXIS_RANGE
         for p in self._poles:
             max_r = max(max_r, abs(p.real) + self.AXIS_PADDING)
@@ -399,7 +678,10 @@ class VectorFreqResponseSimulator(BaseSimulator):
         for z in self._zeros:
             max_r = max(max_r, abs(z.real) + self.AXIS_PADDING)
             max_r = max(max_r, abs(z.imag) + self.AXIS_PADDING)
-        return min(max_r, self.MAX_AXIS_RANGE)
+        # Also ensure omega_max fits on the imaginary axis
+        omega_max = float(self.parameters.get("omega_max", 8.0))
+        max_r = max(max_r, omega_max + 0.5)
+        return max_r
 
     # =========================================================================
     # Plot generation
@@ -420,7 +702,7 @@ class VectorFreqResponseSimulator(BaseSimulator):
         traces = []
         axis_range = self._compute_axis_range()
 
-        # jω axis
+        # jω axis (prominent)
         traces.append({
             "x": [0, 0],
             "y": [-axis_range, axis_range],
@@ -443,40 +725,46 @@ class VectorFreqResponseSimulator(BaseSimulator):
             "hoverinfo": "skip",
         })
 
-        # Zero markers
+        # Zero markers (larger, with text labels)
         for i, z in enumerate(self._zeros):
             label = self._format_complex(z)
             traces.append({
                 "x": [float(z.real)],
                 "y": [float(z.imag)],
                 "type": "scatter",
-                "mode": "markers",
+                "mode": "markers+text",
                 "marker": {
                     "symbol": "circle-open",
-                    "size": 14,
+                    "size": 18,
                     "color": self.ZERO_COLOR,
                     "line": {"width": 3, "color": self.ZERO_COLOR},
                 },
-                "name": f"Zero: s = {label}",
+                "text": [f"z{i + 1}"],
+                "textposition": "top right",
+                "textfont": {"color": self.ZERO_COLOR, "size": 11, "family": "Inter, sans-serif"},
+                "name": f"Zero: {label}",
                 "showlegend": True,
                 "hovertemplate": f"Zero {i + 1}<br>s = {label}<extra></extra>",
             })
 
-        # Pole markers
+        # Pole markers (larger, with text labels)
         for i, p in enumerate(self._poles):
             label = self._format_complex(p)
             traces.append({
                 "x": [float(p.real)],
                 "y": [float(p.imag)],
                 "type": "scatter",
-                "mode": "markers",
+                "mode": "markers+text",
                 "marker": {
                     "symbol": "x",
-                    "size": 14,
+                    "size": 18,
                     "color": self.POLE_COLOR,
                     "line": {"width": 3, "color": self.POLE_COLOR},
                 },
-                "name": f"Pole: s = {label}",
+                "text": [f"p{i + 1}"],
+                "textposition": "top right",
+                "textfont": {"color": self.POLE_COLOR, "size": 11, "family": "Inter, sans-serif"},
+                "name": f"Pole: {label}",
                 "showlegend": True,
                 "hovertemplate": f"Pole {i + 1}<br>s = {label}<extra></extra>",
             })
@@ -521,9 +809,9 @@ class VectorFreqResponseSimulator(BaseSimulator):
                     "bgcolor": self.LEGEND_BG,
                     "bordercolor": self.LEGEND_BORDER,
                     "borderwidth": 1,
-                    "font": {"size": 10, "color": "#94a3b8"},
+                    "font": {"size": 11, "color": "#94a3b8"},
                 },
-                "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
+                "margin": {"l": 55, "r": 25, "t": 40, "b": 50},
                 "plot_bgcolor": "rgba(0,0,0,0)",
                 "paper_bgcolor": "rgba(0,0,0,0)",
                 "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
@@ -535,7 +823,6 @@ class VectorFreqResponseSimulator(BaseSimulator):
         """Create magnitude response |H(jω)| plot."""
         traces = []
 
-        # Main magnitude trace
         traces.append({
             "x": self._omega.tolist(),
             "y": self._magnitude.tolist(),
@@ -546,7 +833,6 @@ class VectorFreqResponseSimulator(BaseSimulator):
             "hovertemplate": "\u03c9 = %{x:.2f}<br>|H| = %{y:.3f}<extra></extra>",
         })
 
-        # Individual zero contributions (faded)
         if self.parameters["show_individual"]:
             for i, mag in enumerate(self._individual_zero_mags):
                 traces.append({
@@ -611,7 +897,7 @@ class VectorFreqResponseSimulator(BaseSimulator):
                     "borderwidth": 1,
                     "font": {"size": 10, "color": "#94a3b8"},
                 },
-                "margin": {"l": 60, "r": 30, "t": 45, "b": 55},
+                "margin": {"l": 55, "r": 25, "t": 40, "b": 50},
                 "plot_bgcolor": "rgba(0,0,0,0)",
                 "paper_bgcolor": "rgba(0,0,0,0)",
                 "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
@@ -624,7 +910,6 @@ class VectorFreqResponseSimulator(BaseSimulator):
         """Create phase response ∠H(jω) plot."""
         traces = []
 
-        # Main phase trace
         traces.append({
             "x": self._omega.tolist(),
             "y": self._phase.tolist(),
@@ -635,7 +920,6 @@ class VectorFreqResponseSimulator(BaseSimulator):
             "hovertemplate": "\u03c9 = %{x:.2f}<br>\u2220H = %{y:.3f} rad<extra></extra>",
         })
 
-        # Individual phase contributions (faded)
         if self.parameters["show_individual"]:
             for i, ph in enumerate(self._individual_zero_phases):
                 traces.append({
@@ -650,7 +934,7 @@ class VectorFreqResponseSimulator(BaseSimulator):
             for i, ph in enumerate(self._individual_pole_phases):
                 traces.append({
                     "x": self._omega.tolist(),
-                    "y": (-ph).tolist(),  # Negate: pole phases subtract
+                    "y": (-ph).tolist(),
                     "type": "scatter",
                     "mode": "lines",
                     "line": {"color": self.POLE_COLOR, "width": 1.5, "dash": "dot"},
@@ -699,7 +983,7 @@ class VectorFreqResponseSimulator(BaseSimulator):
                     "borderwidth": 1,
                     "font": {"size": 10, "color": "#94a3b8"},
                 },
-                "margin": {"l": 60, "r": 30, "t": 45, "b": 55},
+                "margin": {"l": 55, "r": 25, "t": 40, "b": 50},
                 "plot_bgcolor": "rgba(0,0,0,0)",
                 "paper_bgcolor": "rgba(0,0,0,0)",
                 "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
@@ -722,8 +1006,17 @@ class VectorFreqResponseSimulator(BaseSimulator):
         state["metadata"] = {
             "simulation_type": "vector_freq_response",
             "sticky_controls": True,
-            "hs_expression": self._format_hs(),
-            "preset_name": self._get_preset_display_name(),
+            "hs_expression": self._format_hs_expression(),
+            "num_display": self._format_num_display(),
+            "den_display": self._format_den_display(),
+            "num_coeffs_str": str(self.parameters.get("num_coeffs", "1")),
+            "den_coeffs_str": str(self.parameters.get("den_coeffs", "1")),
+            "preset_name": self.PRESETS.get(
+                self.parameters.get("preset", "custom"), {}
+            ).get("name", "Custom"),
+            "preset_description": self.PRESETS.get(
+                self.parameters.get("preset", "custom"), {}
+            ).get("description", ""),
             "poles": [
                 {"real": float(p.real), "imag": float(p.imag)}
                 for p in self._poles
@@ -741,6 +1034,8 @@ class VectorFreqResponseSimulator(BaseSimulator):
             "individual_pole_mags": [m.tolist() for m in self._individual_pole_mags],
             "individual_pole_phases": [p.tolist() for p in self._individual_pole_phases],
             "axis_range": float(self._compute_axis_range()),
+            "system_order": len(self._den) - 1,
+            "error": self._error,
         }
 
         return state

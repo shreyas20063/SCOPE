@@ -1931,6 +1931,7 @@ function SimulationViewer({
                     plots={plots}
                     currentParams={currentParams}
                     onParamChange={onParamChange}
+                    onButtonClick={onButtonClick}
                     isUpdating={isUpdating}
                   />
                 </Suspense>

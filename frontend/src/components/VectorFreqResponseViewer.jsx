@@ -5,18 +5,137 @@
  * Animates the ω sweep along the jω axis, drawing vectors from poles/zeros
  * to s₀ = jω, and progressively building up the magnitude/phase curves.
  *
+ * Overhauled layout:
+ * - TF input banner with KaTeX live preview (type any expression)
+ * - Full-width s-plane (550px) with proper Plotly annotation arrows
+ * - Side-by-side magnitude + phase below
+ * - Animation controls + readout
+ *
  * Animation runs entirely client-side using requestAnimationFrame.
  * Backend provides pole/zero positions and precomputed frequency response arrays.
  */
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import PlotDisplay from './PlotDisplay';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import '../styles/VectorFreqResponseViewer.css';
 
 const FRAME_INTERVAL_BASE = 40; // ~25fps base
 
-function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChange, isUpdating }) {
-  // Animation state (entirely frontend)
+/* ======================================================================
+   TF Expression to LaTeX
+   ====================================================================== */
+function tfExprToLatex(expression) {
+  if (!expression) return '';
+  const expr = expression.trim();
+  // Handle (num)/(den) or num/den
+  const ratioMatch = expr.match(/^\(([^)]+)\)\s*\/\s*\(([^)]+)\)$/) ||
+                     expr.match(/^([^/]+)\/(.+)$/);
+  if (ratioMatch) {
+    const num = ratioMatch[1].trim();
+    const den = ratioMatch[2].trim();
+    return `H(s) = \\frac{${num}}{${den}}`;
+  }
+  return `H(s) = ${expr}`;
+}
+
+/* ======================================================================
+   TF Input Banner
+   ====================================================================== */
+function TransferFunctionBanner({ metadata, onParseExpression }) {
+  const [tfInput, setTfInput] = useState('');
+  const error = metadata?.error;
+
+  // KaTeX preview
+  const latexPreview = useMemo(() => {
+    if (tfInput.trim()) {
+      const latex = tfExprToLatex(tfInput);
+      try {
+        return katex.renderToString(latex, { throwOnError: false, displayMode: false });
+      } catch {
+        return null;
+      }
+    }
+    // Show current TF from metadata
+    if (metadata?.num_display && metadata?.den_display) {
+      const gain = metadata?.gain;
+      const gainPrefix = gain && Math.abs(gain - 1.0) > 1e-6 ? `${gain} \\cdot ` : '';
+      const latex = metadata.den_display === '1'
+        ? `H(s) = ${gainPrefix}${metadata.num_display}`
+        : `H(s) = ${gainPrefix}\\frac{${metadata.num_display}}{${metadata.den_display}}`;
+      try {
+        return katex.renderToString(latex, { throwOnError: false, displayMode: false });
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, [tfInput, metadata?.num_display, metadata?.den_display, metadata?.gain]);
+
+  const handleSubmit = useCallback(() => {
+    const expr = tfInput.trim();
+    if (!expr) return;
+    if (onParseExpression) {
+      onParseExpression(expr);
+    }
+  }, [tfInput, onParseExpression]);
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit();
+    }
+  }, [handleSubmit]);
+
+  return (
+    <div className="vfr-tf-banner">
+      <div className="vfr-tf-input-area">
+        <div className="vfr-tf-input-row">
+          <label className="vfr-tf-label">H(s)</label>
+          <input
+            className="vfr-tf-input"
+            type="text"
+            value={tfInput}
+            onChange={(e) => setTfInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={handleSubmit}
+            placeholder="e.g. (s+1)/(s^2+2s+1)"
+            spellCheck={false}
+          />
+          <button className="vfr-tf-apply-btn" onClick={handleSubmit}>Apply</button>
+        </div>
+        {latexPreview && (
+          <div
+            className="vfr-tf-preview"
+            dangerouslySetInnerHTML={{ __html: latexPreview }}
+          />
+        )}
+        {error && (
+          <div className="vfr-error-banner">{error}</div>
+        )}
+      </div>
+
+      <div className="vfr-tf-badges">
+        {metadata?.preset_name && (
+          <span className="vfr-preset-badge">{metadata.preset_name}</span>
+        )}
+        {metadata?.system_order != null && (
+          <span className="vfr-order-badge">Order {metadata.system_order}</span>
+        )}
+        <span className="vfr-pz-badge">
+          {(metadata?.poles?.length || 0)}P / {(metadata?.zeros?.length || 0)}Z
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ======================================================================
+   Main Viewer
+   ====================================================================== */
+function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChange, onButtonClick, isUpdating }) {
+  // Animation state
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1.0);
@@ -47,7 +166,6 @@ function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChang
     setIsPlaying(false);
   }, [fingerprint]);
 
-  // Keep ref in sync
   useEffect(() => {
     indexRef.current = currentIndex;
   }, [currentIndex]);
@@ -66,7 +184,6 @@ function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChang
         lastFrameTimeRef.current = now;
         const next = indexRef.current + 1;
         if (next >= numPoints) {
-          // Loop back to start
           indexRef.current = 0;
           setCurrentIndex(0);
         } else {
@@ -88,9 +205,7 @@ function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChang
   }, [isPlaying, numPoints, speed]);
 
   // Transport handlers
-  const togglePlay = useCallback(() => {
-    setIsPlaying(prev => !prev);
-  }, []);
+  const togglePlay = useCallback(() => setIsPlaying(prev => !prev), []);
 
   const stepBack = useCallback(() => {
     setIsPlaying(false);
@@ -112,54 +227,53 @@ function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChang
     setSpeed(parseFloat(e.target.value));
   }, []);
 
-  // Current values at sweep position
+  const handleParseExpression = useCallback((expr) => {
+    if (onButtonClick) {
+      onButtonClick('parse_expression', { expression: expr });
+    }
+  }, [onButtonClick]);
+
+  // Current values
   const currentOmega = numPoints > 0 ? omega[currentIndex] || 0 : 0;
   const currentMag = numPoints > 0 ? magnitude[currentIndex] || 0 : 0;
   const currentPhase = numPoints > 0 ? phase[currentIndex] || 0 : 0;
 
-  // Build s-plane plot with vectors at current ω
+  // Build s-plane plot with annotation-based vector arrows
   const sPlaneWithVectors = useMemo(() => {
     const basePlot = plots?.find(p => p.id === 's_plane');
     if (!basePlot || numPoints === 0) return basePlot;
 
     const w = currentOmega;
     const traces = [...(basePlot.data || [])];
+    const annotations = [];
 
-    // Draw vectors from each zero to jω₀
+    // Draw annotation arrows from each zero to jω₀
     zeros.forEach((z, i) => {
-      traces.push({
-        x: [z.real, 0],
-        y: [z.imag, w],
-        type: 'scatter',
-        mode: 'lines',
-        line: { color: '#3b82f6', width: 2.5 },
-        name: `Vector from z${i + 1}`,
-        showlegend: false,
-        hoverinfo: 'skip',
-      });
-      // Arrowhead marker at tip
-      traces.push({
-        x: [0],
-        y: [w],
-        type: 'scatter',
-        mode: 'markers',
-        marker: { symbol: 'arrow-up', size: 8, color: '#3b82f6', angle: 0 },
-        showlegend: false,
-        hoverinfo: 'skip',
+      annotations.push({
+        x: 0, y: w,
+        ax: z.real, ay: z.imag,
+        xref: 'x', yref: 'y', axref: 'x', ayref: 'y',
+        showarrow: true,
+        arrowhead: 2,
+        arrowsize: 1.5,
+        arrowwidth: 2.5,
+        arrowcolor: '#3b82f6',
+        opacity: 0.9,
       });
     });
 
-    // Draw vectors from each pole to jω₀
+    // Draw annotation arrows from each pole to jω₀
     poles.forEach((p, i) => {
-      traces.push({
-        x: [p.real, 0],
-        y: [p.imag, w],
-        type: 'scatter',
-        mode: 'lines',
-        line: { color: '#ef4444', width: 2.5 },
-        name: `Vector from p${i + 1}`,
-        showlegend: false,
-        hoverinfo: 'skip',
+      annotations.push({
+        x: 0, y: w,
+        ax: p.real, ay: p.imag,
+        xref: 'x', yref: 'y', axref: 'x', ayref: 'y',
+        showarrow: true,
+        arrowhead: 2,
+        arrowsize: 1.5,
+        arrowwidth: 2.5,
+        arrowcolor: '#ef4444',
+        opacity: 0.9,
       });
     });
 
@@ -171,7 +285,7 @@ function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChang
       mode: 'markers',
       marker: {
         symbol: 'circle',
-        size: 10,
+        size: 12,
         color: '#10b981',
         line: { width: 2, color: '#10b981' },
       },
@@ -185,6 +299,7 @@ function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChang
       data: traces,
       layout: {
         ...basePlot.layout,
+        annotations: annotations,
         datarevision: `splane-${currentIndex}-${Date.now()}`,
       },
     };
@@ -210,7 +325,7 @@ function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChang
       hoverinfo: 'skip',
     });
 
-    // Progressive curve (solid up to current index)
+    // Progressive curve
     traces.push({
       x: omega.slice(0, idx + 1),
       y: magnitude.slice(0, idx + 1),
@@ -316,7 +431,7 @@ function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChang
       hoverinfo: 'skip',
     });
 
-    // Individual phase contributions if enabled
+    // Individual phase contributions
     if (currentParams?.show_individual) {
       (metadata?.individual_zero_phases || []).forEach((zph, i) => {
         traces.push({
@@ -357,12 +472,11 @@ function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChang
     };
   }, [plots, currentIndex, omega, phase, numPoints, metadata, currentParams?.show_individual]);
 
-  // Individual vector contribution cards at current ω
+  // Individual vector contribution cards
   const individualCards = useMemo(() => {
     if (!currentParams?.show_individual || numPoints === 0) return null;
 
     const idx = currentIndex;
-    const w = currentOmega;
     const cards = [];
 
     zeros.forEach((z, i) => {
@@ -372,7 +486,7 @@ function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChang
         <div key={`z${i}`} className="vfr-individual-card">
           <div className="vfr-individual-card-header">
             <div className="vfr-dot zero" />
-            <span>Zero {i + 1}: s = {z.real.toFixed(1)}{z.imag !== 0 ? ` ${z.imag >= 0 ? '+' : '−'} ${Math.abs(z.imag).toFixed(1)}j` : ''}</span>
+            <span>Zero {i + 1}: s = {z.real.toFixed(2)}{z.imag !== 0 ? ` ${z.imag >= 0 ? '+' : '−'} ${Math.abs(z.imag).toFixed(2)}j` : ''}</span>
           </div>
           <div className="vfr-individual-values">
             <span>|jω − z| = <strong>{mag.toFixed(3)}</strong></span>
@@ -389,7 +503,7 @@ function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChang
         <div key={`p${i}`} className="vfr-individual-card">
           <div className="vfr-individual-card-header">
             <div className="vfr-dot pole" />
-            <span>Pole {i + 1}: s = {p.real.toFixed(1)}{p.imag !== 0 ? ` ${p.imag >= 0 ? '+' : '−'} ${Math.abs(p.imag).toFixed(1)}j` : ''}</span>
+            <span>Pole {i + 1}: s = {p.real.toFixed(2)}{p.imag !== 0 ? ` ${p.imag >= 0 ? '+' : '−'} ${Math.abs(p.imag).toFixed(2)}j` : ''}</span>
           </div>
           <div className="vfr-individual-values">
             <span>|jω − p| = <strong>{mag.toFixed(3)}</strong></span>
@@ -408,49 +522,37 @@ function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChang
 
   return (
     <div className="vfr-viewer">
-      {/* H(s) expression banner */}
-      {metadata.hs_expression && (
-        <div className="vfr-equation-banner">
-          <div className="vfr-hs-expression">
-            <span className="vfr-label">H(s) =</span>
-            <span className="vfr-expression">{metadata.hs_expression}</span>
-          </div>
-          {metadata.preset_name && (
-            <span className="vfr-preset-badge">{metadata.preset_name}</span>
-          )}
-        </div>
-      )}
+      {/* TF Input Banner */}
+      <TransferFunctionBanner
+        metadata={metadata}
+        onParseExpression={handleParseExpression}
+      />
 
-      {/* Main plots grid: s-plane | magnitude + phase */}
-      <div className="vfr-plots-grid">
-        <div className="vfr-splane-container">
-          {sPlaneWithVectors && (
-            <PlotDisplay plots={[sPlaneWithVectors]} />
+      {/* S-Plane — FULL WIDTH */}
+      <div className="vfr-splane-container">
+        {sPlaneWithVectors && (
+          <PlotDisplay plots={[sPlaneWithVectors]} />
+        )}
+      </div>
+
+      {/* Magnitude + Phase side-by-side */}
+      <div className="vfr-response-row">
+        <div className="vfr-plot-wrapper">
+          {magPlotAnimated && (
+            <PlotDisplay plots={[magPlotAnimated]} />
           )}
         </div>
-        <div className="vfr-response-container">
-          <div className="vfr-plot-wrapper">
-            {magPlotAnimated && (
-              <PlotDisplay plots={[magPlotAnimated]} />
-            )}
-          </div>
-          <div className="vfr-plot-wrapper">
-            {phasePlotAnimated && (
-              <PlotDisplay plots={[phasePlotAnimated]} />
-            )}
-          </div>
+        <div className="vfr-plot-wrapper">
+          {phasePlotAnimated && (
+            <PlotDisplay plots={[phasePlotAnimated]} />
+          )}
         </div>
       </div>
 
       {/* Animation controls */}
       <div className="vfr-controls-bar" role="toolbar" aria-label="Animation controls">
         <div className="vfr-transport-buttons">
-          <button
-            className="vfr-btn"
-            onClick={stepBack}
-            aria-label="Step backward"
-            title="Step backward"
-          >
+          <button className="vfr-btn" onClick={stepBack} aria-label="Step backward" title="Step backward">
             &#x23EA;
           </button>
           <button
@@ -461,12 +563,7 @@ function VectorFreqResponseViewer({ metadata, plots, currentParams, onParamChang
           >
             {isPlaying ? '\u23F8' : '\u25B6'}
           </button>
-          <button
-            className="vfr-btn"
-            onClick={stepForward}
-            aria-label="Step forward"
-            title="Step forward"
-          >
+          <button className="vfr-btn" onClick={stepForward} aria-label="Step forward" title="Step forward">
             &#x23E9;
           </button>
         </div>
