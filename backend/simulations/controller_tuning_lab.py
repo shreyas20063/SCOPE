@@ -89,6 +89,9 @@ class ControllerTuningLabSimulator(BaseSimulator):
                 {"value": "PD", "label": "PD (Proportional-Derivative)"},
                 {"value": "PID", "label": "PID (Full)"},
                 {"value": "lead_lag", "label": "Lead-Lag Compensator"},
+                {"value": "state_feedback", "label": "State Feedback (manual K)"},
+                {"value": "pole_placement", "label": "Pole Placement"},
+                {"value": "lqr", "label": "LQR (Optimal)"},
             ],
             "default": "PID",
             "group": "Controller",
@@ -127,6 +130,102 @@ class ControllerTuningLabSimulator(BaseSimulator):
             "type": "slider", "min": 0.1, "max": 50, "step": 0.1, "default": 10.0,
             "label": "Pole Location p", "group": "Controller",
             "visible_when": {"controller_type": "lead_lag"},
+        },
+        # ===== STATE FEEDBACK GAINS =====
+        "sf_k1": {
+            "type": "slider", "min": -50, "max": 50, "step": 0.1, "default": 1.0,
+            "label": "K\u2081 (state 1)", "group": "Controller",
+            "visible_when": {"controller_type": ["state_feedback"]},
+        },
+        "sf_k2": {
+            "type": "slider", "min": -50, "max": 50, "step": 0.1, "default": 0.0,
+            "label": "K\u2082 (state 2)", "group": "Controller",
+            "visible_when": {"controller_type": ["state_feedback"]},
+        },
+        "sf_k3": {
+            "type": "slider", "min": -50, "max": 50, "step": 0.1, "default": 0.0,
+            "label": "K\u2083 (state 3)", "group": "Controller",
+            "visible_when": {"controller_type": ["state_feedback"]},
+        },
+        "sf_k4": {
+            "type": "slider", "min": -50, "max": 50, "step": 0.1, "default": 0.0,
+            "label": "K\u2084 (state 4)", "group": "Controller",
+            "visible_when": {"controller_type": ["state_feedback"]},
+        },
+        # ===== POLE PLACEMENT =====
+        "pp_pole1_real": {
+            "type": "slider", "min": -20, "max": 0, "step": 0.1, "default": -2.0,
+            "label": "Pole 1 Real", "group": "Controller",
+            "visible_when": {"controller_type": "pole_placement"},
+        },
+        "pp_pole1_imag": {
+            "type": "slider", "min": -20, "max": 20, "step": 0.1, "default": 0.0,
+            "label": "Pole 1 Imag", "group": "Controller",
+            "visible_when": {"controller_type": "pole_placement"},
+        },
+        "pp_pole2_real": {
+            "type": "slider", "min": -20, "max": 0, "step": 0.1, "default": -3.0,
+            "label": "Pole 2 Real", "group": "Controller",
+            "visible_when": {"controller_type": "pole_placement"},
+        },
+        "pp_pole2_imag": {
+            "type": "slider", "min": -20, "max": 20, "step": 0.1, "default": 0.0,
+            "label": "Pole 2 Imag", "group": "Controller",
+            "visible_when": {"controller_type": "pole_placement"},
+        },
+        "pp_pole3_real": {
+            "type": "slider", "min": -20, "max": 0, "step": 0.1, "default": -5.0,
+            "label": "Pole 3 Real", "group": "Controller",
+            "visible_when": {"controller_type": "pole_placement"},
+        },
+        "pp_pole3_imag": {
+            "type": "slider", "min": -20, "max": 20, "step": 0.1, "default": 0.0,
+            "label": "Pole 3 Imag", "group": "Controller",
+            "visible_when": {"controller_type": "pole_placement"},
+        },
+        "pp_pole4_real": {
+            "type": "slider", "min": -20, "max": 0, "step": 0.1, "default": -7.0,
+            "label": "Pole 4 Real", "group": "Controller",
+            "visible_when": {"controller_type": "pole_placement"},
+        },
+        "pp_pole4_imag": {
+            "type": "slider", "min": -20, "max": 20, "step": 0.1, "default": 0.0,
+            "label": "Pole 4 Imag", "group": "Controller",
+            "visible_when": {"controller_type": "pole_placement"},
+        },
+        "apply_pole_placement": {
+            "type": "button", "label": "Compute K", "group": "Controller",
+            "visible_when": {"controller_type": "pole_placement"},
+        },
+        # ===== LQR =====
+        "lqr_q1": {
+            "type": "slider", "min": 0.01, "max": 100, "step": 0.1, "default": 1.0,
+            "label": "Q\u2081\u2081 (state 1 weight)", "group": "Controller",
+            "visible_when": {"controller_type": "lqr"},
+        },
+        "lqr_q2": {
+            "type": "slider", "min": 0.01, "max": 100, "step": 0.1, "default": 1.0,
+            "label": "Q\u2082\u2082 (state 2 weight)", "group": "Controller",
+            "visible_when": {"controller_type": "lqr"},
+        },
+        "lqr_q3": {
+            "type": "slider", "min": 0.01, "max": 100, "step": 0.1, "default": 1.0,
+            "label": "Q\u2083\u2083 (state 3 weight)", "group": "Controller",
+            "visible_when": {"controller_type": "lqr"},
+        },
+        "lqr_q4": {
+            "type": "slider", "min": 0.01, "max": 100, "step": 0.1, "default": 1.0,
+            "label": "Q\u2084\u2084 (state 4 weight)", "group": "Controller",
+            "visible_when": {"controller_type": "lqr"},
+        },
+        "lqr_r": {
+            "type": "slider", "min": 0.001, "max": 100, "step": 0.01, "default": 1.0,
+            "label": "R (control weight)", "group": "Controller",
+            "visible_when": {"controller_type": "lqr"},
+        },
+        "apply_lqr": {
+            "type": "button", "label": "Compute LQR K", "group": "Controller",
+            "visible_when": {"controller_type": "lqr"},
         },
         # ===== TUNING METHOD =====
         "tuning_method": {
@@ -192,6 +291,13 @@ class ControllerTuningLabSimulator(BaseSimulator):
         "tuning_method": "manual",
         "lambda_cl_tau": 1.0,
         "sim_duration": 10,
+        "sf_k1": 1.0, "sf_k2": 0.0, "sf_k3": 0.0, "sf_k4": 0.0,
+        "pp_pole1_real": -2.0, "pp_pole1_imag": 0.0,
+        "pp_pole2_real": -3.0, "pp_pole2_imag": 0.0,
+        "pp_pole3_real": -5.0, "pp_pole3_imag": 0.0,
+        "pp_pole4_real": -7.0, "pp_pole4_imag": 0.0,
+        "lqr_q1": 1.0, "lqr_q2": 1.0, "lqr_q3": 1.0, "lqr_q4": 1.0,
+        "lqr_r": 1.0,
     }
 
     def initialize(self, params: dict | None = None) -> None:
@@ -209,6 +315,15 @@ class ControllerTuningLabSimulator(BaseSimulator):
         self._cl_den = np.array([1.0, 1.0])
         self._reference_responses: list[dict] = []
         self._tuning_info: str | None = None
+        # State-space cache for modern controllers
+        self._A = np.array([[0.0]])
+        self._B = np.array([[1.0]])
+        self._C = np.array([[1.0]])
+        self._D = np.array([[0.0]])
+        self._plant_order = 1
+        self._is_controllable = True
+        self._state_feedback_mode = False
+        self._state_feedback_K: np.ndarray | None = None
         self._initialized = True
 
     def update_parameter(self, name: str, value) -> dict:
@@ -279,6 +394,22 @@ class ControllerTuningLabSimulator(BaseSimulator):
             self._plant_num = np.array([K])
             self._plant_den = np.array([1.0, 1.0])
 
+        # TF → state-space conversion for modern controllers
+        try:
+            A, B, C, D = signal.tf2ss(self._plant_num, self._plant_den)
+            self._A = np.atleast_2d(A)
+            self._B = B.reshape(-1, 1) if B.ndim == 1 else np.atleast_2d(B)
+            self._C = C.reshape(1, -1) if C.ndim == 1 else np.atleast_2d(C)
+            self._D = np.atleast_2d(D)
+            self._plant_order = self._A.shape[0]
+            n = self._plant_order
+            ctrb_cols = [np.linalg.matrix_power(self._A, i) @ self._B for i in range(n)]
+            ctrb = np.hstack(ctrb_cols)
+            self._is_controllable = int(np.linalg.matrix_rank(ctrb)) >= n
+        except Exception:
+            self._plant_order = 1
+            self._is_controllable = True
+
     # =========================================================================
     # Controller construction
     # =========================================================================
@@ -330,9 +461,95 @@ class ControllerTuningLabSimulator(BaseSimulator):
             pole = float(p.get("lead_lag_pole", 10.0))
             self._ctrl_num = np.array([Kc, Kc * zero])
             self._ctrl_den = np.array([1.0, pole])
+        elif ctype in ("state_feedback", "pole_placement", "lqr"):
+            K_vec = self._get_state_feedback_K()
+            if K_vec is not None and self._is_controllable:
+                A_cl = self._A - self._B @ K_vec.reshape(1, -1)
+                cl_ss = signal.StateSpace(A_cl, self._B, self._C, self._D)
+                cl_tf = cl_ss.to_tf()
+                self._cl_num = np.atleast_1d(cl_tf.num)
+                self._cl_den = np.atleast_1d(cl_tf.den)
+                self._ctrl_num = np.array([1.0])
+                self._ctrl_den = np.array([1.0])
+                self._state_feedback_mode = True
+                self._state_feedback_K = K_vec
+                return
+            else:
+                self._ctrl_num = np.array([1.0])
+                self._ctrl_den = np.array([1.0])
+                self._state_feedback_mode = True
+                self._state_feedback_K = K_vec
+                return
         else:
             self._ctrl_num = np.array([Kp])
             self._ctrl_den = np.array([1.0])
+        self._state_feedback_mode = False
+        self._state_feedback_K = None
+
+    # =========================================================================
+    # State-feedback helpers
+    # =========================================================================
+
+    def _get_state_feedback_K(self) -> np.ndarray | None:
+        """Get state-feedback gain vector from current parameters."""
+        p = self.parameters
+        ctype = p.get("controller_type")
+        n = self._plant_order
+
+        if ctype == "state_feedback":
+            return np.array([float(p.get(f"sf_k{i+1}", 0)) for i in range(n)])
+
+        elif ctype == "pole_placement":
+            desired = []
+            for i in range(n):
+                re = float(p.get(f"pp_pole{i+1}_real", -(i + 2)))
+                im = float(p.get(f"pp_pole{i+1}_imag", 0))
+                desired.append(complex(re, im) if abs(im) > 1e-10 else complex(re, 0))
+            desired = self._ensure_conjugate_pairs(desired[:n])
+            if len(desired) != n:
+                return None
+            try:
+                result = signal.place_poles(self._A, self._B, np.array(desired))
+                K = result.gain_matrix
+                return K[0] if K.ndim > 1 else K
+            except Exception:
+                return None
+
+        elif ctype == "lqr":
+            Q = np.diag([float(p.get(f"lqr_q{i+1}", 1.0)) for i in range(n)])
+            R = np.atleast_2d(float(p.get("lqr_r", 1.0)))
+            try:
+                from scipy.linalg import solve_continuous_are
+                P = solve_continuous_are(self._A, self._B, Q, R)
+                K = np.linalg.solve(R, self._B.T @ P)
+                return K.flatten()
+            except Exception:
+                return None
+
+        return None
+
+    @staticmethod
+    def _ensure_conjugate_pairs(poles: list) -> list:
+        """Ensure complex poles come in conjugate pairs."""
+        result = []
+        used: set[int] = set()
+        for i, p in enumerate(poles):
+            if i in used:
+                continue
+            result.append(p)
+            used.add(i)
+            if abs(p.imag) > 1e-10:
+                conj = p.conjugate()
+                found = False
+                for j, q in enumerate(poles):
+                    if j not in used and abs(q - conj) < 1e-10:
+                        result.append(q)
+                        used.add(j)
+                        found = True
+                        break
+                if not found:
+                    result.append(conj)
+        return result
 
     # =========================================================================
     # Closed-loop computation
@@ -340,6 +557,12 @@ class ControllerTuningLabSimulator(BaseSimulator):
 
     def _compute_closed_loop(self) -> None:
         """Compute open-loop and closed-loop transfer functions."""
+        if getattr(self, '_state_feedback_mode', False):
+            # CL already computed in _build_controller_tf for state-feedback
+            # Use plant TF as OL for Bode/Nyquist (approximate)
+            self._ol_num = self._plant_num.copy()
+            self._ol_den = self._plant_den.copy()
+            return
         self._ol_num = np.convolve(self._ctrl_num, self._plant_num)
         self._ol_den = np.convolve(self._ctrl_den, self._plant_den)
 
@@ -566,17 +789,30 @@ class ControllerTuningLabSimulator(BaseSimulator):
     def _compute_tf_strings(self) -> dict:
         """Generate LaTeX and plain-text transfer function strings."""
         plant_latex = self._poly_to_latex_frac(self._plant_num, self._plant_den)
-        ctrl_latex = self._poly_to_latex_frac(self._ctrl_num, self._ctrl_den)
         cl_latex = self._poly_to_latex_frac(self._cl_num, self._cl_den)
 
-        return {
+        result = {
             "plant_tf_latex": plant_latex,
-            "controller_tf_latex": ctrl_latex,
             "closed_loop_tf_latex": cl_latex,
             "plant_tf_str": f"G(s) = {self._poly_to_str(self._plant_num)}/({self._poly_to_str(self._plant_den)})",
-            "controller_tf_str": f"C(s) = {self._poly_to_str(self._ctrl_num)}/({self._poly_to_str(self._ctrl_den)})",
             "closed_loop_tf_str": f"T(s) = {self._poly_to_str(self._cl_num)}/({self._poly_to_str(self._cl_den)})",
         }
+
+        if getattr(self, '_state_feedback_mode', False):
+            K = getattr(self, '_state_feedback_K', None)
+            if K is not None:
+                k_str = ', '.join(f'{k:.4g}' for k in K)
+                result["controller_tf_latex"] = f"\\mathbf{{K}} = [{k_str}]"
+                result["controller_tf_str"] = f"u = -Kx + r, K = [{k_str}]"
+            else:
+                result["controller_tf_latex"] = "\\mathbf{K} = \\text{(not computed)}"
+                result["controller_tf_str"] = "K = (not computed)"
+        else:
+            ctrl_latex = self._poly_to_latex_frac(self._ctrl_num, self._ctrl_den)
+            result["controller_tf_latex"] = ctrl_latex
+            result["controller_tf_str"] = f"C(s) = {self._poly_to_str(self._ctrl_num)}/({self._poly_to_str(self._ctrl_den)})"
+
+        return result
 
     @staticmethod
     def _poly_to_str(coeffs: np.ndarray) -> str:
@@ -1224,6 +1460,26 @@ class ControllerTuningLabSimulator(BaseSimulator):
                     "controller_label": getattr(self, "_last_tf_strings", {}).get("controller_tf_latex", "C(s)"),
                     "feedback_gain": "1",
                 },
+                "is_controllable": getattr(self, '_is_controllable', True),
+                "plant_order": getattr(self, '_plant_order', 1),
+                "state_feedback_K": (
+                    self._state_feedback_K.tolist()
+                    if getattr(self, '_state_feedback_K', None) is not None else None
+                ),
+                "state_feedback_K_str": (
+                    f"K = [{', '.join(f'{k:.4g}' for k in self._state_feedback_K)}]"
+                    if getattr(self, '_state_feedback_K', None) is not None else None
+                ),
+                "ss_matrices": (
+                    {
+                        "A": self._A.tolist(),
+                        "B": self._B.tolist(),
+                        "C": self._C.tolist(),
+                        "D": self._D.tolist(),
+                    }
+                    if self.parameters.get("controller_type") in ("state_feedback", "pole_placement", "lqr")
+                    else None
+                ),
             },
         }
 
@@ -1241,4 +1497,18 @@ class ControllerTuningLabSimulator(BaseSimulator):
             self._save_reference()
         elif action == "clear_references":
             self._reference_responses = []
+        elif action == "apply_pole_placement":
+            self._build_plant_tf()
+            K_vec = self._get_state_feedback_K()
+            if K_vec is not None:
+                for i, k_val in enumerate(K_vec):
+                    self.parameters[f"sf_k{i+1}"] = float(k_val)
+                self._tuning_info = f"Pole Placement \u2192 K = [{', '.join(f'{k:.4g}' for k in K_vec)}]"
+        elif action == "apply_lqr":
+            self._build_plant_tf()
+            K_vec = self._get_state_feedback_K()
+            if K_vec is not None:
+                for i, k_val in enumerate(K_vec):
+                    self.parameters[f"sf_k{i+1}"] = float(k_val)
+                self._tuning_info = f"LQR \u2192 K = [{', '.join(f'{k:.4g}' for k in K_vec)}]"
         return self.get_state()

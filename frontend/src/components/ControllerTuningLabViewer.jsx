@@ -52,6 +52,8 @@ function useIsDark() {
 // FeedbackLoopDiagram (SVG with KaTeX transfer functions)
 // ============================================================================
 
+const MODERN_CONTROLLERS = ['state_feedback', 'pole_placement', 'lqr'];
+
 function FeedbackLoopDiagram({ metadata }) {
   const [katexReady, setKatexReady] = useState(!!katexModule);
 
@@ -61,14 +63,99 @@ function FeedbackLoopDiagram({ metadata }) {
 
   const plantLabel = metadata?.tf_strings?.plant_tf_latex || 'G(s)';
   const ctrlLabel = metadata?.tf_strings?.controller_tf_latex || 'C(s)';
+  const isStateFeedback = MODERN_CONTROLLERS.includes(
+    metadata?.parameters?.controller_type || ''
+  );
 
   const W = 700, H = 160;
   const sumX = 120, sumR = 18;
+  const mainY = 55;
+  const feedbackY = 130;
+
+  if (isStateFeedback) {
+    // State-feedback block diagram: R → Σ → Plant → Y, with K on feedback
+    const plantX = 260, plantW = 160, plantH = 50;
+    const kX = 260, kW = 140, kH = 40;
+    const outX = 520;
+    const takeoffX = plantX + plantW + 30;
+    const kLabel = metadata?.state_feedback_K_str || 'K';
+
+    return (
+      <div className="ctl-block-diagram">
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="ctl-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+              <polygon points="0 0, 8 3, 0 6" fill="var(--accent-color, #00d9ff)" />
+            </marker>
+          </defs>
+
+          {/* r(t) input */}
+          <line x1={30} y1={mainY} x2={sumX - sumR} y2={mainY}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} markerEnd="url(#ctl-arrow)" />
+          <text x={15} y={mainY - 10} className="ctl-signal-label">r(t)</text>
+
+          {/* Summing junction */}
+          <circle cx={sumX} cy={mainY} r={sumR} fill="none"
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={1.5} />
+          <text x={sumX} y={mainY + 1} textAnchor="middle" dominantBaseline="middle"
+            className="ctl-sum-label">{'\u03A3'}</text>
+          <text x={sumX - sumR - 5} y={mainY + sumR + 2} className="ctl-sign-label">{'\u2212'}</text>
+
+          {/* u(t) arrow to plant */}
+          <line x1={sumX + sumR} y1={mainY} x2={plantX} y2={mainY}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} markerEnd="url(#ctl-arrow)" />
+          <text x={(sumX + sumR + plantX) / 2} y={mainY - 10} textAnchor="middle"
+            className="ctl-signal-label">u = r{'\u2212'}Kx</text>
+
+          {/* Plant block */}
+          <rect x={plantX} y={mainY - plantH / 2} width={plantW} height={plantH}
+            rx={6} className="ctl-tf-block" />
+          {katexReady ? (
+            <foreignObject x={plantX + 4} y={mainY - plantH / 2 + 2} width={plantW - 8} height={plantH - 4}>
+              <div xmlns="http://www.w3.org/1999/xhtml" className="ctl-katex-container"
+                dangerouslySetInnerHTML={{ __html: renderLatex(plantLabel) }} />
+            </foreignObject>
+          ) : (
+            <text x={plantX + plantW / 2} y={mainY + 4} textAnchor="middle"
+              className="ctl-signal-label" fontSize="14">G(s)</text>
+          )}
+
+          {/* y(t) output */}
+          <line x1={plantX + plantW} y1={mainY} x2={outX} y2={mainY}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} markerEnd="url(#ctl-arrow)" />
+          <text x={outX + 5} y={mainY - 10} className="ctl-signal-label">y(t)</text>
+
+          {/* Takeoff point */}
+          <circle cx={takeoffX} cy={mainY} r={4} fill="var(--accent-color, #00d9ff)" />
+
+          {/* Feedback path with K block */}
+          <line x1={takeoffX} y1={mainY} x2={takeoffX} y2={feedbackY}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} />
+          <text x={takeoffX + 10} y={(mainY + feedbackY) / 2} className="ctl-signal-label"
+            fontSize="10">x(t)</text>
+
+          {/* K block on feedback */}
+          <rect x={kX} y={feedbackY - kH / 2} width={kW} height={kH}
+            rx={6} className="ctl-tf-block ctl-sf-block" />
+          <text x={kX + kW / 2} y={feedbackY + 4} textAnchor="middle"
+            className="ctl-signal-label" fontSize="11">{kLabel}</text>
+
+          {/* Lines: takeoff → K block → summing junction */}
+          <line x1={takeoffX} y1={feedbackY} x2={kX + kW} y2={feedbackY}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} markerEnd="url(#ctl-arrow)" />
+          <line x1={kX} y1={feedbackY} x2={sumX} y2={feedbackY}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} />
+          <line x1={sumX} y1={feedbackY} x2={sumX} y2={mainY + sumR}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} markerEnd="url(#ctl-arrow)" />
+        </svg>
+      </div>
+    );
+  }
+
+  // Classical controller block diagram
   const ctrlX = 210, ctrlW = 140, ctrlH = 50;
   const plantX = 410, plantW = 140, plantH = 50;
   const outX = 620;
-  const feedbackY = 130;
-  const mainY = 55;
   const takeoffX = plantX + plantW + 30;
 
   return (
@@ -149,11 +236,57 @@ function FeedbackLoopDiagram({ metadata }) {
 }
 
 // ============================================================================
+// StateSpaceDisplay (KaTeX-rendered A, B, C, D matrices)
+// ============================================================================
+
+function StateSpaceDisplay({ metadata }) {
+  const [katexReady, setKatexReady] = useState(!!katexModule);
+
+  useEffect(() => {
+    loadKatex(() => setKatexReady(true));
+  }, []);
+
+  const ssMatrices = metadata?.ss_matrices;
+  if (!katexReady || !ssMatrices) return null;
+
+  const matToLatex = (mat) => {
+    const rows = mat.map(row =>
+      row.map(v => {
+        const val = typeof v === 'number' ? v : parseFloat(v);
+        return Math.abs(val) < 1e-10 ? '0' : val.toFixed(3).replace(/\.?0+$/, '');
+      }).join(' & ')
+    ).join(' \\\\ ');
+    return `\\begin{bmatrix} ${rows} \\end{bmatrix}`;
+  };
+
+  const A_latex = matToLatex(ssMatrices.A);
+  const B_latex = matToLatex(ssMatrices.B);
+  const C_latex = matToLatex(ssMatrices.C);
+  const D_latex = matToLatex(ssMatrices.D);
+
+  const eq1 = `\\dot{\\mathbf{x}} = ${A_latex} \\mathbf{x} + ${B_latex} u`;
+  const eq2 = `y = ${C_latex} \\mathbf{x} + ${D_latex} u`;
+
+  return (
+    <div className="ctl-ss-display">
+      <div className="ctl-ss-equation"
+        dangerouslySetInnerHTML={{ __html: renderLatex(eq1) }} />
+      <div className="ctl-ss-equation"
+        dangerouslySetInnerHTML={{ __html: renderLatex(eq2) }} />
+    </div>
+  );
+}
+
+// ============================================================================
 // PerformanceMetricsStrip
 // ============================================================================
 
-function PerformanceMetricsStrip({ metrics }) {
+function PerformanceMetricsStrip({ metrics, metadata }) {
   if (!metrics) return null;
+
+  const isModern = MODERN_CONTROLLERS.includes(
+    metadata?.parameters?.controller_type || ''
+  );
 
   const items = [
     { label: 't\u1D63', value: metrics.rise_time, unit: 's', fmt: 3 },
@@ -184,6 +317,24 @@ function PerformanceMetricsStrip({ metrics }) {
           {metrics.stability_class || 'Unknown'}
         </span>
       </div>
+      {isModern && (
+        <div className="ctl-metric-badge" style={{
+          borderColor: metadata?.is_controllable ? 'var(--success-color)' : 'var(--error-color)'
+        }}>
+          <span className="ctl-metric-label">Ctrb</span>
+          <span className="ctl-metric-value" style={{
+            color: metadata?.is_controllable ? 'var(--success-color)' : 'var(--error-color)'
+          }}>
+            {metadata?.is_controllable ? 'Yes' : 'No'}
+          </span>
+        </div>
+      )}
+      {isModern && metadata?.plant_order && (
+        <div className="ctl-metric-badge">
+          <span className="ctl-metric-label">Order</span>
+          <span className="ctl-metric-value">{metadata.plant_order}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -399,8 +550,11 @@ function ControllerTuningLabViewer({ metadata, plots, currentParams }) {
       {/* 1. Feedback Loop Block Diagram */}
       <FeedbackLoopDiagram metadata={metadata} />
 
+      {/* 1b. State-space matrices (modern controllers only) */}
+      <StateSpaceDisplay metadata={metadata} />
+
       {/* 2. Performance Metrics Strip */}
-      <PerformanceMetricsStrip metrics={performance} />
+      <PerformanceMetricsStrip metrics={performance} metadata={metadata} />
 
       {/* 3. Tuning Info Banner */}
       <TuningInfoBanner tuningInfo={tuningInfo} />
