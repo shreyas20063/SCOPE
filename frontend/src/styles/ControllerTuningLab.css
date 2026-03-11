@@ -228,7 +228,27 @@
   background: var(--background-secondary);
 }
 
+.ctl-comparison-metrics-table td:first-child,
+.ctl-comparison-metrics-table th:first-child {
+  text-align: left;
+}
+
 /* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+  .ctl-metrics-strip {
+    gap: 6px;
+  }
+
+  .ctl-metric-badge {
+    min-width: 60px;
+    padding: 5px 10px;
+  }
+
+  .ctl-metric-value {
+    font-size: 13px;
+  }
+}
+
 @media (max-width: 768px) {
   .ctl-block-diagram svg {
     max-height: 120px;
@@ -243,12 +263,20 @@
     padding: 4px 8px;
   }
 
+  .ctl-metric-label {
+    font-size: 9px;
+  }
+
   .ctl-metric-value {
     font-size: 12px;
   }
 
   .ctl-comparison-overlay {
     padding: 12px;
+  }
+
+  .ctl-comparison-metrics-table table {
+    font-size: 11px;
   }
 }
 
@@ -281,36 +309,11 @@
   font-size: 0.95em;
 }
 
-[data-theme="light"] .ctl-ss-display {
-  background: white;
-  border-color: #e2e8f0;
-}
-
 /* ===== LIGHT MODE OVERRIDES ===== */
 [data-theme="light"] .ctl-tf-block {
   fill: rgba(20, 184, 166, 0.06);
 }
 
-[data-theme="light"] .ctl-plot-card {
-  background: white;
-  border-color: #e2e8f0;
-}
-
-[data-theme="light"] .ctl-block-diagram {
-  background: white;
-  border-color: #e2e8f0;
-}
-
-[data-theme="light"] .ctl-metrics-strip {
-  background: white;
-  border-color: #e2e8f0;
-}
-
 [data-theme="light"] .ctl-metric-badge {
   background: rgba(20, 184, 166, 0.03);
-  border-color: #e2e8f0;
-}
-
-[data-theme="light"] .ctl-comparison-metrics-table td {
-  background: #f8fafc;
 }

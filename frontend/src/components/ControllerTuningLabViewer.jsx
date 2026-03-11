@@ -54,7 +54,7 @@ function useIsDark() {
 
 const MODERN_CONTROLLERS = ['state_feedback', 'pole_placement', 'lqr'];
 
-function FeedbackLoopDiagram({ metadata }) {
+const FeedbackLoopDiagram = memo(function FeedbackLoopDiagram({ metadata }) {
   const [katexReady, setKatexReady] = useState(!!katexModule);
 
   useEffect(() => {
@@ -233,7 +233,7 @@ function FeedbackLoopDiagram({ metadata }) {
       </svg>
     </div>
   );
-}
+});
 
 // ============================================================================
 // StateSpaceDisplay (KaTeX-rendered A, B, C, D matrices)
@@ -458,7 +458,7 @@ function ComparisonOverlay({ references, currentStepPlot, currentMetrics, curren
     <div className="ctl-comparison-overlay">
       <div className="ctl-comparison-header">
         <h2>Controller Comparison</h2>
-        <button onClick={onClose} className="ctl-comparison-close">{'\u2715'} Close</button>
+        <button onClick={onClose} className="ctl-comparison-close" aria-label="Close comparison overlay">{'\u2715'} Close</button>
       </div>
       <div className="ctl-comparison-content">
         <div className="ctl-comparison-plot">
