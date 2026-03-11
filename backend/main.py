@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
+from pathlib import Path
 from typing import Any, Dict, Optional
 import io
 import csv
@@ -665,6 +666,166 @@ async def websocket_simulation(websocket: WebSocket, sim_id: str):
     finally:
         await websocket_manager.disconnect(sim_id, conn_info)
         monitor.ws_connections = websocket_manager.connection_count
+
+
+# ============================================================================
+# RL TRAINING ENDPOINTS (ES + PPO)
+# ============================================================================
+
+import numpy as np
+
+# ES training state
+_es_training_task: Optional[asyncio.Task] = None
+_es_training_status: dict = {"state": "idle"}
+
+
+class ESTrainRequest(BaseModel):
+    generations: int = 200
+    pop_size: int = 50
+
+
+class PPOTrainRequest(BaseModel):
+    timesteps: int = 100_000
+
+
+@app.post(f"{API_PREFIX}/simulations/controller_tuning_lab/es/train")
+async def start_es_training(request: ESTrainRequest):
+    """Start Evolution Strategies training as background task."""
+    global _es_training_task, _es_training_status
+
+    if _es_training_status.get("state") == "training":
+        return JSONResponse(status_code=409, content={"error": "Training already in progress"})
+
+    async def run_training():
+        global _es_training_status
+        _es_training_status = {"state": "training", "generation": 0, "best_fitness": -100}
+
+        loop = asyncio.get_event_loop()
+        try:
+            result = await loop.run_in_executor(
+                None, _run_es_training_sync, request.generations, request.pop_size
+            )
+            _es_training_status = {"state": "complete", **result}
+            await websocket_manager.broadcast("controller_tuning_lab", {
+                "type": "es_training_complete", "success": True, **result
+            })
+        except Exception as e:
+            logger.exception(f"ES training error: {e}")
+            _es_training_status = {"state": "error", "error": str(e)}
+
+    _es_training_task = asyncio.create_task(run_training())
+    return {"success": True, "message": "ES training started"}
+
+
+def _run_es_training_sync(n_generations: int = 200, pop_size: int = 50) -> dict:
+    """Synchronous ES training (runs in thread pool)."""
+    global _es_training_status
+
+    from rl.es_policy import (
+        LinearPolicy, ESOptimizer, evaluate_policy_on_plant, generate_random_plant
+    )
+    from rl.plant_features import extract_plant_features
+
+    rng = np.random.default_rng(42)
+    policy = LinearPolicy()
+    optimizer = ESOptimizer(policy, pop_size=pop_size)
+    model_path = Path(__file__).parent / "assets" / "models" / "es_pid_policy.json"
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+
+    best_fitness = -100.0
+    for gen in range(n_generations):
+        candidates, noise_vectors = optimizer.ask()
+        fitness_list = []
+
+        for candidate_params in candidates:
+            temp_policy = LinearPolicy()
+            temp_policy.params = candidate_params
+            total_fit = 0.0
+            for _ in range(3):
+                plant_num, plant_den, _ = generate_random_plant(rng)
+                features = extract_plant_features(plant_num, plant_den)
+                total_fit += evaluate_policy_on_plant(
+                    temp_policy, features, plant_num, plant_den
+                )
+            fitness_list.append(total_fit / 3.0)
+
+        optimizer.tell(noise_vectors, fitness_list)
+        gen_best = max(fitness_list)
+        if gen_best > best_fitness:
+            best_fitness = gen_best
+            policy.save(str(model_path))
+
+        _es_training_status = {
+            "state": "training",
+            "generation": gen + 1,
+            "total_generations": n_generations,
+            "best_fitness": float(best_fitness),
+            "mean_fitness": float(np.mean(fitness_list)),
+            "progress_pct": (gen + 1) / n_generations * 100,
+        }
+
+    return {"best_fitness": float(best_fitness), "model_path": str(model_path)}
+
+
+@app.get(f"{API_PREFIX}/simulations/controller_tuning_lab/es/status")
+async def get_es_status():
+    """Get ES training status."""
+    return {"success": True, "data": _es_training_status}
+
+
+# PPO training state
+_ppo_trainer = None
+
+
+@app.post(f"{API_PREFIX}/simulations/controller_tuning_lab/ppo/train")
+async def start_ppo_training(request: PPOTrainRequest):
+    """Start PPO training as background task."""
+    global _ppo_trainer
+
+    try:
+        from rl.ppo_trainer import PPOTrainer
+    except ImportError:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "PPO requires: pip install stable-baselines3 gymnasium torch"}
+        )
+
+    if _ppo_trainer is None:
+        _ppo_trainer = PPOTrainer()
+
+    if _ppo_trainer.state == "training":
+        return JSONResponse(status_code=409, content={"error": "Training already in progress"})
+
+    async def broadcast_progress(data: dict):
+        await websocket_manager.broadcast("controller_tuning_lab", data)
+
+    try:
+        asyncio.create_task(
+            _ppo_trainer.start_training(
+                total_timesteps=request.timesteps,
+                callback=broadcast_progress,
+            )
+        )
+        return {"success": True, "message": "PPO training started"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get(f"{API_PREFIX}/simulations/controller_tuning_lab/ppo/status")
+async def get_ppo_status():
+    """Get PPO training status."""
+    if _ppo_trainer is None:
+        return {"success": True, "data": {"state": "idle"}}
+    return {"success": True, "data": _ppo_trainer.get_status()}
+
+
+@app.post(f"{API_PREFIX}/simulations/controller_tuning_lab/ppo/cancel")
+async def cancel_ppo_training():
+    """Cancel ongoing PPO training."""
+    if _ppo_trainer is None or _ppo_trainer.state != "training":
+        return {"success": False, "error": "No training in progress"}
+    _ppo_trainer.cancel_training()
+    return {"success": True, "message": "Training cancellation requested"}
 
 
 # ============================================================================

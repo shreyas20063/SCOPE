@@ -504,6 +504,139 @@ function ComparisonOverlay({ references, currentStepPlot, currentMetrics, curren
 }
 
 // ============================================================================
+// TrainingPanel (ES / PPO training UI)
+// ============================================================================
+
+const RL_METHODS = ['es_adaptive', 'ppo_rl'];
+
+const TrainingPanel = memo(function TrainingPanel({ currentParams }) {
+  const [status, setStatus] = useState('idle');
+  const [progress, setProgress] = useState(null);
+  const [error, setError] = useState(null);
+
+  const method = currentParams?.tuning_method;
+  const isES = method === 'es_adaptive';
+  const isPPO = method === 'ppo_rl';
+
+  // Reset status when switching methods
+  useEffect(() => {
+    setStatus('idle');
+    setProgress(null);
+    setError(null);
+  }, [method]);
+
+  const startTraining = useCallback(async () => {
+    setStatus('training');
+    setError(null);
+    const endpoint = isES
+      ? '/api/simulations/controller_tuning_lab/es/train'
+      : '/api/simulations/controller_tuning_lab/ppo/train';
+    const body = isES
+      ? { generations: currentParams?.es_generations || 200, pop_size: 50 }
+      : { timesteps: currentParams?.rl_timesteps || 100000 };
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Failed to start training');
+        setStatus('error');
+      }
+    } catch (e) {
+      setError(e.message);
+      setStatus('error');
+    }
+  }, [isES, currentParams]);
+
+  const cancelTraining = useCallback(async () => {
+    if (!isPPO) return;
+    try {
+      await fetch('/api/simulations/controller_tuning_lab/ppo/cancel', { method: 'POST' });
+      setStatus('cancelled');
+    } catch { /* ignore */ }
+  }, [isPPO]);
+
+  // Poll status during training
+  useEffect(() => {
+    if (status !== 'training') return;
+    const endpoint = isES
+      ? '/api/simulations/controller_tuning_lab/es/status'
+      : '/api/simulations/controller_tuning_lab/ppo/status';
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(endpoint);
+        const data = await res.json();
+        const st = data.data;
+        setProgress(st);
+        if (st?.state === 'complete') setStatus('complete');
+        if (st?.state === 'error') {
+          setStatus('error');
+          setError(st.error || 'Training failed');
+        }
+        if (st?.state === 'cancelled') setStatus('cancelled');
+      } catch { /* ignore poll errors */ }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [status, isES]);
+
+  if (!RL_METHODS.includes(method)) return null;
+
+  return (
+    <div className="ctl-training-panel">
+      <div className="ctl-training-header">
+        <span className={`ctl-training-status ctl-training-status--${status}`} />
+        <span>{isES ? 'Evolution Strategies' : 'PPO (Reinforcement Learning)'}</span>
+      </div>
+
+      {status === 'idle' && (
+        <button className="ctl-compare-btn" onClick={startTraining}>
+          {isES ? 'Train ES Policy' : 'Train PPO Agent'}
+        </button>
+      )}
+
+      {status === 'training' && progress && (
+        <div className="ctl-training-progress">
+          <div className="ctl-progress-bar">
+            <div className="ctl-progress-fill"
+              style={{ width: `${progress.progress_pct || 0}%` }} />
+          </div>
+          <div className="ctl-training-metrics">
+            <span>{isES
+              ? `Gen ${progress.generation || 0}/${progress.total_generations || '?'}`
+              : `Step ${progress.timestep || 0}/${progress.total_timesteps || '?'}`}</span>
+            <span>Best: {(progress.best_fitness || progress.reward_mean || 0).toFixed(2)}</span>
+            <span>{(progress.progress_pct || 0).toFixed(0)}%</span>
+          </div>
+          {isPPO && (
+            <button className="ctl-compare-btn" onClick={cancelTraining}
+              style={{ marginTop: 8, background: 'var(--error-color)' }}>
+              Cancel Training
+            </button>
+          )}
+        </div>
+      )}
+
+      {status === 'complete' && (
+        <div className="ctl-training-complete">
+          Training complete. Click "Apply Auto-Tune" to use the trained model.
+        </div>
+      )}
+
+      {status === 'cancelled' && (
+        <div className="ctl-training-error">Training cancelled.</div>
+      )}
+
+      {status === 'error' && (
+        <div className="ctl-training-error">{error || 'Training failed. Check server logs.'}</div>
+      )}
+    </div>
+  );
+});
+
+// ============================================================================
 // Main Component: ControllerTuningLabViewer
 // ============================================================================
 
@@ -558,6 +691,9 @@ function ControllerTuningLabViewer({ metadata, plots, currentParams }) {
 
       {/* 3. Tuning Info Banner */}
       <TuningInfoBanner tuningInfo={tuningInfo} />
+
+      {/* 3b. RL Training Panel (ES/PPO) */}
+      <TrainingPanel currentParams={currentParams} />
 
       {/* 4. All plots stacked vertically */}
       <div className="ctl-plot-stack">

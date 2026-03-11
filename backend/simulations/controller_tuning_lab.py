@@ -3,9 +3,27 @@
 from .base_simulator import BaseSimulator
 import numpy as np
 from scipy import signal, optimize
+from math import factorial
 
 # NumPy 2.0 compat
 _trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz
+
+
+def _pade(T: float, n: int = 3) -> tuple[np.ndarray, np.ndarray]:
+    """Padé approximation of e^(-sT). Returns (num, den) polynomials.
+
+    Replaces scipy.signal.pade which was removed in SciPy 1.17.
+    """
+    num = [0.0] * (n + 1)
+    den = [0.0] * (n + 1)
+    for k in range(n + 1):
+        coeff = factorial(2 * n - k) * factorial(n) / (
+            factorial(2 * n) * factorial(k) * factorial(n - k)
+        )
+        val = coeff * T**k
+        den[k] = val
+        num[k] = val * (-1)**k
+    return num, den
 
 
 class ControllerTuningLabSimulator(BaseSimulator):
@@ -238,6 +256,9 @@ class ControllerTuningLabSimulator(BaseSimulator):
                 {"value": "lambda_tuning", "label": "Lambda Tuning"},
                 {"value": "imc", "label": "IMC Tuning"},
                 {"value": "itae_optimal", "label": "ITAE Optimal (Numerical)"},
+                {"value": "de_optimal", "label": "Differential Evolution (Global)"},
+                {"value": "es_adaptive", "label": "Evolution Strategies (Adaptive)"},
+                {"value": "ppo_rl", "label": "PPO Reinforcement Learning"},
             ],
             "default": "manual",
             "group": "Tuning",
@@ -369,7 +390,7 @@ class ControllerTuningLabSimulator(BaseSimulator):
             tau = float(p.get("plant_tau", 1.0))
             delay = float(p.get("plant_delay", 0.5))
             delay = max(delay, 0.001)
-            pade_num, pade_den = signal.pade(delay, 3)
+            pade_num, pade_den = _pade(delay, 3)
             self._plant_num = np.convolve([K], pade_num)
             self._plant_den = np.convolve([tau, 1.0], pade_den)
         elif preset == "dc_motor":
@@ -869,6 +890,23 @@ class ControllerTuningLabSimulator(BaseSimulator):
     # Auto-tuning
     # =========================================================================
 
+    def _pid_to_tf(self, kp: float, ki: float, kd: float) -> tuple[np.ndarray, np.ndarray]:
+        """Convert PID gains to TF numerator/denominator (reusable helper)."""
+        N = float(self.parameters.get("deriv_filter_N", 20))
+        if abs(ki) > 1e-12 and abs(kd) > 1e-12:
+            num = np.array([kp + kd * N, kp * N + ki, ki * N])
+            den = np.array([1.0, N, 0.0])
+        elif abs(ki) > 1e-12:
+            num = np.array([kp, ki])
+            den = np.array([1.0, 0.0])
+        elif abs(kd) > 1e-12:
+            num = np.array([kp + kd * N, kp * N])
+            den = np.array([1.0, N])
+        else:
+            num = np.array([kp])
+            den = np.array([1.0])
+        return num, den
+
     def _auto_tune(self) -> dict | None:
         """Run selected auto-tuning method, return gain dict or None."""
         method = self.parameters.get("tuning_method", "manual")
@@ -881,6 +919,9 @@ class ControllerTuningLabSimulator(BaseSimulator):
             "lambda_tuning": self._lambda_tuning,
             "imc": self._imc_tuning,
             "itae_optimal": self._itae_optimal,
+            "de_optimal": self._de_optimal,
+            "es_adaptive": self._es_tune,
+            "ppo_rl": self._ppo_tune,
         }
         func = dispatch.get(method)
         if func is None:
@@ -1109,6 +1150,149 @@ class ControllerTuningLabSimulator(BaseSimulator):
         elif ctype == "PD":
             return {"Kp": kp, "Ki": 0.0, "Kd": kd}
         return {"Kp": kp, "Ki": ki, "Kd": kd}
+
+    def _de_optimal(self, ctype: str) -> dict | None:
+        """Differential Evolution global optimization for PID gains."""
+        from scipy.optimize import differential_evolution
+
+        plant_num = self._plant_num.copy()
+        plant_den = self._plant_den.copy()
+        duration = float(self.parameters.get("sim_duration", 10))
+        T = np.linspace(0, duration, 500)
+
+        # Build bounds based on controller type
+        # Always have Kp; add Ki/Kd as needed
+        has_ki = ctype in ("PI", "PID")
+        has_kd = ctype in ("PD", "PID")
+        bounds = [(0.001, 100)]
+        if has_ki:
+            bounds.append((0, 50))
+        if has_kd:
+            bounds.append((0, 30))
+
+        pid_to_tf = self._pid_to_tf
+
+        def cost(x: np.ndarray) -> float:
+            kp = float(x[0])
+            idx = 1
+            ki = float(x[idx]) if has_ki else 0.0
+            if has_ki:
+                idx += 1
+            kd = float(x[idx]) if has_kd else 0.0
+
+            c_num, c_den = pid_to_tf(kp, ki, kd)
+            ol_n = np.convolve(c_num, plant_num)
+            ol_d = np.convolve(c_den, plant_den)
+            ml = max(len(ol_d), len(ol_n))
+            cl_d = np.pad(ol_d, (ml - len(ol_d), 0)) + np.pad(ol_n, (ml - len(ol_n), 0))
+
+            try:
+                poles = np.roots(cl_d)
+                if len(poles) > 0 and np.max(poles.real) > 0:
+                    return 1e6
+            except Exception:
+                return 1e6
+
+            try:
+                sys_cl = signal.TransferFunction(ol_n, cl_d)
+                t_sim, y_sim = signal.step(sys_cl, T=T)
+                if not np.all(np.isfinite(y_sim)):
+                    return 1e6
+                e_sim = np.abs(1.0 - y_sim)
+                return float(_trapz(t_sim * e_sim, t_sim))
+            except Exception:
+                return 1e6
+
+        result = differential_evolution(
+            cost, bounds,
+            strategy="best1bin",
+            maxiter=100,
+            popsize=15,
+            tol=0.001,
+            mutation=(0.5, 1.5),
+            recombination=0.7,
+            seed=42,
+            polish=True,
+        )
+
+        if not result.success and result.fun > 1e5:
+            return None
+
+        kp = float(result.x[0])
+        idx = 1
+        ki = float(result.x[idx]) if has_ki else 0.0
+        if has_ki:
+            idx += 1
+        kd = float(result.x[idx]) if has_kd else 0.0
+
+        return {"Kp": max(kp, 0.001), "Ki": max(ki, 0), "Kd": max(kd, 0)}
+
+    def _extract_plant_features(self) -> np.ndarray:
+        """Extract 8D plant feature vector for RL/ES policies."""
+        from pathlib import Path
+        import sys
+        rl_path = str(Path(__file__).parent.parent / "rl")
+        if rl_path not in sys.path:
+            sys.path.insert(0, str(Path(__file__).parent.parent))
+        from rl.plant_features import extract_plant_features
+        fopdt = self._fit_fopdt_model()
+        return extract_plant_features(self._plant_num, self._plant_den, fopdt)
+
+    def _es_tune(self, ctype: str) -> dict | None:
+        """Use trained ES policy to predict PID gains."""
+        from pathlib import Path
+        import sys
+        backend_dir = Path(__file__).parent.parent
+        if str(backend_dir) not in sys.path:
+            sys.path.insert(0, str(backend_dir))
+
+        try:
+            from rl.es_policy import LinearPolicy
+        except ImportError:
+            self._tuning_info = "ES Policy: rl module not found."
+            return None
+
+        model_path = backend_dir / "assets" / "models" / "es_pid_policy.json"
+        if not model_path.exists():
+            self._tuning_info = "ES Policy: No trained model found. Train first."
+            return None
+
+        policy = LinearPolicy()
+        policy.load(str(model_path))
+
+        features = self._extract_plant_features()
+        gains = policy.predict(features)
+
+        self._tuning_info = (f"ES Adaptive → Kp={gains['Kp']:.4g}, "
+                             f"Ki={gains['Ki']:.4g}, Kd={gains['Kd']:.4g}")
+        return gains
+
+    def _ppo_tune(self, ctype: str) -> dict | None:
+        """Use trained PPO agent to predict PID gains."""
+        try:
+            from pathlib import Path
+            import sys
+            backend_dir = Path(__file__).parent.parent
+            if str(backend_dir) not in sys.path:
+                sys.path.insert(0, str(backend_dir))
+            from rl.ppo_agent import PPOAgent
+        except ImportError:
+            self._tuning_info = "PPO: Install stable-baselines3, gymnasium, torch"
+            return None
+
+        agent = PPOAgent()
+        if not agent.is_available():
+            self._tuning_info = "PPO: No trained model. Train first."
+            return None
+
+        features = self._extract_plant_features()
+        gains = agent.predict(features)
+        if gains is None:
+            return None
+
+        self._tuning_info = (f"PPO RL → Kp={gains['Kp']:.4g}, "
+                             f"Ki={gains['Ki']:.4g}, Kd={gains['Kd']:.4g}")
+        return gains
 
     # =========================================================================
     # Reference system
@@ -1486,6 +1670,7 @@ class ControllerTuningLabSimulator(BaseSimulator):
     def handle_action(self, action: str, params: dict | None = None) -> dict:
         """Handle button press actions."""
         if action == "apply_tuning":
+            self._build_plant_tf()
             gains = self._auto_tune()
             if gains:
                 for key, value in gains.items():
