@@ -11,6 +11,7 @@ Handles:
 """
 
 import json
+import math
 from typing import Any, Dict, List, Optional, Union
 import numbers
 from datetime import datetime, date
@@ -160,7 +161,8 @@ class DataHandler:
             if isinstance(value, (np.integer, np.int64, np.int32)):
                 return int(value)
             if isinstance(value, (np.floating, np.float64, np.float32)):
-                return float(value)
+                v = float(value)
+                return None if (math.isnan(v) or math.isinf(v)) else v
             if isinstance(value, np.bool_):
                 return bool(value)
             if isinstance(value, np.ndarray):
@@ -169,7 +171,8 @@ class DataHandler:
         if isinstance(value, numbers.Integral):
             return int(value)
         if isinstance(value, numbers.Real):
-            return float(value)
+            v = float(value)
+            return None if (math.isnan(v) or math.isinf(v)) else v
 
         return value
 
@@ -214,6 +217,8 @@ class DataHandler:
 
         # Handle regular numbers (after complex check)
         if isinstance(data, numbers.Number):
+            if isinstance(data, float) and (math.isnan(data) or math.isinf(data)):
+                return None
             return cls.convert_numeric(data)
 
         if isinstance(data, dict):
@@ -223,7 +228,11 @@ class DataHandler:
             }
 
         if isinstance(data, (list, tuple)):
-            return [cls.serialize_result(item) for item in data]
+            return [
+                None if isinstance(item, float) and (math.isnan(item) or math.isinf(item))
+                else cls.serialize_result(item)
+                for item in data
+            ]
 
         # Handle numpy arrays and types
         if cls.is_numpy_available():
