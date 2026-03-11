@@ -57,8 +57,8 @@ PRESETS = {
     },
     "zero_row": {
         "label": "Special: All-Zero Row",
-        "coeffs": "1, 1, 3, 3, 3, 1",
-        "description": "s⁵ + s⁴ + 3s³ + 3s² + 3s + 1 — triggers auxiliary polynomial",
+        "coeffs": "1, 2, 6, 4, 8",
+        "description": "s⁴ + 2s³ + 6s² + 4s + 8 — triggers auxiliary polynomial derivative",
     },
     "zero_pivot": {
         "label": "Special: Zero in First Column",
