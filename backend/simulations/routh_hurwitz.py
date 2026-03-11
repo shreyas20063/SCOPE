@@ -133,11 +133,15 @@ class RouthHurwitzSimulator(BaseSimulator):
         """Update a single parameter and recompute."""
         if name in self.parameters:
             self.parameters[name] = self._validate_param(name, value)
-            # When preset changes, update poly_coeffs
+            # When preset changes, update poly_coeffs and auto-enable K for parametric
             if name == "preset" and value != "custom":
                 preset = PRESETS.get(str(value), {})
                 if "coeffs" in preset:
                     self.parameters["poly_coeffs"] = preset["coeffs"]
+                if value == "parametric":
+                    self.parameters["use_parametric_k"] = True
+                elif self.parameters["use_parametric_k"]:
+                    self.parameters["use_parametric_k"] = False
             # When poly_coeffs changes manually, switch to custom
             if name == "poly_coeffs":
                 self.parameters["preset"] = "custom"
@@ -156,50 +160,17 @@ class RouthHurwitzSimulator(BaseSimulator):
         try:
             parts = [s.strip() for s in str(coeffs_str).split(",") if s.strip()]
             coeffs = [float(p) for p in parts]
+            # Strip leading zeros (e.g. "0, 1, 2" → [1, 2])
+            while len(coeffs) > 2 and abs(coeffs[0]) < 1e-12:
+                coeffs.pop(0)
             if len(coeffs) < 2:
                 return np.array([1, 1], dtype=float)
             return np.array(coeffs, dtype=float)
         except (ValueError, TypeError):
             return np.array([1, 1], dtype=float)
 
-    def _format_polynomial(self, coeffs: np.ndarray) -> str:
-        """Format polynomial coefficients as a display string."""
-        n = len(coeffs) - 1
-        terms = []
-        for i, c in enumerate(coeffs):
-            power = n - i
-            if abs(c) < 1e-12:
-                continue
-            # Coefficient display
-            if power == 0:
-                term = f"{c:g}"
-            elif abs(c) == 1:
-                sign = "" if c > 0 else "-"
-                if power == 1:
-                    term = f"{sign}s"
-                else:
-                    term = f"{sign}s^{power}"
-            else:
-                if power == 1:
-                    term = f"{c:g}s"
-                else:
-                    term = f"{c:g}s^{power}"
-            terms.append(term)
-
-        if not terms:
-            return "0"
-
-        # Join with + signs, handling negatives
-        result = terms[0]
-        for t in terms[1:]:
-            if t.startswith("-"):
-                result += f" - {t[1:]}"
-            else:
-                result += f" + {t}"
-        return result
-
-    def _format_polynomial_latex(self, coeffs: np.ndarray) -> str:
-        """Format polynomial coefficients as LaTeX string."""
+    def _format_polynomial(self, coeffs: np.ndarray, latex: bool = False) -> str:
+        """Format polynomial coefficients as a display or LaTeX string."""
         n = len(coeffs) - 1
         terms = []
         for i, c in enumerate(coeffs):
@@ -213,12 +184,12 @@ class RouthHurwitzSimulator(BaseSimulator):
                 if power == 1:
                     term = f"{sign}s"
                 else:
-                    term = f"{sign}s^{{{power}}}"
+                    term = f"{sign}s^{{{power}}}" if latex else f"{sign}s^{power}"
             else:
                 if power == 1:
                     term = f"{c:g}s"
                 else:
-                    term = f"{c:g}s^{{{power}}}"
+                    term = f"{c:g}s^{{{power}}}" if latex else f"{c:g}s^{power}"
             terms.append(term)
 
         if not terms:
@@ -375,23 +346,17 @@ class RouthHurwitzSimulator(BaseSimulator):
 
     def _build_k_stability_plot(self) -> Dict[str, Any]:
         """Build K vs RHP-poles step plot for parametric analysis."""
-        base_poly = self._parse_coeffs(self.parameters["poly_coeffs"])
         k_max = float(self.parameters["k_max"])
         current_k = float(self.parameters["gain_k"])
 
-        # Sample K values densely
-        k_vals = np.linspace(0, k_max, 500)
-        rhp_counts = []
-        for k in k_vals:
-            poly = base_poly.copy()
-            poly[-1] = poly[-1] + k
-            result = compute_routh_array(poly)
-            rhp_counts.append(result["rhp_poles"])
+        # Reuse precomputed K-sweep data from _compute()
+        k_vals = self._stability_ranges.get("k_values", [])
+        rhp_counts = self._stability_ranges.get("rhp_counts", [])
 
         data = [
             # RHP pole count trace
             {
-                "x": k_vals.tolist(), "y": rhp_counts,
+                "x": k_vals, "y": rhp_counts,
                 "type": "scatter", "mode": "lines",
                 "name": "RHP Poles",
                 "line": {"color": "#3b82f6", "width": 2, "shape": "hv"},
@@ -400,7 +365,7 @@ class RouthHurwitzSimulator(BaseSimulator):
             },
             # Stable region shading (y=0)
             {
-                "x": [k for k, c in zip(k_vals.tolist(), rhp_counts) if c == 0],
+                "x": [k for k, c in zip(k_vals, rhp_counts) if c == 0],
                 "y": [0 for c in rhp_counts if c == 0],
                 "type": "scatter", "mode": "markers",
                 "name": "Stable region",
@@ -462,7 +427,7 @@ class RouthHurwitzSimulator(BaseSimulator):
 
         # Polynomial display strings
         poly_display = self._format_polynomial(self._char_poly)
-        poly_latex = self._format_polynomial_latex(self._char_poly)
+        poly_latex = self._format_polynomial(self._char_poly, latex=True)
         degree = len(self._char_poly) - 1
 
         # Preset info

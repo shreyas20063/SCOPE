@@ -53,8 +53,8 @@ function RouthTable({ routhTable }) {
   const n_cols = rows[0]?.length || 0;
   const hasFlags = flags && flags.length > 0;
 
-  // Determine if marginal (stable but has jω poles — sign_changes === 0 but some first_col ≈ 0)
-  const hasMarginal = stable && first_column.some(v => Math.abs(v) < 1e-6);
+  // Use explicit marginal flag from backend (auxiliary polynomial = jω-axis roots)
+  const hasMarginal = routhTable.marginal || false;
 
   const summaryClass = !stable ? 'unstable' : hasMarginal ? 'marginal' : 'stable';
   const summaryIcon = !stable ? '✕' : hasMarginal ? '⚠' : '✓';
@@ -225,7 +225,7 @@ function RouthHurwitzViewer({ metadata, plots }) {
 
   const isStable = routh_table?.stable;
   const signChanges = routh_table?.sign_changes || 0;
-  const hasMarginal = isStable && (routh_table?.first_column || []).some(v => Math.abs(v) < 1e-6);
+  const hasMarginal = routh_table?.marginal || false;
 
   const stabilityClass = !isStable ? 'unstable' : hasMarginal ? 'marginal' : 'stable';
   const stabilityLabel = !isStable ? `${signChanges} RHP pole${signChanges !== 1 ? 's' : ''}` : hasMarginal ? 'Marginal' : 'Stable';

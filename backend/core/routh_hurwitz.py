@@ -82,6 +82,11 @@ def compute_routh_array(char_poly: np.ndarray) -> Dict[str, Any]:
     # Serialize
     rows_list = [[float(routh[i][j]) for j in range(n_cols)] for i in range(n_rows)]
 
+    # Marginal stability: no sign changes but auxiliary polynomial was used
+    # (all-zero row indicates symmetric root pairs, typically on jω axis)
+    has_auxiliary = any(f["type"] == "auxiliary" for f in flags)
+    marginal = sign_changes == 0 and has_auxiliary
+
     return {
         "rows": rows_list,
         "powers": powers,
@@ -90,6 +95,7 @@ def compute_routh_array(char_poly: np.ndarray) -> Dict[str, Any]:
         "rhp_poles": int(sign_changes),
         "flags": flags,
         "stable": sign_changes == 0,
+        "marginal": marginal,
     }
 
 
@@ -115,12 +121,14 @@ def compute_stability_k_ranges(
     """
     k_values = np.linspace(k_min, k_max, n_test)
     stability = np.zeros(n_test, dtype=bool)
+    rhp_counts = np.zeros(n_test, dtype=int)
 
     for i, k in enumerate(k_values):
         poly = base_poly.copy()
         poly[-1] = poly[-1] + k  # Add K to constant term
         result = compute_routh_array(poly)
         stability[i] = result["stable"]
+        rhp_counts[i] = result["rhp_poles"]
 
     # Find transitions
     ranges = []
@@ -157,4 +165,9 @@ def compute_stability_k_ranges(
         "stable": bool(stability[start_idx]),
     })
 
-    return {"ranges": ranges, "critical_k_values": critical_k_values}
+    return {
+        "ranges": ranges,
+        "critical_k_values": critical_k_values,
+        "k_values": k_values.tolist(),
+        "rhp_counts": rhp_counts.tolist(),
+    }
