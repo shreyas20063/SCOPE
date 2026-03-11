@@ -4,8 +4,8 @@
 .ctl-viewer {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 8px;
+  gap: 14px;
+  padding: 4px 0;
 }
 
 /* ===== FEEDBACK LOOP BLOCK DIAGRAM ===== */
@@ -13,7 +13,12 @@
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: 12px;
+  padding: 14px 16px;
+  transition: border-color var(--transition-fast);
+}
+
+.ctl-block-diagram:hover {
+  border-color: var(--border-hover);
 }
 
 .ctl-tf-block {
@@ -54,8 +59,8 @@
 .ctl-metrics-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px;
+  gap: 6px;
+  padding: 10px 12px;
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -65,17 +70,27 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6px 12px;
-  background: rgba(20, 184, 166, 0.05);
+  flex: 1 1 0;
+  min-width: 68px;
+  padding: 6px 8px;
+  background: rgba(20, 184, 166, 0.04);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  min-width: 70px;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.ctl-metric-badge:hover {
+  border-color: var(--border-hover);
+  background: rgba(20, 184, 166, 0.07);
 }
 
 .ctl-metric-label {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
   font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
 }
 
 .ctl-metric-value {
@@ -83,6 +98,7 @@
   font-weight: 600;
   color: var(--text-primary);
   font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  white-space: nowrap;
 }
 
 .ctl-stability-badge {
@@ -94,28 +110,78 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
-  background: rgba(20, 184, 166, 0.08);
-  border: 1px solid var(--primary-color);
+  padding: 8px 14px;
+  background: rgba(20, 184, 166, 0.06);
+  border: 1px solid rgba(20, 184, 166, 0.2);
   border-radius: var(--radius-md);
   color: var(--primary-color);
   font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 /* ===== PLOT STACK ===== */
 .ctl-plot-stack {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+}
+
+/* Hero plot (step response) — full width */
+.ctl-plot-hero {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Plot section with optional label + row of 2 plots */
+.ctl-plot-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ctl-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 0 4px;
+}
+
+/* 2-column grid for paired plots */
+.ctl-plot-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
 .ctl-plot-card {
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: 8px;
+  padding: 4px 2px 0 2px;
   overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.ctl-plot-card:hover {
+  border-color: var(--border-hover);
+}
+
+/* Plotly internal: ensure no extra gaps */
+.ctl-plot-card .js-plotly-plot,
+.ctl-plot-card .plot-container {
+  margin: 0 !important;
+}
+
+.ctl-plot-card .modebar-container {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.ctl-plot-card:hover .modebar-container {
+  opacity: 1;
 }
 
 /* ===== COMPARE BUTTON ===== */
@@ -123,17 +189,22 @@
   background: var(--primary-color);
   color: white;
   border: none;
-  padding: 12px 24px;
+  padding: 10px 24px;
   border-radius: var(--radius-md);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   align-self: center;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), transform var(--transition-fast);
 }
 
 .ctl-compare-btn:hover {
   background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.ctl-compare-btn:active {
+  transform: translateY(0);
 }
 
 /* ===== COMPARISON OVERLAY (FULLSCREEN) ===== */
@@ -236,12 +307,12 @@
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1024px) {
   .ctl-metrics-strip {
-    gap: 6px;
+    gap: 5px;
   }
 
   .ctl-metric-badge {
-    min-width: 60px;
-    padding: 5px 10px;
+    min-width: 58px;
+    padding: 5px 6px;
   }
 
   .ctl-metric-value {
@@ -250,17 +321,28 @@
 }
 
 @media (max-width: 768px) {
+  .ctl-viewer {
+    gap: 10px;
+  }
+
   .ctl-block-diagram svg {
     max-height: 120px;
   }
 
+  /* Stack paired plots on mobile */
+  .ctl-plot-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
   .ctl-metrics-strip {
     gap: 4px;
+    padding: 8px;
   }
 
   .ctl-metric-badge {
-    min-width: 55px;
-    padding: 4px 8px;
+    min-width: 52px;
+    padding: 4px 6px;
   }
 
   .ctl-metric-label {
@@ -277,6 +359,10 @@
 
   .ctl-comparison-metrics-table table {
     font-size: 11px;
+  }
+
+  .ctl-section-label {
+    font-size: 10px;
   }
 }
 
@@ -314,10 +400,10 @@
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: 16px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .ctl-training-header {
@@ -326,7 +412,7 @@
   gap: 8px;
   font-weight: 600;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .ctl-training-status {
@@ -358,7 +444,7 @@
 }
 
 .ctl-progress-bar {
-  height: 8px;
+  height: 6px;
   background: var(--background-secondary);
   border-radius: var(--radius-full);
   overflow: hidden;
@@ -366,7 +452,7 @@
 
 .ctl-progress-fill {
   height: 100%;
-  background: var(--primary-color);
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
   border-radius: var(--radius-full);
   transition: width var(--transition-normal);
 }
@@ -374,7 +460,7 @@
 .ctl-training-metrics {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
   font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
 }
@@ -400,4 +486,12 @@
 
 [data-theme="light"] .ctl-training-panel {
   background: rgba(20, 184, 166, 0.02);
+}
+
+[data-theme="light"] .ctl-plot-card {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="light"] .ctl-section-label {
+  color: var(--text-secondary);
 }
