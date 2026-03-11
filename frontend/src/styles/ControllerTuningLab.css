@@ -309,6 +309,86 @@
   font-size: 0.95em;
 }
 
+/* ===== TRAINING PANEL ===== */
+.ctl-training-panel {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ctl-training-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.ctl-training-status {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ctl-training-status--training {
+  background: var(--secondary-color);
+  animation: ctlPulse 1.5s ease-in-out infinite;
+}
+
+.ctl-training-status--complete { background: var(--success-color); }
+.ctl-training-status--error,
+.ctl-training-status--cancelled { background: var(--error-color); }
+
+@keyframes ctlPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.ctl-training-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ctl-progress-bar {
+  height: 8px;
+  background: var(--background-secondary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.ctl-progress-fill {
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: var(--radius-full);
+  transition: width var(--transition-normal);
+}
+
+.ctl-training-metrics {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+
+.ctl-training-complete {
+  color: var(--success-color);
+  font-size: 13px;
+}
+
+.ctl-training-error {
+  color: var(--error-color);
+  font-size: 13px;
+}
+
 /* ===== LIGHT MODE OVERRIDES ===== */
 [data-theme="light"] .ctl-tf-block {
   fill: rgba(20, 184, 166, 0.06);
@@ -316,4 +396,8 @@
 
 [data-theme="light"] .ctl-metric-badge {
   background: rgba(20, 184, 166, 0.03);
+}
+
+[data-theme="light"] .ctl-training-panel {
+  background: rgba(20, 184, 166, 0.02);
 }
