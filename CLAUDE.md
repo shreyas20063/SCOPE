@@ -368,10 +368,10 @@ All tracking files live in `.claude/`. **Read them before starting work. Update 
 - Generalized Mason's Delta computation
 
 ### Controller Tuning Lab (simulation: `controller_tuning_lab`)
-- **Backend**: `backend/simulations/controller_tuning_lab.py` (~750 lines)
-- **Frontend**: `frontend/src/components/ControllerTuningLabViewer.jsx` (~437 lines)
-- **CSS**: `frontend/src/styles/ControllerTuningLab.css` (~260 lines)
-- **Purpose**: Unified PID/Lead-Lag controller design and auto-tuning environment
+- **Backend**: `backend/simulations/controller_tuning_lab.py` (~1520 lines)
+- **Frontend**: `frontend/src/components/ControllerTuningLabViewer.jsx` (~600 lines)
+- **CSS**: `frontend/src/styles/ControllerTuningLab.css` (~320 lines)
+- **Purpose**: Unified controller design and auto-tuning environment (classical + modern)
 - **Key features**:
   - 7 plant presets (1st/2nd order, integrator, FOPDT, DC motor, unstable, custom TF)
   - PID with derivative filter + Lead-Lag compensator
@@ -381,3 +381,8 @@ All tracking files live in `.claude/`. **Read them before starting work. Update 
   - Performance metrics strip (rise time, settling time, overshoot, margins, ISE/IAE/ITAE)
   - Save up to 5 reference responses for comparison
   - Fullscreen comparison overlay with overlaid traces and metrics table
+  - **Phase 2 — Modern controllers**: State Feedback (manual K), Pole Placement (`scipy.signal.place_poles`), LQR Optimal (`scipy.linalg.solve_continuous_are`)
+  - TF↔SS bridging: `tf2ss()` conversion, controllability matrix rank check, `StateSpace.to_tf()` for CL
+  - KaTeX-rendered state-space matrices (A, B, C, D) with `\dot{x} = Ax + Bu` equations
+  - State-feedback SVG block diagram variant (K on feedback path instead of C(s))
+  - Controllability badge and plant order display in metrics strip
