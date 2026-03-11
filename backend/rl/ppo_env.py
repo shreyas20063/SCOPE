@@ -25,12 +25,18 @@ _trapz = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
 def _build_pid_tf(kp: float, ki: float, kd: float, N: float = 20.0):
     """Build PID controller TF from gains."""
     if abs(ki) > 1e-12 and abs(kd) > 1e-12:
-        return np.array([kp + kd * N, kp * N + ki, ki * N]), np.array([1.0, N, 0.0])
+        num = np.array([kp + kd * N, kp * N + ki, ki * N])
+        den = np.array([1.0, N, 0.0])
     elif abs(ki) > 1e-12:
-        return np.array([kp, ki]), np.array([1.0, 0.0])
+        num = np.array([kp, ki])
+        den = np.array([1.0, 0.0])
     elif abs(kd) > 1e-12:
-        return np.array([kp + kd * N, kp * N]), np.array([1.0, N])
-    return np.array([kp]), np.array([1.0])
+        num = np.array([kp + kd * N, kp * N])
+        den = np.array([1.0, N])
+    else:
+        num = np.array([kp])
+        den = np.array([1.0])
+    return num, den
 
 
 if HAS_GYM:

@@ -16,7 +16,7 @@ import numpy as np
 from scipy import signal as sig
 
 
-def _pade(T: float, n: int = 3) -> tuple[list[float], list[float]]:
+def _pade(T: float, n: int = 3) -> tuple[np.ndarray, np.ndarray]:
     """Padé approximation of e^(-sT). Returns (num, den) polynomials.
 
     Replaces scipy.signal.pade which was removed in SciPy 1.17.
@@ -30,7 +30,7 @@ def _pade(T: float, n: int = 3) -> tuple[list[float], list[float]]:
         val = coeff * T**k
         den[k] = val
         num[k] = val * (-1)**k
-    return num, den
+    return np.array(num), np.array(den)
 
 if TYPE_CHECKING:
     pass
