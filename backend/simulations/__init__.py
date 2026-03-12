@@ -59,6 +59,7 @@ from .routh_hurwitz import RouthHurwitzSimulator
 from .nyquist_stability import NyquistStabilitySimulator
 from .controller_tuning_lab import ControllerTuningLabSimulator
 from .lead_lag_designer import LeadLagDesignerSimulator
+from .steady_state_error import SteadyStateErrorSimulator
 
 # Registry mapping simulation IDs to their simulator classes
 # Add new simulators here as they are implemented
@@ -113,6 +114,7 @@ SIMULATOR_REGISTRY = {
     "nyquist_stability": NyquistStabilitySimulator,
     "controller_tuning_lab": ControllerTuningLabSimulator,
     "lead_lag_designer": LeadLagDesignerSimulator,
+    "steady_state_error": SteadyStateErrorSimulator,
 }
 
 
@@ -204,6 +206,7 @@ __all__ = [
     "NyquistStabilitySimulator",
     "ControllerTuningLabSimulator",
     "LeadLagDesignerSimulator",
+    "SteadyStateErrorSimulator",
     "SIMULATOR_REGISTRY",
     "get_simulator_class",
     "is_simulator_available",

@@ -2719,10 +2719,10 @@ SIMULATION_CATALOG = [
     {
         "id": "controller_tuning_lab",
         "name": "Controller Tuning Lab",
-        "description": "Design and tune PID, Lead-Lag, and modern state-space controllers (LQR, pole placement) for various plants. Compare tuning methods including Ziegler-Nichols, Cohen-Coon, Lambda, IMC, and ITAE optimal.",
+        "description": "Design and tune PID, Lead-Lag, and modern state-space controllers (LQR, LQG, pole placement) for various plants. Compare tuning methods including Ziegler-Nichols, Cohen-Coon, Lambda, IMC, and ITAE optimal.",
         "category": "Control Systems",
         "thumbnail": "🎛️",
-        "tags": ["PID", "tuning", "Ziegler-Nichols", "control", "step response", "Bode", "stability", "LQR", "pole placement", "state feedback"],
+        "tags": ["PID", "tuning", "Ziegler-Nichols", "control", "step response", "Bode", "stability", "LQR", "LQG", "Kalman filter", "pole placement", "state feedback", "optimal control"],
         "has_simulator": True,
         "controls": [
             {"type": "select", "name": "plant_preset", "label": "Plant Type",
@@ -2776,6 +2776,7 @@ SIMULATION_CATALOG = [
                  {"value": "state_feedback", "label": "State Feedback (manual K)"},
                  {"value": "pole_placement", "label": "Pole Placement"},
                  {"value": "lqr", "label": "LQR (Optimal)"},
+                 {"value": "lqg", "label": "LQG (LQR + Kalman Filter)"},
              ],
              "default": "PID", "group": "Controller"},
             {"type": "slider", "name": "Kp", "label": "Proportional Gain Kp",
@@ -2831,16 +2832,26 @@ SIMULATION_CATALOG = [
             {"type": "slider", "name": "pp_pole3_imag", "label": "Pole 3 Imag",
              "min": -20, "max": 20, "step": 0.1, "default": 0.0, "group": "Controller",
              "visible_when": {"controller_type": "pole_placement"}},
-            # LQR weights
+            # LQR / LQG control weights
             {"type": "slider", "name": "lqr_q1", "label": "Q\u2081 (state 1 cost)",
              "min": 0.01, "max": 100, "step": 0.01, "default": 1.0, "group": "Controller",
-             "visible_when": {"controller_type": "lqr"}},
+             "visible_when": {"controller_type": ["lqr", "lqg"]}},
             {"type": "slider", "name": "lqr_q2", "label": "Q\u2082 (state 2 cost)",
              "min": 0.01, "max": 100, "step": 0.01, "default": 1.0, "group": "Controller",
-             "visible_when": {"controller_type": "lqr"}},
+             "visible_when": {"controller_type": ["lqr", "lqg"]}},
             {"type": "slider", "name": "lqr_r", "label": "R (control effort cost)",
              "min": 0.01, "max": 100, "step": 0.01, "default": 1.0, "group": "Controller",
-             "visible_when": {"controller_type": "lqr"}},
+             "visible_when": {"controller_type": ["lqr", "lqg"]}},
+            # LQG Kalman filter noise weights
+            {"type": "slider", "name": "lqg_qw1", "label": "Qw\u2081 (process noise state 1)",
+             "min": 0.001, "max": 100, "step": 0.001, "default": 1.0, "group": "Controller",
+             "visible_when": {"controller_type": "lqg"}},
+            {"type": "slider", "name": "lqg_qw2", "label": "Qw\u2082 (process noise state 2)",
+             "min": 0.001, "max": 100, "step": 0.001, "default": 1.0, "group": "Controller",
+             "visible_when": {"controller_type": "lqg"}},
+            {"type": "slider", "name": "lqg_rv", "label": "Rv (measurement noise)",
+             "min": 0.001, "max": 100, "step": 0.001, "default": 0.1, "group": "Controller",
+             "visible_when": {"controller_type": "lqg"}},
             {"type": "select", "name": "tuning_method", "label": "Tuning Method",
              "options": [
                  {"value": "manual", "label": "Manual (use sliders)"},
@@ -3014,6 +3025,54 @@ SIMULATION_CATALOG = [
             {"id": "pole_zero_map", "title": "Pole-Zero Map", "description": "OL and CL poles/zeros"},
             {"id": "compensator_phase", "title": "Compensator Phase Breakdown", "description": "Lead and lag phase contributions"},
             {"id": "nichols_chart", "title": "Nichols Chart", "description": "Open-loop gain vs phase"},
+        ],
+    },
+
+    # =========================================================================
+    # STEADY-STATE ERROR ANALYZER
+    # =========================================================================
+    {
+        "id": "steady_state_error",
+        "name": "Steady-State Error Analyzer",
+        "description": "Systematic analysis of steady-state tracking error: system type classification, error constants (Kp, Kv, Ka), and the relationship between gain, input type, and tracking accuracy.",
+        "category": "Control Systems",
+        "thumbnail": "\U0001f3af",
+        "tags": ["steady-state error", "system type", "error constants", "Kp", "Kv", "Ka", "final value theorem", "tracking", "gain"],
+        "has_simulator": True,
+        "controls": [
+            {"type": "select", "name": "plant_preset", "label": "Plant Preset", "options": [
+                {"value": "type0_first", "label": "Type 0 \u2014 K/(s+2)"},
+                {"value": "type0_second", "label": "Type 0 \u2014 K/((s+1)(s+3))"},
+                {"value": "type1_standard", "label": "Type 1 \u2014 K/(s(s+5))"},
+                {"value": "type1_two_pole", "label": "Type 1 \u2014 K/(s(s+1)(s+4))"},
+                {"value": "type2_standard", "label": "Type 2 \u2014 K/(s\u00b2(s+10))"},
+                {"value": "type2_complex", "label": "Type 2 \u2014 K/(s\u00b2(s+2)(s+5))"},
+                {"value": "type3", "label": "Type 3 \u2014 K/(s\u00b3(s+4))"},
+                {"value": "custom", "label": "Custom G(s)"},
+            ], "default": "type1_standard", "group": "Plant"},
+            {"type": "expression", "name": "plant_num", "label": "Numerator coefficients", "default": "1", "group": "Plant", "visible_when": {"plant_preset": "custom"}},
+            {"type": "expression", "name": "plant_den", "label": "Denominator coefficients", "default": "1, 5, 0", "group": "Plant", "visible_when": {"plant_preset": "custom"}},
+            {"type": "slider", "name": "gain_K", "label": "Gain K", "min": 0.1, "max": 100, "step": 0.1, "default": 10.0, "group": "Gain"},
+            {"type": "select", "name": "input_type", "label": "Input Signal", "options": [
+                {"value": "step", "label": "Step \u2014 r(t) = Au(t)"},
+                {"value": "ramp", "label": "Ramp \u2014 r(t) = Atu(t)"},
+                {"value": "parabolic", "label": "Parabolic \u2014 r(t) = \u00bdAt\u00b2u(t)"},
+            ], "default": "step", "group": "Input"},
+            {"type": "slider", "name": "input_magnitude", "label": "Magnitude A", "min": 0.1, "max": 10, "step": 0.1, "default": 1.0, "group": "Input"},
+        ],
+        "default_params": {
+            "plant_preset": "type1_standard",
+            "plant_num": "1",
+            "plant_den": "1, 5, 0",
+            "gain_K": 10.0,
+            "input_type": "step",
+            "input_magnitude": 1.0,
+        },
+        "plots": [
+            {"id": "time_response", "title": "System Response", "description": "Output y(t) tracking reference r(t)"},
+            {"id": "error_signal", "title": "Error Signal", "description": "Error e(t) = r(t) - y(t) converging to ess"},
+            {"id": "ess_vs_gain", "title": "Error vs Gain", "description": "Steady-state error as function of gain K"},
+            {"id": "pole_zero_map", "title": "Pole-Zero Map", "description": "Open-loop and closed-loop poles and zeros"},
         ],
     },
 ]

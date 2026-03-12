@@ -170,6 +170,10 @@ export function useSimulation(simId) {
       isFlushingRef.current = false;
       if (mountedRef.current) {
         setIsUpdating(false);
+        // If new updates accumulated while we were flushing, trigger another flush
+        if (Object.keys(pendingUpdates.current).length > 0 && debouncedUpdateRef.current) {
+          debouncedUpdateRef.current();
+        }
       }
     }
   }, [simId]);

@@ -59,6 +59,7 @@ const RouthHurwitzViewer = lazy(() => import('./RouthHurwitzViewer'));
 const NyquistStabilityViewer = lazy(() => import('./NyquistStabilityViewer'));
 const ControllerTuningLabViewer = lazy(() => import('./ControllerTuningLabViewer'));
 const LeadLagDesignerViewer = lazy(() => import('./LeadLagDesignerViewer'));
+const SteadyStateErrorViewer = lazy(() => import('./SteadyStateErrorViewer'));
 
 // Loading fallback for lazy-loaded components
 const LazyLoadFallback = () => (
@@ -2011,6 +2012,13 @@ function SimulationViewer({
               ) : metadata?.simulation_type === 'lead_lag_designer' ? (
                 <Suspense fallback={<LazyLoadFallback />}>
                   <LeadLagDesignerViewer
+                    metadata={metadata}
+                    plots={plots}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'steady_state_error' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <SteadyStateErrorViewer
                     metadata={metadata}
                     plots={plots}
                   />

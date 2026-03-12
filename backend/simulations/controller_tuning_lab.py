@@ -23,7 +23,8 @@ def _pade(T: float, n: int = 3) -> tuple[np.ndarray, np.ndarray]:
         val = coeff * T**k
         den[k] = val
         num[k] = val * (-1)**k
-    return num, den
+    # Reverse to descending power order (numpy convention)
+    return num[::-1], den[::-1]
 
 
 class ControllerTuningLabSimulator(BaseSimulator):
@@ -110,6 +111,7 @@ class ControllerTuningLabSimulator(BaseSimulator):
                 {"value": "state_feedback", "label": "State Feedback (manual K)"},
                 {"value": "pole_placement", "label": "Pole Placement"},
                 {"value": "lqr", "label": "LQR (Optimal)"},
+                {"value": "lqg", "label": "LQG (LQR + Kalman Filter)"},
             ],
             "default": "PID",
             "group": "Controller",
@@ -215,35 +217,61 @@ class ControllerTuningLabSimulator(BaseSimulator):
             "type": "button", "label": "Compute K", "group": "Controller",
             "visible_when": {"controller_type": "pole_placement"},
         },
-        # ===== LQR =====
+        # ===== LQR / LQG control weights =====
         "lqr_q1": {
             "type": "slider", "min": 0.01, "max": 100, "step": 0.1, "default": 1.0,
             "label": "Q\u2081\u2081 (state 1 weight)", "group": "Controller",
-            "visible_when": {"controller_type": "lqr"},
+            "visible_when": {"controller_type": ["lqr", "lqg"]},
         },
         "lqr_q2": {
             "type": "slider", "min": 0.01, "max": 100, "step": 0.1, "default": 1.0,
             "label": "Q\u2082\u2082 (state 2 weight)", "group": "Controller",
-            "visible_when": {"controller_type": "lqr"},
+            "visible_when": {"controller_type": ["lqr", "lqg"]},
         },
         "lqr_q3": {
             "type": "slider", "min": 0.01, "max": 100, "step": 0.1, "default": 1.0,
             "label": "Q\u2083\u2083 (state 3 weight)", "group": "Controller",
-            "visible_when": {"controller_type": "lqr"},
+            "visible_when": {"controller_type": ["lqr", "lqg"]},
         },
         "lqr_q4": {
             "type": "slider", "min": 0.01, "max": 100, "step": 0.1, "default": 1.0,
             "label": "Q\u2084\u2084 (state 4 weight)", "group": "Controller",
-            "visible_when": {"controller_type": "lqr"},
+            "visible_when": {"controller_type": ["lqr", "lqg"]},
         },
         "lqr_r": {
             "type": "slider", "min": 0.001, "max": 100, "step": 0.01, "default": 1.0,
             "label": "R (control weight)", "group": "Controller",
-            "visible_when": {"controller_type": "lqr"},
+            "visible_when": {"controller_type": ["lqr", "lqg"]},
         },
         "apply_lqr": {
             "type": "button", "label": "Compute LQR K", "group": "Controller",
             "visible_when": {"controller_type": "lqr"},
+        },
+        # ===== LQG Kalman filter noise weights =====
+        "lqg_qw1": {
+            "type": "slider", "min": 0.001, "max": 100, "step": 0.001, "default": 1.0,
+            "label": "Qw\u2081 (process noise state 1)", "group": "Controller",
+            "visible_when": {"controller_type": "lqg"},
+        },
+        "lqg_qw2": {
+            "type": "slider", "min": 0.001, "max": 100, "step": 0.001, "default": 1.0,
+            "label": "Qw\u2082 (process noise state 2)", "group": "Controller",
+            "visible_when": {"controller_type": "lqg"},
+        },
+        "lqg_qw3": {
+            "type": "slider", "min": 0.001, "max": 100, "step": 0.001, "default": 1.0,
+            "label": "Qw\u2083 (process noise state 3)", "group": "Controller",
+            "visible_when": {"controller_type": "lqg"},
+        },
+        "lqg_qw4": {
+            "type": "slider", "min": 0.001, "max": 100, "step": 0.001, "default": 1.0,
+            "label": "Qw\u2084 (process noise state 4)", "group": "Controller",
+            "visible_when": {"controller_type": "lqg"},
+        },
+        "lqg_rv": {
+            "type": "slider", "min": 0.001, "max": 100, "step": 0.001, "default": 0.1,
+            "label": "Rv (measurement noise)", "group": "Controller",
+            "visible_when": {"controller_type": "lqg"},
         },
         # ===== TUNING METHOD =====
         "tuning_method": {
@@ -274,6 +302,7 @@ class ControllerTuningLabSimulator(BaseSimulator):
             "visible_when": {"tuning_method": [
                 "zn_open", "zn_closed", "cohen_coon",
                 "lambda_tuning", "imc", "itae_optimal",
+                "de_optimal", "es_adaptive", "ppo_rl",
             ]},
         },
         # ===== DISPLAY / REFERENCE =====
@@ -319,6 +348,8 @@ class ControllerTuningLabSimulator(BaseSimulator):
         "pp_pole4_real": -7.0, "pp_pole4_imag": 0.0,
         "lqr_q1": 1.0, "lqr_q2": 1.0, "lqr_q3": 1.0, "lqr_q4": 1.0,
         "lqr_r": 1.0,
+        "lqg_qw1": 1.0, "lqg_qw2": 1.0, "lqg_qw3": 1.0, "lqg_qw4": 1.0,
+        "lqg_rv": 0.1,
     }
 
     def initialize(self, params: dict | None = None) -> None:
@@ -345,6 +376,7 @@ class ControllerTuningLabSimulator(BaseSimulator):
         self._is_controllable = True
         self._state_feedback_mode = False
         self._state_feedback_K: np.ndarray | None = None
+        self._kalman_L: np.ndarray | None = None
         self._initialized = True
 
     def update_parameter(self, name: str, value) -> dict:
@@ -352,6 +384,18 @@ class ControllerTuningLabSimulator(BaseSimulator):
             self.parameters[name] = self._validate_param(name, value)
         elif name in self.parameters:
             self.parameters[name] = value
+
+        # Reset dependent state when key mode params change
+        if name == "controller_type":
+            self._tuning_info = None
+            self._state_feedback_K = None
+            self._kalman_L = None
+        elif name == "plant_preset":
+            self._tuning_info = None
+        elif name == "tuning_method":
+            if value == "manual":
+                self._tuning_info = None
+
         return self.get_state()
 
     # =========================================================================
@@ -496,16 +540,26 @@ class ControllerTuningLabSimulator(BaseSimulator):
                 self._state_feedback_K = K_vec
                 return
             else:
+                # Fallback: CL = plant (unity feedback, no controller effect)
+                self._cl_num = self._plant_num.copy()
+                self._cl_den = (
+                    np.pad(self._plant_den, (max(0, len(self._plant_num) - len(self._plant_den)), 0))
+                    + np.pad(self._plant_num, (max(0, len(self._plant_den) - len(self._plant_num)), 0))
+                )
                 self._ctrl_num = np.array([1.0])
                 self._ctrl_den = np.array([1.0])
                 self._state_feedback_mode = True
                 self._state_feedback_K = K_vec
                 return
+        elif ctype == "lqg":
+            self._build_lqg_controller()
+            return
         else:
             self._ctrl_num = np.array([Kp])
             self._ctrl_den = np.array([1.0])
         self._state_feedback_mode = False
         self._state_feedback_K = None
+        self._kalman_L = None
 
     # =========================================================================
     # State-feedback helpers
@@ -549,6 +603,78 @@ class ControllerTuningLabSimulator(BaseSimulator):
 
         return None
 
+    def _build_lqg_controller(self) -> None:
+        """Build LQG closed-loop via augmented state-space (plant + observer).
+
+        Uses separation principle: LQR gain K from performance Riccati,
+        Kalman gain L from estimator (dual) Riccati. The augmented 2n-order
+        system shows both controlled-plant poles and observer poles.
+
+        Reference feedforward N_bar = -1/(C*(A-BK)^{-1}*B) ensures unit
+        DC gain for step tracking.
+        """
+        p = self.parameters
+        n = self._plant_order
+        Q = np.diag([float(p.get(f"lqr_q{i + 1}", 1.0)) for i in range(n)])
+        R_ctrl = np.atleast_2d(float(p.get("lqr_r", 1.0)))
+        Qw = np.diag([float(p.get(f"lqg_qw{i + 1}", 1.0)) for i in range(n)])
+        Rv_scalar = max(float(p.get("lqg_rv", 0.1)), 1e-6)
+        Rv = np.atleast_2d(Rv_scalar)
+
+        try:
+            from scipy.linalg import solve_continuous_are
+
+            # LQR Riccati: A'P + PA - PBR⁻¹B'P + Q = 0 → K = R⁻¹B'P
+            P_lqr = solve_continuous_are(self._A, self._B, Q, R_ctrl)
+            K_vec = np.linalg.solve(R_ctrl, self._B.T @ P_lqr).flatten()
+
+            # Kalman Riccati (dual): AΣ + ΣA' - ΣC'Rv⁻¹CΣ + Qw = 0 → L = ΣC'Rv⁻¹
+            P_kal = solve_continuous_are(self._A.T, self._C.T, Qw, Rv)
+            L = (P_kal @ self._C.T / Rv_scalar).reshape(-1, 1)
+
+            # Reference feedforward for unit step tracking:
+            # N_bar = -1/(C * (A-BK)^{-1} * B) so CL DC gain = 1
+            A_sf = self._A - self._B @ K_vec.reshape(1, -1)
+            dc_sf = float(self._C @ np.linalg.solve(A_sf, self._B))
+            N_bar = -1.0 / dc_sf if abs(dc_sf) > 1e-6 else 1.0
+            # Guard: N_bar must be positive and bounded for physical tracking.
+            # Non-minimum-phase plants (Padé RHP zeros) can produce negative
+            # or extreme N_bar; fall back to N_bar=1 (accept SSE).
+            if N_bar <= 0 or N_bar > 20.0:
+                N_bar = 1.0
+
+            # Augmented 2n-order state-space: z = [x (plant); x̂ (observer)]
+            # ẋ  = Ax - BKx̂ + BN_bar*r
+            # x̂̇ = LCx + (A-BK-LC)x̂ + BN_bar*r
+            # y  = Cx
+            A_aug = np.block([
+                [self._A, -self._B @ K_vec.reshape(1, -1)],
+                [L @ self._C, self._A - self._B @ K_vec.reshape(1, -1) - L @ self._C],
+            ])
+            B_aug = np.vstack([self._B, self._B]) * N_bar
+            C_aug = np.hstack([self._C, np.zeros_like(self._C)])
+            D_aug = self._D
+
+            cl_ss = signal.StateSpace(A_aug, B_aug, C_aug, D_aug)
+            cl_tf = cl_ss.to_tf()
+            self._cl_num = np.atleast_1d(cl_tf.num)
+            self._cl_den = np.atleast_1d(cl_tf.den)
+
+            # Dummy controller TF (not used in state_feedback_mode)
+            self._ctrl_num = np.array([1.0])
+            self._ctrl_den = np.array([1.0])
+            self._state_feedback_K = K_vec
+            self._kalman_L = L.flatten()
+            self._state_feedback_mode = True
+        except Exception:
+            self._ctrl_num = np.array([1.0])
+            self._ctrl_den = np.array([1.0])
+            self._cl_num = self._plant_num.copy()
+            self._cl_den = self._plant_den.copy()
+            self._state_feedback_K = None
+            self._kalman_L = None
+            self._state_feedback_mode = True
+
     @staticmethod
     def _ensure_conjugate_pairs(poles: list) -> list:
         """Ensure complex poles come in conjugate pairs."""
@@ -579,10 +705,18 @@ class ControllerTuningLabSimulator(BaseSimulator):
     def _compute_closed_loop(self) -> None:
         """Compute open-loop and closed-loop transfer functions."""
         if getattr(self, '_state_feedback_mode', False):
-            # CL already computed in _build_controller_tf for state-feedback
-            # Use plant TF as OL for Bode/Nyquist (approximate)
-            self._ol_num = self._plant_num.copy()
-            self._ol_den = self._plant_den.copy()
+            # CL already computed in _build_controller_tf for state-feedback.
+            # Recover loop TF: L(s) = T(s)/(1-T(s)) = cl_num / (cl_den - cl_num)
+            # This gives correct Bode/Nyquist/margins for ANY controller topology.
+            ml = max(len(self._cl_den), len(self._cl_num))
+            cl_num_pad = np.pad(self._cl_num, (ml - len(self._cl_num), 0))
+            cl_den_pad = np.pad(self._cl_den, (ml - len(self._cl_den), 0))
+            self._ol_num = cl_num_pad.copy()
+            self._ol_den = cl_den_pad - cl_num_pad
+            # Guard: if ol_den is all-zero (T=1 exactly), fall back to plant
+            if np.max(np.abs(self._ol_den)) < 1e-12:
+                self._ol_num = self._plant_num.copy()
+                self._ol_den = self._plant_den.copy()
             return
         self._ol_num = np.convolve(self._ctrl_num, self._plant_num)
         self._ol_den = np.convolve(self._ctrl_den, self._plant_den)
@@ -613,11 +747,22 @@ class ControllerTuningLabSimulator(BaseSimulator):
         return t, y
 
     def _compute_control_effort(self, t: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """Compute control signal u(t) = C(s) * e(t)."""
+        """Compute control signal u(t).
+
+        For PID/lead-lag: u = C(s) * e(t).
+        For state feedback: U(s)/R(s) = T(s)/G(s) = (cl_num·plant_den)/(cl_den·plant_num).
+        """
         try:
-            e_t = 1.0 - y
-            ctrl_sys = signal.TransferFunction(self._ctrl_num, self._ctrl_den)
-            _, u, _ = signal.lsim(ctrl_sys, U=e_t, T=t)
+            if getattr(self, '_state_feedback_mode', False):
+                # U/R = T(s)/G(s) since Y = G*U always holds
+                u_num = np.convolve(self._cl_num, self._plant_den)
+                u_den = np.convolve(self._cl_den, self._plant_num)
+                u_sys = signal.TransferFunction(u_num, u_den)
+                _, u = signal.step(u_sys, T=t)
+            else:
+                e_t = 1.0 - y
+                ctrl_sys = signal.TransferFunction(self._ctrl_num, self._ctrl_den)
+                _, u, _ = signal.lsim(ctrl_sys, U=e_t, T=t)
             cap = max(np.abs(u[np.isfinite(u)]).max() * 1.5, 10.0) if np.any(np.isfinite(u)) else 100.0
             u = np.clip(u, -cap, cap)
         except Exception:
@@ -678,48 +823,67 @@ class ControllerTuningLabSimulator(BaseSimulator):
     ) -> dict:
         """Compute all performance metrics."""
         metrics: dict = {}
+
+        # Stability check first — skip time-domain metrics for unstable systems
+        is_stable = True
+        try:
+            cl_poles = np.roots(self._cl_den)
+            max_real = np.max(cl_poles.real) if len(cl_poles) > 0 else 0
+            is_stable = max_real < -1e-6
+        except Exception:
+            pass
+
         final = y[-1] if len(y) > 0 and np.isfinite(y[-1]) else 1.0
         if abs(final) < 1e-10:
             final = 1.0
 
-        # Rise time (10% to 90% of final value)
-        try:
-            y10, y90 = 0.1 * final, 0.9 * final
-            idx10 = np.where(y >= y10)[0]
-            idx90 = np.where(y >= y90)[0]
-            t_rise = (t[idx90[0]] - t[idx10[0]]) if len(idx10) > 0 and len(idx90) > 0 else None
-            metrics["rise_time"] = float(t_rise) if t_rise is not None and t_rise > 0 else None
-        except (IndexError, ValueError):
+        if not is_stable:
+            # Unstable: time-domain metrics are meaningless
             metrics["rise_time"] = None
-
-        # Peak and overshoot
-        try:
-            peak_idx = np.argmax(y)
-            y_peak = float(y[peak_idx])
-            t_peak = float(t[peak_idx])
-            overshoot = max(0, (y_peak - final) / abs(final) * 100)
-            metrics["overshoot_pct"] = float(overshoot)
-            metrics["peak_time"] = t_peak
-            metrics["peak_value"] = y_peak
-        except (ValueError, IndexError):
-            metrics["overshoot_pct"] = 0.0
+            metrics["overshoot_pct"] = None
             metrics["peak_time"] = None
             metrics["peak_value"] = None
-
-        # Settling time (2% band)
-        try:
-            band = 0.02 * abs(final)
-            within_band = np.abs(y - final) <= band
-            if np.all(within_band):
-                metrics["settling_time"] = 0.0
-            else:
-                last_outside = np.where(~within_band)[0]
-                metrics["settling_time"] = float(t[last_outside[-1]]) if len(last_outside) > 0 else None
-        except (IndexError, ValueError):
             metrics["settling_time"] = None
+            metrics["steady_state_error"] = None
+        else:
+            # Rise time (10% to 90% of final value)
+            try:
+                y10, y90 = 0.1 * final, 0.9 * final
+                idx10 = np.where(y >= y10)[0]
+                idx90 = np.where(y >= y90)[0]
+                t_rise = (t[idx90[0]] - t[idx10[0]]) if len(idx10) > 0 and len(idx90) > 0 else None
+                metrics["rise_time"] = float(t_rise) if t_rise is not None and t_rise > 0 else None
+            except (IndexError, ValueError):
+                metrics["rise_time"] = None
 
-        # Steady-state error
-        metrics["steady_state_error"] = float(abs(1.0 - final))
+            # Peak and overshoot
+            try:
+                peak_idx = np.argmax(y)
+                y_peak = float(y[peak_idx])
+                t_peak = float(t[peak_idx])
+                overshoot = max(0, (y_peak - final) / abs(final) * 100)
+                metrics["overshoot_pct"] = float(overshoot)
+                metrics["peak_time"] = t_peak
+                metrics["peak_value"] = y_peak
+            except (ValueError, IndexError):
+                metrics["overshoot_pct"] = 0.0
+                metrics["peak_time"] = None
+                metrics["peak_value"] = None
+
+            # Settling time (2% band)
+            try:
+                band = 0.02 * abs(final)
+                within_band = np.abs(y - final) <= band
+                if np.all(within_band):
+                    metrics["settling_time"] = 0.0
+                else:
+                    last_outside = np.where(~within_band)[0]
+                    metrics["settling_time"] = float(t[last_outside[-1]]) if len(last_outside) > 0 else None
+            except (IndexError, ValueError):
+                metrics["settling_time"] = None
+
+            # Steady-state error
+            metrics["steady_state_error"] = float(abs(1.0 - final))
 
         # Stability margins from Bode data
         gm_db, pm_deg, w_gc, w_pc = self._compute_stability_margins(w, mag_db, phase_deg)
@@ -819,7 +983,21 @@ class ControllerTuningLabSimulator(BaseSimulator):
             "closed_loop_tf_str": f"T(s) = {self._poly_to_str(self._cl_num)}/({self._poly_to_str(self._cl_den)})",
         }
 
-        if getattr(self, '_state_feedback_mode', False):
+        ctype = self.parameters.get("controller_type", "PID")
+        if ctype == "lqg":
+            K = getattr(self, '_state_feedback_K', None)
+            L = getattr(self, '_kalman_L', None)
+            if K is not None and L is not None:
+                k_str = ', '.join(f'{k:.4g}' for k in K)
+                l_str = ', '.join(f'{l:.4g}' for l in L)
+                result["controller_tf_latex"] = (
+                    f"\\mathbf{{K}}=[{k_str}],\\;\\mathbf{{L}}=[{l_str}]"
+                )
+                result["controller_tf_str"] = f"LQG: K=[{k_str}], L=[{l_str}]"
+            else:
+                result["controller_tf_latex"] = "\\text{LQG (not computed)}"
+                result["controller_tf_str"] = "LQG: K, L not computed"
+        elif getattr(self, '_state_feedback_mode', False):
             K = getattr(self, '_state_feedback_K', None)
             if K is not None:
                 k_str = ', '.join(f'{k:.4g}' for k in K)
@@ -1299,13 +1477,34 @@ class ControllerTuningLabSimulator(BaseSimulator):
         """Save current step response as a reference snapshot."""
         t, y = self._compute_step_response()
         label = self._make_reference_label()
+        ctype = self.parameters.get("controller_type", "PID")
+        # Include relevant params for the current controller type
+        save_keys = {"controller_type", "tuning_method", "plant_preset"}
+        if ctype in ("P", "PI", "PD", "PID"):
+            save_keys |= {"Kp", "Ki", "Kd"}
+        elif ctype == "lead_lag":
+            save_keys |= {"lead_lag_Kc", "lead_lag_zero", "lead_lag_pole"}
+        elif ctype in ("state_feedback", "pole_placement", "lqr", "lqg"):
+            # Save K vector and LQR/LQG weights
+            n = getattr(self, '_plant_order', 1)
+            save_keys |= {f"sf_k{i+1}" for i in range(n)}
+            save_keys |= {f"lqr_q{i+1}" for i in range(n)}
+            save_keys.add("lqr_r")
+            if ctype == "lqg":
+                save_keys |= {f"lqg_qw{i+1}" for i in range(n)}
+                save_keys.add("lqg_rv")
+        saved_params = {k: v for k, v in self.parameters.items() if k in save_keys}
+        # Also include computed K and L vectors
+        if getattr(self, '_state_feedback_K', None) is not None:
+            saved_params["_K"] = self._state_feedback_K.tolist()
+        if getattr(self, '_kalman_L', None) is not None:
+            saved_params["_L"] = self._kalman_L.tolist()
+
         snapshot = {
             "t": t.tolist(),
             "y": y.tolist(),
             "label": label,
-            "params": {k: v for k, v in self.parameters.items()
-                       if k in ("Kp", "Ki", "Kd", "controller_type", "tuning_method",
-                                "lead_lag_Kc", "lead_lag_zero", "lead_lag_pole")},
+            "params": saved_params,
         }
         if len(self._reference_responses) >= 5:
             self._reference_responses.pop(0)
@@ -1319,6 +1518,15 @@ class ControllerTuningLabSimulator(BaseSimulator):
             z = self.parameters.get("lead_lag_zero", 2)
             p = self.parameters.get("lead_lag_pole", 10)
             return f"Lead-Lag: Kc={Kc:.2g}, z={z:.2g}, p={p:.2g}"
+        if ctype in ("state_feedback", "pole_placement", "lqr", "lqg"):
+            K = getattr(self, '_state_feedback_K', None)
+            k_str = f"K=[{', '.join(f'{k:.3g}' for k in K)}]" if K is not None else "K=?"
+            if ctype == "lqg":
+                L = getattr(self, '_kalman_L', None)
+                l_str = f", L=[{', '.join(f'{l:.3g}' for l in L)}]" if L is not None else ""
+                return f"LQG: {k_str}{l_str}"
+            label_map = {"state_feedback": "SF", "pole_placement": "PP", "lqr": "LQR"}
+            return f"{label_map.get(ctype, ctype)}: {k_str}"
         Kp = self.parameters.get("Kp", 1)
         Ki = self.parameters.get("Ki", 0)
         Kd = self.parameters.get("Kd", 0)
@@ -1632,6 +1840,7 @@ class ControllerTuningLabSimulator(BaseSimulator):
             "metadata": {
                 "simulation_type": "controller_tuning_lab",
                 "has_custom_viewer": True,
+                "controller_type": self.parameters.get("controller_type", "PID"),
                 "performance": getattr(self, "_last_metrics", {}),
                 "tf_strings": getattr(self, "_last_tf_strings", {}),
                 "reference_responses": self._reference_responses,
@@ -1651,6 +1860,14 @@ class ControllerTuningLabSimulator(BaseSimulator):
                     f"K = [{', '.join(f'{k:.4g}' for k in self._state_feedback_K)}]"
                     if getattr(self, '_state_feedback_K', None) is not None else None
                 ),
+                "kalman_L": (
+                    self._kalman_L.tolist()
+                    if getattr(self, '_kalman_L', None) is not None else None
+                ),
+                "kalman_L_str": (
+                    f"L = [{', '.join(f'{l:.4g}' for l in self._kalman_L)}]"
+                    if getattr(self, '_kalman_L', None) is not None else None
+                ),
                 "ss_matrices": (
                     {
                         "A": self._A.tolist(),
@@ -1658,7 +1875,7 @@ class ControllerTuningLabSimulator(BaseSimulator):
                         "C": self._C.tolist(),
                         "D": self._D.tolist(),
                     }
-                    if self.parameters.get("controller_type") in ("state_feedback", "pole_placement", "lqr")
+                    if self.parameters.get("controller_type") in ("state_feedback", "pole_placement", "lqr", "lqg")
                     else None
                 ),
             },
@@ -1667,11 +1884,14 @@ class ControllerTuningLabSimulator(BaseSimulator):
     def handle_action(self, action: str, params: dict | None = None) -> dict:
         """Handle button press actions."""
         if action == "apply_tuning":
-            self._build_plant_tf()
-            gains = self._auto_tune()
-            if gains:
-                for key, value in gains.items():
-                    self.parameters[key] = value
+            # Guard: auto-tune only works for PID-family controllers
+            ctype = self.parameters.get("controller_type", "PID")
+            if ctype in ("P", "PI", "PD", "PID"):
+                self._build_plant_tf()
+                gains = self._auto_tune()
+                if gains:
+                    for key, value in gains.items():
+                        self.parameters[key] = value
         elif action == "save_reference":
             self._build_plant_tf()
             self._build_controller_tf()

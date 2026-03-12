@@ -30,7 +30,8 @@ def _pade(T: float, n: int = 3) -> tuple[np.ndarray, np.ndarray]:
         val = coeff * T**k
         den[k] = val
         num[k] = val * (-1)**k
-    return np.array(num), np.array(den)
+    # Reverse to descending power order (numpy convention)
+    return np.array(num[::-1]), np.array(den[::-1])
 
 if TYPE_CHECKING:
     pass

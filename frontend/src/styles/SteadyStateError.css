@@ -1,0 +1,538 @@
+/* ==========================================================================
+   Steady-State Error Analyzer — Dedicated Styles
+   All values use CSS variables from App.css :root
+   ========================================================================== */
+
+.sse-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  padding: 8px 0;
+}
+
+/* Preset description banner */
+.sse-preset-desc {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-style: italic;
+  padding: 0 4px;
+}
+
+/* ==========================================================================
+   Block Diagram
+   ========================================================================== */
+
+.sse-block-diagram {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.sse-block-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* SVG elements */
+.sse-tf-block {
+  fill: rgba(20, 184, 166, 0.08);
+  stroke: var(--primary-color);
+  stroke-width: 1.5;
+}
+
+.sse-signal-label {
+  fill: var(--text-secondary);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+}
+
+.sse-sum-label {
+  fill: var(--primary-color);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sse-sign-label {
+  fill: var(--text-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+}
+
+.sse-katex-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+.sse-katex-container .katex {
+  font-size: 0.85em;
+}
+
+/* ==========================================================================
+   System Info Strip
+   ========================================================================== */
+
+.sse-info-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.sse-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 14px;
+  border-radius: var(--radius-full);
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning-color);
+  font-weight: 700;
+  font-size: 14px;
+  font-family: 'Fira Code', monospace;
+  letter-spacing: 0.5px;
+}
+
+.sse-info-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  background: rgba(148, 163, 184, 0.06);
+  font-family: 'Fira Code', monospace;
+  font-size: 13px;
+}
+
+.sse-info-label {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.sse-info-value {
+  font-weight: 600;
+}
+
+.sse-info-ess {
+  margin-left: auto;
+}
+
+.sse-stability-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.sse-stability-badge.stable {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success-color);
+}
+
+.sse-stability-badge.unstable {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--error-color);
+}
+
+/* ==========================================================================
+   Error Table (Centerpiece)
+   ========================================================================== */
+
+.sse-error-table-wrapper {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.sse-section-header {
+  padding: 10px 16px 0;
+}
+
+.sse-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sse-error-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.sse-error-table thead th {
+  padding: 10px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  background: rgba(148, 163, 184, 0.04);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sse-error-table tbody td {
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+  vertical-align: middle;
+}
+
+.sse-error-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Table cell classes */
+.sse-error-input {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.sse-error-formula {
+  color: var(--text-secondary);
+}
+
+.sse-error-formula .katex {
+  font-size: 1em;
+}
+
+.sse-fallback-formula {
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sse-error-constant {
+  font-family: 'Fira Code', monospace;
+  font-size: 13px;
+}
+
+.sse-constant-value {
+  font-weight: 500;
+}
+
+.sse-error-ess {
+  font-family: 'Fira Code', monospace;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.sse-ess-value.zero {
+  color: var(--success-color);
+}
+
+.sse-ess-value.finite {
+  color: var(--warning-color);
+}
+
+.sse-ess-value.infinite {
+  color: var(--error-color);
+}
+
+.sse-na-text {
+  color: var(--error-color);
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+/* Row states based on ess value */
+.sse-error-row.zero-error {
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.sse-error-row.zero-error .sse-error-ess {
+  color: var(--success-color);
+}
+
+.sse-error-row.zero-error .sse-error-constant {
+  color: var(--primary-color);
+}
+
+.sse-error-row.finite-error {
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.sse-error-row.finite-error .sse-error-ess {
+  color: var(--warning-color);
+}
+
+.sse-error-row.finite-error .sse-error-constant {
+  color: var(--warning-color);
+}
+
+.sse-error-row.infinite-error {
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.sse-error-row.infinite-error .sse-error-ess {
+  color: var(--error-color);
+}
+
+.sse-error-row.infinite-error .sse-error-constant {
+  color: var(--text-muted);
+}
+
+.sse-error-row.unstable-row {
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.sse-error-row.unstable-row td {
+  color: var(--error-color);
+  opacity: 0.7;
+}
+
+/* Active row (matching selected input type) */
+.sse-error-row.active {
+  border-left: 3px solid var(--primary-color);
+  background: rgba(20, 184, 166, 0.06) !important;
+}
+
+.sse-error-row.active .sse-error-input {
+  color: var(--primary-color);
+}
+
+/* ==========================================================================
+   FVT Display
+   ========================================================================== */
+
+.sse-fvt-panel {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.sse-fvt-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  text-align: left;
+}
+
+.sse-fvt-toggle:hover {
+  color: var(--text-primary);
+}
+
+.sse-fvt-chevron {
+  font-size: 10px;
+  transition: transform var(--transition-fast);
+  color: var(--text-muted);
+}
+
+.sse-fvt-title {
+  flex: 1;
+}
+
+.sse-fvt-content {
+  padding: 0 16px 16px;
+  overflow-x: auto;
+}
+
+.sse-fvt-latex {
+  padding: 8px 0;
+}
+
+.sse-fvt-latex .katex-display {
+  margin: 8px 0;
+  text-align: left;
+}
+
+.sse-fvt-fallback {
+  font-family: 'Fira Code', monospace;
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  padding: 8px 0;
+}
+
+.sse-fvt-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.sse-fvt-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--error-color);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   Plot Grid
+   ========================================================================== */
+
+.sse-plot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.sse-plot-card {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  min-height: 300px;
+}
+
+.sse-plot-card .js-plotly-plot {
+  border-radius: var(--radius-lg);
+}
+
+/* Hide modebar until hover */
+.sse-plot-card .modebar {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.sse-plot-card:hover .modebar {
+  opacity: 1;
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .sse-plot-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sse-info-strip {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .sse-info-ess {
+    margin-left: 0;
+  }
+
+  .sse-error-table {
+    font-size: 12px;
+  }
+
+  .sse-error-table thead th,
+  .sse-error-table tbody td {
+    padding: 8px 10px;
+  }
+
+  .sse-block-diagram {
+    padding: 8px;
+  }
+
+  .sse-plot-card {
+    min-height: 250px;
+  }
+}
+
+/* ==========================================================================
+   Light Mode Overrides
+   ========================================================================== */
+
+[data-theme="light"] .sse-block-diagram {
+  background: rgba(248, 250, 252, 0.98);
+  border-color: rgba(226, 232, 240, 0.8);
+}
+
+[data-theme="light"] .sse-info-strip {
+  background: rgba(248, 250, 252, 0.98);
+  border-color: rgba(226, 232, 240, 0.8);
+}
+
+[data-theme="light"] .sse-type-badge {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+[data-theme="light"] .sse-info-item {
+  background: rgba(148, 163, 184, 0.08);
+}
+
+[data-theme="light"] .sse-error-table-wrapper {
+  background: rgba(248, 250, 252, 0.98);
+  border-color: rgba(226, 232, 240, 0.8);
+}
+
+[data-theme="light"] .sse-error-table thead th {
+  background: rgba(241, 245, 249, 0.8);
+  border-bottom-color: rgba(226, 232, 240, 0.8);
+  color: #475569;
+}
+
+[data-theme="light"] .sse-error-table tbody td {
+  border-bottom-color: rgba(226, 232, 240, 0.5);
+}
+
+[data-theme="light"] .sse-error-row.zero-error {
+  background: rgba(16, 185, 129, 0.06);
+}
+
+[data-theme="light"] .sse-error-row.finite-error {
+  background: rgba(245, 158, 11, 0.06);
+}
+
+[data-theme="light"] .sse-error-row.infinite-error {
+  background: rgba(239, 68, 68, 0.06);
+}
+
+[data-theme="light"] .sse-error-row.active {
+  background: rgba(20, 184, 166, 0.08) !important;
+}
+
+[data-theme="light"] .sse-fvt-panel {
+  background: rgba(248, 250, 252, 0.98);
+  border-color: rgba(226, 232, 240, 0.8);
+}
+
+[data-theme="light"] .sse-fvt-toggle {
+  color: #475569;
+}
+
+[data-theme="light"] .sse-fvt-toggle:hover {
+  color: #1e293b;
+}
+
+[data-theme="light"] .sse-plot-card {
+  background: rgba(248, 250, 252, 0.98);
+  border-color: rgba(226, 232, 240, 0.8);
+}

@@ -52,7 +52,7 @@ function useIsDark() {
 // FeedbackLoopDiagram (SVG with KaTeX transfer functions)
 // ============================================================================
 
-const MODERN_CONTROLLERS = ['state_feedback', 'pole_placement', 'lqr'];
+const MODERN_CONTROLLERS = ['state_feedback', 'pole_placement', 'lqr', 'lqg'];
 
 const FeedbackLoopDiagram = memo(function FeedbackLoopDiagram({ metadata }) {
   const [katexReady, setKatexReady] = useState(!!katexModule);
@@ -63,14 +63,111 @@ const FeedbackLoopDiagram = memo(function FeedbackLoopDiagram({ metadata }) {
 
   const plantLabel = metadata?.tf_strings?.plant_tf_latex || 'G(s)';
   const ctrlLabel = metadata?.tf_strings?.controller_tf_latex || 'C(s)';
-  const isStateFeedback = MODERN_CONTROLLERS.includes(
-    metadata?.parameters?.controller_type || ''
-  );
+  const ctrlType = metadata?.controller_type || '';
+  const isLQG = ctrlType === 'lqg';
+  const isStateFeedback = ['state_feedback', 'pole_placement', 'lqr'].includes(ctrlType);
 
   const W = 700, H = 160;
   const sumX = 120, sumR = 18;
   const mainY = 55;
   const feedbackY = 130;
+
+  if (isLQG) {
+    // LQG block diagram: R -> sum -> u -> Plant -> Y, with Observer+K in feedback
+    const plantX = 320, plantW = 140, plantH = 45;
+    const obsX = 180, obsW = 160, obsH = 36;
+    const kX = 400, kW = 80, kH = 36;
+    const outX = 560;
+    const takeoffX = plantX + plantW + 30;
+
+    return (
+      <div className="ctl-block-diagram">
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="ctl-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+              <polygon points="0 0, 8 3, 0 6" fill="var(--accent-color, #00d9ff)" />
+            </marker>
+          </defs>
+
+          {/* r(t) input */}
+          <line x1={30} y1={mainY} x2={sumX - sumR} y2={mainY}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} markerEnd="url(#ctl-arrow)" />
+          <text x={15} y={mainY - 10} className="ctl-signal-label">r(t)</text>
+
+          {/* Summing junction */}
+          <circle cx={sumX} cy={mainY} r={sumR} fill="none"
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={1.5} />
+          <text x={sumX} y={mainY + 1} textAnchor="middle" dominantBaseline="middle"
+            className="ctl-sum-label">{'\u03A3'}</text>
+          <text x={sumX - sumR - 5} y={mainY + sumR + 2} className="ctl-sign-label">{'\u2212'}</text>
+
+          {/* u(t) arrow to plant */}
+          <line x1={sumX + sumR} y1={mainY} x2={plantX} y2={mainY}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} markerEnd="url(#ctl-arrow)" />
+          <text x={(sumX + sumR + plantX) / 2} y={mainY - 10} textAnchor="middle"
+            className="ctl-signal-label">u = {'\u2212'}K{'\u00b7'}{'\u0078\u0302'} + Nr</text>
+
+          {/* Plant block (KaTeX rendered via safe text fallback) */}
+          <rect x={plantX} y={mainY - plantH / 2} width={plantW} height={plantH}
+            rx={6} className="ctl-tf-block" />
+          {katexReady ? (
+            <foreignObject x={plantX + 4} y={mainY - plantH / 2 + 2} width={plantW - 8} height={plantH - 4}>
+              <div xmlns="http://www.w3.org/1999/xhtml" className="ctl-katex-container"
+                dangerouslySetInnerHTML={{ __html: renderLatex(plantLabel) }} />
+            </foreignObject>
+          ) : (
+            <text x={plantX + plantW / 2} y={mainY + 4} textAnchor="middle"
+              className="ctl-signal-label" fontSize="14">G(s)</text>
+          )}
+
+          {/* y(t) output */}
+          <line x1={plantX + plantW} y1={mainY} x2={outX} y2={mainY}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} markerEnd="url(#ctl-arrow)" />
+          <text x={outX + 5} y={mainY - 10} className="ctl-signal-label">y(t)</text>
+
+          {/* Takeoff point */}
+          <circle cx={takeoffX} cy={mainY} r={4} fill="var(--accent-color, #00d9ff)" />
+
+          {/* Feedback: takeoff down */}
+          <line x1={takeoffX} y1={mainY} x2={takeoffX} y2={feedbackY}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} />
+
+          {/* K block (right side of feedback) */}
+          <rect x={kX} y={feedbackY - kH / 2} width={kW} height={kH}
+            rx={6} className="ctl-tf-block ctl-sf-block" />
+          <text x={kX + kW / 2} y={feedbackY + 4} textAnchor="middle"
+            className="ctl-signal-label" fontSize="10">K</text>
+
+          {/* Observer/Kalman block (left side of feedback, purple border) */}
+          <rect x={obsX} y={feedbackY - obsH / 2} width={obsW} height={obsH}
+            rx={6} fill="rgba(124, 58, 237, 0.08)" stroke="var(--accent-purple, #7c3aed)"
+            strokeWidth={1.5} />
+          <text x={obsX + obsW / 2} y={feedbackY + 4} textAnchor="middle"
+            className="ctl-signal-label" fontSize="10">Kalman Filter (L)</text>
+
+          {/* Line: takeoff right to K (y signal) */}
+          <line x1={takeoffX} y1={feedbackY} x2={kX + kW} y2={feedbackY}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} markerEnd="url(#ctl-arrow)" />
+          <text x={(takeoffX + kX + kW) / 2} y={feedbackY - 10} textAnchor="middle"
+            className="ctl-signal-label" fontSize="9">y</text>
+
+          {/* Line: K left to Observer (x-hat signal) */}
+          <line x1={kX} y1={feedbackY} x2={obsX + obsW} y2={feedbackY}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} markerEnd="url(#ctl-arrow)" />
+          <text x={(kX + obsX + obsW) / 2} y={feedbackY - 10} textAnchor="middle"
+            className="ctl-signal-label" fontSize="9">{'\u0078\u0302'}</text>
+
+          {/* Line: Observer left to summing junction */}
+          <line x1={obsX} y1={feedbackY} x2={sumX} y2={feedbackY}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} />
+          <line x1={sumX} y1={feedbackY} x2={sumX} y2={mainY + sumR}
+            stroke="var(--accent-color, #00d9ff)" strokeWidth={2} markerEnd="url(#ctl-arrow)" />
+          <text x={(obsX + sumX) / 2} y={feedbackY - 10} textAnchor="middle"
+            className="ctl-signal-label" fontSize="9">K{'\u0078\u0302'}</text>
+        </svg>
+      </div>
+    );
+  }
 
   if (isStateFeedback) {
     // State-feedback block diagram: R → Σ → Plant → Y, with K on feedback
@@ -285,7 +382,7 @@ function PerformanceMetricsStrip({ metrics, metadata }) {
   if (!metrics) return null;
 
   const isModern = MODERN_CONTROLLERS.includes(
-    metadata?.parameters?.controller_type || ''
+    metadata?.controller_type || ''
   );
 
   const items = [
@@ -333,6 +430,14 @@ function PerformanceMetricsStrip({ metrics, metadata }) {
         <div className="ctl-metric-badge">
           <span className="ctl-metric-label">Order</span>
           <span className="ctl-metric-value">{metadata.plant_order}</span>
+        </div>
+      )}
+      {metadata?.controller_type === 'lqg' && metadata?.kalman_L_str && (
+        <div className="ctl-metric-badge" style={{ borderColor: 'var(--accent-purple)' }}>
+          <span className="ctl-metric-label">L</span>
+          <span className="ctl-metric-value" style={{ color: 'var(--accent-purple)', fontSize: '10px' }}>
+            {metadata.kalman_L_str.replace('L = [', '').replace(']', '')}
+          </span>
         </div>
       )}
     </div>

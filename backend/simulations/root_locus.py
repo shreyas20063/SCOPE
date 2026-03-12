@@ -110,8 +110,8 @@ class RootLocusSimulator(BaseSimulator):
         "gain_K": {
             "type": "slider",
             "min": 0,
-            "max": 1000,
-            "step": 0.01,
+            "max": 10000,
+            "step": 0.1,
             "default": 1.0,
             "label": "Gain K",
             "group": "Gain",
@@ -119,10 +119,10 @@ class RootLocusSimulator(BaseSimulator):
         "k_max": {
             "type": "slider",
             "min": 1,
-            "max": 1000,
+            "max": 10000,
             "step": 1,
             "default": 100,
-            "label": "K Maximum",
+            "label": "K Sweep Range",
             "group": "Gain",
         },
         "negative_k": {
@@ -1040,11 +1040,10 @@ class RootLocusSimulator(BaseSimulator):
                 "hovertemplate": "Zero: %{x:.3f} + %{y:.3f}j<extra>Open-Loop Zero</extra>",
             })
 
-        # Current CL poles (highlighted)
+        # Current CL poles at selected K
         cl_poles = self._cl_poles_at_k(K)
         if len(cl_poles) > 0:
             stable_mask = np.real(cl_poles) <= 0
-            # Stable CL poles
             stable_p = cl_poles[stable_mask]
             if len(stable_p) > 0:
                 traces.append({
@@ -1053,15 +1052,14 @@ class RootLocusSimulator(BaseSimulator):
                     "type": "scatter",
                     "mode": "markers",
                     "marker": {
-                        "symbol": "diamond",
-                        "size": 14,
+                        "symbol": "circle",
+                        "size": 10,
                         "color": self.CL_POLE_COLOR,
                         "line": {"width": 2, "color": "#ffffff"},
                     },
-                    "name": f"CL Poles (K={abs(float(self.parameters['gain_K'])):.2f})",
-                    "hovertemplate": "CL Pole: %{x:.3f} + %{y:.3f}j<extra>K=" + f"{abs(float(self.parameters['gain_K'])):.2f}" + "</extra>",
+                    "name": f"CL Poles (K={abs(K):.2f})",
+                    "hovertemplate": "CL Pole: %{x:.3f} + %{y:.3f}j<extra>K=" + f"{abs(K):.2f}" + "</extra>",
                 })
-            # Unstable CL poles
             unstable_p = cl_poles[~stable_mask]
             if len(unstable_p) > 0:
                 traces.append({
@@ -1070,8 +1068,8 @@ class RootLocusSimulator(BaseSimulator):
                     "type": "scatter",
                     "mode": "markers",
                     "marker": {
-                        "symbol": "diamond",
-                        "size": 14,
+                        "symbol": "circle",
+                        "size": 10,
                         "color": "#ef4444",
                         "line": {"width": 2, "color": "#ffffff"},
                     },
@@ -1079,8 +1077,36 @@ class RootLocusSimulator(BaseSimulator):
                     "hovertemplate": "UNSTABLE: %{x:.3f} + %{y:.3f}j<extra>Unstable CL Pole</extra>",
                 })
 
-        # Determine plot bounds from OL poles/zeros and CL poles only
-        # (branch points can go to infinity — don't use them for bounds)
+        # Direction arrows on branches (midpoint arrows showing increasing K)
+        if self._cached_branches:
+            for b_idx, branch in enumerate(self._cached_branches):
+                valid = [(float(np.real(p)), float(np.imag(p)))
+                         for p in branch if not np.isnan(p)]
+                if len(valid) < 3:
+                    continue
+                mid = len(valid) * 2 // 5
+                x0, y0 = valid[max(mid - 1, 0)]
+                x1, y1 = valid[min(mid + 1, len(valid) - 1)]
+                dist = ((x1 - x0)**2 + (y1 - y0)**2) ** 0.5
+                if dist < 1e-6:
+                    continue
+                color = self.BRANCH_COLORS[b_idx % len(self.BRANCH_COLORS)]
+                annotations_list.append({
+                    "x": x1, "y": y1,
+                    "ax": x0, "ay": y0,
+                    "xref": "x", "yref": "y",
+                    "axref": "x", "ayref": "y",
+                    "showarrow": True,
+                    "arrowhead": 3,
+                    "arrowsize": 1.5,
+                    "arrowwidth": 2,
+                    "arrowcolor": color,
+                    "text": "",
+                    "opacity": 0.8,
+                })
+
+        # Determine plot bounds from OL poles/zeros only
+        # (CL poles excluded — they depend on K and would cause scale jumps)
         all_re = [0.0]
         all_im = [0.0]
         for p in ol_poles:
@@ -1089,17 +1115,21 @@ class RootLocusSimulator(BaseSimulator):
         for z in ol_zeros:
             all_re.append(float(np.real(z)))
             all_im.append(float(np.imag(z)))
-        for p in cl_poles:
-            re = float(np.real(p))
-            im = float(np.imag(p))
-            # Only include CL poles that are within a reasonable range
-            if abs(re) < 50 and abs(im) < 50:
-                all_re.append(re)
-                all_im.append(im)
 
-        # Add branch points only within a reasonable range of the OL poles
+        # Include key special points so breakaway/jω crossings are visible
+        if self._cached_special:
+            for bp in self._cached_special.get("breakaway", []):
+                s_val = bp.get("s", {})
+                all_re.append(float(s_val.get("real", 0)))
+                all_im.append(float(s_val.get("imag", 0)))
+            for jw in self._cached_special.get("jw_crossings", []):
+                all_im.append(float(jw.get("omega", 0)))
+                all_im.append(-float(jw.get("omega", 0)))
+
+        # Add branch points within a conservative range so the locus
+        # is visible without zooming out too far at large k_max
         base_range = max(max(abs(r) for r in all_re), max(abs(i) for i in all_im), 2.0)
-        bound_limit = base_range * 3
+        bound_limit = base_range * 2
         if self._cached_branches:
             for branch in self._cached_branches:
                 for p in branch:
@@ -1117,6 +1147,17 @@ class RootLocusSimulator(BaseSimulator):
         im_abs = max(max(abs(i) for i in all_im), 1.0) + 1
         im_min = -im_abs
         im_max = im_abs
+
+        # Equal span on both axes for approximate 1:1 aspect ratio
+        # (scaleanchor removed to prevent Plotly rescaling bugs)
+        re_span = re_max - re_min
+        im_span = im_max - im_min
+        max_span = max(re_span, im_span)
+        re_center = (re_min + re_max) / 2
+        re_min = re_center - max_span / 2
+        re_max = re_center + max_span / 2
+        im_min = -max_span / 2
+        im_max = max_span / 2
 
         # Clamp to reasonable bounds
         re_min = max(re_min, -30)
@@ -1279,6 +1320,7 @@ class RootLocusSimulator(BaseSimulator):
                 "zerolinecolor": self.ZERO_LINE_COLOR,
                 "zerolinewidth": 2,
                 "range": [re_min, re_max],
+                "autorange": False,
                 "showline": True,
                 "linecolor": "rgba(148, 163, 184, 0.3)",
             },
@@ -1288,22 +1330,14 @@ class RootLocusSimulator(BaseSimulator):
                 "zerolinecolor": self.ZERO_LINE_COLOR,
                 "zerolinewidth": 2,
                 "range": [im_min, im_max],
-                "scaleanchor": "x",
-                "scaleratio": 1,
+                "autorange": False,
                 "showline": True,
                 "linecolor": "rgba(148, 163, 184, 0.3)",
             },
             "shapes": shapes,
             "annotations": annotations_list,
-            "showlegend": True,
-            "legend": {
-                "x": 0.01, "y": 0.99,
-                "bgcolor": "rgba(19, 27, 46, 0.8)",
-                "bordercolor": "rgba(148, 163, 184, 0.3)",
-                "font": {"size": 10},
-            },
+            "showlegend": False,
             "margin": {"t": 50, "r": 30, "b": 60, "l": 65},
-            "datarevision": f"rl-{time.time()}",
             "uirevision": "root_locus_splane",
         }
 
@@ -1441,25 +1475,47 @@ class RootLocusSimulator(BaseSimulator):
         k_max = float(self.parameters["k_max"])
         negative = bool(self.parameters["negative_k"])
 
-        # Sweep K and compute dominant pole metrics (use fewer points for perf)
-        n_sweep = 100
-        k_sweep = np.linspace(0.01, k_max, n_sweep)
-        zeta_vals = []
-        wn_vals = []
-
-        for k in k_sweep:
-            k_actual = -k if negative else k
-            cl_p = self._cl_poles_at_k(k_actual)
-            dom = self._get_dominant_poles(cl_p)
-            if dom:
-                z = dom[0]["zeta"]
-                w = dom[0]["wn"]
-                # Clamp to displayable values
-                zeta_vals.append(min(z, 5.0) if z is not None else 0.0)
-                wn_vals.append(min(w, 100.0) if w is not None else 0.0)
-            else:
-                zeta_vals.append(0.0)
-                wn_vals.append(0.0)
+        # Use the already-computed locus cache instead of calling np.roots() N times.
+        # The cache has 500-700 branch-tracked pole positions; sample ~100 of them.
+        # This is O(100) array lookups vs O(100 × n³) polynomial root-finding.
+        if (self._cached_branches is not None
+                and self._cached_k_values is not None
+                and len(self._cached_k_values) > 1):
+            n_cache = len(self._cached_k_values)
+            n_sample = min(100, n_cache)
+            sample_idx = np.round(np.linspace(0, n_cache - 1, n_sample)).astype(int)
+            # Display K as positive on x-axis regardless of sign convention
+            k_sweep = np.abs(self._cached_k_values[sample_idx])
+            zeta_vals = []
+            wn_vals = []
+            for idx in sample_idx:
+                poles_at_k = np.array([
+                    branch[idx] for branch in self._cached_branches
+                    if idx < len(branch) and not (np.isnan(np.real(branch[idx])) or np.isnan(np.imag(branch[idx])))
+                ], dtype=complex) if self._cached_branches else np.array([], dtype=complex)
+                dom = self._get_dominant_poles(poles_at_k)
+                if dom:
+                    zeta_vals.append(min(dom[0]["zeta"], 5.0))
+                    wn_vals.append(min(dom[0]["wn"], 100.0))
+                else:
+                    zeta_vals.append(0.0)
+                    wn_vals.append(0.0)
+        else:
+            # Fallback: recompute from scratch (only needed before cache is built)
+            n_sweep = 60
+            k_sweep = np.linspace(0.01, k_max, n_sweep)
+            zeta_vals = []
+            wn_vals = []
+            for k in k_sweep:
+                k_actual = -k if negative else k
+                cl_p = self._cl_poles_at_k(k_actual)
+                dom = self._get_dominant_poles(cl_p)
+                if dom:
+                    zeta_vals.append(min(dom[0]["zeta"], 5.0))
+                    wn_vals.append(min(dom[0]["wn"], 100.0))
+                else:
+                    zeta_vals.append(0.0)
+                    wn_vals.append(0.0)
 
         # ζ vs K
         traces.append({

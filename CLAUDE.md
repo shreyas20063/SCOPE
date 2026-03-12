@@ -393,10 +393,12 @@ All tracking files live in `.claude/`. **Read them before starting work. Update 
   - Save up to 5 reference responses for comparison
   - Fullscreen comparison overlay with overlaid traces and metrics table
   - **Phase 2 — Modern controllers**: State Feedback (manual K), Pole Placement (`scipy.signal.place_poles`), LQR Optimal (`scipy.linalg.solve_continuous_are`)
+  - **Phase 3 — LQG (LQR + Kalman Filter)**: Dual Riccati equation solution, augmented 2n-order CL state-space, reference feedforward N_bar for unit tracking, custom SVG observer block diagram
   - TF↔SS bridging: `tf2ss()` conversion, controllability matrix rank check, `StateSpace.to_tf()` for CL
   - KaTeX-rendered state-space matrices (A, B, C, D) with `\dot{x} = Ax + Bu` equations
   - State-feedback SVG block diagram variant (K on feedback path instead of C(s))
-  - Controllability badge and plant order display in metrics strip
+  - LQG SVG block diagram variant (Kalman Filter + K blocks in observer-feedback structure)
+  - Controllability badge, plant order display, and Kalman gain L display in metrics strip
 
 ### Lead-Lag Compensator Designer (simulation: `lead_lag_designer`)
 - **Backend**: `backend/simulations/lead_lag_designer.py` (~580 lines)
@@ -412,3 +414,19 @@ All tracking files live in `.claude/`. **Read them before starting work. Update 
   - Design info panel showing computed zero/pole locations, max phase, HF gain, LF boost
   - SVG feedback loop block diagram with KaTeX transfer function rendering
   - Nichols chart (unique to this tool — not available in Controller Tuning Lab)
+
+### Steady-State Error Analyzer (simulation: `steady_state_error`)
+- **Backend**: `backend/simulations/steady_state_error.py` (~1030 lines)
+- **Frontend**: `frontend/src/components/SteadyStateErrorViewer.jsx` (~443 lines)
+- **CSS**: `frontend/src/styles/SteadyStateError.css` (~370 lines)
+- **Purpose**: Systematic analysis of steady-state tracking error in unity-feedback control systems
+- **Key features**:
+  - 7 plant presets: Type 0 (2 variants), Type 1 (2 variants), Type 2 (2 variants), Type 3, plus custom G(s)
+  - System type detection (poles at origin), error constants (Kp, Kv, Ka) computation
+  - Color-coded error table showing ess for step/ramp/parabolic inputs (green=0, amber=finite, red=∞)
+  - Final Value Theorem step-by-step LaTeX derivation (collapsible)
+  - SVG unity feedback block diagram with KaTeX-rendered G(s)
+  - 4 plots: time response, error signal, ess-vs-K parametric curve (log-log), pole-zero map
+  - Gain K slider showing the fundamental gain-error-stability tradeoff
+  - ess-vs-K plot with stability boundary shading and all 3 input curves
+  - Unstable CL detection with FVT invalidity warning
