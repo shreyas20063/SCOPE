@@ -60,6 +60,8 @@ const NyquistStabilityViewer = lazy(() => import('./NyquistStabilityViewer'));
 const ControllerTuningLabViewer = lazy(() => import('./ControllerTuningLabViewer'));
 const LeadLagDesignerViewer = lazy(() => import('./LeadLagDesignerViewer'));
 const SteadyStateErrorViewer = lazy(() => import('./SteadyStateErrorViewer'));
+const PhasePortraitViewer = lazy(() => import('./PhasePortraitViewer'));
+const NonlinearControlLabViewer = lazy(() => import('./NonlinearControlLabViewer'));
 
 // Loading fallback for lazy-loaded components
 const LazyLoadFallback = () => (
@@ -2021,6 +2023,25 @@ function SimulationViewer({
                   <SteadyStateErrorViewer
                     metadata={metadata}
                     plots={plots}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'phase_portrait' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <PhasePortraitViewer
+                    metadata={metadata}
+                    plots={plots}
+                    onButtonClick={onButtonClick}
+                    isUpdating={isUpdating}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'nonlinear_control_lab' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <NonlinearControlLabViewer
+                    metadata={metadata}
+                    plots={plots}
+                    currentParams={currentParams}
+                    onParamChange={onParamChange}
+                    onButtonClick={onButtonClick}
                   />
                 </Suspense>
               ) : (
