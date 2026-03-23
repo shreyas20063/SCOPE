@@ -1,12 +1,14 @@
-"""MIMO Design Studio Simulator — Analysis Mode
+"""MIMO Design Studio Simulator — Analysis & Controller Design
 
-Interactive state-space analysis for MIMO systems. Provides presets for
-real-world multi-input multi-output plants (aircraft lateral, coupled spring-mass,
-DC motor + flexible load), matrix parsing, eigenvalue analysis, controllability/
-observability assessment, and step/impulse response grid plots.
+Interactive state-space analysis and controller design for MIMO systems.
+Provides presets for real-world multi-input multi-output plants (aircraft
+lateral, coupled spring-mass, DC motor + flexible load), matrix parsing,
+eigenvalue analysis, controllability/observability assessment, step/impulse
+response grid plots, and three controller design modes:
 
-Controller design modes (pole placement, LQR, LQG) are placeholders in this
-module and will be implemented in Task 3.
+- **Pole Placement**: Place closed-loop poles via Kautsky-Nichols-van Dooren
+- **LQR Optimal**: Continuous-time Linear Quadratic Regulator via CARE
+- **LQG (LQR + Kalman)**: Dual Riccati equation — regulator + estimator
 
 Reference: Ogata Ch.12 (MIMO), Friedland Ch.3-4 (state-space),
 Etkin & Reid (aircraft lateral dynamics).
@@ -24,6 +26,10 @@ from core.mimo_utils import (
     mimo_step_response,
     mimo_impulse_response,
     validate_dimensions,
+    mimo_lqr,
+    mimo_lqg,
+    mimo_pole_placement,
+    validate_conjugate_pairs,
 )
 from .base_simulator import BaseSimulator
 
@@ -388,6 +394,89 @@ class MIMODesignStudioSimulator(BaseSimulator):
             raise ValueError(f"Matrix {name} has no valid rows.")
         return matrix
 
+    def _parse_complex_list(self, expr: str) -> np.ndarray:
+        """Parse '-1, -2, -3+1j, -3-1j' into complex array.
+
+        Also handles 'i' notation and spaces around +/- before j/i.
+
+        Args:
+            expr: Comma-separated list of complex numbers.
+
+        Returns:
+            1-D numpy array of complex values.
+
+        Raises:
+            ValueError: If parsing fails.
+        """
+        expr = expr.strip()
+        if not expr:
+            raise ValueError("Pole list is empty.")
+
+        # Normalize: replace 'i' with 'j' for Python complex parsing
+        expr = expr.replace("i", "j")
+
+        parts = [p.strip() for p in expr.split(",")]
+        poles = []
+        for p in parts:
+            if not p:
+                continue
+            # Remove any internal spaces that would break complex() parsing
+            # e.g. "-3 + 1j" -> "-3+1j"
+            p = p.replace(" ", "")
+            try:
+                poles.append(complex(p))
+            except ValueError:
+                raise ValueError(
+                    f"Cannot parse '{p}' as a complex number. "
+                    f"Use format like '-3+1j' or '-2'."
+                )
+
+        if not poles:
+            raise ValueError("No valid poles found in expression.")
+
+        return np.array(poles, dtype=complex)
+
+    def _parse_diagonal(self, expr: str, name: str, expected_size: int) -> np.ndarray:
+        """Parse '1, 1, 1, 1' into np.diag([1,1,1,1]).
+
+        Validates len matches expected_size. Returns the FULL diagonal matrix,
+        not just the vector.
+
+        Args:
+            expr: Comma-separated list of diagonal values.
+            name: Matrix name (for error messages).
+            expected_size: Expected number of diagonal elements.
+
+        Returns:
+            2-D diagonal numpy array of shape (expected_size, expected_size).
+
+        Raises:
+            ValueError: If parsing fails or size mismatch.
+        """
+        expr = expr.strip()
+        if not expr:
+            raise ValueError(f"{name} diagonal is empty.")
+
+        parts = [p.strip() for p in expr.split(",")]
+        vals = []
+        for p in parts:
+            if not p:
+                continue
+            try:
+                vals.append(float(p))
+            except ValueError:
+                raise ValueError(
+                    f"{name}: cannot parse '{p}' as a number."
+                )
+
+        if len(vals) != expected_size:
+            raise ValueError(
+                f"{name} diagonal has {len(vals)} entries, "
+                f"expected {expected_size}."
+            )
+
+        return np.diag(vals)
+
     # ------------------------------------------------------------------ #
     #  Core computation                                                  #
     # ------------------------------------------------------------------ #
@@ -478,7 +567,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
                 np.all(real_parts <= 1e-10) and not is_stable
             )
 
-            return {
+            data: Dict[str, Any] = {
                 "A": A,
                 "B": B,
                 "C": C,
@@ -493,6 +582,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
                 "obs_rank": obs_rank,
                 "step_data": step_data,
                 "impulse_data": impulse_data,
+                "t": t_eval,
                 "t_eval": t_eval,
                 "preset_id": preset_id,
                 "preset_name": preset_name,
@@ -502,8 +592,261 @@ class MIMODesignStudioSimulator(BaseSimulator):
                 "error": None,
             }
 
+            # 11. Controller design dispatch
+            design_mode = self.parameters.get("design_mode", "analysis")
+            if design_mode == "pole_placement":
+                self._compute_pole_placement(data, A, B, C, D)
+            elif design_mode == "lqr":
+                self._compute_lqr(data, A, B, C, D)
+            elif design_mode == "lqg":
+                self._compute_lqg(data, A, B, C, D)
+
+            return data
+
         except Exception as e:
             return {"error": str(e)}
+
+    # ------------------------------------------------------------------ #
+    #  Controller design methods                                         #
+    # ------------------------------------------------------------------ #
+
+    def _compute_pole_placement(
+        self,
+        data: Dict[str, Any],
+        A: np.ndarray,
+        B: np.ndarray,
+        C: np.ndarray,
+        D: np.ndarray,
+    ) -> None:
+        """Compute state-feedback gain via pole placement.
+
+        Parses desired poles from parameters, validates count and conjugate
+        pairs, calls mimo_pole_placement, and stores results in data dict.
+        On error, stores controller dict with error message.
+
+        Args:
+            data: Mutable computed data dict to update.
+            A: n x n state matrix.
+            B: n x m input matrix.
+            C: p x n output matrix.
+            D: p x m feedthrough matrix.
+        """
+        try:
+            n = A.shape[0]
+            desired = self._parse_complex_list(
+                self.parameters.get("desired_poles", "")
+            )
+
+            if len(desired) != n:
+                raise ValueError(
+                    f"Need exactly {n} poles for {n}-state system, "
+                    f"got {len(desired)}."
+                )
+
+            conj_err = validate_conjugate_pairs(desired)
+            if conj_err:
+                raise ValueError(conj_err)
+
+            K, cl_eigs = mimo_pole_placement(A, B, desired)
+
+            data["controller"] = {
+                "type": "pole_placement",
+                "K": K.tolist(),
+                "cl_eigs_real": cl_eigs.real.tolist(),
+                "cl_eigs_imag": cl_eigs.imag.tolist(),
+            }
+            data["cl_eigenvalues"] = cl_eigs
+            self._compute_cl_responses(data, A, B, C, D, K)
+
+        except Exception as e:
+            data["controller"] = {
+                "type": "pole_placement",
+                "error": str(e),
+            }
+
+    def _compute_lqr(
+        self,
+        data: Dict[str, Any],
+        A: np.ndarray,
+        B: np.ndarray,
+        C: np.ndarray,
+        D: np.ndarray,
+    ) -> None:
+        """Compute LQR optimal gain.
+
+        Parses Q and R diagonals from parameters, validates R positive
+        definiteness, calls mimo_lqr, and stores results in data dict.
+
+        Args:
+            data: Mutable computed data dict to update.
+            A: n x n state matrix.
+            B: n x m input matrix.
+            C: p x n output matrix.
+            D: p x m feedthrough matrix.
+        """
+        try:
+            n = A.shape[0]
+            m = B.shape[1]
+
+            q_expr = self.parameters.get("q_diag", "")
+            r_expr = self.parameters.get("r_diag", "")
+
+            Q = self._parse_diagonal(q_expr, "Q", n)
+            R = self._parse_diagonal(r_expr, "R", m)
+
+            # Validate R positive definite (all diagonal entries > 0)
+            r_vals = np.diag(R)
+            if np.any(r_vals <= 0):
+                raise ValueError(
+                    "R diagonal entries must all be positive "
+                    f"(got {r_vals.tolist()})."
+                )
+
+            K, P, cl_eigs = mimo_lqr(A, B, Q, R)
+
+            q_vals = np.diag(Q).tolist()
+
+            data["controller"] = {
+                "type": "lqr",
+                "K": K.tolist(),
+                "P": P.tolist(),
+                "cl_eigs_real": cl_eigs.real.tolist(),
+                "cl_eigs_imag": cl_eigs.imag.tolist(),
+                "Q_diag": q_vals,
+                "R_diag": r_vals.tolist(),
+            }
+            data["cl_eigenvalues"] = cl_eigs
+            self._compute_cl_responses(data, A, B, C, D, K)
+
+        except Exception as e:
+            data["controller"] = {
+                "type": "lqr",
+                "error": str(e),
+            }
+
+    def _compute_lqg(
+        self,
+        data: Dict[str, Any],
+        A: np.ndarray,
+        B: np.ndarray,
+        C: np.ndarray,
+        D: np.ndarray,
+    ) -> None:
+        """Compute LQG controller (LQR + Kalman filter).
+
+        Parses Q, R, Qw, Rv diagonals from parameters, calls mimo_lqg,
+        and stores regulator gain K, observer gain L, and all eigenvalue
+        groups in data dict. Uses A-BK for CL step response (regulator
+        performance).
+
+        Args:
+            data: Mutable computed data dict to update.
+            A: n x n state matrix.
+            B: n x m input matrix.
+            C: p x n output matrix.
+            D: p x m feedthrough matrix.
+        """
+        try:
+            n = A.shape[0]
+            m = B.shape[1]
+            p = C.shape[0]
+
+            q_expr = self.parameters.get("q_diag", "")
+            r_expr = self.parameters.get("r_diag", "")
+            qw_expr = self.parameters.get("qw_diag", "")
+            rv_expr = self.parameters.get("rv_diag", "")
+
+            Q = self._parse_diagonal(q_expr, "Q", n)
+            R = self._parse_diagonal(r_expr, "R", m)
+            Qw = self._parse_diagonal(qw_expr, "Qw", n)
+            Rv = self._parse_diagonal(rv_expr, "Rv", p)
+
+            # Validate R and Rv positive definite
+            r_vals = np.diag(R)
+            rv_vals = np.diag(Rv)
+            if np.any(r_vals <= 0):
+                raise ValueError(
+                    "R diagonal entries must all be positive "
+                    f"(got {r_vals.tolist()})."
+                )
+            if np.any(rv_vals <= 0):
+                raise ValueError(
+                    "Rv diagonal entries must all be positive "
+                    f"(got {rv_vals.tolist()})."
+                )
+
+            result = mimo_lqg(A, B, C, Q, R, Qw, Rv)
+            K = result["K"]
+            L = result["L"]
+            cl_eigs = result["cl_eigs"]
+            K_eigs = result["K_eigs"]
+            L_eigs = result["L_eigs"]
+
+            q_vals = np.diag(Q).tolist()
+            qw_vals = np.diag(Qw).tolist()
+
+            data["controller"] = {
+                "type": "lqg",
+                "K": K.tolist(),
+                "L": L.tolist(),
+                "P_lqr": result["P_lqr"].tolist(),
+                "P_kal": result["P_kal"].tolist(),
+                "cl_eigs_real": cl_eigs.real.tolist(),
+                "cl_eigs_imag": cl_eigs.imag.tolist(),
+                "K_eigs_real": K_eigs.real.tolist(),
+                "K_eigs_imag": K_eigs.imag.tolist(),
+                "L_eigs_real": L_eigs.real.tolist(),
+                "L_eigs_imag": L_eigs.imag.tolist(),
+                "Q_diag": q_vals,
+                "R_diag": r_vals.tolist(),
+                "Qw_diag": qw_vals,
+                "Rv_diag": rv_vals.tolist(),
+            }
+            # For eigenvalue plot: show augmented CL eigenvalues, plus
+            # separate regulator and estimator groups
+            data["cl_eigenvalues"] = cl_eigs
+            data["K_eigenvalues"] = K_eigs
+            data["L_eigenvalues"] = L_eigs
+            # Use A-BK for CL step/impulse response (regulator performance)
+            self._compute_cl_responses(data, A, B, C, D, K)
+
+        except Exception as e:
+            data["controller"] = {
+                "type": "lqg",
+                "error": str(e),
+            }
+
+    def _compute_cl_responses(
+        self,
+        data: Dict[str, Any],
+        A: np.ndarray,
+        B: np.ndarray,
+        C: np.ndarray,
+        D: np.ndarray,
+        K: np.ndarray,
+    ) -> None:
+        """Compute closed-loop step and impulse responses with A_cl = A - B@K.
+
+        Args:
+            data: Mutable computed data dict to update with cl_step_responses
+                  and cl_impulse_responses.
+            A: n x n state matrix.
+            B: n x m input matrix.
+            C: p x n output matrix.
+            D: p x m feedthrough matrix.
+            K: m x n state-feedback gain matrix.
+        """
+        A_cl = A - B @ K
+        t = data["t"]
+        cl_step = mimo_step_response(A_cl, B, C, D, t)
+        cl_impulse = mimo_impulse_response(A_cl, B, C, D, t)
+        # Store with same (j, i) tuple keys as OL responses
+        data["cl_step_responses"] = {}
+        for key, val in cl_step["responses"].items():
+            data["cl_step_responses"][key] = val
+        data["cl_impulse_responses"] = {}
+        for key, val in cl_impulse["responses"].items():
+            data["cl_impulse_responses"][key] = val
 
     # ------------------------------------------------------------------ #
     #  Plot builders                                                     #
@@ -850,13 +1193,18 @@ class MIMODesignStudioSimulator(BaseSimulator):
 
         traces: List[Dict] = []
 
-        # Compute axis range with padding
+        # Compute axis range with padding (include all eigenvalue groups)
         all_re = list(re)
         all_im = list(im)
         cl_eigs = data.get("cl_eigenvalues")
         if cl_eigs is not None:
             all_re.extend(cl_eigs.real.tolist())
             all_im.extend(cl_eigs.imag.tolist())
+        for extra_key in ("K_eigenvalues", "L_eigenvalues"):
+            extra_eigs = data.get(extra_key)
+            if extra_eigs is not None:
+                all_re.extend(extra_eigs.real.tolist())
+                all_im.extend(extra_eigs.imag.tolist())
 
         max_abs_re = max(abs(r) for r in all_re) if all_re else 1.0
         max_abs_im = max(abs(i) for i in all_im) if all_im else 1.0
@@ -948,6 +1296,56 @@ class MIMODesignStudioSimulator(BaseSimulator):
                 },
                 "name": "Closed-Loop Poles",
                 "text": hover_cl,
+                "hoverinfo": "text",
+            })
+
+        # LQG-specific: regulator eigenvalues (A - BK)
+        K_eigs = data.get("K_eigenvalues")
+        if K_eigs is not None:
+            k_re = K_eigs.real
+            k_im = K_eigs.imag
+            hover_k = [
+                f"\u03bb_K = {r:.4f} {'+' if i >= 0 else '-'} {abs(i):.4f}j"
+                for r, i in zip(k_re, k_im)
+            ]
+            traces.append({
+                "x": k_re.tolist(),
+                "y": k_im.tolist(),
+                "type": "scatter",
+                "mode": "markers",
+                "marker": {
+                    "symbol": "diamond",
+                    "size": 9,
+                    "color": "#3b82f6",
+                    "line": {"width": 2, "color": "#3b82f6"},
+                },
+                "name": "Regulator (A-BK)",
+                "text": hover_k,
+                "hoverinfo": "text",
+            })
+
+        # LQG-specific: estimator eigenvalues (A - LC)
+        L_eigs = data.get("L_eigenvalues")
+        if L_eigs is not None:
+            l_re = L_eigs.real
+            l_im = L_eigs.imag
+            hover_l = [
+                f"\u03bb_L = {r:.4f} {'+' if i >= 0 else '-'} {abs(i):.4f}j"
+                for r, i in zip(l_re, l_im)
+            ]
+            traces.append({
+                "x": l_re.tolist(),
+                "y": l_im.tolist(),
+                "type": "scatter",
+                "mode": "markers",
+                "marker": {
+                    "symbol": "square",
+                    "size": 9,
+                    "color": "#f59e0b",
+                    "line": {"width": 2, "color": "#f59e0b"},
+                },
+                "name": "Estimator (A-LC)",
+                "text": hover_l,
                 "hoverinfo": "text",
             })
 
@@ -1078,7 +1476,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
                 "is_controllable": bool(data["ctrl_rank"] == n),
                 "is_observable": bool(data["obs_rank"] == n),
                 "design_mode": self.parameters.get("design_mode", "analysis"),
-                "controller": {},  # placeholder for Task 3
+                "controller": data.get("controller", {}),
                 "error": None,
                 "state_names": data["state_names"],
                 "input_names": data["input_names"],
