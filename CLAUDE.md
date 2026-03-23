@@ -430,3 +430,36 @@ All tracking files live in `.claude/`. **Read them before starting work. Update 
   - Gain K slider showing the fundamental gain-error-stability tradeoff
   - ess-vs-K plot with stability boundary shading and all 3 input curves
   - Unstable CL detection with FVT invalidity warning
+
+### Nonlinear Phase Portrait Analyzer (simulation: `phase_portrait`)
+- **Backend**: `backend/simulations/phase_portrait.py` (~580 lines)
+- **Frontend**: `frontend/src/components/PhasePortraitViewer.jsx` (~310 lines)
+- **CSS**: `frontend/src/styles/PhasePortrait.css` (~340 lines)
+- **Purpose**: Interactive exploration of 2D autonomous nonlinear dynamical systems with vector fields, trajectories, and equilibrium classification
+- **Key features**:
+  - 5 presets: Simple Pendulum, Van der Pol, Lotka-Volterra, Duffing, Limit Cycle + custom equations
+  - Safe expression evaluator for f(x₁,x₂), g(x₁,x₂) with sandboxed numpy namespace
+  - Click-to-add initial conditions → solve_ivp forward+backward trajectories
+  - Grid-based fsolve equilibrium finding with deduplication
+  - 2×2 Jacobian via central finite differences → eigenvalue classification (node/spiral/saddle/center)
+  - Equilibrium detail panel: eigenvalues, eigenvectors, Jacobian matrix, tr/det
+  - Time series plot for latest trajectory (x₁(t), x₂(t))
+  - Preset-specific parameter sliders (μ for VdP, α/β/γ/δ for LV, δ for Duffing)
+
+### Nonlinear Control Lab (simulation: `nonlinear_control_lab`)
+- **Backend**: `backend/simulations/nonlinear_control_lab.py` (~2220 lines)
+- **Frontend**: `frontend/src/components/NonlinearControlLabViewer.jsx` (~920 lines)
+- **CSS**: `frontend/src/styles/NonlinearControlLab.css` (~400 lines)
+- **Purpose**: Linearize → Design → Validate workflow for nonlinear plants — the CDC paper's flagship simulation
+- **Key features**:
+  - 4 plant presets: inverted pendulum on cart (4×1), ball & beam (4×1), coupled tanks MIMO (2×2), Van der Pol (2×1) + custom ODE
+  - SymPy symbolic Jacobian for exact linearization (∂f/∂x, ∂f/∂u) at user-selected equilibria
+  - LQR (Riccati via `solve_continuous_are`) and pole placement (`place_poles`) controller design
+  - Side-by-side linear prediction (matrix exponential) vs nonlinear validation (`solve_ivp` RK45)
+  - HTML5 Canvas phase portrait with vector field arrows (magnitude-colored), streamlines, animated trajectories
+  - User-selectable 2D projection axes for higher-order systems (4-state → pick 2 axes)
+  - Click-to-set initial condition on Canvas
+  - Threaded region of attraction computation (25×25 IC grid, `ThreadPoolExecutor(8)`)
+  - KaTeX derivation chain: ODE → A,B → K → CL eigenvalues (collapsible)
+  - Metrics strip: stability, controllability rank, CL eigenvalues, convergence time, ‖K‖
+  - Full MIMO support (coupled tanks: 2-input 2-output LQR with diagonal Q,R)
