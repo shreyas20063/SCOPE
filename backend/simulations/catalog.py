@@ -3262,6 +3262,153 @@ SIMULATION_CATALOG = [
             {"id": "roa_heatmap", "title": "Region of Attraction", "description": "Grid-based convergence analysis (computed on demand)"},
         ],
     },
+    # ═══════════════════════════════════════════════════════════════════════
+    # MIMO State-Space Design Studio
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "id": "mimo_design_studio",
+        "name": "MIMO State-Space Design Studio",
+        "description": (
+            "Design and analyze multi-input multi-output (MIMO) state-space systems. "
+            "Enter arbitrary A, B, C, D matrices or select from real-world presets "
+            "(aircraft dynamics, coupled oscillators, flexible motor). Compute "
+            "controllability/observability, design MIMO controllers via pole placement, "
+            "LQR, or LQG, and visualize the full response matrix."
+        ),
+        "category": "Control Systems",
+        "thumbnail": "\U0001f39b\ufe0f",
+        "tags": [
+            "MIMO", "state space", "multivariable", "pole placement", "LQR",
+            "LQG", "Kalman filter", "controllability", "observability",
+            "Riccati", "eigenvalues", "modern control", "optimal control",
+        ],
+        "has_simulator": True,
+        "controls": [
+            # ── System ──
+            {
+                "type": "select", "name": "preset", "label": "System Preset",
+                "options": [
+                    {"value": "aircraft_lateral", "label": "Aircraft Lateral Dynamics (4\u00d72\u00d72)"},
+                    {"value": "coupled_spring_mass", "label": "Coupled Mass-Spring-Damper (4\u00d72\u00d72)"},
+                    {"value": "dc_motor_flex", "label": "DC Motor + Flexible Load (4\u00d71\u00d72)"},
+                    {"value": "custom", "label": "Custom Matrices"},
+                ],
+                "default": "aircraft_lateral", "group": "System",
+                "description": "Select a real-world MIMO system or enter custom matrices.",
+            },
+            # ── Matrices ──
+            {
+                "type": "expression", "name": "matrix_a", "label": "A Matrix (rows ; separated)",
+                "default": "-0.322, 0.064, 0.0364, -0.9917; 0, -0.465, 0.0121, 0; -0.015, -0.624, -0.275, 0; 0, 0.018, 0.318, 0",
+                "group": "Matrices",
+                "description": "n\u00d7n state matrix. Rows separated by semicolons, values by commas.",
+            },
+            {
+                "type": "expression", "name": "matrix_b", "label": "B Matrix",
+                "default": "0, 0.0064; -0.161, 0.0028; 0, -0.264; 0, 0",
+                "group": "Matrices",
+                "description": "n\u00d7m input matrix.",
+            },
+            {
+                "type": "expression", "name": "matrix_c", "label": "C Matrix",
+                "default": "1, 0, 0, 0; 0, 0, 0, 1",
+                "group": "Matrices",
+                "description": "p\u00d7n output matrix.",
+            },
+            {
+                "type": "expression", "name": "matrix_d", "label": "D Matrix",
+                "default": "0, 0; 0, 0",
+                "group": "Matrices",
+                "description": "p\u00d7m feedthrough matrix (usually zeros).",
+            },
+            # ── Controller Design ──
+            {
+                "type": "select", "name": "design_mode", "label": "Design Mode",
+                "options": [
+                    {"value": "analysis", "label": "Analysis Only"},
+                    {"value": "pole_placement", "label": "Pole Placement"},
+                    {"value": "lqr", "label": "LQR (Optimal)"},
+                    {"value": "lqg", "label": "LQG (LQR + Kalman Filter)"},
+                ],
+                "default": "analysis", "group": "Controller Design",
+                "description": "Analysis mode shows open-loop behavior. Design modes compute feedback controllers.",
+            },
+            {
+                "type": "expression", "name": "desired_poles", "label": "Desired CL Poles",
+                "default": "-1, -2, -3+1j, -3-1j",
+                "group": "Controller Design",
+                "description": "Comma-separated desired closed-loop poles. Complex poles need conjugate pairs.",
+                "visible_when": {"design_mode": "pole_placement"},
+            },
+            {
+                "type": "expression", "name": "q_diag", "label": "Q Diagonal (state cost)",
+                "default": "1, 1, 1, 1",
+                "group": "Controller Design",
+                "description": "Diagonal entries of Q matrix (one per state). Higher values penalize that state deviation more.",
+                "visible_when": {"design_mode": ["lqr", "lqg"]},
+            },
+            {
+                "type": "expression", "name": "r_diag", "label": "R Diagonal (input cost)",
+                "default": "1, 1",
+                "group": "Controller Design",
+                "description": "Diagonal entries of R matrix (one per input). Higher values penalize control effort more.",
+                "visible_when": {"design_mode": ["lqr", "lqg"]},
+            },
+            # ── Estimator (LQG) ──
+            {
+                "type": "expression", "name": "qw_diag", "label": "Qw Diagonal (process noise)",
+                "default": "0.1, 0.1, 0.1, 0.1",
+                "group": "Estimator (LQG)",
+                "description": "Process noise covariance diagonal. Higher = less trust in model.",
+                "visible_when": {"design_mode": "lqg"},
+            },
+            {
+                "type": "expression", "name": "rv_diag", "label": "Rv Diagonal (sensor noise)",
+                "default": "1, 1",
+                "group": "Estimator (LQG)",
+                "description": "Measurement noise covariance diagonal. Higher = less trust in sensors.",
+                "visible_when": {"design_mode": "lqg"},
+            },
+            # ── Compute button ──
+            {
+                "type": "button", "name": "compute_controller", "label": "Compute Controller",
+                "group": "Controller Design",
+                "visible_when": {"design_mode": ["pole_placement", "lqr", "lqg"]},
+            },
+            # ── Simulation settings ──
+            {
+                "type": "slider", "name": "time_span", "label": "Time Span",
+                "min": 1, "max": 50, "step": 1, "default": 10, "unit": "s",
+                "group": "Simulation",
+            },
+            {
+                "type": "slider", "name": "step_input_channel", "label": "Step Input Channel",
+                "min": 0, "max": 3, "step": 1, "default": 0,
+                "group": "Simulation",
+                "description": "Which input channel receives the unit step (0-indexed).",
+            },
+        ],
+        "default_params": {
+            "preset": "aircraft_lateral",
+            "matrix_a": "-0.322, 0.064, 0.0364, -0.9917; 0, -0.465, 0.0121, 0; -0.015, -0.624, -0.275, 0; 0, 0.018, 0.318, 0",
+            "matrix_b": "0, 0.0064; -0.161, 0.0028; 0, -0.264; 0, 0",
+            "matrix_c": "1, 0, 0, 0; 0, 0, 0, 1",
+            "matrix_d": "0, 0; 0, 0",
+            "design_mode": "analysis",
+            "desired_poles": "-1, -2, -3+1j, -3-1j",
+            "q_diag": "1, 1, 1, 1",
+            "r_diag": "1, 1",
+            "qw_diag": "0.1, 0.1, 0.1, 0.1",
+            "rv_diag": "1, 1",
+            "time_span": 10,
+            "step_input_channel": 0,
+        },
+        "plots": [
+            {"id": "step_response_grid", "title": "MIMO Step Response", "description": "Step response matrix \u2014 each subplot shows one output's response to one input's unit step"},
+            {"id": "impulse_response_grid", "title": "MIMO Impulse Response", "description": "Impulse response matrix \u2014 same grid layout as step response"},
+            {"id": "eigenvalue_plot", "title": "Eigenvalue Map", "description": "Open-loop (\u00d7) and closed-loop (\u25cf) eigenvalues in the s-plane"},
+        ],
+    },
 ]
 
 

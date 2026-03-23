@@ -1,0 +1,619 @@
+/* ==========================================================================
+   MIMO Design Studio — Dedicated Styles
+   All values use CSS variables from App.css :root
+   ========================================================================== */
+
+.mimo-studio {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  padding: 8px 0;
+}
+
+/* ==========================================================================
+   Tab Bar
+   ========================================================================== */
+
+.mimo-tabs {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mimo-tab {
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  white-space: nowrap;
+  transition: color var(--transition-fast), border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.mimo-tab:hover {
+  color: var(--text-secondary);
+  background: rgba(148, 163, 184, 0.04);
+}
+
+.mimo-tab.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+  font-weight: 600;
+}
+
+.mimo-tab-content {
+  padding: 12px 0;
+  min-height: 300px;
+}
+
+/* ==========================================================================
+   Section Title
+   ========================================================================== */
+
+.mimo-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+/* ==========================================================================
+   Metrics Strip
+   ========================================================================== */
+
+.mimo-metrics-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+}
+
+.mimo-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 72px;
+  padding: 6px 8px;
+  background: rgba(20, 184, 166, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.mimo-metric:hover {
+  border-color: var(--border-hover);
+  background: rgba(20, 184, 166, 0.07);
+}
+
+.mimo-metric-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.mimo-metric-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Response Grid (Plotly subplots)
+   ========================================================================== */
+
+.mimo-response-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mimo-response-grid .js-plotly-plot,
+.mimo-response-grid .plot-container {
+  margin: 0 !important;
+}
+
+.mimo-response-grid .modebar-container {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.mimo-response-grid:hover .modebar-container {
+  opacity: 1;
+}
+
+/* ==========================================================================
+   Matrix Panel (A, B, C, D, K, L, P display)
+   ========================================================================== */
+
+.mimo-matrix-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.mimo-matrix-card {
+  flex: 1 1 200px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  overflow-x: auto;
+  transition: border-color var(--transition-fast);
+}
+
+.mimo-matrix-card:hover {
+  border-color: var(--border-hover);
+}
+
+.mimo-matrix-card h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 10px 0;
+}
+
+.mimo-matrix-card .katex {
+  font-size: 0.9em;
+}
+
+.mimo-matrix-card .katex-display {
+  margin: 4px 0;
+}
+
+/* ==========================================================================
+   Rank Badges (Controllability / Observability)
+   ========================================================================== */
+
+.mimo-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.mimo-rank-full {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success-color);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.mimo-rank-deficient {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--error-color);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* ==========================================================================
+   Dimension Badge (NxMxP)
+   ========================================================================== */
+
+.mimo-dimension-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(20, 184, 166, 0.25);
+  background: rgba(20, 184, 166, 0.06);
+  color: var(--primary-color);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* ==========================================================================
+   Block Diagram Container (SVG area)
+   ========================================================================== */
+
+.mimo-diagram-container {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  overflow: hidden;
+}
+
+.mimo-diagram-container svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ==========================================================================
+   Controller Info Panel
+   ========================================================================== */
+
+.mimo-controller-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+}
+
+.mimo-controller-info .katex {
+  font-size: 0.95em;
+}
+
+/* ==========================================================================
+   Warning / Error Message Boxes
+   ========================================================================== */
+
+.mimo-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--warning-color);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.mimo-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--error-color);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* ==========================================================================
+   Stability Badge
+   ========================================================================== */
+
+.mimo-stability-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.mimo-stability-badge.stable {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success-color);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.mimo-stability-badge.unstable {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--error-color);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.mimo-stability-badge.marginal {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--warning-color);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+/* ==========================================================================
+   Eigenvalue List
+   ========================================================================== */
+
+.mimo-eigenvalue-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.mimo-eigenvalue-list span {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.mimo-eigenvalue-list span.stable {
+  border-color: rgba(16, 185, 129, 0.3);
+  color: var(--success-color);
+}
+
+.mimo-eigenvalue-list span.unstable {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--error-color);
+}
+
+.mimo-eigenvalue-list span.marginal {
+  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--warning-color);
+}
+
+/* ==========================================================================
+   Legend (OL / CL traces)
+   ========================================================================== */
+
+.mimo-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.mimo-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mimo-legend-swatch {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Light Mode Overrides
+   ========================================================================== */
+
+[data-theme="light"] .mimo-tabs {
+  border-bottom-color: rgba(226, 232, 240, 0.8);
+}
+
+[data-theme="light"] .mimo-tab:hover {
+  background: rgba(148, 163, 184, 0.06);
+}
+
+[data-theme="light"] .mimo-metrics-strip {
+  background: rgba(248, 250, 252, 0.98);
+  border-color: rgba(226, 232, 240, 0.8);
+}
+
+[data-theme="light"] .mimo-metric {
+  background: rgba(20, 184, 166, 0.03);
+  border-color: rgba(226, 232, 240, 0.8);
+}
+
+[data-theme="light"] .mimo-matrix-card {
+  background: rgba(248, 250, 252, 0.98);
+  border-color: rgba(226, 232, 240, 0.8);
+}
+
+[data-theme="light"] .mimo-diagram-container {
+  background: rgba(248, 250, 252, 0.98);
+  border-color: rgba(226, 232, 240, 0.8);
+}
+
+[data-theme="light"] .mimo-controller-info {
+  background: rgba(248, 250, 252, 0.98);
+  border-color: rgba(226, 232, 240, 0.8);
+}
+
+[data-theme="light"] .mimo-warning {
+  background: rgba(245, 158, 11, 0.06);
+  border-color: rgba(245, 158, 11, 0.15);
+}
+
+[data-theme="light"] .mimo-error {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.15);
+}
+
+[data-theme="light"] .mimo-rank-full {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+[data-theme="light"] .mimo-rank-deficient {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+[data-theme="light"] .mimo-stability-badge.stable {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+[data-theme="light"] .mimo-stability-badge.unstable {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+[data-theme="light"] .mimo-stability-badge.marginal {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+[data-theme="light"] .mimo-dimension-badge {
+  background: rgba(20, 184, 166, 0.04);
+  border-color: rgba(20, 184, 166, 0.18);
+}
+
+[data-theme="light"] .mimo-eigenvalue-list span {
+  border-color: rgba(226, 232, 240, 0.8);
+}
+
+/* ==========================================================================
+   Responsive — Tablet (< 768px)
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .mimo-studio {
+    gap: 12px;
+  }
+
+  .mimo-tabs {
+    flex-direction: column;
+    gap: 2px;
+    border-bottom: none;
+    border-left: 1px solid var(--border-color);
+  }
+
+  .mimo-tab {
+    border-bottom: none;
+    border-left: 2px solid transparent;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    text-align: left;
+    padding: 8px 14px;
+  }
+
+  .mimo-tab.active {
+    border-bottom-color: transparent;
+    border-left-color: var(--primary-color);
+  }
+
+  .mimo-tab-content {
+    min-height: 200px;
+  }
+
+  .mimo-metrics-strip {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .mimo-metric {
+    min-width: 60px;
+    padding: 5px 6px;
+  }
+
+  .mimo-metric-label {
+    font-size: 9px;
+  }
+
+  .mimo-metric-value {
+    font-size: 12px;
+  }
+
+  .mimo-matrix-panel {
+    gap: 10px;
+  }
+
+  .mimo-matrix-card {
+    flex: 1 1 100%;
+    padding: 10px 12px;
+  }
+
+  .mimo-diagram-container {
+    min-height: 160px;
+    padding: 10px;
+  }
+
+  .mimo-controller-info {
+    padding: 10px 12px;
+  }
+
+  .mimo-section-title {
+    font-size: 12px;
+  }
+}
+
+/* ==========================================================================
+   Responsive — Small Mobile (< 480px)
+   ========================================================================== */
+
+@media (max-width: 480px) {
+  .mimo-studio {
+    gap: 10px;
+  }
+
+  .mimo-tab {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .mimo-metrics-strip {
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .mimo-metric {
+    min-width: 50px;
+    padding: 4px 5px;
+  }
+
+  .mimo-metric-label {
+    font-size: 8px;
+  }
+
+  .mimo-metric-value {
+    font-size: 11px;
+  }
+
+  .mimo-matrix-card {
+    padding: 8px 10px;
+  }
+
+  .mimo-matrix-card h4 {
+    font-size: 11px;
+  }
+
+  .mimo-warning,
+  .mimo-error {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+
+  .mimo-eigenvalue-list span {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .mimo-diagram-container {
+    min-height: 140px;
+    padding: 8px;
+  }
+}
+
+/* ── Missing utility classes ── */
+.mimo-tab-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+  padding: 24px;
+}
+
+.mimo-svg-label {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+}

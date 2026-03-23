@@ -62,6 +62,7 @@ from .lead_lag_designer import LeadLagDesignerSimulator
 from .steady_state_error import SteadyStateErrorSimulator
 from .phase_portrait import PhasePortraitSimulator
 from .nonlinear_control_lab import NonlinearControlLabSimulator
+from .mimo_design_studio import MIMODesignStudioSimulator
 
 # Registry mapping simulation IDs to their simulator classes
 # Add new simulators here as they are implemented
@@ -119,6 +120,7 @@ SIMULATOR_REGISTRY = {
     "steady_state_error": SteadyStateErrorSimulator,
     "phase_portrait": PhasePortraitSimulator,
     "nonlinear_control_lab": NonlinearControlLabSimulator,
+    "mimo_design_studio": MIMODesignStudioSimulator,
 }
 
 
@@ -213,6 +215,7 @@ __all__ = [
     "SteadyStateErrorSimulator",
     "PhasePortraitSimulator",
     "NonlinearControlLabSimulator",
+    "MIMODesignStudioSimulator",
     "SIMULATOR_REGISTRY",
     "get_simulator_class",
     "is_simulator_available",

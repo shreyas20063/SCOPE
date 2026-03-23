@@ -62,6 +62,7 @@ const LeadLagDesignerViewer = lazy(() => import('./LeadLagDesignerViewer'));
 const SteadyStateErrorViewer = lazy(() => import('./SteadyStateErrorViewer'));
 const PhasePortraitViewer = lazy(() => import('./PhasePortraitViewer'));
 const NonlinearControlLabViewer = lazy(() => import('./NonlinearControlLabViewer'));
+const MIMODesignStudioViewer = lazy(() => import('./MIMODesignStudioViewer'));
 
 // Loading fallback for lazy-loaded components
 const LazyLoadFallback = () => (
@@ -2042,6 +2043,14 @@ function SimulationViewer({
                     currentParams={currentParams}
                     onParamChange={onParamChange}
                     onButtonClick={onButtonClick}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'mimo_design_studio' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <MIMODesignStudioViewer
+                    metadata={metadata}
+                    plots={plots}
+                    onParamChange={onParamChange}
                   />
                 </Suspense>
               ) : (
