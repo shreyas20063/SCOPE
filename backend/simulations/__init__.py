@@ -60,6 +60,8 @@ from .nyquist_stability import NyquistStabilitySimulator
 from .controller_tuning_lab import ControllerTuningLabSimulator
 from .lead_lag_designer import LeadLagDesignerSimulator
 from .steady_state_error import SteadyStateErrorSimulator
+from .phase_portrait import PhasePortraitSimulator
+from .nonlinear_control_lab import NonlinearControlLabSimulator
 
 # Registry mapping simulation IDs to their simulator classes
 # Add new simulators here as they are implemented
@@ -115,6 +117,8 @@ SIMULATOR_REGISTRY = {
     "controller_tuning_lab": ControllerTuningLabSimulator,
     "lead_lag_designer": LeadLagDesignerSimulator,
     "steady_state_error": SteadyStateErrorSimulator,
+    "phase_portrait": PhasePortraitSimulator,
+    "nonlinear_control_lab": NonlinearControlLabSimulator,
 }
 
 
@@ -207,6 +211,8 @@ __all__ = [
     "ControllerTuningLabSimulator",
     "LeadLagDesignerSimulator",
     "SteadyStateErrorSimulator",
+    "PhasePortraitSimulator",
+    "NonlinearControlLabSimulator",
     "SIMULATOR_REGISTRY",
     "get_simulator_class",
     "is_simulator_available",
