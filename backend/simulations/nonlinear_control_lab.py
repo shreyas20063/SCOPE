@@ -13,6 +13,7 @@ Core theory (Khalil Ch 3-4, Slotine & Li Ch 3-4):
 """
 
 import re
+import time
 import numpy as np
 from typing import Any, Dict, List, Optional, Tuple
 from scipy.integrate import solve_ivp
@@ -1124,6 +1125,8 @@ class NonlinearControlLabSimulator(BaseSimulator):
         self._state_names: List[str] = []
         self._input_names: List[str] = []
         self._design_error: str = ""
+        self._cached_plant_key: Optional[tuple] = None
+        self._eq_warning: Optional[str] = None
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         """Initialize with given or default parameters.
@@ -1136,6 +1139,8 @@ class NonlinearControlLabSimulator(BaseSimulator):
             self.parameters[name] = self._validate_param(name, value)
         self._roa_result = None
         self._error = None
+        self._cached_plant_key = None
+        self._eq_warning = None
         self._initialized = True
 
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
@@ -1279,6 +1284,20 @@ class NonlinearControlLabSimulator(BaseSimulator):
             self._f_numeric = f_numeric
         except Exception as exc:
             return False, f"Lambdify error: {exc}"
+
+        # Verify equilibrium: f(x_eq, u_eq) should be near zero
+        try:
+            f_at_eq = self._f_numeric(self._x_eq, self._u_eq)
+            eq_residual = float(np.linalg.norm(f_at_eq))
+            if eq_residual > 0.01:
+                self._eq_warning = (
+                    f"f(x*, u*) has norm {eq_residual:.4f} "
+                    f"— may not be a true equilibrium"
+                )
+            else:
+                self._eq_warning = None
+        except Exception:
+            self._eq_warning = None
 
         return True, ""
 
@@ -1466,7 +1485,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
 
         if len(t) == 0 or len(x_nl) == 0:
             return {
-                "convergence_time": float("inf"),
+                "convergence_time": -1,
                 "max_deviation": 0.0,
                 "final_error": 0.0,
                 "is_stable": False,
@@ -1513,15 +1532,37 @@ class NonlinearControlLabSimulator(BaseSimulator):
         """
         self._error = None
 
-        # Step 1: Build plant
-        ok, err = self._build_plant()
-        if not ok:
-            return self._error_state(err)
+        # Cache key for plant-affecting parameters — skip expensive SymPy
+        # rebuild when only controller weights or sim settings changed
+        plant_key = (
+            self.parameters.get("plant_preset"),
+            self.parameters.get("equilibrium_idx"),
+            self.parameters.get("n_states_custom"),
+            self.parameters.get("n_inputs_custom"),
+            self.parameters.get("f1_expr"),
+            self.parameters.get("f2_expr"),
+            self.parameters.get("f3_expr"),
+            self.parameters.get("f4_expr"),
+            self.parameters.get("eq_x1"),
+            self.parameters.get("eq_x2"),
+            self.parameters.get("eq_x3"),
+            self.parameters.get("eq_x4"),
+            self.parameters.get("eq_u1"),
+            self.parameters.get("eq_u2"),
+        )
 
-        # Step 2: Linearize
-        ok, err = self._linearize()
-        if not ok:
-            return self._error_state(err)
+        if plant_key != self._cached_plant_key:
+            # Step 1: Build plant
+            ok, err = self._build_plant()
+            if not ok:
+                return self._error_state(err)
+
+            # Step 2: Linearize
+            ok, err = self._linearize()
+            if not ok:
+                return self._error_state(err)
+
+            self._cached_plant_key = plant_key
 
         # Step 3: Design controller
         ok, err = self._design_controller()
@@ -1749,7 +1790,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
         layout = self._base_layout("Time Response")
         layout["xaxis"]["title"] = "Time (s)"
         layout["yaxis"]["title"] = "State value"
-        layout["datarevision"] = f"time_resp-{id(sim_data)}"
+        layout["datarevision"] = f"time_resp-{time.time()}"
         layout["uirevision"] = "time_response"
 
         return {
@@ -1812,7 +1853,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
         layout = self._base_layout("Control Effort")
         layout["xaxis"]["title"] = "Time (s)"
         layout["yaxis"]["title"] = "Control input"
-        layout["datarevision"] = f"ctrl_effort-{id(sim_data)}"
+        layout["datarevision"] = f"ctrl_effort-{time.time()}"
         layout["uirevision"] = "control_effort"
 
         return {
@@ -1894,8 +1935,26 @@ class NonlinearControlLabSimulator(BaseSimulator):
         layout = self._base_layout("Eigenvalue Map")
         layout["xaxis"]["title"] = "Real"
         layout["yaxis"]["title"] = "Imaginary"
-        layout["yaxis"]["scaleanchor"] = "x"
-        layout["datarevision"] = f"eig-{id(self._cl_eigenvalues)}"
+
+        # Compute equal-span ranges server-side instead of scaleanchor (BUG-007)
+        if self._ol_eigenvalues or self._cl_eigenvalues:
+            all_re = ([float(e.real) for e in self._ol_eigenvalues] +
+                      [float(e.real) for e in self._cl_eigenvalues])
+            all_im = ([float(e.imag) for e in self._ol_eigenvalues] +
+                      [float(e.imag) for e in self._cl_eigenvalues])
+            x_min, x_max = min(all_re), max(all_re)
+            y_min, y_max = min(all_im), max(all_im)
+            x_span = x_max - x_min
+            y_span = y_max - y_min
+            max_span = max(x_span, y_span, 1.0)
+            x_center = (x_max + x_min) / 2
+            y_center = (y_max + y_min) / 2
+            layout["xaxis"]["range"] = [x_center - max_span / 2 - 0.5,
+                                         x_center + max_span / 2 + 0.5]
+            layout["yaxis"]["range"] = [y_center - max_span / 2 - 0.5,
+                                         y_center + max_span / 2 + 0.5]
+
+        layout["datarevision"] = f"eig-{time.time()}"
         layout["uirevision"] = "eigenvalue_map"
 
         return {
@@ -1962,7 +2021,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
         layout = self._base_layout("Region of Attraction")
         layout["xaxis"]["title"] = x_names[proj_x] if proj_x < len(x_names) else f"x{proj_x+1}"
         layout["yaxis"]["title"] = x_names[proj_y] if proj_y < len(x_names) else f"x{proj_y+1}"
-        layout["datarevision"] = f"roa-{id(roa)}"
+        layout["datarevision"] = f"roa-{time.time()}"
         layout["uirevision"] = "roa_heatmap"
 
         return {
@@ -2111,6 +2170,9 @@ class NonlinearControlLabSimulator(BaseSimulator):
 
             # Simulation status
             "diverged": sim_data.get("diverged", False),
+
+            # Equilibrium validation warning (custom ODEs)
+            "eq_warning": self._eq_warning,
         }
 
         return metadata
