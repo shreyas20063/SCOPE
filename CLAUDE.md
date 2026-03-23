@@ -463,3 +463,24 @@ All tracking files live in `.claude/`. **Read them before starting work. Update 
   - KaTeX derivation chain: ODE → A,B → K → CL eigenvalues (collapsible)
   - Metrics strip: stability, controllability rank, CL eigenvalues, convergence time, ‖K‖
   - Full MIMO support (coupled tanks: 2-input 2-output LQR with diagonal Q,R)
+
+### MIMO State-Space Design Studio (simulation: `mimo_design_studio`)
+- **Backend**: `backend/simulations/mimo_design_studio.py` (~1485 lines), `backend/core/mimo_utils.py` (~460 lines)
+- **Frontend**: `frontend/src/components/MIMODesignStudioViewer.jsx` (~1031 lines)
+- **CSS**: `frontend/src/styles/MIMODesignStudio.css` (~619 lines)
+- **Purpose**: Full MIMO state-space design and analysis for arbitrary N×M×P systems
+- **Key features**:
+  - 3 real-world presets: Aircraft Lateral Dynamics (4×2×2), Coupled Mass-Spring-Damper (4×2×2), DC Motor + Flexible Load (4×1×2 MISO)
+  - Custom N×M×P matrices via semicolon-delimited expressions (max N=8, M=4, P=4)
+  - Controllability/observability matrix computation and rank display with color-coded badges
+  - MIMO pole placement via scipy.signal.place_poles (m×n K matrix)
+  - MIMO LQR via continuous algebraic Riccati equation (arbitrary diagonal Q, R)
+  - MIMO LQG: dual Riccati (K + L gains), augmented 2n-order CL, separation principle
+  - p×m response grid: step and impulse response for every input→output pair
+  - Open-loop (dashed) + closed-loop (solid) response overlay when controller active
+  - Eigenvalue map with OL/CL/regulator/estimator marker groups
+  - 5-tab viewer: Response, Pole-Zero, Properties, Controller, Diagram
+  - SVG block diagrams: open-loop SS, state feedback, LQG observer structure
+  - KaTeX-rendered matrices (A, B, C, D, K, L, P, Q, R) throughout
+  - Metrics strip: dimensions, controllability/observability rank badges, OL/CL stability
+  - Reusable `core/mimo_utils.py` math module (controllability, observability, LQR, LQG, pole placement, MIMO simulation via solve_ivp)
