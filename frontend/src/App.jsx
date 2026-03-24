@@ -12,6 +12,9 @@ import WebsiteLaunchAnimation from './components/WebsiteLaunchAnimation'
 import ErrorBoundary from './components/ErrorBoundary'
 import ThemeToggle from './components/ThemeToggle'
 import KeyboardShortcutsModal, { useKeyboardShortcuts } from './components/KeyboardShortcuts'
+import { HubProvider } from './contexts/HubContext'
+import HubButton from './components/HubButton'
+import HubPanel from './components/HubPanel'
 
 const LAUNCH_KEY = 'sig_sys_launch_seen';
 
@@ -25,7 +28,10 @@ function App() {
   });
 
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [hubOpen, setHubOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+
+  const toggleHub = useCallback(() => setHubOpen(prev => !prev), []);
 
   const handleLaunchComplete = useCallback(() => {
     sessionStorage.setItem(LAUNCH_KEY, '1');
@@ -59,6 +65,7 @@ function App() {
   });
 
   return (
+    <HubProvider>
     <div className="app">
       {/* Website launch animation (once per session, homepage only) */}
       {showLaunch && (
@@ -95,6 +102,7 @@ function App() {
                 <path d="M7 16h10" />
               </svg>
             </button>
+            <HubButton isOpen={hubOpen} onToggle={toggleHub} />
             <ThemeToggle />
           </div>
         </nav>
@@ -115,12 +123,16 @@ function App() {
         onClose={() => setShowShortcuts(false)}
       />
 
+      {/* Hub panel */}
+      <HubPanel isOpen={hubOpen} onClose={() => setHubOpen(false)} />
+
       <footer className="app-footer" role="contentinfo">
         <div className="footer-content">
           <span>Made by Shreyas Reddy</span>
         </div>
       </footer>
     </div>
+    </HubProvider>
   )
 }
 
