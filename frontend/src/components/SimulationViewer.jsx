@@ -66,6 +66,8 @@ const PhasePortraitViewer = lazy(() => import('./PhasePortraitViewer'));
 const NonlinearControlLabViewer = lazy(() => import('./NonlinearControlLabViewer'));
 const MIMODesignStudioViewer = lazy(() => import('./MIMODesignStudioViewer'));
 const InvertedPendulum3DViewer = lazy(() => import('./InvertedPendulum3DViewer'));
+const BallBeam3DViewer = lazy(() => import('./BallBeam3DViewer'));
+const CoupledTanks3DViewer = lazy(() => import('./CoupledTanks3DViewer'));
 
 // Loading fallback for lazy-loaded components
 const LazyLoadFallback = () => (
@@ -1584,7 +1586,17 @@ function SimulationViewer({
 
   // Hub integration
   const primarySlot = metadata?.hub_slots?.[0] || null;
-  const { pushToSlot } = useHub(primarySlot || 'control');
+  const { pushToSlot, hubUpdated } = useHub(primarySlot || 'control');
+
+  const [showHubToast, setShowHubToast] = useState(false);
+
+  useEffect(() => {
+    if (hubUpdated > 0) {
+      setShowHubToast(true);
+      const timer = setTimeout(() => setShowHubToast(false), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [hubUpdated]);
 
   const handlePushToHub = useCallback(async () => {
     if (!simulation?.id || !primarySlot || !pushToSlot) return;
@@ -2106,6 +2118,20 @@ function SimulationViewer({
                     plots={plots}
                   />
                 </Suspense>
+              ) : metadata?.simulation_type === 'ball_beam_3d' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <BallBeam3DViewer
+                    metadata={metadata}
+                    plots={plots}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'coupled_tanks_3d' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <CoupledTanks3DViewer
+                    metadata={metadata}
+                    plots={plots}
+                  />
+                </Suspense>
               ) : (
                 <PlotDisplay
                   plots={plots}
@@ -2144,6 +2170,19 @@ function SimulationViewer({
             )}
           </div>
         </>
+      )}
+      {showHubToast && (
+        <div className="hub-toast">
+          <span>Hub system updated</span>
+          <div className="hub-toast__actions">
+            <button className="hub-toast__btn hub-toast__btn--reload" onClick={() => window.location.reload()}>
+              Reload
+            </button>
+            <button className="hub-toast__btn" onClick={() => setShowHubToast(false)}>
+              Dismiss
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
