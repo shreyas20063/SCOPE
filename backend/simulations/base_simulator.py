@@ -25,6 +25,11 @@ class BaseSimulator(ABC):
     PARAMETER_SCHEMA: Dict[str, Dict] = {}
     DEFAULT_PARAMS: Dict[str, Any] = {}
 
+    # Hub integration — override in subclasses
+    HUB_SLOTS: List[str] = []
+    HUB_DOMAIN: str = "ct"  # "ct" or "dt"
+    HUB_DIMENSIONS: Dict[str, Any] = {"n": None, "m": 1, "p": 1}  # SISO default
+
     def __init__(self, simulation_id: str):
         """
         Initialize base simulator.
@@ -171,3 +176,78 @@ class BaseSimulator(ABC):
     def is_initialized(self) -> bool:
         """Check if simulation has been initialized."""
         return self._initialized
+
+    def to_hub_data(self) -> Optional[Dict[str, Any]]:
+        """Serialize this sim's state for pushing to the hub.
+
+        Default: export TF from common parameter name patterns.
+        Override for sims with non-standard parameter names.
+        """
+        num = den = None
+        for key in ('numerator', 'num_coeffs', 'custom_num', 'plant_num', 'tf_numerator'):
+            if key in self.parameters:
+                val = self.parameters[key]
+                num = self._parse_coeffs(val) if isinstance(val, str) else val
+                break
+        for key in ('denominator', 'den_coeffs', 'custom_den', 'plant_den', 'tf_denominator'):
+            if key in self.parameters:
+                val = self.parameters[key]
+                den = self._parse_coeffs(val) if isinstance(val, str) else val
+                break
+
+        if num is not None and den is not None:
+            return {
+                "source": "tf",
+                "domain": self.HUB_DOMAIN,
+                "dimensions": self.HUB_DIMENSIONS,
+                "tf": {
+                    "num": list(num) if hasattr(num, '__iter__') else [num],
+                    "den": list(den) if hasattr(den, '__iter__') else [den],
+                    "variable": "z" if self.HUB_DOMAIN == "dt" else "s",
+                },
+            }
+        return None
+
+    def from_hub_data(self, hub_data: Dict[str, Any]) -> bool:
+        """Load hub data into this sim's parameters.
+
+        Default: inject TF num/den into common parameter names.
+        Returns True if data was applicable.
+        """
+        if not hub_data:
+            return False
+
+        # SISO/MIMO compatibility
+        dims = hub_data.get("dimensions", {})
+        if self.HUB_DIMENSIONS.get("m", 1) == 1 and self.HUB_DIMENSIONS.get("p", 1) == 1:
+            if dims.get("m", 1) != 1 or dims.get("p", 1) != 1:
+                return False
+
+        # Domain compatibility
+        domain = hub_data.get("domain", "ct")
+        if domain != self.HUB_DOMAIN:
+            return False
+
+        tf = hub_data.get("tf")
+        if tf and tf.get("num") and tf.get("den"):
+            num_str = ", ".join(str(c) for c in tf["num"])
+            den_str = ", ".join(str(c) for c in tf["den"])
+            for key in ('numerator', 'num_coeffs', 'custom_num', 'plant_num', 'tf_numerator'):
+                if key in self.PARAMETER_SCHEMA:
+                    self.parameters[key] = num_str
+                    break
+            for key in ('denominator', 'den_coeffs', 'custom_den', 'plant_den', 'tf_denominator'):
+                if key in self.PARAMETER_SCHEMA:
+                    self.parameters[key] = den_str
+                    break
+            return True
+
+        return False
+
+    @staticmethod
+    def _parse_coeffs(val: str) -> List[float]:
+        """Parse comma-separated coefficient string to float list."""
+        try:
+            return [float(x.strip()) for x in str(val).split(',') if x.strip()]
+        except (ValueError, AttributeError):
+            return []

@@ -576,6 +576,48 @@ export function useSimulation(simId) {
               console.log('[useSimulation init] Setting initial metadata, is_stable:', stateResult.metadata?.system_info?.is_stable);
               setMetadata(stateResult.metadata);
             }
+
+            // --- Hub auto-read ---
+            const hubSlots = stateResult.metadata?.hub_slots;
+            const hubDomain = stateResult.metadata?.hub_domain || 'ct';
+            if (hubSlots && hubSlots.length > 0) {
+              try {
+                const stored = localStorage.getItem('systemHub');
+                if (stored) {
+                  const hubState = JSON.parse(stored);
+                  for (const slot of hubSlots) {
+                    const hubData = hubState[slot];
+                    if (!hubData || !hubData.tf) continue;
+                    // Domain check
+                    if (hubData.domain && hubData.domain !== hubDomain) continue;
+                    // SISO/MIMO check
+                    const hubDims = hubData.dimensions || {};
+                    const simDims = stateResult.metadata?.hub_dimensions || { m: 1, p: 1 };
+                    if (simDims.m === 1 && simDims.p === 1 && (hubDims.m > 1 || hubDims.p > 1)) continue;
+                    // Map hub TF to sim parameter names
+                    const hubParams = {};
+                    const controls = simResult.data.controls || [];
+                    const numKeys = ['numerator', 'num_coeffs', 'custom_num', 'plant_num', 'tf_numerator'];
+                    const denKeys = ['denominator', 'den_coeffs', 'custom_den', 'plant_den', 'tf_denominator'];
+                    for (const ctrl of controls) {
+                      if (numKeys.includes(ctrl.name)) hubParams[ctrl.name] = hubData.tf.num.join(', ');
+                      if (denKeys.includes(ctrl.name)) hubParams[ctrl.name] = hubData.tf.den.join(', ');
+                    }
+                    if (Object.keys(hubParams).length > 0) {
+                      const hubResult = await api.updateParameters(simId, hubParams);
+                      if (hubResult.success && mountedRef.current) {
+                        setPlots(hubResult.plots || []);
+                        if (hubResult.parameters) setCurrentParams(hubResult.parameters);
+                        if (hubResult.metadata) setMetadata(prev => ({ ...prev, ...hubResult.metadata, _hubSynced: true }));
+                      }
+                    }
+                    break; // Only first matching slot
+                  }
+                }
+              } catch (err) {
+                console.warn('[useSimulation] Hub auto-read failed:', err);
+              }
+            }
           } else {
             // Still show the simulation, just no plots
             console.warn('Could not load simulation state:', stateResult.error);
@@ -628,6 +670,10 @@ export function useSimulation(simId) {
     getParamDef,
     validateParam,
     setMetadata,
+
+    // Hub
+    hubSlots: metadata?.hub_slots || [],
+    hubDomain: metadata?.hub_domain || 'ct',
   };
 }
 
