@@ -112,6 +112,8 @@ class RouthHurwitzSimulator(BaseSimulator):
         "k_max": 100,
     }
 
+    HUB_SLOTS = ['control']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._routh_result: Dict[str, Any] = {}
@@ -407,6 +409,18 @@ class RouthHurwitzSimulator(BaseSimulator):
             },
         }
 
+    def to_hub_data(self):
+        """Export characteristic polynomial as denominator TF (numerator = [1])."""
+        coeffs = self._parse_coeffs(self.parameters.get('poly_coeffs', '1, 1'))
+        if len(coeffs) > 0:
+            return {
+                "source": "tf",
+                "domain": self.HUB_DOMAIN,
+                "dimensions": self.HUB_DIMENSIONS,
+                "tf": {"num": [1.0], "den": list(coeffs), "variable": "s"},
+            }
+        return None
+
     def get_state(self) -> Dict[str, Any]:
         """Return full simulation state."""
         if not self._initialized:
@@ -436,6 +450,9 @@ class RouthHurwitzSimulator(BaseSimulator):
 
         base_state["metadata"] = {
             "simulation_type": "routh_hurwitz",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "polynomial_display": poly_display,
             "polynomial_latex": poly_latex,
             "degree": degree,

@@ -70,6 +70,8 @@ class SecondOrderSystemSimulator(BaseSimulator):
         "Q_slider": 50,  # Maps to Q=1.0
     }
 
+    HUB_SLOTS = ['control']
+
     @staticmethod
     def _slider_to_Q(slider_value: float) -> float:
         """
@@ -204,6 +206,22 @@ class SecondOrderSystemSimulator(BaseSimulator):
         ]
         return plots
 
+    def to_hub_data(self):
+        """Export second-order TF: omega_0^2 / (s^2 + omega_0/Q * s + omega_0^2)."""
+        omega_0 = float(self.parameters.get("omega_0", 10.0))
+        Q = self._slider_to_Q(float(self.parameters.get("Q_slider", 50)))
+        w2 = omega_0 ** 2
+        return {
+            "source": "tf",
+            "domain": self.HUB_DOMAIN,
+            "dimensions": self.HUB_DIMENSIONS,
+            "tf": {
+                "num": [w2],
+                "den": [1.0, omega_0 / Q, w2],
+                "variable": "s",
+            },
+        }
+
     def get_state(self) -> Dict[str, Any]:
         """Return current simulation state with system info metadata."""
         base_state = super().get_state()
@@ -222,6 +240,9 @@ class SecondOrderSystemSimulator(BaseSimulator):
         # Add metadata with system info
         base_state["metadata"] = {
             "simulation_type": "second_order_system",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,  # Keep control panel fixed when scrolling
             "system_info": {
                 "omega_0": round(omega_0, 2),

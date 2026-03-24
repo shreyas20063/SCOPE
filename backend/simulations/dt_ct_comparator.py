@@ -3,7 +3,7 @@ DT ↔ CT Side-by-Side Comparator
 
 Shows how the same pole value p produces pⁿu[n] in DT vs eᵖᵗu(t) in CT,
 with fundamentally different stability regions: unit circle (DT) vs left
-half-plane (CT). Based on MIT 6.003 Lecture 4, slides 20–37.
+half-plane (CT).
 """
 
 import random
@@ -65,6 +65,8 @@ class DTCTComparatorSimulator(BaseSimulator):
         "show_envelope": True,
         "mode": "explore",
     }
+
+    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)
@@ -477,6 +479,9 @@ class DTCTComparatorSimulator(BaseSimulator):
         state = super().get_state()
         state["metadata"] = {
             "simulation_type": "dt_ct_comparator",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             **stability,
             "mode": self.parameters["mode"],
             "revision": self._revision,

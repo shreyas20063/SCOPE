@@ -57,6 +57,8 @@ class PoleBehaviorSimulator(BaseSimulator):
         "mode": "explore",
     }
 
+    HUB_SLOTS = ['control']
+
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)
         self._n: Optional[np.ndarray] = None
@@ -337,6 +339,9 @@ class PoleBehaviorSimulator(BaseSimulator):
 
         state["metadata"] = {
             "simulation_type": "pole_behavior",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "pole_position": round(p0, 4),
             "abs_pole": round(abs_p0, 4),
             "behavior": behavior,

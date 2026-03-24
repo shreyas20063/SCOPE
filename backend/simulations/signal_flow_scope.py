@@ -125,6 +125,8 @@ class SignalFlowScopeSimulator(BaseSimulator):
         "chirp_end_freq": 20.0,
     }
 
+    HUB_SLOTS = ['control']
+
     # Built-in diagram presets
     PRESETS = {
         "unity_feedback": {
@@ -1549,6 +1551,9 @@ class SignalFlowScopeSimulator(BaseSimulator):
 
         state["metadata"] = {
             "simulation_type": "signal_flow_scope",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "system_type": self.system_type,
             "blocks": self.blocks,
             "connections": self.connections,

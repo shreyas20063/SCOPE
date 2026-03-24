@@ -4,8 +4,6 @@ CT Impulse Response Builder Simulator
 Interactive exploration of how the CT impulse response e^(pt)u(t) is constructed
 term-by-term from the operator series expansion:
     A(1 + pA + p^2 A^2 + ...) delta(t) = (1 + pt + p^2 t^2/2! + ...) u(t) = e^(pt) u(t)
-
-Based on MIT 6.003 Lecture 04: CT feedback, operator expansion, exponential modes.
 """
 
 import time
@@ -60,6 +58,8 @@ class CTImpulseResponseSimulator(BaseSimulator):
         "show_all_partials": True,
         "show_individual_terms": False,
     }
+
+    HUB_SLOTS = ['control', 'signal']
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
@@ -174,6 +174,9 @@ class CTImpulseResponseSimulator(BaseSimulator):
             "plots": plots,
             "metadata": {
                 "simulation_type": "ct_impulse_response",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
                 "pole_p": p,
                 "convergence": convergence,
                 "pole_half_plane": pole_half_plane,

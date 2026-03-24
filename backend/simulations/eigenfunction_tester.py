@@ -5,7 +5,6 @@ Interactive exploration of eigenfunctions of LTI systems. Complex exponentials
 e^{st} are eigenfunctions of ALL LTI systems with eigenvalue H(s). Students test
 various signals against different systems to verify which are eigenfunctions.
 
-Based on MIT 6.003 Lecture 9: Frequency Response, Eigenfunctions.
 """
 
 import random
@@ -28,8 +27,8 @@ class EigenfunctionTesterSimulator(BaseSimulator):
 
     # System presets: {key: {label, num, den}}
     PRESETS = {
-        "lecture_example": {
-            "label": "Lecture 9: H(s) = 1/(s+2)",
+        "first_order": {
+            "label": "First Order: H(s) = 1/(s+2)",
             "num": [1.0],
             "den": [1.0, 2.0],
         },
@@ -88,7 +87,7 @@ class EigenfunctionTesterSimulator(BaseSimulator):
         "system_preset": {
             "type": "select",
             "options": [
-                {"value": "lecture_example", "label": "Lecture 9: H(s) = 1/(s+2)"},
+                {"value": "first_order", "label": "First Order: H(s) = 1/(s+2)"},
                 {"value": "integrator", "label": "Integrator: H(s) = 1/s"},
                 {"value": "second_order_real", "label": "2nd Order: 1/((s+1)(s+3))"},
                 {"value": "second_order_complex", "label": "Underdamped: 1/(s\u00b2+2s+5)"},
@@ -96,7 +95,7 @@ class EigenfunctionTesterSimulator(BaseSimulator):
                 {"value": "allpass", "label": "Allpass: (s\u22121)/(s+1)"},
                 {"value": "custom", "label": "Custom Coefficients"},
             ],
-            "default": "lecture_example",
+            "default": "first_order",
         },
         "num_coeffs": {"type": "expression", "default": "1"},
         "den_coeffs": {"type": "expression", "default": "1, 2"},
@@ -137,7 +136,7 @@ class EigenfunctionTesterSimulator(BaseSimulator):
     }
 
     DEFAULT_PARAMS = {
-        "system_preset": "lecture_example",
+        "system_preset": "first_order",
         "num_coeffs": "1",
         "den_coeffs": "1, 2",
         "test_signal": "exp_neg",
@@ -148,6 +147,8 @@ class EigenfunctionTesterSimulator(BaseSimulator):
         "show_splane": True,
         "mode": "explore",
     }
+
+    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
@@ -278,6 +279,9 @@ class EigenfunctionTesterSimulator(BaseSimulator):
             "plots": plots,
             "metadata": {
                 "simulation_type": "eigenfunction_tester",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
                 "sticky_controls": True,
                 "hs_expression": self._format_hs(),
                 "system_label": self._get_system_label(),
@@ -306,7 +310,7 @@ class EigenfunctionTesterSimulator(BaseSimulator):
     # ── System loading ────────────────────────────────────────────────
 
     def _load_system(self) -> None:
-        preset = str(self.parameters.get("system_preset", "lecture_example"))
+        preset = str(self.parameters.get("system_preset", "first_order"))
         if preset != "custom" and preset in self.PRESETS:
             p = self.PRESETS[preset]
             self._num = np.array(p["num"], dtype=float)
@@ -739,7 +743,7 @@ class EigenfunctionTesterSimulator(BaseSimulator):
 
     def _generate_quiz(self) -> None:
         # Pick a random system (not custom, not integrator for simplicity)
-        quiz_systems = ["lecture_example", "second_order_real",
+        quiz_systems = ["first_order", "second_order_real",
                         "second_order_complex", "unstable", "allpass"]
         self._quiz_system = random.choice(quiz_systems)
 
@@ -828,7 +832,7 @@ class EigenfunctionTesterSimulator(BaseSimulator):
         return result
 
     def _get_system_label(self) -> str:
-        preset = str(self.parameters.get("system_preset", "lecture_example"))
+        preset = str(self.parameters.get("system_preset", "first_order"))
         if preset in self.PRESETS:
             return self.PRESETS[preset]["label"]
         return "Custom System"

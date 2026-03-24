@@ -107,6 +107,8 @@ class AmplifierSimulator(BaseSimulator):
         "input_source": "pure_sine",
     }
 
+    HUB_SLOTS = ['circuit']
+
     # Fixed threshold voltage (matching PyQt5)
     VT = 0.7
 
@@ -621,6 +623,9 @@ class AmplifierSimulator(BaseSimulator):
 
         base_state["metadata"] = {
             "simulation_type": "amplifier_topologies",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
             "circuit_image": circuit_images.get(amp_type, ''),
             "has_audio": True,

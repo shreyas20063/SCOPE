@@ -5,8 +5,6 @@ Interactive s-plane visualization exploring Laplace transforms, regions of conve
 and how ROC determines causality. Shows how the same H(s) can correspond to
 different time-domain signals (causal, anti-causal, two-sided) depending on
 which ROC region is selected. The continuous-time twin of the Z Transform ROC Explorer.
-
-Based on MIT 6.003 Lecture 06: Laplace Transform.
 """
 
 import numpy as np
@@ -100,6 +98,8 @@ class LaplaceROCSimulator(BaseSimulator):
         "custom_num_coeffs": "1",
         "custom_den_coeffs": "1, 1",
     }
+
+    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
@@ -1017,6 +1017,23 @@ class LaplaceROCSimulator(BaseSimulator):
         }
 
     # =========================================================================
+    # Hub integration
+    # =========================================================================
+
+    def to_hub_data(self):
+        """Export custom TF coefficients (custom_num_coeffs / custom_den_coeffs)."""
+        num = self._parse_coeffs(str(self.parameters.get('custom_num_coeffs', '1')))
+        den = self._parse_coeffs(str(self.parameters.get('custom_den_coeffs', '1, 1')))
+        if len(num) > 0 and len(den) > 0:
+            return {
+                "source": "tf",
+                "domain": self.HUB_DOMAIN,
+                "dimensions": self.HUB_DIMENSIONS,
+                "tf": {"num": list(num), "den": list(den), "variable": "s"},
+            }
+        return None
+
+    # =========================================================================
     # State
     # =========================================================================
 
@@ -1029,6 +1046,9 @@ class LaplaceROCSimulator(BaseSimulator):
 
         state["metadata"] = {
             "simulation_type": "laplace_roc",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
             "hs_expression": self._format_hs(),
             "roc_description": self._format_roc(),

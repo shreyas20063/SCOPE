@@ -202,6 +202,8 @@ class FourierPhaseMagnitudeSimulator(BaseSimulator):
         "uniform_phase": 0.0,
     }
 
+    HUB_SLOTS = ['control']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         # Image data
@@ -1051,6 +1053,9 @@ class FourierPhaseMagnitudeSimulator(BaseSimulator):
 
         state["metadata"] = {
             "simulation_type": "fourier_phase_vs_magnitude",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
             "analysis_mode": mode,
             "has_custom_viewer": True,  # Signal to use custom component

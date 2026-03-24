@@ -9,8 +9,7 @@ Collecting terms along anti-diagonals of the multiplication table produces
 the combined unit-sample response of two cascaded first-order systems with
 poles at a and b.
 
-Based on Lecture 3 (Slides 16–18): graphical and tabular polynomial
-multiplication of operator series.
+Graphical and tabular polynomial multiplication of operator series.
 """
 
 from typing import Any, Dict, List, Optional
@@ -79,6 +78,8 @@ class PolynomialMultiplicationSimulator(BaseSimulator):
         "view_mode": "tabular",
     }
 
+    HUB_SLOTS = ['control']
+
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
         for name, value in self.parameters.items():
@@ -114,6 +115,9 @@ class PolynomialMultiplicationSimulator(BaseSimulator):
             "plots": self._build_plots(data),
             "metadata": {
                 "simulation_type": "polynomial_multiplication",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
                 "pole_a": float(a),
                 "pole_b": float(b),
                 "num_terms": int(N),

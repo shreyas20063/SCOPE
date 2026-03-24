@@ -68,6 +68,8 @@ class ResonanceAnatomySimulator(BaseSimulator):
         "time_window": 8.0,
     }
 
+    HUB_SLOTS = ["control"]
+
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)
         self._omega_0: float = 0.0
@@ -136,6 +138,9 @@ class ResonanceAnatomySimulator(BaseSimulator):
             "plots": self.get_plots(),
             "metadata": {
                 "simulation_type": "resonance_anatomy",
+                "hub_slots": self.HUB_SLOTS,
+                "hub_domain": self.HUB_DOMAIN,
+                "hub_dimensions": self.HUB_DIMENSIONS,
                 "sticky_controls": True,
                 "system_info": {
                     "omega_0": round(self._omega_0, 4),

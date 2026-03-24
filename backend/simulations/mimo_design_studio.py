@@ -219,6 +219,9 @@ class MIMODesignStudioSimulator(BaseSimulator):
         "compute_controller": False,
     }
 
+    HUB_SLOTS = ["control"]
+    HUB_DIMENSIONS = {"n": None, "m": None, "p": None}
+
     _MAX_EXPR_LEN = 512
     _MAX_N = 8  # max state dimension
     _MAX_M = 4  # max input dimension
@@ -1435,6 +1438,9 @@ class MIMODesignStudioSimulator(BaseSimulator):
                 "plots": [],
                 "metadata": {
                     "simulation_type": "mimo_design_studio",
+                    "hub_slots": self.HUB_SLOTS,
+                    "hub_domain": self.HUB_DOMAIN,
+                    "hub_dimensions": self.HUB_DIMENSIONS,
                     "error": error,
                     "design_mode": self.parameters.get("design_mode", "analysis"),
                     "controller": {},
@@ -1454,6 +1460,9 @@ class MIMODesignStudioSimulator(BaseSimulator):
             "plots": self._build_plots(data),
             "metadata": {
                 "simulation_type": "mimo_design_studio",
+                "hub_slots": self.HUB_SLOTS,
+                "hub_domain": self.HUB_DOMAIN,
+                "hub_dimensions": self.HUB_DIMENSIONS,
                 "n_states": n,
                 "n_inputs": m,
                 "n_outputs": p,

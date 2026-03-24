@@ -97,6 +97,8 @@ class SignalOperationsSimulator(BaseSimulator):
         "show_decomposition": False,
     }
 
+    HUB_SLOTS = ['signal']
+
     PRESETS = [
         {"label": "Identity", "params": {"amplitude": 1, "time_scale": 1, "time_shift": 0, "time_reverse": False, "dc_offset": 0}},
         {"label": "Time Reversal", "params": {"amplitude": 1, "time_scale": 1, "time_shift": 0, "time_reverse": True, "dc_offset": 0}},
@@ -149,6 +151,9 @@ class SignalOperationsSimulator(BaseSimulator):
         state = super().get_state()
         state["metadata"] = {
             "simulation_type": "signal_operations",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "formula_display": self._formula,
             "active_operations": self._get_active_operations(),
             "signal_metrics": self._compute_metrics() if self._t is not None else None,

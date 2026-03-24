@@ -7,8 +7,6 @@ Demonstrates how s*e^{-st} acts as a scanning kernel:
   - As s -> 0,  se^{-st} flattens, capturing x(inf) via FVT
 
 Includes failure modes where FVT breaks down (unstable / oscillatory signals).
-
-Based on MIT 6.003 Lecture 06, slides 35-36: Initial and Final Value Theorems.
 """
 
 import time
@@ -56,6 +54,8 @@ class IVTFVTSimulator(BaseSimulator):
         "failure_mode": False,
         "log_s": 0.0,
     }
+
+    HUB_SLOTS = ['control']
 
     # Maps each normal signal to its failure counterpart
     FAILURE_MAP = {
@@ -131,6 +131,9 @@ class IVTFVTSimulator(BaseSimulator):
             "plots": plots,
             "metadata": {
                 "simulation_type": "ivt_fvt_visualizer",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
                 "sticky_controls": True,
 
                 # Current signal info

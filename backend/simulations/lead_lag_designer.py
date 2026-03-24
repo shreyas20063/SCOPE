@@ -71,6 +71,8 @@ class LeadLagDesignerSimulator(BaseSimulator):
         "show_components": True,
     }
 
+    HUB_SLOTS = ['control']
+
     def initialize(self, params=None):
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
         for name, value in self.parameters.items():
@@ -93,6 +95,9 @@ class LeadLagDesignerSimulator(BaseSimulator):
             "plots": plots,
             "metadata": {
                 "simulation_type": "lead_lag_designer",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
                 "design_info": design_info,
                 "tf_labels": self._tf_labels(),
             },

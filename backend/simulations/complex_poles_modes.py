@@ -5,8 +5,6 @@ Visualizes how complex conjugate poles of a CT second-order system (mass-spring-
 produce sinusoidal oscillation from the superposition of two complex exponential modes.
 Shows s-plane pole locations, mode decomposition, Taylor series convergence, and a 3D
 helix view of the complex exponential.
-
-Based on MIT 6.003 Lecture 04, Slides 41-48.
 """
 
 import math
@@ -90,6 +88,8 @@ class ComplexPolesModesSimulator(BaseSimulator):
         "num_taylor_terms": 5,
         "time_window": 5.0,
     }
+
+    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
@@ -357,7 +357,7 @@ class ComplexPolesModesSimulator(BaseSimulator):
             # Show Re{e^(s₁t)} and Re{e^(s₂t)} (which are both cos),
             # and then show their combination with proper weights gives sin.
 
-            # Better approach per lecture: show the two complex exponentials directly
+            # Better approach: show the two complex exponentials directly
             # Re{e^(s₁t)} = e^(-σt)·cos(ωd·t)
             # Im{e^(s₁t)} = e^(-σt)·sin(ωd·t)
             # h(t) = Im{e^(s₁t)} / (M·ωd) = the impulse response
@@ -789,6 +789,9 @@ class ComplexPolesModesSimulator(BaseSimulator):
 
         state["metadata"] = {
             "simulation_type": "complex_poles_modes",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
             "system_info": {
                 "omega_0": round(self._omega_0, 4),

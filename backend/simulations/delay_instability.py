@@ -2,7 +2,7 @@
 Delay Effect: The Domino of Instability
 
 Demonstrates how adding sensor delay destabilizes a perfectly-tuned dead-beat
-controller. Based on MIT 6.003 Lecture 10 wallFinder system.
+controller.
 
 Three robots approach a wall with the same KT gain product but different
 sensor delays (0, 1, 2 steps). No delay = dead-beat convergence, 1-step
@@ -71,6 +71,8 @@ class DelayInstabilitySimulator(BaseSimulator):
         "num_steps": 25,
         "playback_speed": "normal",
     }
+
+    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)
@@ -474,6 +476,9 @@ class DelayInstabilitySimulator(BaseSimulator):
 
         state["metadata"] = {
             "simulation_type": "delay_instability",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "kt_product": KT,
             "positions": {k: v for k, v in self._positions.items()},
             "stability": stability,

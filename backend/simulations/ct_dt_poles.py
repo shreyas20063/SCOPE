@@ -157,6 +157,8 @@ class CTDTPolesSimulator(BaseSimulator):
         "guided_scenario": "none",
     }
 
+    HUB_SLOTS = ['control']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._tau = self.TAU
@@ -998,6 +1000,9 @@ class CTDTPolesSimulator(BaseSimulator):
         # Add metadata with sticky_controls flag
         state["metadata"] = {
             "simulation_type": "ct_dt_poles",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,  # Keep control panel fixed when scrolling
             "system_info": {
                 "method": self.parameters["method"],

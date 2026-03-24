@@ -352,6 +352,8 @@ class ControllerTuningLabSimulator(BaseSimulator):
         "lqg_rv": 0.1,
     }
 
+    HUB_SLOTS = ['control']
+
     def initialize(self, params: dict | None = None) -> None:
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
         for name, value in self.parameters.items():
@@ -530,7 +532,18 @@ class ControllerTuningLabSimulator(BaseSimulator):
             K_vec = self._get_state_feedback_K()
             if K_vec is not None and self._is_controllable:
                 A_cl = self._A - self._B @ K_vec.reshape(1, -1)
-                cl_ss = signal.StateSpace(A_cl, self._B, self._C, self._D)
+                # Reference feedforward N_bar = -1/(C·A_cl⁻¹·B) for unit
+                # step tracking (same formula used by LQG).  Without this
+                # the CL DC gain ≠ 1 and the step response never reaches
+                # the setpoint.
+                try:
+                    dc_sf = float(self._C @ np.linalg.solve(A_cl, self._B))
+                    N_bar = -1.0 / dc_sf if abs(dc_sf) > 1e-6 else 1.0
+                    if N_bar <= 0 or N_bar > 50.0:
+                        N_bar = 1.0
+                except Exception:
+                    N_bar = 1.0
+                cl_ss = signal.StateSpace(A_cl, self._B * N_bar, self._C, self._D)
                 cl_tf = cl_ss.to_tf()
                 self._cl_num = np.atleast_1d(cl_tf.num)
                 self._cl_den = np.atleast_1d(cl_tf.den)
@@ -1086,9 +1099,25 @@ class ControllerTuningLabSimulator(BaseSimulator):
         return num, den
 
     def _auto_tune(self) -> dict | None:
-        """Run selected auto-tuning method, return gain dict or None."""
+        """Run selected auto-tuning method, return gain dict or None.
+
+        Classical FOPDT-based methods (ZN, Cohen-Coon, Lambda, IMC) assume
+        a stable, self-regulating process.  For unstable or integrating
+        plants these are meaningless, so we auto-redirect to DE optimization
+        and tell the user why.
+        """
         method = self.parameters.get("tuning_method", "manual")
         ctype = self.parameters.get("controller_type", "PID")
+
+        plant_type = self._detect_plant_type()
+        fopdt_methods = {"zn_open", "zn_closed", "cohen_coon", "lambda_tuning", "imc"}
+        if plant_type in ("unstable", "integrating") and method in fopdt_methods:
+            label = method.replace("_", " ").title()
+            self._tuning_info = (
+                f"{label} assumes a stable plant — redirecting to "
+                f"Differential Evolution for this {plant_type} system"
+            )
+            method = "de_optimal"
 
         dispatch = {
             "zn_open": self._zn_open_loop,
@@ -1107,14 +1136,112 @@ class ControllerTuningLabSimulator(BaseSimulator):
         try:
             result = func(ctype)
             if result:
-                self._tuning_info = f"{method.replace('_', ' ').title()} → Kp={result.get('Kp', 0):.4g}, Ki={result.get('Ki', 0):.4g}, Kd={result.get('Kd', 0):.4g}"
+                info = f"{method.replace('_', ' ').title()} → Kp={result.get('Kp', 0):.4g}, Ki={result.get('Ki', 0):.4g}, Kd={result.get('Kd', 0):.4g}"
+                # Prepend redirect note if we changed methods
+                if self._tuning_info and "redirecting" in (self._tuning_info or ""):
+                    self._tuning_info += f" | {info}"
+                else:
+                    self._tuning_info = info
             return result
         except Exception as ex:
             self._tuning_info = f"Auto-tune failed: {str(ex)[:100]}"
             return None
 
+    def _detect_plant_type(self) -> str:
+        """Detect plant type from open-loop poles.
+
+        Returns 'stable', 'integrating', or 'unstable'.
+        """
+        try:
+            poles = np.roots(self._plant_den)
+            if len(poles) == 0:
+                return "stable"
+            max_real = float(np.max(poles.real))
+            if max_real > 1e-4:
+                return "unstable"
+            if np.any(np.abs(poles.real) < 1e-4):
+                return "integrating"
+            return "stable"
+        except Exception:
+            return "stable"
+
+    def _compute_min_stabilizing_kp(self) -> float:
+        """Binary search for minimum proportional gain that stabilizes CL.
+
+        Returns the smallest Kp > 0 such that all CL poles of the
+        unity-feedback system with P controller have Re < 0.
+        Returns inf if P control alone cannot stabilize.
+        """
+        plant_num = self._plant_num
+        plant_den = self._plant_den
+        pad_len = len(plant_den) - len(plant_num)
+
+        def _max_cl_real(kp: float) -> float:
+            num_padded = np.pad(plant_num, (max(pad_len, 0), 0))
+            den_padded = np.pad(plant_den, (max(-pad_len, 0), 0))
+            cl_char = den_padded + kp * num_padded
+            poles = np.roots(cl_char)
+            return float(np.max(poles.real)) if len(poles) > 0 else -1.0
+
+        # Check if high gain stabilizes at all
+        if _max_cl_real(1000.0) > 0:
+            return float("inf")
+
+        lo, hi = 0.0, 1000.0
+        for _ in range(60):
+            mid = (lo + hi) / 2
+            if _max_cl_real(mid) > 0:
+                lo = mid
+            else:
+                hi = mid
+        return hi
+
     def _fit_fopdt_model(self) -> tuple[float, float, float]:
-        """Fit FOPDT model (K_p, tau_p, L) to plant step response."""
+        """Fit FOPDT model (K_p, tau_p, L) to plant step response.
+
+        Returns (K_p, tau_p, L) — process gain, time constant, dead time.
+        For unstable plants, returns an approximation based on the dominant
+        RHP pole (FOPDT is not physically meaningful but gives the tuning
+        methods *something* reasonable to work with).
+        """
+        plant_type = self._detect_plant_type()
+
+        # ── Unstable plants: FOPDT from dominant RHP pole ──
+        if plant_type == "unstable":
+            try:
+                poles = np.roots(self._plant_den)
+                rhp = poles[poles.real > 1e-6]
+                dominant = float(np.min(np.abs(rhp.real)))  # fastest unstable mode
+                K_p = abs(float(
+                    np.polyval(self._plant_num, 0)
+                    / np.polyval(self._plant_den, 0)
+                )) if abs(np.polyval(self._plant_den, 0)) > 1e-10 else 1.0
+                tau_p = 1.0 / dominant
+                L = max(0.1 * tau_p, 0.01)
+                return max(K_p, 0.001), tau_p, L
+            except Exception:
+                return 1.0, 1.0, 0.1
+
+        # ── Integrating plants: derive from ramp rate ──
+        if plant_type == "integrating":
+            try:
+                plant_sys = signal.TransferFunction(self._plant_num, self._plant_den)
+                T = np.linspace(0, 20, 2000)
+                t, y = signal.step(plant_sys, T=T)
+                # Steady-state ramp rate = lim_{s→0} s*G(s)
+                mid = len(y) // 2
+                if mid > 10 and np.all(np.isfinite(y[mid:])):
+                    slope = float(np.mean(np.gradient(y[mid:], t[mid:])))
+                    K_p = max(abs(slope), 0.001)
+                else:
+                    K_p = 1.0
+                tau_p = 1.0  # conventional for integrating processes
+                L = max(0.1 * tau_p, 0.01)
+                return K_p, tau_p, L
+            except Exception:
+                return 1.0, 1.0, 0.1
+
+        # ── Stable plants: standard tangent-line FOPDT fit ──
         try:
             plant_sys = signal.TransferFunction(self._plant_num, self._plant_den)
             T = np.linspace(0, 50, 2000)
@@ -1122,13 +1249,7 @@ class ControllerTuningLabSimulator(BaseSimulator):
         except Exception:
             return 1.0, 1.0, 0.1
 
-        # Check if system settles (not a pure integrator)
         if not np.isfinite(y[-1]) or abs(y[-1]) > 1e6:
-            # Integrator-like: fit ramp
-            mid = len(y) // 2
-            if mid > 10:
-                slope = np.mean(np.gradient(y[mid:], t[mid:]))
-                return max(abs(slope), 0.001), 1.0, 0.01
             return 1.0, 1.0, 0.1
 
         K_p = float(y[-1])
@@ -1139,15 +1260,19 @@ class ControllerTuningLabSimulator(BaseSimulator):
         i_max = int(np.argmax(np.abs(dy)))
         max_slope = float(dy[i_max])
         if abs(max_slope) < 1e-10:
-            return K_p, 1.0, 0.01
+            return K_p, 1.0, 0.1
 
         # Dead time: x-intercept of tangent at max slope
         L = float(t[i_max] - y[i_max] / max_slope)
-        L = max(L, 0.001)
 
         # Time constant: K_p / max_slope
         tau_p = float(abs(K_p / max_slope))
         tau_p = max(tau_p, 0.001)
+
+        # Clamp L: for plants with negligible dead time the tangent method
+        # returns L ≈ 0, which makes ZN/CC formulas divide by ~0.
+        # Use at least 10% of tau_p as effective dead time.
+        L = max(L, 0.1 * tau_p, 0.01)
 
         return K_p, tau_p, L
 
@@ -1272,7 +1397,12 @@ class ControllerTuningLabSimulator(BaseSimulator):
         return {"Kp": Kp, "Ki": Ki, "Kd": Kd}
 
     def _itae_optimal(self, ctype: str) -> dict:
-        """ITAE-optimal tuning via numerical optimization."""
+        """ITAE-optimal tuning via numerical optimization.
+
+        Uses Nelder-Mead to minimise ∫ t·|e(t)| dt subject to CL stability.
+        For unstable plants the initial simplex is seeded above the minimum
+        stabilising Kp so the optimizer starts in the feasible region.
+        """
         plant_num = self._plant_num.copy()
         plant_den = self._plant_den.copy()
         duration = float(self.parameters.get("sim_duration", 10))
@@ -1281,45 +1411,57 @@ class ControllerTuningLabSimulator(BaseSimulator):
 
         def cost(gains: np.ndarray) -> float:
             kp, ki, kd = float(gains[0]), float(gains[1]), float(gains[2])
-            kp = max(kp, 0.001)
-            ki = max(ki, 0)
-            kd = max(kd, 0)
-            # Build PID TF
+            # Clamp gains — Nelder-Mead has no bounds, so without this
+            # the optimizer pushes gains to infinity (faster → lower ITAE).
+            kp = np.clip(kp, 0.001, 100.0)
+            ki = np.clip(ki, 0.0, 50.0)
+            kd = np.clip(kd, 0.0, 30.0)
             c_num = np.array([kp + kd * N, kp * N + ki, ki * N])
             c_den = np.array([1.0, N, 0.0])
             ol_n = np.convolve(c_num, plant_num)
             ol_d = np.convolve(c_den, plant_den)
             ml = max(len(ol_d), len(ol_n))
             cl_d = np.pad(ol_d, (ml - len(ol_d), 0)) + np.pad(ol_n, (ml - len(ol_n), 0))
-            # Check stability
             poles = np.roots(cl_d)
-            if len(poles) > 0 and np.max(poles.real) > 0:
+            # Reject unstable OR marginally stable CL (pole at origin counts)
+            if len(poles) > 0 and np.max(poles.real) > -1e-6:
                 return 1e6
             try:
                 sys_cl = signal.TransferFunction(ol_n, cl_d)
                 t_sim, y_sim = signal.step(sys_cl, T=T)
+                if not np.all(np.isfinite(y_sim)):
+                    return 1e6
                 e_sim = 1.0 - y_sim
                 return float(_trapz(t_sim * np.abs(e_sim), t_sim))
             except Exception:
                 return 1e6
 
-        x0 = np.array([
-            float(self.parameters.get("Kp", 1.0)),
-            float(self.parameters.get("Ki", 0.0)),
-            float(self.parameters.get("Kd", 0.0)),
-        ])
-        # Ensure starting point is reasonable
-        if x0[0] < 0.001:
-            x0[0] = 1.0
+        # Build initial point — ensure it's in the stable region
+        kp0 = float(self.parameters.get("Kp", 1.0))
+        ki0 = float(self.parameters.get("Ki", 0.0))
+        kd0 = float(self.parameters.get("Kd", 0.0))
+
+        plant_type = self._detect_plant_type()
+        if plant_type in ("unstable", "integrating"):
+            kp_min = self._compute_min_stabilizing_kp()
+            if np.isfinite(kp_min):
+                kp0 = max(kp0, kp_min * 2.0)
+                ki0 = max(ki0, kp0 * 0.3)  # some integral action
+
+        if kp0 < 0.001:
+            kp0 = 1.0
+
+        x0 = np.array([kp0, ki0, kd0])
 
         result = optimize.minimize(
             cost, x0, method="Nelder-Mead",
-            options={"maxiter": 80, "xatol": 0.01, "fatol": 0.001},
+            options={"maxiter": 200, "xatol": 0.01, "fatol": 0.001},
         )
         kp, ki, kd = float(result.x[0]), float(result.x[1]), float(result.x[2])
-        kp = max(kp, 0.001)
-        ki = max(ki, 0)
-        kd = max(kd, 0)
+        # Apply same clamps as cost function so returned gains match
+        kp = float(np.clip(kp, 0.001, 100.0))
+        ki = float(np.clip(ki, 0.0, 50.0))
+        kd = float(np.clip(kd, 0.0, 30.0))
 
         if ctype == "P":
             return {"Kp": kp, "Ki": 0.0, "Kd": 0.0}
@@ -1330,7 +1472,11 @@ class ControllerTuningLabSimulator(BaseSimulator):
         return {"Kp": kp, "Ki": ki, "Kd": kd}
 
     def _de_optimal(self, ctype: str) -> dict | None:
-        """Differential Evolution global optimization for PID gains."""
+        """Differential Evolution global optimization for PID gains.
+
+        Adapts search bounds to the plant type so that for unstable systems
+        the Kp lower bound is above the minimum stabilising gain.
+        """
         from scipy.optimize import differential_evolution
 
         plant_num = self._plant_num.copy()
@@ -1338,13 +1484,20 @@ class ControllerTuningLabSimulator(BaseSimulator):
         duration = float(self.parameters.get("sim_duration", 10))
         T = np.linspace(0, duration, 500)
 
-        # Build bounds based on controller type
-        # Always have Kp; add Ki/Kd as needed
         has_ki = ctype in ("PI", "PID")
         has_kd = ctype in ("PD", "PID")
-        bounds = [(0.001, 100)]
+
+        # Adapt Kp lower bound for unstable/integrating plants
+        plant_type = self._detect_plant_type()
+        kp_min_bound = 0.001
+        if plant_type in ("unstable", "integrating"):
+            kp_min_stab = self._compute_min_stabilizing_kp()
+            if np.isfinite(kp_min_stab):
+                kp_min_bound = kp_min_stab * 1.1  # just above stability boundary
+
+        bounds = [(kp_min_bound, 100)]
         if has_ki:
-            bounds.append((0, 50))
+            bounds.append((0.01 if plant_type != "stable" else 0, 50))
         if has_kd:
             bounds.append((0, 30))
 
@@ -1366,7 +1519,7 @@ class ControllerTuningLabSimulator(BaseSimulator):
 
             try:
                 poles = np.roots(cl_d)
-                if len(poles) > 0 and np.max(poles.real) > 0:
+                if len(poles) > 0 and np.max(poles.real) > -1e-6:
                     return 1e6
             except Exception:
                 return 1e6
@@ -1384,8 +1537,8 @@ class ControllerTuningLabSimulator(BaseSimulator):
         result = differential_evolution(
             cost, bounds,
             strategy="best1bin",
-            maxiter=100,
-            popsize=15,
+            maxiter=120,
+            popsize=20,
             tol=0.001,
             mutation=(0.5, 1.5),
             recombination=0.7,
@@ -1839,6 +1992,9 @@ class ControllerTuningLabSimulator(BaseSimulator):
             "plots": plots,
             "metadata": {
                 "simulation_type": "controller_tuning_lab",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
                 "has_custom_viewer": True,
                 "controller_type": self.parameters.get("controller_type", "PID"),
                 "performance": getattr(self, "_last_metrics", {}),

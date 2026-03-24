@@ -5,7 +5,6 @@ Interactive exploration of a single feedback loop with adjustable gain p₀.
 Demonstrates how feedback creates geometric sequences (fundamental modes)
 and when they converge vs. diverge.
 
-Based on MIT 6.003 Lecture 2, slides 36-56:
 - System: y[n] = x[n] + p₀ · y[n-1]
 - Impulse response: y[n] = p₀ⁿ for n ≥ 0
 - Converges when |p₀| < 1, diverges when |p₀| > 1
@@ -64,6 +63,8 @@ class FeedbackConvergenceSimulator(BaseSimulator):
         "show_envelope": True,
         "show_unit_circle": False,
     }
+
+    HUB_SLOTS = ['control']
 
     PRESETS = [
         {"label": "Slow Decay (p₀=0.5)", "params": {"p0": 0.5}},
@@ -196,6 +197,9 @@ class FeedbackConvergenceSimulator(BaseSimulator):
             "plots": self.get_plots(),
             "metadata": {
                 "simulation_type": "feedback_convergence",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
                 "p0": p0,
                 "convergence": convergence,
                 "abs_p0": abs_p0,

@@ -10,9 +10,6 @@ Interactive demonstration of the four key Z-transform properties:
 Users pick one or two signals from a library, apply a property, and see the
 operation in both time domain (stem plots) and z-domain (pole-zero + ROC)
 simultaneously.  Convolution includes step-by-step animation data.
-
-Based on Lecture 5: slides 22–23 (linearity, delay), 45–50 (property table,
-multiply-by-n examples).
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -122,6 +119,9 @@ class ZTransformPropertiesSimulator(BaseSimulator):
         "num_samples": 20,
     }
 
+    HUB_SLOTS = ['control']
+    HUB_DOMAIN = "dt"
+
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)
         self._cached: Optional[Dict[str, Any]] = None
@@ -165,6 +165,9 @@ class ZTransformPropertiesSimulator(BaseSimulator):
             "plots": data["plots"],
             "metadata": {
                 "simulation_type": "z_transform_properties",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
                 "property": prop,
                 "property_formula": PROPERTY_FORMULAS.get(prop, ""),
                 "signal_1_info": data["signal_1_info"],

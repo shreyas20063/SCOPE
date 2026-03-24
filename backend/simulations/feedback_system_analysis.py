@@ -106,6 +106,8 @@ class FeedbackAmplifierSimulator(BaseSimulator):
         "input_amp": 1.0,
     }
 
+    HUB_SLOTS = ['circuit']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._time = None
@@ -680,6 +682,9 @@ class FeedbackAmplifierSimulator(BaseSimulator):
         m = self._metrics
         state["metadata"] = {
             "simulation_type": "feedback_system_analysis",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
             "block_diagram_image": "/assets/feedback_system_analysis/image_1dc166.png",
             "system_info": {

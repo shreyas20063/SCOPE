@@ -56,6 +56,8 @@ class AliasingQuantizationSimulator(BaseSimulator):
         "image_bits": 3,
     }
 
+    HUB_SLOTS = ['signal']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._audio = None
@@ -860,6 +862,9 @@ class AliasingQuantizationSimulator(BaseSimulator):
 
         base_metadata = {
             "simulation_type": "aliasing_quantization",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "demo_mode": mode,
             "has_custom_viewer": True,
             "sticky_controls": True,

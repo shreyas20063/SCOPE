@@ -3,7 +3,7 @@ Cyclic Path Detector Simulator
 
 Detect cyclic signal paths in block diagrams. Identify feedback loops,
 classify systems as FIR (acyclic) or IIR (cyclic), and quiz students
-on their understanding. Based on MIT 6.003 Lecture 2, slides 43-49.
+on their understanding.
 """
 
 import random
@@ -17,9 +17,9 @@ class CyclicPathDetectorSimulator(BaseSimulator):
     """
     Cyclic Path Detector — visualizes feedback structure in block diagrams.
 
-    Provides 7 preset block diagrams from MIT 6.003 Lecture 2:
+    Provides 7 preset block diagrams:
     - 3 classic systems (Difference, Accumulator, Cascaded Difference)
-    - 4 quiz systems from Slide 48 (the "Check Yourself" exercise)
+    - 4 quiz systems (the "Check Yourself" exercise)
 
     Features cycle detection, FIR/IIR classification, impulse response,
     and an interactive quiz mode.
@@ -44,10 +44,10 @@ class CyclicPathDetectorSimulator(BaseSimulator):
                 {"value": "difference", "label": "Difference Machine"},
                 {"value": "accumulator", "label": "Accumulator"},
                 {"value": "cascaded_diff", "label": "Cascaded Difference"},
-                {"value": "slide48_a", "label": "Slide 48 — System A"},
-                {"value": "slide48_b", "label": "Slide 48 — System B"},
-                {"value": "slide48_c", "label": "Slide 48 — System C"},
-                {"value": "slide48_d", "label": "Slide 48 — System D"},
+                {"value": "slide48_a", "label": "Quiz — System A"},
+                {"value": "slide48_b", "label": "Quiz — System B"},
+                {"value": "slide48_c", "label": "Quiz — System C"},
+                {"value": "slide48_d", "label": "Quiz — System D"},
             ],
             "default": "difference",
         },
@@ -79,6 +79,8 @@ class CyclicPathDetectorSimulator(BaseSimulator):
         "impulse_steps": 15,
     }
 
+    HUB_SLOTS = ['control']
+
     # ── Preset Definitions ──────────────────────────────────────
 
     @staticmethod
@@ -86,7 +88,7 @@ class CyclicPathDetectorSimulator(BaseSimulator):
         """Build all 7 preset block diagram definitions."""
         presets = {}
 
-        # ── 1. Difference Machine (Lecture 2, slide 4/22) ──
+        # ── 1. Difference Machine ──
         # y[n] = x[n] - x[n-1],  Y = (1 - R)X
         presets["difference"] = {
             "name": "Difference Machine",
@@ -114,7 +116,7 @@ class CyclicPathDetectorSimulator(BaseSimulator):
             ],
         }
 
-        # ── 2. Accumulator (Lecture 2, slides 37-42) ──
+        # ── 2. Accumulator ──
         # y[n] = x[n] + y[n-1],  Y = X / (1 - R)
         presets["accumulator"] = {
             "name": "Accumulator",
@@ -139,7 +141,7 @@ class CyclicPathDetectorSimulator(BaseSimulator):
             ],
         }
 
-        # ── 3. Cascaded Difference (Lecture 2, slides 26-29) ──
+        # ── 3. Cascaded Difference ──
         # y[n] = x[n] - 2x[n-1] + x[n-2],  Y = (1-R)^2 X
         presets["cascaded_diff"] = {
             "name": "Cascaded Difference",
@@ -178,12 +180,12 @@ class CyclicPathDetectorSimulator(BaseSimulator):
             ],
         }
 
-        # ── 4. Slide 48 System A (top-left): feedback on first adder ──
+        # ── 4. Quiz System A (top-left): feedback on first adder ──
         # X → (+₁) → R₁ → (+₂) → Y, with R₂ feedback: (+₁) out → R₂ → (+₁) in
         # Equation: Let W = X + R·W → W = X/(1-R), Y = R·W + W = W(1+R)
         # Simplified: y[n] = x[n] + 2y[n-1] (effectively)
         presets["slide48_a"] = {
-            "name": "Slide 48 — System A",
+            "name": "Quiz — System A",
             "equation": "Feedback on first adder",
             "operator_form": "Y = R·X/(1−R) + X/(1−R)",
             "coeffs": {"b": [1.0], "a": [1.0]},
@@ -211,11 +213,11 @@ class CyclicPathDetectorSimulator(BaseSimulator):
             ],
         }
 
-        # ── 5. Slide 48 System B (top-right): feedforward only ──
+        # ── 5. Quiz System B (top-right): feedforward only ──
         # X → (+₁) → (+₂) → Y, with R blocks feeding forward from X
         # No cycles — purely feedforward
         presets["slide48_b"] = {
-            "name": "Slide 48 — System B",
+            "name": "Quiz — System B",
             "equation": "Two feedforward delays",
             "operator_form": "Y = (1 + R + R²) X",
             "coeffs": {"b": [1.0, 1.0, 1.0], "a": []},
@@ -245,11 +247,11 @@ class CyclicPathDetectorSimulator(BaseSimulator):
             ],
         }
 
-        # ── 6. Slide 48 System C (bottom-left): long feedback loop ──
+        # ── 6. Quiz System C (bottom-left): long feedback loop ──
         # X → (+₁) → (+₂) → Y, with R from (+₂) out back to (+₁) in
         # 1 cycle: a1 → a2 → R → a1
         presets["slide48_c"] = {
-            "name": "Slide 48 — System C",
+            "name": "Quiz — System C",
             "equation": "Long feedback loop",
             "operator_form": "Y = X / (1 − R)",
             "coeffs": {"b": [1.0], "a": [1.0]},
@@ -274,11 +276,11 @@ class CyclicPathDetectorSimulator(BaseSimulator):
             ],
         }
 
-        # ── 7. Slide 48 System D (bottom-right): two independent feedback loops ──
+        # ── 7. Quiz System D (bottom-right): two independent feedback loops ──
         # X → (+₁) → (+₂) → Y, with R₁ from (+₁) back to (+₁), R₂ from (+₂) back to (+₂)
         # 2 cycles: {a1, r1} and {a2, r2}
         presets["slide48_d"] = {
-            "name": "Slide 48 — System D",
+            "name": "Quiz — System D",
             "equation": "Two independent feedback loops",
             "operator_form": "Y = X / (1−R)²",
             "coeffs": {"b": [1.0], "a": [2.0, -1.0]},
@@ -515,6 +517,9 @@ class CyclicPathDetectorSimulator(BaseSimulator):
 
         state["metadata"] = {
             "simulation_type": "cyclic_path_detector",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "mode": mode,
             "preset_key": preset_key,
             "preset_name": preset["name"],

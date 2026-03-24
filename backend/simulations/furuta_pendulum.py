@@ -13,6 +13,12 @@ from vertical (0 = upright), phi is arm rotation in XY plane.
 import numpy as np
 from typing import Any, Dict, List, Optional
 from .base_simulator import BaseSimulator
+from core.controllers import (
+    numerical_jacobian, controllability_matrix,
+    compute_lqr, compute_pole_placement, compute_lqg,
+    simulate_state_feedback, simulate_lqg,
+    compute_performance_metrics, compute_energy,
+)
 
 
 class FurutaPendulumSimulator(BaseSimulator):
@@ -56,47 +62,131 @@ class FurutaPendulumSimulator(BaseSimulator):
         "mass": 0.1,           # 100g pendulum mass
         "pendulum_length": 0.3, # 30cm pendulum
         "arm_length": 0.2,      # 20cm arm
+        "controller": "pid",   # Default to PID
         "Kp": 1,               # Proportional gain
         "Kd": 0,               # Derivative gain
         "Ki": 0.5,             # Integral gain
         "initial_angle": 15,   # Start 15 degrees from vertical
+        # LQR weights
+        "lqr_q_theta": 10.0, "lqr_q_phi": 1.0, "lqr_r": 0.1,
+        # Pole placement
+        "pp_real": -3.0, "pp_spread": 1.5,
+        # LQG
+        "lqg_q_theta": 10.0, "lqg_q_phi": 1.0, "lqg_r": 0.1,
+        "lqg_process_noise": 0.01, "lqg_sensor_noise": 0.01,
     }
+
+    HUB_SLOTS = ['control']
 
     PARAMETER_SCHEMA = {
         "mass": {
             "type": "slider", "label": "Pendulum Mass",
             "min": 0.05, "max": 0.3, "step": 0.01, "default": 0.1,
             "unit": "kg", "description": "Mass at end of pendulum",
+            "group": "Plant",
         },
         "pendulum_length": {
             "type": "slider", "label": "Pendulum Length",
             "min": 0.15, "max": 0.5, "step": 0.01, "default": 0.3,
             "unit": "m", "description": "Length of pendulum rod",
+            "group": "Plant",
         },
         "arm_length": {
             "type": "slider", "label": "Arm Length",
             "min": 0.1, "max": 0.3, "step": 0.01, "default": 0.2,
             "unit": "m", "description": "Length of rotating arm",
-        },
-        "Kp": {
-            "type": "slider", "label": "Kp (Proportional)",
-            "min": 0, "max": 100, "step": 1, "default": 1,
-            "unit": "", "description": "Proportional gain - main restoring force",
-        },
-        "Kd": {
-            "type": "slider", "label": "Kd (Derivative)",
-            "min": 0, "max": 20, "step": 0.5, "default": 0,
-            "unit": "", "description": "Derivative gain - damping",
-        },
-        "Ki": {
-            "type": "slider", "label": "Ki (Integral)",
-            "min": 0, "max": 10, "step": 0.5, "default": 0.5,
-            "unit": "", "description": "Integral gain - steady-state correction",
+            "group": "Plant",
         },
         "initial_angle": {
             "type": "slider", "label": "Initial Angle",
             "min": -90, "max": 90, "step": 1, "default": 15,
             "unit": "deg", "description": "Starting pendulum angle from vertical",
+            "group": "Plant",
+        },
+        "controller": {
+            "type": "select", "label": "Controller",
+            "options": [
+                {"value": "none", "label": "No Control"},
+                {"value": "pid", "label": "PID"},
+                {"value": "lqr", "label": "LQR (Optimal)"},
+                {"value": "pole_placement", "label": "Pole Placement"},
+                {"value": "lqg", "label": "LQG (Observer)"},
+            ],
+            "default": "pid", "group": "Controller",
+        },
+        "Kp": {
+            "type": "slider", "label": "Kp (Proportional)",
+            "min": 0, "max": 100, "step": 1, "default": 1,
+            "unit": "", "description": "Proportional gain - main restoring force",
+            "group": "PID Gains",
+            "visible_when": {"controller": "pid"},
+        },
+        "Kd": {
+            "type": "slider", "label": "Kd (Derivative)",
+            "min": 0, "max": 20, "step": 0.5, "default": 0,
+            "unit": "", "description": "Derivative gain - damping",
+            "group": "PID Gains",
+            "visible_when": {"controller": "pid"},
+        },
+        "Ki": {
+            "type": "slider", "label": "Ki (Integral)",
+            "min": 0, "max": 10, "step": 0.5, "default": 0.5,
+            "unit": "", "description": "Integral gain - steady-state correction",
+            "group": "PID Gains",
+            "visible_when": {"controller": "pid"},
+        },
+        # LQR weights
+        "lqr_q_theta": {
+            "type": "slider", "label": "Q₁₁ (θ weight)", "min": 0.1, "max": 100,
+            "step": 0.1, "default": 10.0, "group": "LQR Weights",
+            "visible_when": {"controller": "lqr"},
+        },
+        "lqr_q_phi": {
+            "type": "slider", "label": "Q₃₃ (φ weight)", "min": 0.1, "max": 100,
+            "step": 0.1, "default": 1.0, "group": "LQR Weights",
+            "visible_when": {"controller": "lqr"},
+        },
+        "lqr_r": {
+            "type": "slider", "label": "R (effort cost)", "min": 0.01, "max": 10,
+            "step": 0.01, "default": 0.1, "group": "LQR Weights",
+            "visible_when": {"controller": "lqr"},
+        },
+        # Pole Placement
+        "pp_real": {
+            "type": "slider", "label": "Dominant pole real part", "min": -10, "max": -0.5,
+            "step": 0.1, "default": -3.0, "group": "Pole Placement",
+            "visible_when": {"controller": "pole_placement"},
+        },
+        "pp_spread": {
+            "type": "slider", "label": "Pole spread factor", "min": 1.0, "max": 3.0,
+            "step": 0.1, "default": 1.5, "group": "Pole Placement",
+            "visible_when": {"controller": "pole_placement"},
+        },
+        # LQG
+        "lqg_q_theta": {
+            "type": "slider", "label": "Q₁₁ (θ weight)", "min": 0.1, "max": 100,
+            "step": 0.1, "default": 10.0, "group": "LQG Design",
+            "visible_when": {"controller": "lqg"},
+        },
+        "lqg_q_phi": {
+            "type": "slider", "label": "Q₃₃ (φ weight)", "min": 0.1, "max": 100,
+            "step": 0.1, "default": 1.0, "group": "LQG Design",
+            "visible_when": {"controller": "lqg"},
+        },
+        "lqg_r": {
+            "type": "slider", "label": "R (effort cost)", "min": 0.01, "max": 10,
+            "step": 0.01, "default": 0.1, "group": "LQG Design",
+            "visible_when": {"controller": "lqg"},
+        },
+        "lqg_process_noise": {
+            "type": "slider", "label": "Process noise σ²", "min": 0.001, "max": 1.0,
+            "step": 0.001, "default": 0.01, "group": "LQG Design",
+            "visible_when": {"controller": "lqg"},
+        },
+        "lqg_sensor_noise": {
+            "type": "slider", "label": "Sensor noise σ²", "min": 0.001, "max": 1.0,
+            "step": 0.001, "default": 0.01, "group": "LQG Design",
+            "visible_when": {"controller": "lqg"},
         },
     }
 
@@ -147,13 +237,11 @@ class FurutaPendulumSimulator(BaseSimulator):
         return self.get_state()
 
     def _compute(self) -> None:
-        """Simulate pendulum dynamics with PID control."""
+        """Simulate pendulum dynamics with selected controller."""
         mass = self.parameters["mass"]
         l = self.parameters["pendulum_length"]
         r = self.parameters["arm_length"]
-        Kp = self.parameters["Kp"]
-        Ki = self.parameters["Ki"]
-        Kd = self.parameters["Kd"]
+        ctrl = self.parameters.get("controller", "pid")
         initial_angle_deg = self.parameters["initial_angle"]
 
         # Moments of inertia
@@ -162,7 +250,88 @@ class FurutaPendulumSimulator(BaseSimulator):
 
         # Initial state: [theta, theta_dot, phi, phi_dot]
         initial_angle = np.radians(initial_angle_deg)
-        state = np.array([initial_angle, 0.0, 0.0, 0.0])
+        x0 = np.array([initial_angle, 0.0, 0.0, 0.0])
+
+        # Equilibrium: upright (theta=0, phi=0)
+        x_eq = np.array([0.0, 0.0, 0.0, 0.0])
+        u_eq = np.array([0.0])
+
+        # Controller info for metadata
+        self._controller_info = {"type": ctrl}
+
+        # For LQR/PP/LQG: linearize at equilibrium
+        if ctrl in ("lqr", "pole_placement", "lqg", "none"):
+            try:
+                A, B = numerical_jacobian(self._dynamics_wrapper, x_eq, u_eq)
+                Wc = controllability_matrix(A, B)
+                ctrl_rank = int(np.linalg.matrix_rank(Wc))
+                self._controller_info["A"] = A.tolist()
+                self._controller_info["B"] = B.tolist()
+                self._controller_info["controllability_rank"] = ctrl_rank
+                self._controller_info["is_controllable"] = ctrl_rank == 4
+                self._controller_info["ol_eigenvalues"] = np.linalg.eigvals(A).tolist()
+
+                if ctrl == "none":
+                    self._run_uncontrolled(x0)
+                elif ctrl == "lqr":
+                    p = self.parameters
+                    Q = np.diag([p["lqr_q_theta"], 1.0, p["lqr_q_phi"], 1.0])
+                    R = np.array([[p["lqr_r"]]])
+                    K, P, cl_eigs = compute_lqr(A, B, Q, R)
+                    self._run_with_state_feedback(x0, K, x_eq, u_eq)
+                    self._controller_info["K"] = K.tolist()
+                    self._controller_info["cl_eigenvalues"] = cl_eigs.tolist()
+                elif ctrl == "pole_placement":
+                    p = self.parameters
+                    s = p["pp_real"]
+                    spread = p["pp_spread"]
+                    poles = np.array([s, s * spread, s * spread**2, s * spread**3])
+                    K, cl_eigs = compute_pole_placement(A, B, poles)
+                    self._run_with_state_feedback(x0, K, x_eq, u_eq)
+                    self._controller_info["K"] = K.tolist()
+                    self._controller_info["cl_eigenvalues"] = cl_eigs.tolist()
+                    self._controller_info["desired_poles"] = poles.tolist()
+                elif ctrl == "lqg":
+                    p = self.parameters
+                    n = 4
+                    C = np.eye(n)
+                    Q_lqr = np.diag([p["lqg_q_theta"], 1.0, p["lqg_q_phi"], 1.0])
+                    R_lqr = np.array([[p["lqg_r"]]])
+                    Q_kalman = p["lqg_process_noise"] * np.eye(n)
+                    R_kalman = p["lqg_sensor_noise"] * np.eye(n)
+                    K, L, _, _ = compute_lqg(A, B, C, Q_lqr, R_lqr, Q_kalman, R_kalman)
+                    self._run_with_lqg(x0, K, L, A, B, C, x_eq, u_eq)
+                    self._controller_info["K"] = K.tolist()
+                    self._controller_info["L"] = L.tolist()
+                    self._controller_info["cl_eigenvalues"] = np.linalg.eigvals(A - B @ K).tolist()
+                    self._controller_info["est_eigenvalues"] = np.linalg.eigvals(A - L @ C).tolist()
+
+                # Compute stability and settling
+                self._peak_angle = float(np.max(np.abs(self._theta)))
+                self._peak_angle_deg = float(np.degrees(self._peak_angle))
+                last_samples = min(200, len(self._theta))
+                self._is_stable = np.all(np.abs(self._theta[-last_samples:]) < np.radians(5))
+                if self._peak_angle > np.radians(90):
+                    self._is_stable = False
+                within_tolerance = np.abs(self._theta) < np.radians(5)
+                self._settling_time = None
+                settling_window = min(100, len(self._theta) // 2)
+                if np.any(within_tolerance) and self._is_stable and settling_window > 0:
+                    for i in range(len(within_tolerance) - settling_window):
+                        if np.all(within_tolerance[i:i + settling_window]):
+                            self._settling_time = self._time[i]
+                            break
+                return
+
+            except Exception as e:
+                self._controller_info["error"] = str(e)
+                # Fall through to PID as fallback
+
+        # PID path (original implementation)
+        Kp = self.parameters["Kp"]
+        Ki = self.parameters["Ki"]
+        Kd = self.parameters["Kd"]
+        state = x0
 
         # Storage arrays
         self._time = np.zeros(self.NUM_STEPS)
@@ -335,6 +504,99 @@ class FurutaPendulumSimulator(BaseSimulator):
         k4 = self._compute_dynamics(state + self.DT * k3, torque, mass, l, r, I_p, I_r)
 
         return state + (self.DT / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
+
+    def _dynamics_wrapper(self, x: np.ndarray, u: np.ndarray) -> np.ndarray:
+        """Wrap physics as f(x, u) for controllers.py compatibility."""
+        mass = self.parameters["mass"]
+        l = self.parameters["pendulum_length"]
+        r = self.parameters["arm_length"]
+        I_p = mass * l**2
+        I_r = 0.005 + 0.5 * mass * r**2
+        torque = u[0] if len(u) > 0 else 0.0
+        return self._compute_dynamics(x, torque, mass, l, r, I_p, I_r)
+
+    def _run_with_state_feedback(self, x0, K, x_eq, u_eq):
+        """Run simulation with state feedback controller via controllers.py."""
+        result = simulate_state_feedback(
+            self._dynamics_wrapper, x0, (0.0, self.SIMULATION_TIME),
+            K, x_eq, u_eq, u_max=self.TORQUE_LIMIT, dt=self.DT)
+        self._populate_from_result(result)
+
+    def _run_with_lqg(self, x0, K, L, A, B, C, x_eq, u_eq):
+        """Run simulation with LQG controller via controllers.py."""
+        result = simulate_lqg(
+            self._dynamics_wrapper, x0, (0.0, self.SIMULATION_TIME),
+            K, L, A, B, C, x_eq, u_eq, u_max=self.TORQUE_LIMIT, dt=self.DT)
+        self._populate_from_result(result)
+
+    def _run_uncontrolled(self, x0):
+        """Run simulation with no control."""
+        from core.controllers import simulate_uncontrolled
+        result = simulate_uncontrolled(
+            self._dynamics_wrapper, x0, (0.0, self.SIMULATION_TIME),
+            n_inputs=1, dt=self.DT)
+        self._populate_from_result(result)
+
+    def _populate_from_result(self, result):
+        """Fill internal arrays from a controllers.py simulation result."""
+        t = result["t"]
+        x = result["x"]
+        u = result["u"]
+        n_pts = len(t)
+
+        self._time = t
+        self._theta = x[:, 0]
+        self._theta_dot = x[:, 1]
+        self._phi = x[:, 2]
+        self._phi_dot = x[:, 3]
+        self._torque = u[:, 0]
+
+        # Rebuild 3D trajectory data
+        mass = self.parameters["mass"]
+        l = self.parameters["pendulum_length"]
+        r = self.parameters["arm_length"]
+        self._arm_positions = []
+        self._pendulum_positions = []
+        self._velocities = []
+        self._energies = []
+        self._angular_velocities = []
+
+        for i in range(n_pts):
+            theta = self._theta[i]
+            phi = self._phi[i]
+            theta_dot = self._theta_dot[i]
+            phi_dot = self._phi_dot[i]
+
+            arm_x = r * np.cos(phi)
+            arm_y = r * np.sin(phi)
+            perp_x = -np.sin(phi)
+            perp_y = np.cos(phi)
+            pend_x = arm_x + l * np.sin(theta) * perp_x
+            pend_y = arm_y + l * np.sin(theta) * perp_y
+            pend_z = l * np.cos(theta)
+
+            self._arm_positions.append([float(arm_x), float(arm_y), 0.0])
+            self._pendulum_positions.append([float(pend_x), float(pend_y), float(pend_z)])
+
+            if i > 0:
+                prev = self._pendulum_positions[-2]
+                dt_val = t[i] - t[i - 1] if i > 0 else self.DT
+                dt_val = max(dt_val, 1e-6)
+                vel_x = (pend_x - prev[0]) / dt_val
+                vel_y = (pend_y - prev[1]) / dt_val
+                vel_z = (pend_z - prev[2]) / dt_val
+                speed = np.sqrt(vel_x**2 + vel_y**2 + vel_z**2)
+            else:
+                vel_x, vel_y, vel_z, speed = 0.0, 0.0, 0.0, 0.0
+            self._velocities.append([float(vel_x), float(vel_y), float(vel_z), float(speed)])
+
+            ke = 0.5 * mass * speed**2 + 0.5 * mass * l**2 * theta_dot**2
+            pe = mass * self.G * l * np.cos(theta)
+            self._energies.append(float(ke + pe))
+            self._angular_velocities.append([float(theta_dot), float(phi_dot)])
+
+        self._current_arm_pos = self._arm_positions[-1] if self._arm_positions else [0, 0, 0]
+        self._current_pendulum_pos = self._pendulum_positions[-1] if self._pendulum_positions else [0, 0, 0.3]
 
     # =========================================================================
     # Plot generation
@@ -595,11 +857,21 @@ class FurutaPendulumSimulator(BaseSimulator):
         }
 
         # Metadata for info panel
+        ctrl_info = getattr(self, '_controller_info', {"type": "pid"})
         state["metadata"] = {
             "simulation_type": "furuta_pendulum",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
             "has_3d_visualization": True,
             "visualization_3d": state["visualization_3d"],
+            "controller_info": ctrl_info,
+            "metrics": {
+                "is_stable": self._is_stable,
+                "settling_time": round(self._settling_time, 2) if self._settling_time else None,
+                "peak_angle_deg": round(peak_angle_deg, 1),
+            },
             "system_info": {
                 "mass": self.parameters["mass"],
                 "pendulum_length": self.parameters["pendulum_length"],

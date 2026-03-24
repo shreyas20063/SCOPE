@@ -72,6 +72,8 @@ class FourierSeriesSimulator(BaseSimulator):
         "frequency": 1.0,
     }
 
+    HUB_SLOTS = ['control']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._t = None
@@ -226,6 +228,9 @@ class FourierSeriesSimulator(BaseSimulator):
         # Add metadata with sticky_controls flag
         base_state["metadata"] = {
             "simulation_type": "fourier_series",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,  # Keep control panel fixed when scrolling
             "series_info": {
                 "waveform": self.parameters["waveform"],

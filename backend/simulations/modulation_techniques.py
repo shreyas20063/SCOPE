@@ -188,6 +188,8 @@ class ModulationTechniquesSimulator(BaseSimulator):
         "fdm_spacing": 10,
     }
 
+    HUB_SLOTS = ['signal']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._audio = None
@@ -861,6 +863,9 @@ class ModulationTechniquesSimulator(BaseSimulator):
 
         state["metadata"] = {
             "simulation_type": "modulation_techniques",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "has_custom_viewer": True,
             "sticky_controls": True,
             "demo_mode": demo_mode,

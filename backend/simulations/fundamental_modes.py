@@ -4,8 +4,7 @@ Fundamental Modes Superposition Simulator
 Demonstrates that any Nth-order DT system's unit-sample response is a weighted
 sum of N fundamental modes (geometric sequences): y[n] = sum(A_k * p_k^n).
 
-Based on MIT 6.003 Lecture 03: Feedback, Poles, and Fundamental Modes.
-Default configuration reproduces the lecture's worked example:
+Default configuration reproduces a worked example:
   y[n] = 4.5*(0.9)^n - 3.5*(0.7)^n
 """
 
@@ -192,6 +191,8 @@ class FundamentalModesSimulator(BaseSimulator):
         "new_challenge": None,
         "show_answer": None,
     }
+
+    HUB_SLOTS = ['control']
 
     # Plot styling constants
     GRID_COLOR = "rgba(148, 163, 184, 0.2)"
@@ -736,6 +737,9 @@ class FundamentalModesSimulator(BaseSimulator):
 
         state["metadata"] = {
             "simulation_type": "fundamental_modes",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
             "equation": equation,
             "mode_info": self._mode_info,
