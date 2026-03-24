@@ -34,6 +34,7 @@ from simulations.catalog import (
     get_simulations_by_category,
 )
 from simulations import get_simulator_class
+from routes.hub import router as hub_router
 
 from utils import (
     websocket_manager,
@@ -114,6 +115,9 @@ app.add_middleware(
 # Enable GZip compression for responses > 500 bytes
 # Significantly reduces bandwidth for plot data JSON (60-80% smaller)
 app.add_middleware(GZipMiddleware, minimum_size=500)
+
+# Mount hub validation router
+app.include_router(hub_router)
 
 
 # Security headers middleware
