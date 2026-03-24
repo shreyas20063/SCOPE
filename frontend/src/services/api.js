@@ -265,6 +265,25 @@ class ApiClient {
       return handleError(error);
     }
   }
+
+  /**
+   * Validate and enrich hub slot data via backend
+   * @param {string} slot - Slot name (control, signal, circuit, optics)
+   * @param {Object} data - Slot data to validate
+   * @returns {Promise<{success: boolean, data?: Object, error?: string}>}
+   */
+  async validateHubData(slot, data) {
+    try {
+      const response = await apiClient.post('/hub/validate', { slot, data });
+      return {
+        success: response.data.success,
+        data: response.data.data || null,
+        error: response.data.error || null,
+      };
+    } catch (error) {
+      return handleError(error);
+    }
+  }
 }
 
 // Export singleton instance

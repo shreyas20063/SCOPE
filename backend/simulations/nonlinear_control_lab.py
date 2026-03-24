@@ -1097,6 +1097,9 @@ class NonlinearControlLabSimulator(BaseSimulator):
         "eq_u1": 0.0, "eq_u2": 0.0,
     }
 
+    HUB_SLOTS = ['control']
+    HUB_DIMENSIONS = {'n': None, 'm': None, 'p': None}
+
     def __init__(self, simulation_id: str):
         """Initialize the Nonlinear Control Lab simulator.
 
@@ -1626,6 +1629,9 @@ class NonlinearControlLabSimulator(BaseSimulator):
         self._error = error_msg
         metadata = {
             "simulation_type": "nonlinear_control_lab",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "has_custom_viewer": True,
             "error": error_msg,
             "n_states": self._n_states,
@@ -2108,6 +2114,9 @@ class NonlinearControlLabSimulator(BaseSimulator):
 
         metadata = {
             "simulation_type": "nonlinear_control_lab",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "has_custom_viewer": True,
             "error": self._error or self._design_error or None,
 

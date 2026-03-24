@@ -172,6 +172,8 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
         "matrix_d": "0",
     }
 
+    HUB_SLOTS = ["control"]
+
     _MAX_EXPR_LEN = 256  # character limit for user-supplied expression strings
 
     def _validate_expression(self, name: str, value: str) -> str:
@@ -267,6 +269,9 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
             "plots": self._build_plots(data),
             "metadata": {
                 "simulation_type": "state_space_analyzer",
+                "hub_slots": self.HUB_SLOTS,
+                "hub_domain": self.HUB_DOMAIN,
+                "hub_dimensions": self.HUB_DIMENSIONS,
                 "system_type": self.parameters.get("system_type", "linear_tf"),
                 "preset": self.parameters.get("preset", "rc_lowpass"),
                 "preset_name": data.get("preset_name", ""),

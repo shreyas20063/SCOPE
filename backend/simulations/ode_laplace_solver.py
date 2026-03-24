@@ -10,8 +10,6 @@ the complete Laplace transform solution pipeline:
   (e) plot the time-domain solution y(t)
 
 Key insight: no homogeneous/particular solution splitting needed.
-
-Based on MIT 6.003 Lecture 6, Slides 25–33.
 """
 
 from math import factorial
@@ -128,6 +126,8 @@ class ODELaplaceSolverSimulator(BaseSimulator):
         "show_compare": False,
         "t_max": 8.0,
     }
+
+    HUB_SLOTS = ['control']
 
     # ── Init ──────────────────────────────────────────────────────
 
@@ -1207,6 +1207,9 @@ class ODELaplaceSolverSimulator(BaseSimulator):
 
         state["metadata"] = {
             "simulation_type": "ode_laplace_solver",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
             "current_step": self._current_step,
             "max_step": self.MAX_STEP,

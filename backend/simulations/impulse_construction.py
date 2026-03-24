@@ -9,8 +9,6 @@ Modes:
   - construction: Pulse + running integral converging to u(t)
   - system_response: Pulse through first-order CT system, output → e^(pt)u(t)
   - contrast: The "bad" building block w(t) = 1 at t=0 only (integral = 0)
-
-Maps to Lecture 4, Slides 14–18.
 """
 
 import time
@@ -68,6 +66,8 @@ class ImpulseConstructionSimulator(BaseSimulator):
         "system_pole": -1.0,
         "show_limit": True,
     }
+
+    HUB_SLOTS = ['signal']
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
@@ -383,6 +383,9 @@ class ImpulseConstructionSimulator(BaseSimulator):
         eps = float(self.parameters["epsilon"])
         state["metadata"] = {
             "simulation_type": "impulse_construction",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "mode": self.parameters["mode"],
             "epsilon": eps,
             "pulse_height": self._height,

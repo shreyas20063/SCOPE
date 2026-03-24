@@ -14,8 +14,6 @@ Supports three solution methods:
   C) Power series expansion
 
 Includes quiz mode where user guesses residues before reveal.
-
-Based on MIT 6.003 Lecture 5, Slides 34–50.
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -36,13 +34,13 @@ class InverseZTransformSimulator(BaseSimulator):
 
     PRESETS: Dict[str, Dict[str, Any]] = {
         "example_1": {
-            "label": "Slide 35: H(z) = z / ((z−0.5)(z−0.8))",
+            "label": "Two Real Poles: H(z) = z / ((z−0.5)(z−0.8))",
             "num_z": [1, 0],           # z
             "den_z": [1, -1.3, 0.4],   # z² − 1.3z + 0.4 = (z−0.5)(z−0.8)
             "description": "Two real distinct poles at 0.5 and 0.8",
         },
         "example_2": {
-            "label": "Slide 38: H(z) = 1 / ((1−0.5z⁻¹)(1+0.3z⁻¹))",
+            "label": "Standard PFE: H(z) = 1 / ((1−0.5z⁻¹)(1+0.3z⁻¹))",
             "num_z": [1],              # 1  (in z⁻¹: just [1])
             "den_z": [1, -0.2, -0.15], # z² − 0.2z − 0.15
             "description": "Standard partial fraction example",
@@ -71,8 +69,8 @@ class InverseZTransformSimulator(BaseSimulator):
         "preset": {
             "type": "select",
             "options": [
-                {"value": "example_1", "label": "Slide 35: z/((z−0.5)(z−0.8))"},
-                {"value": "example_2", "label": "Slide 38: Standard PFE"},
+                {"value": "example_1", "label": "Two Real Poles: z/((z−0.5)(z−0.8))"},
+                {"value": "example_2", "label": "Standard PFE"},
                 {"value": "example_3", "label": "Repeated Pole"},
                 {"value": "example_4", "label": "Complex Poles"},
                 {"value": "example_5", "label": "Mixed Causal/Anticausal"},
@@ -132,6 +130,9 @@ class InverseZTransformSimulator(BaseSimulator):
         "mode": "solve",
         "num_samples": 30,
     }
+
+    HUB_SLOTS = ['control']
+    HUB_DOMAIN = "dt"
 
     # ── Init ──────────────────────────────────────────────────────
 
@@ -992,6 +993,9 @@ class InverseZTransformSimulator(BaseSimulator):
 
         state["metadata"] = {
             "simulation_type": "inverse_z_transform",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
             "current_step": self._current_step,
             "max_step": self.MAX_STEP,

@@ -75,6 +75,8 @@ class MassSpringSimulator(BaseSimulator):
         "simulation_time": 10.0,
     }
 
+    HUB_SLOTS = ['control']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._time: Optional[np.ndarray] = None
@@ -459,6 +461,9 @@ class MassSpringSimulator(BaseSimulator):
             "plots": plots,
             "metadata": {
                 "simulation_type": "mass_spring_system",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
                 "visualization_2d": {
                     "time": sampled_time.tolist(),
                     "input_position": self._x[idx].tolist(),

@@ -5,8 +5,6 @@ Interactive z-plane visualization exploring Z transforms, regions of convergence
 and how ROC determines causality. Shows how the same H(z) can correspond to
 different time-domain signals (causal, anti-causal, two-sided) depending on
 which ROC region is selected.
-
-Based on MIT 6.003 Lecture 05: Z Transform.
 """
 
 import numpy as np
@@ -97,6 +95,9 @@ class ZTransformROCSimulator(BaseSimulator):
         "custom_num_coeffs": "1",
         "custom_den_coeffs": "1, -0.7",
     }
+
+    HUB_SLOTS = ['control']
+    HUB_DOMAIN = "dt"
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
@@ -966,6 +967,23 @@ class ZTransformROCSimulator(BaseSimulator):
             return f"{z.real:.3g} {sign} {abs(z.imag):.3g}j"
 
     # =========================================================================
+    # Hub integration
+    # =========================================================================
+
+    def to_hub_data(self):
+        """Export custom TF coefficients (custom_num_coeffs / custom_den_coeffs)."""
+        num = self._parse_coeffs(str(self.parameters.get('custom_num_coeffs', '1')))
+        den = self._parse_coeffs(str(self.parameters.get('custom_den_coeffs', '1, -0.7')))
+        if len(num) > 0 and len(den) > 0:
+            return {
+                "source": "tf",
+                "domain": self.HUB_DOMAIN,
+                "dimensions": self.HUB_DIMENSIONS,
+                "tf": {"num": list(num), "den": list(den), "variable": "z"},
+            }
+        return None
+
+    # =========================================================================
     # State
     # =========================================================================
 
@@ -978,6 +996,9 @@ class ZTransformROCSimulator(BaseSimulator):
 
         state["metadata"] = {
             "simulation_type": "z_transform_roc",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
             "hz_expression": self._format_hz(),
             "roc_description": self._format_roc(),

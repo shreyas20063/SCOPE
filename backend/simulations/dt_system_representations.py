@@ -12,8 +12,6 @@ discrete-time LTI system:
 Users select a preset or enter custom coefficients. The backend computes
 all five representations and returns conversion-step descriptions for the
 animated concept map arrows.
-
-Based on MIT 6.003 Lecture 5 (slides 2–12).
 """
 
 import random
@@ -384,6 +382,9 @@ class SystemRepresentationSimulator(BaseSimulator):
         "mode": "explore",
     }
 
+    HUB_SLOTS = ['control']
+    HUB_DOMAIN = "dt"
+
     CHALLENGE_REPRESENTATIONS = ["diff_eq", "h_r", "h_z", "impulse_response", "block_diagram"]
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
@@ -633,6 +634,9 @@ class SystemRepresentationSimulator(BaseSimulator):
         # Build metadata (exclude internal numpy arrays)
         metadata = {
             "simulation_type": "dt_system_representations",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "b_coeffs": data["b"],
             "a_coeffs": data["a"],
             "system_order": data["system_order"],

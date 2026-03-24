@@ -68,6 +68,8 @@ class RCLowpassSimulator(BaseSimulator):
         "amplitude": 5.0,
     }
 
+    HUB_SLOTS = ['circuit', 'control']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._time = None
@@ -225,6 +227,9 @@ class RCLowpassSimulator(BaseSimulator):
         # Add metadata with sticky_controls flag
         base_state["metadata"] = {
             "simulation_type": "rc_lowpass_filter",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,  # Keep control panel fixed when scrolling
             "filter_info": {
                 "frequency": self.parameters["frequency"],

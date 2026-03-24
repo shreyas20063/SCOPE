@@ -5,7 +5,7 @@ Interactive block diagram builder supporting two modes:
 1. Build Mode: User constructs block diagrams → system computes transfer function
 2. Parse Mode: User enters transfer function → system generates block diagram
 
-Block types (from MIT 6.003 Lectures 2-4):
+Block types:
 - Gain: multiplies signal by a constant
 - Adder: sums inputs with configurable +/- signs
 - Delay (R): unit delay for discrete-time systems
@@ -109,6 +109,8 @@ class BlockDiagramSimulator(BaseSimulator):
         "system_type": "dt",
         "mode": "build",
     }
+
+    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str):
         """Initialize block diagram simulator."""
@@ -2872,6 +2874,29 @@ class BlockDiagramSimulator(BaseSimulator):
         return lfilter(b, a, x)
 
     # =========================================================================
+    # Hub integration
+    # =========================================================================
+
+    def to_hub_data(self):
+        """Export block diagram topology and computed overall TF if available."""
+        result = {
+            "source": "block_diagram",
+            "domain": self.HUB_DOMAIN,
+            "dimensions": self.HUB_DIMENSIONS,
+            "block_diagram": {
+                "blocks": self.blocks,
+                "connections": self.connections,
+            },
+        }
+        if self._tf_result and "numerator" in self._tf_result:
+            result["tf"] = {
+                "num": self._tf_result["numerator"],
+                "den": self._tf_result["denominator"],
+                "variable": "z" if self.system_type == "dt" else "s",
+            }
+        return result
+
+    # =========================================================================
     # State
     # =========================================================================
 
@@ -2880,6 +2905,9 @@ class BlockDiagramSimulator(BaseSimulator):
         state = super().get_state()
         state["metadata"] = {
             "simulation_type": "block_diagram_builder",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "mode": self.mode,
             "system_type": self.system_type,
             "blocks": self.blocks,

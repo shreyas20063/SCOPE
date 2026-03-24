@@ -34,6 +34,7 @@ from simulations.catalog import (
     get_simulations_by_category,
 )
 from simulations import get_simulator_class
+from routes.hub import router as hub_router
 
 from utils import (
     websocket_manager,
@@ -114,6 +115,9 @@ app.add_middleware(
 # Enable GZip compression for responses > 500 bytes
 # Significantly reduces bandwidth for plot data JSON (60-80% smaller)
 app.add_middleware(GZipMiddleware, minimum_size=500)
+
+# Mount hub validation router
+app.include_router(hub_router)
 
 
 # Security headers middleware
@@ -387,6 +391,29 @@ async def execute_simulation(sim_id: str, request: ExecuteRequest):
                 result = executor.execute(simulator.step_backward)
             else:
                 result = executor.execute(simulator.get_state)
+
+        elif action == "to_hub_data":
+            hub_data = simulator.to_hub_data()
+            result = DataHandler.serialize_result({
+                "success": True,
+                "data": {"hub_data": hub_data, "parameters": simulator.parameters.copy()},
+            })
+            return JSONResponse(content=result)
+
+        elif action == "from_hub_data":
+            hub_data = params.get("hub_data", {})
+            applied = simulator.from_hub_data(hub_data)
+            if applied:
+                result = DataHandler.serialize_result({
+                    "success": True,
+                    "data": simulator.get_state(),
+                })
+            else:
+                result = DataHandler.serialize_result({
+                    "success": False,
+                    "error": "Hub data not applicable to this simulation",
+                })
+            return JSONResponse(content=result)
 
         else:
             # Delegate to simulator's custom action handler if available

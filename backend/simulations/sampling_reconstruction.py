@@ -79,6 +79,8 @@ class SamplingReconstructionSimulator(BaseSimulator):
         "show_error": False,
     }
 
+    HUB_SLOTS = ['signal']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._t_continuous: Optional[np.ndarray] = None
@@ -127,6 +129,9 @@ class SamplingReconstructionSimulator(BaseSimulator):
             "plots": plots,
             "metadata": {
                 "simulation_type": "sampling_reconstruction",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
                 "sampling_info": {
                     "sampling_frequency": round(fs, 2),
                     "sampling_interval": round(1.0 / fs, 4),

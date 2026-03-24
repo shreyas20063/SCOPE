@@ -151,6 +151,8 @@ class NyquistStabilitySimulator(BaseSimulator):
         "freq_max_exp": 3,
     }
 
+    HUB_SLOTS = ['control']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._omega: Optional[np.ndarray] = None
@@ -646,6 +648,9 @@ class NyquistStabilitySimulator(BaseSimulator):
 
         base_state["metadata"] = {
             "simulation_type": "nyquist_stability",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "has_custom_viewer": True,
             "sticky_controls": True,
             "stability_criterion": self._stability_criterion,

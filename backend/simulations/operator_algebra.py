@@ -7,7 +7,6 @@ using the R-operator (right-shift/delay operator):
   - Difference equation: y[n] = x[n] - 2x[n-1] + x[n-2]
   - Impulse response: h[n] = {1, -2, 1, 0, 0, ...}
 
-Based on MIT 6.003 Lecture 2 (Discrete-Time Systems).
 """
 
 import ast
@@ -503,6 +502,8 @@ class OperatorAlgebraSimulator(BaseSimulator):
         "num_samples": 15,
     }
 
+    HUB_SLOTS = ['control']
+
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
         for name, value in self.parameters.items():
@@ -605,6 +606,9 @@ class OperatorAlgebraSimulator(BaseSimulator):
             "plots": [self._create_impulse_plot(data)],
             "metadata": {
                 "simulation_type": "operator_algebra",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
                 "expanded": data["expanded"],
                 "factored": data["factored"],
                 "difference_eq": data["difference_eq"],

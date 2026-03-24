@@ -8,8 +8,6 @@ Decomposes a second-order DT system into three equivalent forms:
 
 Step-by-step factoring animation shows the algebra, and all three
 impulse responses overlay to prove equivalence.
-
-Based on MIT 6.003 Lecture 3, Slides 13–20.
 """
 
 from typing import Any, Dict, List, Optional
@@ -47,6 +45,8 @@ class CascadeParallelSimulator(BaseSimulator):
         "a1": 1.6,
         "a2": -0.63,
     }
+
+    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)
@@ -535,6 +535,9 @@ class CascadeParallelSimulator(BaseSimulator):
         state = super().get_state()
         state["metadata"] = {
             "simulation_type": "cascade_parallel",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
             "decomposition_step": self._decomposition_step,
             "factoring_steps": self._factoring_steps,

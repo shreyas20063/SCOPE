@@ -1,13 +1,10 @@
 """
 Vector Diagram Frequency Response Builder Simulator
 
-Recreates the animated vector-diagram-to-frequency-response construction from
-MIT 6.003 Lecture 9 (slides 26–56). Users configure poles, zeros, and gain
+Animated vector-diagram-to-frequency-response construction. Users configure poles, zeros, and gain
 via a LaTeX-style transfer function expression or presets.
 The backend computes the full frequency response and per-factor contributions.
 The frontend custom viewer animates the ω sweep with synchronized vectors.
-
-Based on MIT 6.003 Lecture 09: Frequency Response.
 """
 
 import re
@@ -126,6 +123,8 @@ class VectorFreqResponseSimulator(BaseSimulator):
         "omega_max": 8.0,
         "show_individual": False,
     }
+
+    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
@@ -1005,6 +1004,9 @@ class VectorFreqResponseSimulator(BaseSimulator):
 
         state["metadata"] = {
             "simulation_type": "vector_freq_response",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
             "hs_expression": self._format_hs_expression(),
             "num_display": self._format_num_display(),

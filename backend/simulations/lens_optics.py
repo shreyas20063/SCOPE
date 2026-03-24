@@ -44,6 +44,8 @@ class LensOpticsSimulator(BaseSimulator):
         "test_pattern": "edge_target",
     }
 
+    HUB_SLOTS = ['optics']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._psf = None
@@ -796,6 +798,9 @@ class LensOpticsSimulator(BaseSimulator):
 
         base_state["metadata"] = {
             "simulation_type": "lens_optics",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
 
             # Images for display (fallback, Plotly heatmaps are primary)

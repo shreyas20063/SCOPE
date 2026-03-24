@@ -93,6 +93,8 @@ class SteadyStateErrorSimulator(BaseSimulator):
         "input_magnitude": 1.0,
     }
 
+    HUB_SLOTS = ["control"]
+
     # ------------------------------------------------------------------ #
     #  Lifecycle                                                          #
     # ------------------------------------------------------------------ #
@@ -1060,6 +1062,9 @@ class SteadyStateErrorSimulator(BaseSimulator):
         # ---- Build metadata ---- #
         metadata: Dict[str, Any] = {
             "simulation_type": "steady_state_error",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "system_type": system_type,
             "error_constants": {
                 "Kp": error_constants["Kp"],

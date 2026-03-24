@@ -5,8 +5,6 @@ Interactive pole/zero placement on the s-plane to explore how H(jw) shapes
 frequency response. Users click to place poles and zeros, enter transfer
 function expressions, or load presets — then observe magnitude/phase response
 and filtered signal effects.
-
-Based on MIT 6.003 Lecture 9: Frequency Response.
 """
 
 import re
@@ -113,6 +111,8 @@ class AudioFreqResponseSimulator(BaseSimulator):
         "show_phase": True,
         "gain_K": 1.0,
     }
+
+    HUB_SLOTS = ['control', 'signal']
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
@@ -1327,6 +1327,9 @@ class AudioFreqResponseSimulator(BaseSimulator):
             "plots": self.get_plots(),
             "metadata": {
                 "simulation_type": "audio_freq_response",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
                 "sticky_controls": True,
 
                 # Pole/zero data

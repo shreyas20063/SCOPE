@@ -106,6 +106,8 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
         "freq_max_exp": 3,
     }
 
+    HUB_SLOTS = ['control']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._omega: Optional[np.ndarray] = None
@@ -402,6 +404,9 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
 
         base_state["metadata"] = {
             "simulation_type": "nyquist_bode_comparison",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "has_custom_viewer": True,
             "sticky_controls": True,
             # Raw arrays for frontend synchronized highlighting

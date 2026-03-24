@@ -13,8 +13,6 @@ Interactive demonstration of the seven key Laplace transform properties:
 Users pick one or two signals from a library, apply a property, and see the
 operation in both time domain (continuous waveforms) and s-domain (pole-zero +
 ROC) simultaneously.
-
-Based on Lecture 6: slide 34 (full property table).
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -135,6 +133,8 @@ class LaplacePropertiesSimulator(BaseSimulator):
         "signal_2_omega0": 2.0,
     }
 
+    HUB_SLOTS = ['control']
+
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)
         self._cached: Optional[Dict[str, Any]] = None
@@ -178,6 +178,9 @@ class LaplacePropertiesSimulator(BaseSimulator):
             "plots": data["plots"],
             "metadata": {
                 "simulation_type": "laplace_properties",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
                 "property": prop,
                 "property_formula": PROPERTY_FORMULAS.get(prop, ""),
                 "signal_1_info": data["signal_1_info"],

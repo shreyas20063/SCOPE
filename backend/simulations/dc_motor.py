@@ -103,6 +103,8 @@ class DCMotorSimulator(BaseSimulator):
         "model_type": "first_order",
     }
 
+    HUB_SLOTS = ['control']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._time = None
@@ -255,6 +257,9 @@ class DCMotorSimulator(BaseSimulator):
         # Put all extra info in metadata (frontend expects it here)
         base_state["metadata"] = {
             "simulation_type": "dc_motor_feedback_control",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,  # Keep control panel fixed when scrolling
             "block_diagram_image": block_diagram,
             "system_info": {

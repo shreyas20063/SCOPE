@@ -11,6 +11,8 @@ import PlotDisplay from './PlotDisplay';
 import ControlPanel from './ControlPanel';
 import ShareButton from './ShareButton';
 import ErrorBoundary from './ErrorBoundary';
+import useHub from '../hooks/useHub';
+import api from '../services/api';
 import ConvolutionViewer from './ConvolutionViewer';
 import RCLowpassViewer from './RCLowpassViewer';
 import SignalOperationsViewer from './SignalOperationsViewer';
@@ -63,6 +65,9 @@ const SteadyStateErrorViewer = lazy(() => import('./SteadyStateErrorViewer'));
 const PhasePortraitViewer = lazy(() => import('./PhasePortraitViewer'));
 const NonlinearControlLabViewer = lazy(() => import('./NonlinearControlLabViewer'));
 const MIMODesignStudioViewer = lazy(() => import('./MIMODesignStudioViewer'));
+const InvertedPendulum3DViewer = lazy(() => import('./InvertedPendulum3DViewer'));
+const BallBeam3DViewer = lazy(() => import('./BallBeam3DViewer'));
+const CoupledTanks3DViewer = lazy(() => import('./CoupledTanks3DViewer'));
 
 // Loading fallback for lazy-loaded components
 const LazyLoadFallback = () => (
@@ -155,7 +160,7 @@ function MobileTabSwitcher({ activeTab, onTabChange, hasControls = true }) {
 /**
  * Simulation header with title and metadata
  */
-function SimulationHeader({ simulation, currentParams }) {
+function SimulationHeader({ simulation, currentParams, hubSlot, onPushToHub, hubSynced }) {
   return (
     <div className="simulation-header">
       <div className="header-content">
@@ -189,6 +194,27 @@ function SimulationHeader({ simulation, currentParams }) {
         </div>
       </div>
       <div className="header-actions">
+        {hubSlot && (
+          <button
+            className="hub-push-btn"
+            onClick={onPushToHub}
+            title="Push current system to hub"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="3"/>
+              <line x1="12" y1="2" x2="12" y2="9"/>
+              <line x1="12" y1="15" x2="12" y2="22"/>
+              <line x1="2" y1="12" x2="9" y2="12"/>
+              <line x1="15" y1="12" x2="22" y2="12"/>
+            </svg>
+            Push to Hub
+          </button>
+        )}
+        {hubSynced && (
+          <span className="hub-synced-badge" title="Loaded from System Hub">
+            Hub Synced
+          </span>
+        )}
         <ShareButton params={currentParams} />
         <div className="header-meta">
           {simulation?.category && (
@@ -1558,6 +1584,32 @@ function SimulationViewer({
   // Check if controls should be sticky (from metadata)
   const stickyControls = metadata?.sticky_controls === true;
 
+  // Hub integration
+  const primarySlot = metadata?.hub_slots?.[0] || null;
+  const { pushToSlot, hubUpdated } = useHub(primarySlot || 'control');
+
+  const [showHubToast, setShowHubToast] = useState(false);
+
+  useEffect(() => {
+    if (hubUpdated > 0) {
+      setShowHubToast(true);
+      const timer = setTimeout(() => setShowHubToast(false), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [hubUpdated]);
+
+  const handlePushToHub = useCallback(async () => {
+    if (!simulation?.id || !primarySlot || !pushToSlot) return;
+    try {
+      const result = await api.executeSimulation(simulation.id, 'to_hub_data', {});
+      if (result.success && result.data?.hub_data) {
+        await pushToSlot(result.data.hub_data, simulation.id);
+      }
+    } catch (err) {
+      console.warn('Push to hub failed:', err);
+    }
+  }, [simulation?.id, primarySlot, pushToSlot]);
+
   // Callback for 3D animation frame changes (memoized to prevent re-renders)
   const handleFrameChange = useCallback((currentFrame, totalFrames) => {
     setAnimationFrame({ current: currentFrame, total: totalFrames });
@@ -1565,7 +1617,13 @@ function SimulationViewer({
 
   return (
     <div className={`simulation-viewer ${stickyControls ? 'sticky-controls-mode' : ''}`}>
-      <SimulationHeader simulation={simulation} currentParams={currentParams} />
+      <SimulationHeader
+        simulation={simulation}
+        currentParams={currentParams}
+        hubSlot={primarySlot}
+        onPushToHub={handlePushToHub}
+        hubSynced={!!metadata?._hubSynced}
+      />
 
       {!hasSimulator ? (
         <NotImplementedPlaceholder simulation={simulation} />
@@ -2053,6 +2111,27 @@ function SimulationViewer({
                     onParamChange={onParamChange}
                   />
                 </Suspense>
+              ) : metadata?.simulation_type === 'inverted_pendulum_3d' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <InvertedPendulum3DViewer
+                    metadata={metadata}
+                    plots={plots}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'ball_beam_3d' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <BallBeam3DViewer
+                    metadata={metadata}
+                    plots={plots}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'coupled_tanks_3d' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <CoupledTanks3DViewer
+                    metadata={metadata}
+                    plots={plots}
+                  />
+                </Suspense>
               ) : (
                 <PlotDisplay
                   plots={plots}
@@ -2091,6 +2170,19 @@ function SimulationViewer({
             )}
           </div>
         </>
+      )}
+      {showHubToast && (
+        <div className="hub-toast">
+          <span>Hub system updated</span>
+          <div className="hub-toast__actions">
+            <button className="hub-toast__btn hub-toast__btn--reload" onClick={() => window.location.reload()}>
+              Reload
+            </button>
+            <button className="hub-toast__btn" onClick={() => setShowHubToast(false)}>
+              Dismiss
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

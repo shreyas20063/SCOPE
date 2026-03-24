@@ -3,7 +3,7 @@ DT Difference Equation Step-by-Step Solver
 
 Interactive step-by-step evaluation of discrete-time difference equations
 with synchronized block diagram visualization, equation substitution display,
-and incrementally growing stem plots. Recreates MIT 6.003 Lecture 2 slides 5-17.
+and incrementally growing stem plots.
 """
 
 from typing import Any, Dict, List, Optional
@@ -97,6 +97,9 @@ class DifferenceEquationSimulator(BaseSimulator):
         "input_signal": "impulse",
         "animation_speed": 1.0,
     }
+
+    HUB_SLOTS = ['control']
+    HUB_DOMAIN = "dt"
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
@@ -584,6 +587,9 @@ class DifferenceEquationSimulator(BaseSimulator):
             "plots": self.get_plots(),
             "metadata": {
                 "simulation_type": "dt_difference_equation",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
                 "has_custom_viewer": True,
                 "current_n": self._current_n,
                 "is_at_rest": self._current_n <= self.N_START,

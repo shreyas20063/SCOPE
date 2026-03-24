@@ -270,6 +270,8 @@ class ConvolutionSimulator(BaseSimulator):
         "running": False,
     }
 
+    HUB_SLOTS = ['signal']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._parser = SignalParser()
@@ -1117,6 +1119,9 @@ class ConvolutionSimulator(BaseSimulator):
 
         state["metadata"] = {
             "simulation_type": "convolution_simulator",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "has_custom_viewer": True,
             "sticky_controls": True,
             "mode": mode,

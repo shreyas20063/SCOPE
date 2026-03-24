@@ -170,6 +170,8 @@ class RootLocusSimulator(BaseSimulator):
         "show_annotations": True,
     }
 
+    HUB_SLOTS = ['control']
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._num = np.array([1.0])
@@ -296,6 +298,9 @@ class RootLocusSimulator(BaseSimulator):
 
         base["metadata"] = {
             "simulation_type": "root_locus",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
             "has_custom_viewer": True,
             "ol_poles": [{"real": float(np.real(p)), "imag": float(np.imag(p))} for p in ol_poles],
             "ol_zeros": [{"real": float(np.real(z)), "imag": float(np.imag(z))} for z in ol_zeros],
