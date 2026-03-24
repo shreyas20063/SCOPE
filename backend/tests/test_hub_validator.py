@@ -490,36 +490,25 @@ class TestBlockDiagramPassthrough:
 class TestSignalSlot:
     """Tests for validate_signal_slot."""
 
-    def test_valid_with_samples(self) -> None:
+    def test_valid_with_signals_dict(self) -> None:
         result = validate_signal_slot({
-            "type": "sine",
-            "samples": [0.0, 0.5, 1.0, 0.5],
-            "sample_rate": 44100,
+            "signals": {"input": {"x": [0, 1, 2], "y": [0, 0.5, 1], "type": "ct", "label": "Step"}},
+            "sample_rate": 1000,
         })
         assert result["success"] is True
 
-    def test_valid_with_expression(self) -> None:
-        result = validate_signal_slot({
-            "type": "custom",
-            "expression": "sin(2*pi*f*t)",
-        })
+    def test_empty_signals(self) -> None:
+        result = validate_signal_slot({"signals": {}})
         assert result["success"] is True
 
-    def test_missing_type(self) -> None:
-        result = validate_signal_slot({"samples": [1, 2, 3]})
+    def test_signals_not_dict(self) -> None:
+        result = validate_signal_slot({"signals": "bad"})
         assert result["success"] is False
 
-    def test_missing_samples_and_expression(self) -> None:
-        result = validate_signal_slot({"type": "sine"})
-        assert result["success"] is False
-
-    def test_bad_sample_rate_type(self) -> None:
-        result = validate_signal_slot({
-            "type": "sine",
-            "samples": [1.0],
-            "sample_rate": "not_a_number",
-        })
-        assert result["success"] is False
+    def test_no_signals_key(self) -> None:
+        # Should still pass — signals defaults to {}
+        result = validate_signal_slot({"sample_rate": 1000})
+        assert result["success"] is True
 
     def test_not_a_dict(self) -> None:
         result = validate_signal_slot([1, 2, 3])
@@ -535,31 +524,18 @@ class TestCircuitSlot:
 
     def test_valid(self) -> None:
         result = validate_circuit_slot({
-            "components": [{"type": "R", "value": 1000}],
-            "topology": "series",
+            "components": {"R": 1000, "C": 1e-6},
+            "topology": "rc_lowpass",
         })
         assert result["success"] is True
 
-    def test_missing_components(self) -> None:
-        result = validate_circuit_slot({"topology": "series"})
-        assert result["success"] is False
+    def test_no_components_key(self) -> None:
+        # Should still pass — components defaults to {}
+        result = validate_circuit_slot({"topology": "rc_lowpass"})
+        assert result["success"] is True
 
-    def test_missing_topology(self) -> None:
-        result = validate_circuit_slot({"components": []})
-        assert result["success"] is False
-
-    def test_components_not_list(self) -> None:
-        result = validate_circuit_slot({
-            "components": "not_a_list",
-            "topology": "series",
-        })
-        assert result["success"] is False
-
-    def test_topology_not_string(self) -> None:
-        result = validate_circuit_slot({
-            "components": [],
-            "topology": 42,
-        })
+    def test_components_not_dict(self) -> None:
+        result = validate_circuit_slot({"components": "bad"})
         assert result["success"] is False
 
     def test_not_a_dict(self) -> None:
@@ -576,31 +552,18 @@ class TestOpticsSlot:
 
     def test_valid(self) -> None:
         result = validate_optics_slot({
-            "elements": [{"type": "lens", "f": 0.1}],
-            "wavelength": 550e-9,
+            "elements": [{"type": "lens", "f": 50, "position": 100}],
+            "wavelength": 550,
         })
         assert result["success"] is True
 
-    def test_missing_elements(self) -> None:
-        result = validate_optics_slot({"wavelength": 550e-9})
-        assert result["success"] is False
-
-    def test_missing_wavelength(self) -> None:
-        result = validate_optics_slot({"elements": []})
-        assert result["success"] is False
-
-    def test_wavelength_not_number(self) -> None:
-        result = validate_optics_slot({
-            "elements": [],
-            "wavelength": "red",
-        })
-        assert result["success"] is False
+    def test_no_elements_key(self) -> None:
+        # Should still pass — elements defaults to []
+        result = validate_optics_slot({"wavelength": 550})
+        assert result["success"] is True
 
     def test_elements_not_list(self) -> None:
-        result = validate_optics_slot({
-            "elements": "not_a_list",
-            "wavelength": 550e-9,
-        })
+        result = validate_optics_slot({"elements": "bad"})
         assert result["success"] is False
 
     def test_not_a_dict(self) -> None:

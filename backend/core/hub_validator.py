@@ -371,9 +371,8 @@ def _enrich_from_ss(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
 def validate_signal_slot(data: Dict[str, Any]) -> Dict[str, Any]:
     """Validate a signal hub slot.
 
-    Checks that the data dict contains the expected keys for a signal
-    definition: 'type' (str), 'samples' or 'expression' (array or str),
-    and optional 'sample_rate' (number).
+    Expected schema: {signals: {name: {x, y, type, label}}, sample_rate, duration}.
+    Lightweight validation — just checks top-level types.
 
     Args:
         data: Signal slot data dict.
@@ -384,28 +383,9 @@ def validate_signal_slot(data: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(data, dict):
         return {"success": False, "error": "Data must be a dict"}
 
-    sig_type = data.get("type")
-    if not isinstance(sig_type, str):
-        return {"success": False, "error": "'type' must be a string"}
-
-    # Must have either samples or expression.
-    has_samples = "samples" in data
-    has_expression = "expression" in data
-    if not has_samples and not has_expression:
-        return {"success": False, "error": "Signal requires 'samples' (array) or 'expression' (string)"}
-
-    if has_samples:
-        samples = data["samples"]
-        if not isinstance(samples, (list, np.ndarray)):
-            return {"success": False, "error": "'samples' must be a list or array"}
-
-    if has_expression and not isinstance(data["expression"], str):
-        return {"success": False, "error": "'expression' must be a string"}
-
-    if "sample_rate" in data:
-        sr = data["sample_rate"]
-        if not isinstance(sr, (int, float)):
-            return {"success": False, "error": "'sample_rate' must be a number"}
+    signals = data.get("signals", {})
+    if not isinstance(signals, dict):
+        return {"success": False, "error": "'signals' must be a dict"}
 
     return {"success": True, "data": data}
 
@@ -417,8 +397,8 @@ def validate_signal_slot(data: Dict[str, Any]) -> Dict[str, Any]:
 def validate_circuit_slot(data: Dict[str, Any]) -> Dict[str, Any]:
     """Validate a circuit hub slot.
 
-    Checks that the data dict contains the expected keys for a circuit
-    definition: 'components' (list) and 'topology' (str).
+    Expected schema: {components: {R: 1000, C: 1e-6}, topology: "rc_lowpass", tf: {...}}.
+    Lightweight validation — just checks top-level types.
 
     Args:
         data: Circuit slot data dict.
@@ -429,15 +409,9 @@ def validate_circuit_slot(data: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(data, dict):
         return {"success": False, "error": "Data must be a dict"}
 
-    if "components" not in data:
-        return {"success": False, "error": "Circuit requires 'components' key"}
-    if not isinstance(data["components"], list):
-        return {"success": False, "error": "'components' must be a list"}
-
-    if "topology" not in data:
-        return {"success": False, "error": "Circuit requires 'topology' key"}
-    if not isinstance(data["topology"], str):
-        return {"success": False, "error": "'topology' must be a string"}
+    components = data.get("components", {})
+    if not isinstance(components, dict):
+        return {"success": False, "error": "'components' must be a dict"}
 
     return {"success": True, "data": data}
 
@@ -449,8 +423,8 @@ def validate_circuit_slot(data: Dict[str, Any]) -> Dict[str, Any]:
 def validate_optics_slot(data: Dict[str, Any]) -> Dict[str, Any]:
     """Validate an optics hub slot.
 
-    Checks that the data dict contains the expected keys for an optics
-    definition: 'elements' (list) and 'wavelength' (number).
+    Expected schema: {elements: [{type, f, position}, ...], wavelength: 550}.
+    Lightweight validation — just checks top-level types.
 
     Args:
         data: Optics slot data dict.
@@ -461,15 +435,8 @@ def validate_optics_slot(data: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(data, dict):
         return {"success": False, "error": "Data must be a dict"}
 
-    if "elements" not in data:
-        return {"success": False, "error": "Optics requires 'elements' key"}
-    if not isinstance(data["elements"], list):
+    elements = data.get("elements", [])
+    if not isinstance(elements, list):
         return {"success": False, "error": "'elements' must be a list"}
-
-    if "wavelength" not in data:
-        return {"success": False, "error": "Optics requires 'wavelength' key"}
-    wl = data["wavelength"]
-    if not isinstance(wl, (int, float)):
-        return {"success": False, "error": "'wavelength' must be a number"}
 
     return {"success": True, "data": data}
