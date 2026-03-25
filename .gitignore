@@ -140,6 +140,16 @@ PAPER_CONTEXT.md
 /*.png
 mimo-initial-load.png
 
+# Dev docs / env files
+ARCHITECTURE.md
+CODEBASE_ANALYSIS.md
+DEPLOYMENT.md
+PAPER_CONTEXT.md
+backend/simulations/context.md
+.env.development
+.env.production
+.env.example
+
 # Secrets (never commit these)
 secrets/
 *.pem
