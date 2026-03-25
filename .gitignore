@@ -131,6 +131,15 @@ exports/
 # Docker
 .docker/
 
+# Development / reference files (not part of the app)
+Theory/
+Fonts/
+fonts/
+docs/plans/
+PAPER_CONTEXT.md
+/*.png
+mimo-initial-load.png
+
 # Secrets (never commit these)
 secrets/
 *.pem
