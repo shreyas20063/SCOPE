@@ -1,6 +1,5 @@
 """Evolution Strategies for plant-adaptive PID tuning.
 
-Theory (CMU 16-745 Lecture 18 — ILC connection):
 Each ES generation perturbs the policy, evaluates on random plants,
 and updates toward the best perturbations — analogous to Iterative
 Learning Control where each iteration refines control from trial data.

@@ -4,13 +4,11 @@ import SimulationCard from '../components/SimulationCard'
 import HeroCanvas from '../components/HeroCanvas'
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver'
 
-const CATEGORIES = [
-  { name: 'All', color: null },
-  { name: 'Signal Processing', color: '#06b6d4' },
-  { name: 'Circuits', color: '#8b5cf6' },
-  { name: 'Control Systems', color: '#f59e0b' },
-  { name: 'Transforms', color: '#10b981' },
-  { name: 'Optics', color: '#ec4899' },
+const SECTIONS = [
+  { key: 'tools', name: 'Design Pipeline', subtitle: 'TF input \u2192 Block diagrams \u2192 SFG \u2192 Stability analysis \u2192 Controller design \u2192 3D visualization', color: '#14b8a6' },
+  { key: 'analytical', name: 'Analytical Tools', subtitle: 'Interactive solvers, explorers, and analysis workbenches', color: '#3b82f6' },
+  { key: 'simulations', name: 'System Simulations', subtitle: 'Physical systems \u2014 circuits, motors, pendulums, optics', color: '#8b5cf6' },
+  { key: 'signals', name: 'Signal Explorations', subtitle: 'Signals, sampling, Fourier, Z-transforms, Laplace, and more', color: '#06b6d4' },
 ]
 
 function ScrollReveal({ children, delay = 0 }) {
@@ -43,12 +41,24 @@ function SkeletonCard({ index }) {
   )
 }
 
+function SectionHeader({ section, count }) {
+  return (
+    <div className="section-header" style={{ '--section-color': section.color }}>
+      <div className="section-header-text">
+        <h3 className="section-title">{section.name}</h3>
+        <p className="section-subtitle">{section.subtitle}</p>
+      </div>
+      <span className="section-count">{count}</span>
+    </div>
+  )
+}
+
 function LandingPage() {
   const [simulations, setSimulations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0])
+  const [selectedSection, setSelectedSection] = useState(null)
   const [mousePos, setMousePos] = useState({ x: -1, y: -1 })
 
   const handleHeroMouse = useCallback((e) => {
@@ -85,15 +95,34 @@ function LandingPage() {
 
   const filteredSimulations = useMemo(() => {
     return simulations.filter((sim) => {
-      const matchesSearch = sim.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      const matchesSearch = !searchTerm ||
+        sim.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         sim.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         sim.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
 
-      const matchesCategory = selectedCategory.name === 'All' || sim.category === selectedCategory.name
+      const matchesSection = !selectedSection || sim.section === selectedSection
 
-      return matchesSearch && matchesCategory
+      return matchesSearch && matchesSection
     })
-  }, [simulations, searchTerm, selectedCategory])
+  }, [simulations, searchTerm, selectedSection])
+
+  // Group filtered sims by section, sorted by section_order within each
+  const groupedSections = useMemo(() => {
+    const groups = {}
+    for (const sim of filteredSimulations) {
+      const key = sim.section || 'signals'
+      if (!groups[key]) groups[key] = []
+      groups[key].push(sim)
+    }
+    // Sort within each section by section_order
+    for (const key in groups) {
+      groups[key].sort((a, b) => (a.section_order || 99) - (b.section_order || 99))
+    }
+    // Return sections in defined order, skipping empty ones
+    return SECTIONS
+      .filter(s => groups[s.key]?.length > 0)
+      .map(s => ({ ...s, sims: groups[s.key] }))
+  }, [filteredSimulations])
 
   if (error) {
     return (
@@ -131,14 +160,21 @@ function LandingPage() {
           </div>
 
           <div className="category-filters">
-            {CATEGORIES.map((cat) => (
+            <button
+              className={`category-btn ${!selectedSection ? 'active' : ''}`}
+              style={!selectedSection ? { '--category-color': 'var(--primary-color)' } : undefined}
+              onClick={() => setSelectedSection(null)}
+            >
+              All
+            </button>
+            {SECTIONS.map((sec) => (
               <button
-                key={cat.name}
-                className={`category-btn ${selectedCategory.name === cat.name ? 'active' : ''}`}
-                style={selectedCategory.name === cat.name && cat.color ? { '--category-color': cat.color } : undefined}
-                onClick={() => setSelectedCategory(cat)}
+                key={sec.key}
+                className={`category-btn ${selectedSection === sec.key ? 'active' : ''}`}
+                style={selectedSection === sec.key ? { '--category-color': sec.color } : undefined}
+                onClick={() => setSelectedSection(selectedSection === sec.key ? null : sec.key)}
               >
-                {cat.name}
+                {sec.name}
               </button>
             ))}
           </div>
@@ -159,25 +195,34 @@ function LandingPage() {
         <div className="no-results">
           <span>🔎</span>
           <p>No simulations found matching your criteria</p>
-          <button onClick={() => { setSearchTerm(''); setSelectedCategory(CATEGORIES[0]); }}>
+          <button onClick={() => { setSearchTerm(''); setSelectedSection(null); }}>
             Clear filters
           </button>
         </div>
       ) : (
-        <section className="simulations-grid">
-          {filteredSimulations.map((sim, index) => (
-            <ScrollReveal key={sim.id} delay={(index % 6) * 60}>
-              <SimulationCard
-                id={sim.id}
-                name={sim.name}
-                description={sim.description}
-                category={sim.category}
-                categoryColor={sim.category_info?.color}
-                thumbnail={sim.thumbnail}
-              />
+        <div className="sections-container">
+          {groupedSections.map((section) => (
+            <ScrollReveal key={section.key}>
+              <div className="section-group">
+                <SectionHeader section={section} count={section.sims.length} />
+                <div className="simulations-grid">
+                  {section.sims.map((sim, index) => (
+                    <ScrollReveal key={sim.id} delay={(index % 6) * 60}>
+                      <SimulationCard
+                        id={sim.id}
+                        name={sim.name}
+                        description={sim.description}
+                        category={sim.category}
+                        categoryColor={sim.category_info?.color}
+                        thumbnail={sim.thumbnail}
+                      />
+                    </ScrollReveal>
+                  ))}
+                </div>
+              </div>
             </ScrollReveal>
           ))}
-        </section>
+        </div>
       )}
     </div>
   )

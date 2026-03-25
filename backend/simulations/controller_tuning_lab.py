@@ -1446,12 +1446,28 @@ class ControllerTuningLabSimulator(BaseSimulator):
             kp_min = self._compute_min_stabilizing_kp()
             if np.isfinite(kp_min):
                 kp0 = max(kp0, kp_min * 2.0)
-                ki0 = max(ki0, kp0 * 0.3)  # some integral action
+                ki0 = max(ki0, kp0 * 0.3)
 
         if kp0 < 0.001:
             kp0 = 1.0
 
         x0 = np.array([kp0, ki0, kd0])
+
+        # If initial point is infeasible, try a few alternatives
+        # (e.g. double integrator needs Kd > 0 to be stabilisable)
+        if cost(x0) >= 1e6:
+            alternatives = [
+                np.array([kp0, ki0, max(kd0, 5.0)]),
+                np.array([kp0 * 3, ki0, 10.0]),
+                np.array([5.0, 2.0, 10.0]),
+            ]
+            for alt in alternatives:
+                if cost(alt) < 1e6:
+                    x0 = alt
+                    break
+            else:
+                # All infeasible — fall back to DE which handles this better
+                return self._de_optimal(ctype)
 
         result = optimize.minimize(
             cost, x0, method="Nelder-Mead",
@@ -1529,6 +1545,11 @@ class ControllerTuningLabSimulator(BaseSimulator):
                 t_sim, y_sim = signal.step(sys_cl, T=T)
                 if not np.all(np.isfinite(y_sim)):
                     return 1e6
+                # Reject diverging / wildly oscillating responses that
+                # np.roots might miss (high-order Padé numerics).
+                # Also reject growing envelope at end of window.
+                if np.max(np.abs(y_sim)) > 10.0:
+                    return 1e6
                 e_sim = np.abs(1.0 - y_sim)
                 return float(_trapz(t_sim * e_sim, t_sim))
             except Exception:
@@ -1546,7 +1567,9 @@ class ControllerTuningLabSimulator(BaseSimulator):
             polish=True,
         )
 
-        if not result.success and result.fun > 1e5:
+        # DE reports success=True even when all candidates are infeasible
+        # (cost=1e6). Check the cost directly.
+        if result.fun >= 1e5:
             return None
 
         kp = float(result.x[0])

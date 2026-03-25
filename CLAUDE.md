@@ -484,3 +484,18 @@ All tracking files live in `.claude/`. **Read them before starting work. Update 
   - KaTeX-rendered matrices (A, B, C, D, K, L, P, Q, R) throughout
   - Metrics strip: dimensions, controllability/observability rank badges, OL/CL stability
   - Reusable `core/mimo_utils.py` math module (controllability, observability, LQR, LQG, pole placement, MIMO simulation via solve_ivp)
+
+### Coupled Tanks 3D (simulation: `coupled_tanks_3d`)
+- **Backend**: `backend/simulations/coupled_tanks_3d.py` (~490 lines)
+- **Frontend**: `frontend/src/components/CoupledTanks3D.jsx` (~460 lines), `frontend/src/components/CoupledTanks3DViewer.jsx` (~190 lines)
+- **CSS**: `frontend/src/styles/CoupledTanks3D.css` (~240 lines)
+- **Purpose**: 3D MIMO coupled-tank physics lab with swappable controllers
+- **Key features**:
+  - Two-tank nonlinear MIMO system: h1 drains into h2, both with independent pump inflows
+  - 5 controllers: None, Dual PID (2 independent loops), LQR, Pole Placement, LQG
+  - Three.js 3D visualization: transparent cylindrical tanks, animated water levels, flow particles, connecting pipe, droplet effects
+  - Equilibrium h1_ref=0.5m, h2_ref=1.0m (h2>=h1 ensures non-negative q2_eq)
+  - Clamped flow rates [0, 5.0] to enforce physical pump constraints
+  - 4 analysis plots: tank levels, pump flow rates, phase portrait (h1 vs h2), pole map
+  - Metrics strip: stability, SS errors, settling time, control energy, controllability rank
+  - Shared `core/controllers.py` module for LQR, pole placement, LQG design

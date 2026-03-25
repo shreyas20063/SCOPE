@@ -1,0 +1,451 @@
+/* ============================================================================
+   Phase Portrait Viewer
+   ============================================================================ */
+
+.pp-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* --- System Info Strip --- */
+.pp-system-info {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pp-system-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary-color);
+  white-space: nowrap;
+}
+
+.pp-system-eqs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.pp-eq-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.pp-eq-code {
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: rgba(20, 184, 166, 0.08);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(20, 184, 166, 0.15);
+}
+
+.pp-eq-sep {
+  color: var(--border-hover);
+  margin: 0 4px;
+}
+
+.pp-error-banner {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--error-color);
+  font-size: 12px;
+  font-family: monospace;
+}
+
+/* --- Main Layout --- */
+.pp-main-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 16px;
+  min-height: 500px;
+}
+
+.pp-phase-container {
+  position: relative;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  min-height: 500px;
+  cursor: crosshair;
+}
+
+.pp-phase-container .js-plotly-plot {
+  cursor: crosshair !important;
+}
+
+.pp-updating-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 10px;
+  background: rgba(20, 184, 166, 0.15);
+  border: 1px solid rgba(20, 184, 166, 0.3);
+  border-radius: var(--radius-full);
+  color: var(--primary-color);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* --- Side Panels --- */
+.pp-side-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+/* --- Equilibrium Panel --- */
+.pp-eq-panel {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+}
+
+.pp-eq-panel-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pp-eq-count {
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+
+.pp-eq-none {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+  margin: 0;
+}
+
+.pp-eq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.pp-eq-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  width: 100%;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.pp-eq-item:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-color);
+}
+
+.pp-eq-item.selected {
+  background: var(--primary-light);
+  border-color: rgba(20, 184, 166, 0.3);
+}
+
+.pp-eq-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pp-eq-coords {
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.pp-eq-type-badge {
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: auto;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* --- Equilibrium Detail --- */
+.pp-eq-detail {
+  border-top: 1px solid var(--border-color);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+.pp-eq-detail-header {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.pp-eq-section {
+  margin-bottom: 8px;
+}
+
+.pp-eq-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.pp-eq-eigenvalues {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pp-eq-ev {
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 2px 4px;
+}
+
+/* --- Jacobian Matrix --- */
+.pp-eq-jacobian {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
+}
+
+.pp-eq-matrix {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pp-eq-bracket {
+  font-size: 24px;
+  font-weight: 200;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.pp-eq-matrix-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pp-eq-row {
+  display: flex;
+  gap: 12px;
+}
+
+.pp-eq-row span {
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  min-width: 50px;
+  text-align: right;
+}
+
+.pp-eq-metrics {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'Fira Code', monospace;
+}
+
+/* --- Trajectory Panel --- */
+.pp-traj-panel {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+}
+
+.pp-traj-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.pp-traj-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pp-traj-count {
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+
+.pp-traj-clear {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--error-color);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.pp-traj-clear:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.pp-traj-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+  margin: 0;
+}
+
+.pp-traj-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.pp-traj-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+
+.pp-traj-item:hover {
+  background: var(--surface-hover);
+}
+
+.pp-traj-color {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pp-traj-ic {
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.pp-traj-remove {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color var(--transition-fast);
+}
+
+.pp-traj-remove:hover {
+  color: var(--error-color);
+}
+
+/* --- Time Series Plot --- */
+.pp-time-container {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  height: 250px;
+}
+
+/* --- Light mode overrides --- */
+[data-theme="light"] .pp-system-info {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+[data-theme="light"] .pp-eq-code {
+  background: rgba(20, 184, 166, 0.06);
+}
+
+[data-theme="light"] .pp-eq-panel,
+[data-theme="light"] .pp-traj-panel,
+[data-theme="light"] .pp-phase-container,
+[data-theme="light"] .pp-time-container {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+  .pp-main-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .pp-side-panels {
+    max-height: none;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .pp-eq-panel,
+  .pp-traj-panel {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .pp-phase-container {
+    min-height: 350px;
+  }
+
+  .pp-system-eqs {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .pp-eq-sep {
+    display: none;
+  }
+}

@@ -63,6 +63,9 @@ from .steady_state_error import SteadyStateErrorSimulator
 from .phase_portrait import PhasePortraitSimulator
 from .nonlinear_control_lab import NonlinearControlLabSimulator
 from .mimo_design_studio import MIMODesignStudioSimulator
+from .inverted_pendulum_3d import InvertedPendulum3DSimulator
+from .ball_beam_3d import BallBeam3DSimulator
+from .coupled_tanks_3d import CoupledTanks3DSimulator
 
 # Registry mapping simulation IDs to their simulator classes
 # Add new simulators here as they are implemented
@@ -121,6 +124,9 @@ SIMULATOR_REGISTRY = {
     "phase_portrait": PhasePortraitSimulator,
     "nonlinear_control_lab": NonlinearControlLabSimulator,
     "mimo_design_studio": MIMODesignStudioSimulator,
+    "inverted_pendulum_3d": InvertedPendulum3DSimulator,
+    "ball_beam_3d": BallBeam3DSimulator,
+    "coupled_tanks_3d": CoupledTanks3DSimulator,
 }
 
 
@@ -216,6 +222,9 @@ __all__ = [
     "PhasePortraitSimulator",
     "NonlinearControlLabSimulator",
     "MIMODesignStudioSimulator",
+    "InvertedPendulum3DSimulator",
+    "BallBeam3DSimulator",
+    "CoupledTanks3DSimulator",
     "SIMULATOR_REGISTRY",
     "get_simulator_class",
     "is_simulator_available",

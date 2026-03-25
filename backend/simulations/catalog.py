@@ -23,6 +23,104 @@ CATEGORIES = {
     "Optics": {"color": "#ec4899", "icon": "lens"},
 }
 
+# Section definitions for landing page organization
+# Follows the paper's complete design pipeline as the primary "Tools" section
+SECTIONS = {
+    "tools": {
+        "name": "Design Pipeline",
+        "subtitle": "TF input \u2192 Block diagrams \u2192 SFG \u2192 Stability analysis \u2192 Controller design \u2192 3D visualization",
+        "color": "#14b8a6",
+        "order": 1,
+    },
+    "analytical": {
+        "name": "Analytical Tools",
+        "subtitle": "Interactive solvers, explorers, and analysis workbenches",
+        "color": "#3b82f6",
+        "order": 2,
+    },
+    "simulations": {
+        "name": "System Simulations",
+        "subtitle": "Physical systems \u2014 circuits, motors, pendulums, optics",
+        "color": "#8b5cf6",
+        "order": 3,
+    },
+    "signals": {
+        "name": "Signal Explorations",
+        "subtitle": "Signals, sampling, Fourier, Z-transforms, Laplace, and more",
+        "color": "#06b6d4",
+        "order": 4,
+    },
+}
+
+# Maps simulation IDs to (section_key, display_order_within_section)
+SECTION_MAP = {
+    # ── Design Pipeline (paper workflow) ──────────────────────────
+    "block_diagram_builder":      ("tools", 1),
+    "signal_flow_scope":          ("tools", 2),
+    "root_locus":                 ("tools", 3),
+    "routh_hurwitz":              ("tools", 4),
+    "nyquist_stability":          ("tools", 5),
+    "nyquist_bode_comparison":    ("tools", 6),
+    "state_space_analyzer":       ("tools", 7),
+    "steady_state_error":         ("tools", 8),
+    "controller_tuning_lab":      ("tools", 9),
+    "lead_lag_designer":          ("tools", 10),
+    "nonlinear_control_lab":      ("tools", 11),
+    "phase_portrait":             ("tools", 12),
+    "mimo_design_studio":         ("tools", 13),
+    "furuta_pendulum":            ("tools", 14),
+    "inverted_pendulum_3d":       ("tools", 15),
+    "ball_beam_3d":               ("tools", 16),
+    "coupled_tanks_3d":           ("tools", 17),
+
+    # ── Analytical Tools ──────────────────────────────────────────
+    "dt_difference_equation":     ("analytical", 1),
+    "operator_algebra":           ("analytical", 2),
+    "cyclic_path_detector":       ("analytical", 3),
+    "polynomial_multiplication":  ("analytical", 4),
+    "cascade_parallel":           ("analytical", 5),
+    "dt_system_representations":  ("analytical", 6),
+    "audio_freq_response":        ("analytical", 7),
+    "vector_freq_response":       ("analytical", 8),
+    "eigenfunction_tester":       ("analytical", 9),
+    "inverse_z_transform":        ("analytical", 10),
+    "ode_laplace_solver":         ("analytical", 11),
+
+    # ── System Simulations ────────────────────────────────────────
+    "rc_lowpass_filter":          ("simulations", 1),
+    "amplifier_topologies":       ("simulations", 2),
+    "dc_motor":                   ("simulations", 3),
+    "feedback_system_analysis":   ("simulations", 4),
+    "second_order_system":        ("simulations", 5),
+    "mass_spring_system":         ("simulations", 6),
+    "complex_poles_modes":        ("simulations", 7),
+    "resonance_anatomy":          ("simulations", 8),
+    "delay_instability":          ("simulations", 9),
+    "lens_optics":                ("simulations", 10),
+
+    # ── Signal Explorations ───────────────────────────────────────
+    "aliasing_quantization":      ("signals", 1),
+    "convolution_simulator":      ("signals", 2),
+    "modulation_techniques":      ("signals", 3),
+    "signal_operations":          ("signals", 4),
+    "sampling_reconstruction":    ("signals", 5),
+    "feedback_convergence":       ("signals", 6),
+    "pole_behavior":              ("signals", 7),
+    "fundamental_modes":          ("signals", 8),
+    "dt_ct_comparator":           ("signals", 9),
+    "impulse_construction":       ("signals", 10),
+    "ct_impulse_response":        ("signals", 11),
+    "fourier_series":             ("signals", 12),
+    "fourier_phase_vs_magnitude": ("signals", 13),
+    "z_transform_properties":     ("signals", 14),
+    "z_transform_roc":            ("signals", 15),
+    "laplace_roc":                ("signals", 16),
+    "laplace_properties":         ("signals", 17),
+    "ivt_fvt_visualizer":         ("signals", 18),
+    "ct_dt_poles":                ("signals", 19),
+}
+
+
 # Complete simulation catalog with parameter definitions from 4A analysis
 SIMULATION_CATALOG = [
     # =========================================================================
@@ -438,24 +536,89 @@ SIMULATION_CATALOG = [
     {
         "id": "furuta_pendulum",
         "name": "Furuta Pendulum",
-        "description": "Interactive simulation of a rotary inverted pendulum (Furuta Pendulum) with PID control. Features real-time 3D visualization, angle tracking, control torque plots, and stability analysis. Control the pendulum to stay upright using a motor at the arm pivot.",
+        "description": (
+            "3D simulation of a rotary inverted pendulum (Furuta Pendulum) with swappable controllers. "
+            "Switch between No Control, PID, LQR, Pole Placement, and LQG to see how different "
+            "strategies stabilize the upright equilibrium. Full nonlinear dynamics with RK45 integration."
+        ),
         "category": "Control Systems",
         "thumbnail": "🎢",
-        "tags": ["inverted pendulum", "balance", "nonlinear", "control", "PID", "3D visualization", "stability"],
+        "tags": ["inverted pendulum", "balance", "nonlinear", "control", "PID", "LQR",
+                 "pole placement", "LQG", "3D visualization", "stability"],
         "has_simulator": True,
         "controls": [
-            # Physical Parameters (tuned for stable control)
-            {"type": "slider", "name": "mass", "label": "Pendulum Mass", "min": 0.05, "max": 0.3, "step": 0.01, "default": 0.1, "unit": "kg", "group": "Physical", "description": "Mass at end of pendulum"},
-            {"type": "slider", "name": "pendulum_length", "label": "Pendulum Length", "min": 0.15, "max": 0.5, "step": 0.01, "default": 0.3, "unit": "m", "group": "Physical", "description": "Length of pendulum rod"},
-            {"type": "slider", "name": "arm_length", "label": "Arm Length", "min": 0.1, "max": 0.3, "step": 0.01, "default": 0.2, "unit": "m", "group": "Physical", "description": "Length of rotating horizontal arm"},
-            # PID Controller
-            {"type": "slider", "name": "Kp", "label": "Kp (Proportional)", "min": 0, "max": 100, "step": 1, "default": 1, "unit": "", "group": "PID Controller", "description": "Proportional gain - main restoring force"},
-            {"type": "slider", "name": "Kd", "label": "Kd (Derivative)", "min": 0, "max": 20, "step": 0.5, "default": 0, "unit": "", "group": "PID Controller", "description": "Derivative gain - damping"},
-            {"type": "slider", "name": "Ki", "label": "Ki (Integral)", "min": 0, "max": 10, "step": 0.5, "default": 0.5, "unit": "", "group": "PID Controller", "description": "Integral gain - eliminates steady-state error"},
-            # Initial Conditions
-            {"type": "slider", "name": "initial_angle", "label": "Initial Angle", "min": -90, "max": 90, "step": 1, "default": 15, "unit": "deg", "group": "Initial Conditions", "description": "Starting pendulum angle from vertical"},
+            # Plant
+            {"type": "slider", "name": "mass", "label": "Pendulum Mass", "min": 0.05, "max": 0.3,
+             "step": 0.01, "default": 0.1, "unit": "kg", "group": "Plant"},
+            {"type": "slider", "name": "pendulum_length", "label": "Pendulum Length", "min": 0.15, "max": 0.5,
+             "step": 0.01, "default": 0.3, "unit": "m", "group": "Plant"},
+            {"type": "slider", "name": "arm_length", "label": "Arm Length", "min": 0.1, "max": 0.3,
+             "step": 0.01, "default": 0.2, "unit": "m", "group": "Plant"},
+            {"type": "slider", "name": "initial_angle", "label": "Initial Angle", "min": -90, "max": 90,
+             "step": 1, "default": 15, "unit": "deg", "group": "Plant"},
+            # Controller selection
+            {"type": "select", "name": "controller", "label": "Controller",
+             "options": [
+                 {"value": "none", "label": "No Control"},
+                 {"value": "pid", "label": "PID"},
+                 {"value": "lqr", "label": "LQR (Optimal)"},
+                 {"value": "pole_placement", "label": "Pole Placement"},
+                 {"value": "lqg", "label": "LQG (Observer)"},
+             ],
+             "default": "pid", "group": "Controller"},
+            # PID
+            {"type": "slider", "name": "Kp", "label": "Kp (Proportional)", "min": 0, "max": 100,
+             "step": 1, "default": 1, "group": "PID Gains",
+             "visible_when": {"controller": "pid"}},
+            {"type": "slider", "name": "Kd", "label": "Kd (Derivative)", "min": 0, "max": 20,
+             "step": 0.5, "default": 0, "group": "PID Gains",
+             "visible_when": {"controller": "pid"}},
+            {"type": "slider", "name": "Ki", "label": "Ki (Integral)", "min": 0, "max": 10,
+             "step": 0.5, "default": 0.5, "group": "PID Gains",
+             "visible_when": {"controller": "pid"}},
+            # LQR
+            {"type": "slider", "name": "lqr_q_theta", "label": "Q₁₁ (θ weight)", "min": 0.1, "max": 100,
+             "step": 0.1, "default": 10.0, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            {"type": "slider", "name": "lqr_q_phi", "label": "Q₃₃ (φ weight)", "min": 0.1, "max": 100,
+             "step": 0.1, "default": 1.0, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            {"type": "slider", "name": "lqr_r", "label": "R (effort cost)", "min": 0.01, "max": 10,
+             "step": 0.01, "default": 0.1, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            # Pole Placement
+            {"type": "slider", "name": "pp_real", "label": "Dominant pole real part", "min": -10, "max": -0.5,
+             "step": 0.1, "default": -3.0, "group": "Pole Placement",
+             "visible_when": {"controller": "pole_placement"}},
+            {"type": "slider", "name": "pp_spread", "label": "Pole spread factor", "min": 1.0, "max": 3.0,
+             "step": 0.1, "default": 1.5, "group": "Pole Placement",
+             "visible_when": {"controller": "pole_placement"}},
+            # LQG
+            {"type": "slider", "name": "lqg_q_theta", "label": "Q₁₁ (θ weight)", "min": 0.1, "max": 100,
+             "step": 0.1, "default": 10.0, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_q_phi", "label": "Q₃₃ (φ weight)", "min": 0.1, "max": 100,
+             "step": 0.1, "default": 1.0, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_r", "label": "R (effort cost)", "min": 0.01, "max": 10,
+             "step": 0.01, "default": 0.1, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_process_noise", "label": "Process noise σ²", "min": 0.001, "max": 1.0,
+             "step": 0.001, "default": 0.01, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_sensor_noise", "label": "Sensor noise σ²", "min": 0.001, "max": 1.0,
+             "step": 0.001, "default": 0.01, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
         ],
-        "default_params": {"mass": 0.1, "pendulum_length": 0.3, "arm_length": 0.2, "Kp": 1, "Kd": 0, "Ki": 0.5, "initial_angle": 15},
+        "default_params": {
+            "mass": 0.1, "pendulum_length": 0.3, "arm_length": 0.2,
+            "initial_angle": 15, "controller": "pid",
+            "Kp": 1, "Kd": 0, "Ki": 0.5,
+            "lqr_q_theta": 10.0, "lqr_q_phi": 1.0, "lqr_r": 0.1,
+            "pp_real": -3.0, "pp_spread": 1.5,
+            "lqg_q_theta": 10.0, "lqg_q_phi": 1.0, "lqg_r": 0.1,
+            "lqg_process_noise": 0.01, "lqg_sensor_noise": 0.01,
+        },
         "plots": [
             {"id": "pendulum_angle", "title": "Pendulum Angle", "description": "θ vs time with stability bands"},
             {"id": "control_torque", "title": "Control Torque", "description": "τ vs time (motor command)"},
@@ -774,38 +937,105 @@ SIMULATION_CATALOG = [
     {
         "id": "mass_spring_system",
         "name": "Spring Mass Damper System",
-        "description": "Animated mass-spring-damper system showing how physical systems transform input signals. Watch the spring stretch and compress as base excitation x(t) becomes mass displacement y(t).",
+        "description": (
+            "Animated mass-spring-damper with swappable controllers. In passive mode, watch base "
+            "excitation drive the mass. Switch to PID, LQR, Pole Placement, or LQG to see active "
+            "force control track a step reference or regulate from displaced initial conditions."
+        ),
         "category": "Control Systems",
         "thumbnail": "\U0001f529",
-        "tags": ["mass-spring", "damper", "oscillation", "second-order", "resonance", "natural frequency", "damping ratio", "ODE"],
+        "tags": ["mass-spring", "damper", "oscillation", "second-order", "resonance",
+                 "natural frequency", "damping ratio", "ODE", "PID", "LQR", "pole placement", "LQG"],
         "has_simulator": True,
         "controls": [
-            {"type": "slider", "name": "mass", "label": "Mass (m)", "min": 0.1, "max": 5.0, "step": 0.1, "default": 1.0, "unit": "kg", "group": "System"},
-            {"type": "slider", "name": "spring_constant", "label": "Spring Constant (k)", "min": 1, "max": 100, "step": 1, "default": 10, "unit": "N/m", "group": "System"},
-            {"type": "slider", "name": "damping", "label": "Damping (b)", "min": 0, "max": 10, "step": 0.1, "default": 0.5, "unit": "Ns/m", "group": "System"},
+            {"type": "slider", "name": "mass", "label": "Mass (m)", "min": 0.1, "max": 5.0,
+             "step": 0.1, "default": 1.0, "unit": "kg", "group": "System"},
+            {"type": "slider", "name": "spring_constant", "label": "Spring Constant (k)", "min": 1, "max": 100,
+             "step": 1, "default": 10, "unit": "N/m", "group": "System"},
+            {"type": "slider", "name": "damping", "label": "Damping (b)", "min": 0, "max": 10,
+             "step": 0.1, "default": 0.5, "unit": "Ns/m", "group": "System"},
             {"type": "select", "name": "input_type", "label": "Input Waveform", "options": [
                 {"value": "step", "label": "Step Input"},
                 {"value": "sinusoid", "label": "Sinusoidal"},
                 {"value": "impulse", "label": "Impulse"},
                 {"value": "none", "label": "Free Response"},
             ], "default": "step", "group": "Input"},
-            {"type": "slider", "name": "input_frequency", "label": "Input Frequency", "min": 0.1, "max": 10.0, "step": 0.1, "default": 1.0, "unit": "Hz", "group": "Input", "visible_when": {"input_type": "sinusoid"}},
-            {"type": "slider", "name": "input_amplitude", "label": "Amplitude / Initial Disp.", "min": 0.1, "max": 2.0, "step": 0.1, "default": 1.0, "unit": "m", "group": "Input"},
-            {"type": "slider", "name": "simulation_time", "label": "Duration", "min": 2, "max": 20, "step": 1, "default": 10, "unit": "s", "group": "Simulation"},
+            {"type": "slider", "name": "input_frequency", "label": "Input Frequency", "min": 0.1, "max": 10.0,
+             "step": 0.1, "default": 1.0, "unit": "Hz", "group": "Input",
+             "visible_when": {"input_type": "sinusoid"}},
+            {"type": "slider", "name": "input_amplitude", "label": "Amplitude / Initial Disp.", "min": 0.1, "max": 2.0,
+             "step": 0.1, "default": 1.0, "unit": "m", "group": "Input"},
+            {"type": "slider", "name": "simulation_time", "label": "Duration", "min": 2, "max": 20,
+             "step": 1, "default": 10, "unit": "s", "group": "Simulation"},
+            # Controller selection
+            {"type": "select", "name": "controller", "label": "Controller",
+             "options": [
+                 {"value": "none", "label": "No Control (Passive)"},
+                 {"value": "pid", "label": "PID"},
+                 {"value": "lqr", "label": "LQR (Optimal)"},
+                 {"value": "pole_placement", "label": "Pole Placement"},
+                 {"value": "lqg", "label": "LQG (Observer)"},
+             ],
+             "default": "none", "group": "Controller"},
+            # PID
+            {"type": "slider", "name": "pid_Kp", "label": "Kp", "min": 0, "max": 200,
+             "step": 1, "default": 50, "group": "PID Gains",
+             "visible_when": {"controller": "pid"}},
+            {"type": "slider", "name": "pid_Ki", "label": "Ki", "min": 0, "max": 50,
+             "step": 0.5, "default": 10, "group": "PID Gains",
+             "visible_when": {"controller": "pid"}},
+            {"type": "slider", "name": "pid_Kd", "label": "Kd", "min": 0, "max": 50,
+             "step": 0.5, "default": 15, "group": "PID Gains",
+             "visible_when": {"controller": "pid"}},
+            # LQR
+            {"type": "slider", "name": "lqr_q_y", "label": "Q₁₁ (position weight)", "min": 0.1, "max": 100,
+             "step": 0.1, "default": 10.0, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            {"type": "slider", "name": "lqr_q_ydot", "label": "Q₂₂ (velocity weight)", "min": 0.1, "max": 100,
+             "step": 0.1, "default": 1.0, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            {"type": "slider", "name": "lqr_r", "label": "R (effort cost)", "min": 0.01, "max": 10,
+             "step": 0.01, "default": 0.1, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            # Pole Placement
+            {"type": "slider", "name": "pp_real", "label": "Dominant pole real part", "min": -20, "max": -0.5,
+             "step": 0.1, "default": -5.0, "group": "Pole Placement",
+             "visible_when": {"controller": "pole_placement"}},
+            {"type": "slider", "name": "pp_spread", "label": "Pole spread factor", "min": 1.0, "max": 3.0,
+             "step": 0.1, "default": 1.5, "group": "Pole Placement",
+             "visible_when": {"controller": "pole_placement"}},
+            # LQG
+            {"type": "slider", "name": "lqg_q_y", "label": "Q₁₁ (position weight)", "min": 0.1, "max": 100,
+             "step": 0.1, "default": 10.0, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_q_ydot", "label": "Q₂₂ (velocity weight)", "min": 0.1, "max": 100,
+             "step": 0.1, "default": 1.0, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_r", "label": "R (effort cost)", "min": 0.01, "max": 10,
+             "step": 0.01, "default": 0.1, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_process_noise", "label": "Process noise σ²", "min": 0.001, "max": 1.0,
+             "step": 0.001, "default": 0.01, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_sensor_noise", "label": "Sensor noise σ²", "min": 0.001, "max": 1.0,
+             "step": 0.001, "default": 0.01, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
         ],
         "default_params": {
-            "mass": 1.0,
-            "spring_constant": 10.0,
-            "damping": 0.5,
-            "input_type": "step",
-            "input_frequency": 1.0,
-            "input_amplitude": 1.0,
-            "simulation_time": 10.0,
+            "mass": 1.0, "spring_constant": 10.0, "damping": 0.5,
+            "input_type": "step", "input_frequency": 1.0, "input_amplitude": 1.0,
+            "simulation_time": 10.0, "controller": "none",
+            "pid_Kp": 50, "pid_Ki": 10, "pid_Kd": 15,
+            "lqr_q_y": 10.0, "lqr_q_ydot": 1.0, "lqr_r": 0.1,
+            "pp_real": -5.0, "pp_spread": 1.5,
+            "lqg_q_y": 10.0, "lqg_q_ydot": 1.0, "lqg_r": 0.1,
+            "lqg_process_noise": 0.01, "lqg_sensor_noise": 0.01,
         },
         "plots": [
-            {"id": "response", "title": "System Response", "description": "Input x(t) and output y(t) overlaid — the system as signal transformer"},
-            {"id": "phase_portrait", "title": "Phase Portrait", "description": "y vs y\u2032 trajectory in phase plane"},
-            {"id": "energy", "title": "Energy Analysis", "description": "Kinetic, potential, dissipated (damper), and total energy over time"},
+            {"id": "response", "title": "System Response", "description": "Input/reference and output overlaid"},
+            {"id": "phase_portrait", "title": "Phase Portrait", "description": "y vs y' trajectory in phase plane"},
+            {"id": "energy", "title": "Energy Analysis", "description": "Kinetic, potential, dissipated, and total energy"},
+            {"id": "control_force", "title": "Control Force", "description": "Applied force F(t) — only shown with active controller"},
         ],
     },
     # =========================================================================
@@ -939,7 +1169,7 @@ SIMULATION_CATALOG = [
     {
         "id": "cyclic_path_detector",
         "name": "Cyclic Path Detector",
-        "description": "Detect cyclic signal paths in block diagrams. Identify feedback loops, classify systems as FIR or IIR, and test your understanding in quiz mode. Based on MIT 6.003 Lecture 2, slides 43-49.",
+        "description": "Detect cyclic signal paths in block diagrams. Identify feedback loops, classify systems as FIR or IIR, and test your understanding in quiz mode.",
         "category": "Signal Processing",
         "thumbnail": "\U0001f517",
         "tags": ["cyclic paths", "feedback", "FIR", "IIR", "block diagram", "acyclic", "discrete-time", "operator"],
@@ -949,10 +1179,10 @@ SIMULATION_CATALOG = [
                 {"value": "difference", "label": "Difference Machine"},
                 {"value": "accumulator", "label": "Accumulator"},
                 {"value": "cascaded_diff", "label": "Cascaded Difference"},
-                {"value": "slide48_a", "label": "Slide 48 \u2014 System A"},
-                {"value": "slide48_b", "label": "Slide 48 \u2014 System B"},
-                {"value": "slide48_c", "label": "Slide 48 \u2014 System C"},
-                {"value": "slide48_d", "label": "Slide 48 \u2014 System D"},
+                {"value": "slide48_a", "label": "Quiz \u2014 System A"},
+                {"value": "slide48_b", "label": "Quiz \u2014 System B"},
+                {"value": "slide48_c", "label": "Quiz \u2014 System C"},
+                {"value": "slide48_d", "label": "Quiz \u2014 System D"},
             ], "default": "difference", "group": "Diagram"},
             {"type": "select", "name": "mode", "label": "Mode", "options": [
                 {"value": "explore", "label": "Explore"},
@@ -1474,8 +1704,8 @@ SIMULATION_CATALOG = [
         "has_simulator": True,
         "controls": [
             {"type": "select", "name": "preset", "label": "Example H(z)", "options": [
-                {"value": "example_1", "label": "Slide 35: z/((z\u22120.5)(z\u22120.8))"},
-                {"value": "example_2", "label": "Slide 38: Standard PFE"},
+                {"value": "example_1", "label": "Two Real Poles: z/((z\u22120.5)(z\u22120.8))"},
+                {"value": "example_2", "label": "Standard PFE"},
                 {"value": "example_3", "label": "Repeated Pole"},
                 {"value": "example_4", "label": "Complex Poles"},
                 {"value": "example_5", "label": "Mixed Causal/Anticausal"},
@@ -1604,7 +1834,7 @@ SIMULATION_CATALOG = [
         ],
     },
     # =========================================================================
-    # Lecture 06 — Laplace Transform
+    # Laplace Transform
     # =========================================================================
     {
         "id": "laplace_roc",
@@ -1946,14 +2176,14 @@ SIMULATION_CATALOG = [
         "controls": [
             # System selection
             {"type": "select", "name": "system_preset", "label": "LTI System", "options": [
-                {"value": "lecture_example", "label": "Lecture 9: H(s) = 1/(s+2)"},
+                {"value": "first_order", "label": "First Order: H(s) = 1/(s+2)"},
                 {"value": "integrator", "label": "Integrator: H(s) = 1/s"},
                 {"value": "second_order_real", "label": "2nd Order: 1/((s+1)(s+3))"},
                 {"value": "second_order_complex", "label": "Underdamped: 1/(s\u00b2+2s+5)"},
                 {"value": "unstable", "label": "Unstable: 1/(s\u22121)"},
                 {"value": "allpass", "label": "Allpass: (s\u22121)/(s+1)"},
                 {"value": "custom", "label": "Custom Coefficients"},
-            ], "default": "lecture_example", "group": "System"},
+            ], "default": "first_order", "group": "System"},
             # Custom coefficients
             {"type": "expression", "name": "num_coeffs", "label": "Numerator N(s) coeffs", "default": "1", "placeholder": "e.g. 1 or 2, 7, 8", "group": "System", "visible_when": {"system_preset": "custom"}},
             {"type": "expression", "name": "den_coeffs", "label": "Denominator D(s) coeffs", "default": "1, 2", "placeholder": "e.g. 1, 2 or 1, 3, 4", "group": "System", "visible_when": {"system_preset": "custom"}},
@@ -1984,7 +2214,7 @@ SIMULATION_CATALOG = [
             {"type": "button", "name": "new_quiz", "label": "New Question", "group": "Mode", "visible_when": {"mode": "quiz"}},
         ],
         "default_params": {
-            "system_preset": "lecture_example",
+            "system_preset": "first_order",
             "num_coeffs": "1",
             "den_coeffs": "1, 2",
             "test_signal": "exp_neg",
@@ -2008,7 +2238,7 @@ SIMULATION_CATALOG = [
     {
         "id": "vector_freq_response",
         "name": "Vector Diagram Frequency Response",
-        "description": "Build frequency response curves from vector diagrams. Type any transfer function or pick a preset, then watch animated vectors from poles and zeros to the j\u03c9 axis trace out magnitude and phase. Based on MIT 6.003 Lecture 9.",
+        "description": "Build frequency response curves from vector diagrams. Type any transfer function or pick a preset, then watch animated vectors from poles and zeros to the j\u03c9 axis trace out magnitude and phase.",
         "category": "Transforms",
         "thumbnail": "📐",
         "tags": [
@@ -3409,17 +3639,361 @@ SIMULATION_CATALOG = [
             {"id": "eigenvalue_plot", "title": "Eigenvalue Map", "description": "Open-loop (\u00d7) and closed-loop (\u25cf) eigenvalues in the s-plane"},
         ],
     },
+
+    # =========================================================================
+    # INVERTED PENDULUM 3D — Physics Lab with Swappable Controllers
+    # =========================================================================
+    {
+        "id": "inverted_pendulum_3d",
+        "name": "Inverted Pendulum 3D",
+        "description": (
+            "3D visualization of a cart-pendulum system with swappable controllers. "
+            "Watch the physics unfold in real-time Three.js 3D as you switch between "
+            "No Control, PID, LQR, Pole Placement, and LQG. Full nonlinear dynamics "
+            "with RK45 integration, analysis plots, and controller design parameters."
+        ),
+        "category": "Control Systems",
+        "thumbnail": "\U0001f3ae",
+        "tags": [
+            "3D", "inverted pendulum", "cart-pole", "PID", "LQR",
+            "pole placement", "LQG", "Kalman filter", "nonlinear",
+            "state feedback", "physics", "Three.js", "animation",
+        ],
+        "has_simulator": True,
+        "controls": [
+            # Plant
+            {"type": "slider", "name": "cart_mass", "label": "Cart Mass M",
+             "min": 0.5, "max": 5.0, "step": 0.1, "default": 1.0, "unit": "kg",
+             "group": "Plant"},
+            {"type": "slider", "name": "pend_mass", "label": "Pendulum Mass m",
+             "min": 0.05, "max": 1.0, "step": 0.05, "default": 0.2, "unit": "kg",
+             "group": "Plant"},
+            {"type": "slider", "name": "pend_length", "label": "Pendulum Length l",
+             "min": 0.2, "max": 1.5, "step": 0.1, "default": 0.5, "unit": "m",
+             "group": "Plant"},
+            {"type": "slider", "name": "initial_angle", "label": "Initial Angle from Upright",
+             "min": -30, "max": 30, "step": 1, "default": 10, "unit": "deg",
+             "group": "Plant"},
+            # Controller selection
+            {"type": "select", "name": "controller", "label": "Controller",
+             "options": [
+                 {"value": "none", "label": "No Control"},
+                 {"value": "pid", "label": "PID"},
+                 {"value": "lqr", "label": "LQR (Optimal)"},
+                 {"value": "pole_placement", "label": "Pole Placement"},
+                 {"value": "lqg", "label": "LQG (Observer)"},
+             ],
+             "default": "lqr", "group": "Controller"},
+            # PID
+            {"type": "slider", "name": "pid_Kp", "label": "Kp", "min": 0, "max": 200,
+             "step": 1, "default": 100, "group": "PID Gains",
+             "visible_when": {"controller": "pid"}},
+            {"type": "slider", "name": "pid_Ki", "label": "Ki", "min": 0, "max": 50,
+             "step": 0.5, "default": 10, "group": "PID Gains",
+             "visible_when": {"controller": "pid"}},
+            {"type": "slider", "name": "pid_Kd", "label": "Kd", "min": 0, "max": 50,
+             "step": 0.5, "default": 20, "group": "PID Gains",
+             "visible_when": {"controller": "pid"}},
+            # LQR
+            {"type": "slider", "name": "lqr_q_x", "label": "Q₁₁ (cart pos weight)",
+             "min": 0.1, "max": 100, "step": 0.1, "default": 1.0, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            {"type": "slider", "name": "lqr_q_theta", "label": "Q₃₃ (angle weight)",
+             "min": 0.1, "max": 100, "step": 0.1, "default": 10.0, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            {"type": "slider", "name": "lqr_r", "label": "R (effort cost)",
+             "min": 0.01, "max": 10, "step": 0.01, "default": 0.1, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            # Pole Placement
+            {"type": "slider", "name": "pp_real", "label": "Dominant pole real part",
+             "min": -10, "max": -0.5, "step": 0.1, "default": -3.0, "group": "Pole Placement",
+             "visible_when": {"controller": "pole_placement"}},
+            {"type": "slider", "name": "pp_spread", "label": "Pole spread factor",
+             "min": 1.0, "max": 3.0, "step": 0.1, "default": 1.5, "group": "Pole Placement",
+             "visible_when": {"controller": "pole_placement"}},
+            # LQG
+            {"type": "slider", "name": "lqg_q_x", "label": "Q₁₁ (cart pos weight)",
+             "min": 0.1, "max": 100, "step": 0.1, "default": 1.0, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_q_theta", "label": "Q₃₃ (angle weight)",
+             "min": 0.1, "max": 100, "step": 0.1, "default": 10.0, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_r", "label": "R (effort cost)",
+             "min": 0.01, "max": 10, "step": 0.01, "default": 0.1, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_process_noise", "label": "Process noise σ²",
+             "min": 0.001, "max": 1.0, "step": 0.001, "default": 0.01, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_sensor_noise", "label": "Sensor noise σ²",
+             "min": 0.001, "max": 1.0, "step": 0.001, "default": 0.01, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+        ],
+        "default_params": {
+            "cart_mass": 1.0, "pend_mass": 0.2, "pend_length": 0.5,
+            "initial_angle": 10, "controller": "lqr",
+            "pid_Kp": 100, "pid_Ki": 10, "pid_Kd": 20,
+            "lqr_q_x": 1.0, "lqr_q_theta": 10.0, "lqr_r": 0.1,
+            "pp_real": -3.0, "pp_spread": 1.5,
+            "lqg_q_x": 1.0, "lqg_q_theta": 10.0, "lqg_r": 0.1,
+            "lqg_process_noise": 0.01, "lqg_sensor_noise": 0.01,
+        },
+        "plots": [
+            {"id": "angle", "title": "Pendulum Angle", "description": "Deviation from upright position over time"},
+            {"id": "cart_pos", "title": "Cart Position", "description": "Cart horizontal displacement"},
+            {"id": "control", "title": "Control Force", "description": "Applied force from controller"},
+            {"id": "phase", "title": "Phase Portrait", "description": "θ vs θ̇ trajectory in state space"},
+            {"id": "poles", "title": "Pole Map", "description": "Open-loop and closed-loop pole locations"},
+        ],
+    },
+
+    # =========================================================================
+    # BALL & BEAM 3D — Physics Lab with Swappable Controllers
+    # =========================================================================
+    {
+        "id": "ball_beam_3d",
+        "name": "Ball & Beam 3D",
+        "description": (
+            "3D visualization of a ball rolling on a tilting beam with swappable controllers. "
+            "Watch the physics unfold in real-time Three.js 3D as you switch between "
+            "No Control, PID, LQR, Pole Placement, and LQG. Full nonlinear dynamics "
+            "with RK45 integration, analysis plots, and controller design parameters."
+        ),
+        "category": "Control Systems",
+        "thumbnail": "\U0001f3b1",
+        "tags": [
+            "3D", "ball and beam", "balancing", "PID", "LQR",
+            "pole placement", "LQG", "Kalman filter", "nonlinear",
+            "state feedback", "physics", "Three.js", "animation",
+        ],
+        "has_simulator": True,
+        "controls": [
+            # Plant
+            {"type": "slider", "name": "beam_length", "label": "Beam Length",
+             "min": 0.5, "max": 2.0, "step": 0.1, "default": 1.0, "unit": "m",
+             "group": "Plant"},
+            {"type": "slider", "name": "ball_mass", "label": "Ball Mass m",
+             "min": 0.05, "max": 0.5, "step": 0.01, "default": 0.1, "unit": "kg",
+             "group": "Plant"},
+            {"type": "slider", "name": "ball_radius", "label": "Ball Radius",
+             "min": 0.01, "max": 0.05, "step": 0.005, "default": 0.015, "unit": "m",
+             "group": "Plant"},
+            {"type": "slider", "name": "initial_ball_pos", "label": "Initial Ball Position",
+             "min": -0.4, "max": 0.4, "step": 0.01, "default": 0.2, "unit": "m",
+             "group": "Plant"},
+            # Controller selection
+            {"type": "select", "name": "controller", "label": "Controller",
+             "options": [
+                 {"value": "none", "label": "No Control"},
+                 {"value": "pid", "label": "PID"},
+                 {"value": "lqr", "label": "LQR (Optimal)"},
+                 {"value": "pole_placement", "label": "Pole Placement"},
+                 {"value": "lqg", "label": "LQG (Observer)"},
+             ],
+             "default": "lqr", "group": "Controller"},
+            # PID
+            {"type": "slider", "name": "pid_Kp", "label": "Kp", "min": 0, "max": 50,
+             "step": 0.5, "default": 15, "group": "PID Gains",
+             "visible_when": {"controller": "pid"}},
+            {"type": "slider", "name": "pid_Ki", "label": "Ki", "min": 0, "max": 20,
+             "step": 0.5, "default": 2, "group": "PID Gains",
+             "visible_when": {"controller": "pid"}},
+            {"type": "slider", "name": "pid_Kd", "label": "Kd", "min": 0, "max": 20,
+             "step": 0.5, "default": 8, "group": "PID Gains",
+             "visible_when": {"controller": "pid"}},
+            # LQR
+            {"type": "slider", "name": "lqr_q_r", "label": "Q\u2081\u2081 (ball pos weight)",
+             "min": 0.1, "max": 100, "step": 0.1, "default": 10.0, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            {"type": "slider", "name": "lqr_q_alpha", "label": "Q\u2083\u2083 (beam angle weight)",
+             "min": 0.1, "max": 100, "step": 0.1, "default": 1.0, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            {"type": "slider", "name": "lqr_r", "label": "R (effort cost)",
+             "min": 0.01, "max": 10, "step": 0.01, "default": 0.1, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            # Pole Placement
+            {"type": "slider", "name": "pp_real", "label": "Dominant pole real part",
+             "min": -10, "max": -0.5, "step": 0.1, "default": -2.0, "group": "Pole Placement",
+             "visible_when": {"controller": "pole_placement"}},
+            {"type": "slider", "name": "pp_spread", "label": "Pole spread factor",
+             "min": 1.0, "max": 3.0, "step": 0.1, "default": 1.5, "group": "Pole Placement",
+             "visible_when": {"controller": "pole_placement"}},
+            # LQG
+            {"type": "slider", "name": "lqg_q_r", "label": "Q\u2081\u2081 (ball pos weight)",
+             "min": 0.1, "max": 100, "step": 0.1, "default": 10.0, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_q_alpha", "label": "Q\u2083\u2083 (beam angle weight)",
+             "min": 0.1, "max": 100, "step": 0.1, "default": 1.0, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_r", "label": "R (effort cost)",
+             "min": 0.01, "max": 10, "step": 0.01, "default": 0.1, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_process_noise", "label": "Process noise \u03c3\u00b2",
+             "min": 0.001, "max": 1.0, "step": 0.001, "default": 0.01, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_sensor_noise", "label": "Sensor noise \u03c3\u00b2",
+             "min": 0.001, "max": 1.0, "step": 0.001, "default": 0.01, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+        ],
+        "default_params": {
+            "beam_length": 1.0, "ball_mass": 0.1, "ball_radius": 0.015,
+            "initial_ball_pos": 0.2, "controller": "lqr",
+            "pid_Kp": 15, "pid_Ki": 2, "pid_Kd": 8,
+            "lqr_q_r": 10.0, "lqr_q_alpha": 1.0, "lqr_r": 0.1,
+            "pp_real": -2.0, "pp_spread": 1.5,
+            "lqg_q_r": 10.0, "lqg_q_alpha": 1.0, "lqg_r": 0.1,
+            "lqg_process_noise": 0.01, "lqg_sensor_noise": 0.01,
+        },
+        "plots": [
+            {"id": "ball_pos", "title": "Ball Position", "description": "Ball displacement along beam over time"},
+            {"id": "beam_angle", "title": "Beam Angle", "description": "Beam tilt angle over time"},
+            {"id": "control", "title": "Control Torque", "description": "Applied torque from controller"},
+            {"id": "phase", "title": "Phase Portrait", "description": "r vs r-dot trajectory in state space"},
+            {"id": "poles", "title": "Pole Map", "description": "Open-loop and closed-loop pole locations"},
+        ],
+    },
+
+    # =========================================================================
+    # COUPLED TANKS 3D — MIMO Physics Lab with Swappable Controllers
+    # =========================================================================
+    {
+        "id": "coupled_tanks_3d",
+        "name": "Coupled Tanks 3D",
+        "description": (
+            "3D visualization of a coupled-tank MIMO system with swappable controllers. "
+            "Two tanks connected by a pipe \u2014 Tank 1 drains into Tank 2. Watch water levels "
+            "animate in real-time Three.js 3D as you switch between No Control, Dual PID, "
+            "LQR, Pole Placement, and LQG. Full nonlinear dynamics with RK45 integration."
+        ),
+        "category": "Control Systems",
+        "thumbnail": "\U0001f4a7",
+        "tags": [
+            "3D", "coupled tanks", "MIMO", "dual PID", "LQR",
+            "pole placement", "LQG", "Kalman filter", "nonlinear",
+            "state feedback", "physics", "Three.js", "animation",
+            "water level", "process control",
+        ],
+        "has_simulator": True,
+        "controls": [
+            # Plant
+            {"type": "slider", "name": "tank_area", "label": "Tank Cross-Section A",
+             "min": 0.5, "max": 2.0, "step": 0.1, "default": 1.0, "unit": "m\u00b2",
+             "group": "Plant"},
+            {"type": "slider", "name": "orifice_area", "label": "Orifice Area a",
+             "min": 0.1, "max": 0.5, "step": 0.01, "default": 0.2, "unit": "m\u00b2",
+             "group": "Plant"},
+            {"type": "slider", "name": "initial_h1", "label": "Initial h\u2081",
+             "min": 0.2, "max": 2.0, "step": 0.05, "default": 0.5, "unit": "m",
+             "group": "Plant"},
+            {"type": "slider", "name": "initial_h2", "label": "Initial h\u2082",
+             "min": 0.1, "max": 2.0, "step": 0.05, "default": 0.3, "unit": "m",
+             "group": "Plant"},
+            # Controller selection
+            {"type": "select", "name": "controller", "label": "Controller",
+             "options": [
+                 {"value": "none", "label": "No Control"},
+                 {"value": "pid", "label": "Dual PID"},
+                 {"value": "lqr", "label": "LQR (Optimal)"},
+                 {"value": "pole_placement", "label": "Pole Placement"},
+                 {"value": "lqg", "label": "LQG (Observer)"},
+             ],
+             "default": "lqr", "group": "Controller"},
+            # PID Loop 1
+            {"type": "slider", "name": "pid1_Kp", "label": "PID\u2081 Kp", "min": 0, "max": 20,
+             "step": 0.1, "default": 5.0, "group": "PID Gains (h\u2081\u2192q\u2081)",
+             "visible_when": {"controller": "pid"}},
+            {"type": "slider", "name": "pid1_Ki", "label": "PID\u2081 Ki", "min": 0, "max": 10,
+             "step": 0.1, "default": 2.0, "group": "PID Gains (h\u2081\u2192q\u2081)",
+             "visible_when": {"controller": "pid"}},
+            {"type": "slider", "name": "pid1_Kd", "label": "PID\u2081 Kd", "min": 0, "max": 10,
+             "step": 0.1, "default": 1.0, "group": "PID Gains (h\u2081\u2192q\u2081)",
+             "visible_when": {"controller": "pid"}},
+            # PID Loop 2
+            {"type": "slider", "name": "pid2_Kp", "label": "PID\u2082 Kp", "min": 0, "max": 20,
+             "step": 0.1, "default": 5.0, "group": "PID Gains (h\u2082\u2192q\u2082)",
+             "visible_when": {"controller": "pid"}},
+            {"type": "slider", "name": "pid2_Ki", "label": "PID\u2082 Ki", "min": 0, "max": 10,
+             "step": 0.1, "default": 2.0, "group": "PID Gains (h\u2082\u2192q\u2082)",
+             "visible_when": {"controller": "pid"}},
+            {"type": "slider", "name": "pid2_Kd", "label": "PID\u2082 Kd", "min": 0, "max": 10,
+             "step": 0.1, "default": 1.0, "group": "PID Gains (h\u2082\u2192q\u2082)",
+             "visible_when": {"controller": "pid"}},
+            # LQR
+            {"type": "slider", "name": "lqr_q_h1", "label": "Q\u2081\u2081 (h\u2081 weight)",
+             "min": 0.1, "max": 100, "step": 0.1, "default": 10.0, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            {"type": "slider", "name": "lqr_q_h2", "label": "Q\u2082\u2082 (h\u2082 weight)",
+             "min": 0.1, "max": 100, "step": 0.1, "default": 10.0, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            {"type": "slider", "name": "lqr_r1", "label": "R\u2081\u2081 (q\u2081 effort)",
+             "min": 0.01, "max": 10, "step": 0.01, "default": 1.0, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            {"type": "slider", "name": "lqr_r2", "label": "R\u2082\u2082 (q\u2082 effort)",
+             "min": 0.01, "max": 10, "step": 0.01, "default": 1.0, "group": "LQR Weights",
+             "visible_when": {"controller": "lqr"}},
+            # Pole Placement
+            {"type": "slider", "name": "pp_real", "label": "Dominant pole real part",
+             "min": -5, "max": -0.2, "step": 0.1, "default": -1.5, "group": "Pole Placement",
+             "visible_when": {"controller": "pole_placement"}},
+            {"type": "slider", "name": "pp_spread", "label": "Pole spread factor",
+             "min": 1.0, "max": 3.0, "step": 0.1, "default": 1.5, "group": "Pole Placement",
+             "visible_when": {"controller": "pole_placement"}},
+            # LQG
+            {"type": "slider", "name": "lqg_q_h1", "label": "Q\u2081\u2081 (h\u2081 weight)",
+             "min": 0.1, "max": 100, "step": 0.1, "default": 10.0, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_q_h2", "label": "Q\u2082\u2082 (h\u2082 weight)",
+             "min": 0.1, "max": 100, "step": 0.1, "default": 10.0, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_r1", "label": "R\u2081\u2081 (q\u2081 effort)",
+             "min": 0.01, "max": 10, "step": 0.01, "default": 1.0, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_r2", "label": "R\u2082\u2082 (q\u2082 effort)",
+             "min": 0.01, "max": 10, "step": 0.01, "default": 1.0, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_process_noise", "label": "Process noise \u03c3\u00b2",
+             "min": 0.001, "max": 1.0, "step": 0.001, "default": 0.01, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+            {"type": "slider", "name": "lqg_sensor_noise", "label": "Sensor noise \u03c3\u00b2",
+             "min": 0.001, "max": 1.0, "step": 0.001, "default": 0.01, "group": "LQG Design",
+             "visible_when": {"controller": "lqg"}},
+        ],
+        "default_params": {
+            "tank_area": 1.0, "orifice_area": 0.2,
+            "initial_h1": 0.5, "initial_h2": 0.3, "controller": "lqr",
+            "pid1_Kp": 5.0, "pid1_Ki": 2.0, "pid1_Kd": 1.0,
+            "pid2_Kp": 5.0, "pid2_Ki": 2.0, "pid2_Kd": 1.0,
+            "lqr_q_h1": 10.0, "lqr_q_h2": 10.0, "lqr_r1": 1.0, "lqr_r2": 1.0,
+            "pp_real": -1.5, "pp_spread": 1.5,
+            "lqg_q_h1": 10.0, "lqg_q_h2": 10.0, "lqg_r1": 1.0, "lqg_r2": 1.0,
+            "lqg_process_noise": 0.01, "lqg_sensor_noise": 0.01,
+        },
+        "plots": [
+            {"id": "levels", "title": "Tank Water Levels", "description": "h1 and h2 water levels over time with reference lines"},
+            {"id": "control", "title": "Pump Flow Rates", "description": "Control inputs q1 and q2 from each pump"},
+            {"id": "phase", "title": "Phase Portrait", "description": "h1 vs h2 trajectory in state space"},
+            {"id": "poles", "title": "Pole Map", "description": "Open-loop and closed-loop pole locations"},
+        ],
+    },
 ]
 
 
 def get_all_simulations():
-    """Return all simulations with category info."""
+    """Return all simulations with category and section info."""
     result = []
     for sim in SIMULATION_CATALOG:
         sim_copy = sim.copy()
         sim_copy["category_info"] = CATEGORIES.get(sim["category"], {})
+        section_key, section_order = SECTION_MAP.get(sim["id"], ("signals", 99))
+        sim_copy["section"] = section_key
+        sim_copy["section_order"] = section_order
+        sim_copy["section_info"] = SECTIONS.get(section_key, {})
         result.append(sim_copy)
     return result
+
+
+def get_sections():
+    """Return all sections with metadata."""
+    return SECTIONS
 
 
 def get_simulation_by_id(sim_id: str):

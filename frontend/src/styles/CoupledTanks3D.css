@@ -1,0 +1,295 @@
+/* =========================================
+   Coupled Tanks 3D — Physics Lab Viewer
+   ========================================= */
+
+.ct3d-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md, 12px);
+  width: 100%;
+}
+
+/* --- 3D Viewport --- */
+.ct3d-viewport-section {
+  width: 100%;
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  border: 1px solid var(--border-color, #1e293b);
+  background: var(--surface-color, #131b2e);
+}
+
+.ct3d-animation-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.ct3d-canvas-3d {
+  width: 100%;
+  height: 420px;
+  position: relative;
+  cursor: grab;
+}
+
+.ct3d-canvas-3d:active {
+  cursor: grabbing;
+}
+
+.ct3d-canvas-3d canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.ct3d-3d-hint {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-size: 11px;
+  color: var(--text-muted, #64748b);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* --- Animation Controls --- */
+.ct3d-animation-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(10, 14, 39, 0.8);
+  border-top: 1px solid var(--border-color, #1e293b);
+}
+
+.ct3d-ctrl-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border-color, #1e293b);
+  background: var(--surface-color, #131b2e);
+  color: var(--text-primary, #f1f5f9);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all var(--transition-fast, 150ms);
+}
+
+.ct3d-ctrl-btn:hover {
+  border-color: var(--primary-color, #14b8a6);
+  background: var(--surface-hover, #1e293b);
+}
+
+.ct3d-speed-btn {
+  width: auto;
+  padding: 0 10px;
+  font-size: 12px;
+  font-family: var(--font-mono, 'Fira Code', monospace);
+}
+
+.ct3d-time-label {
+  font-size: 12px;
+  font-family: var(--font-mono, 'Fira Code', monospace);
+  color: var(--text-secondary, #94a3b8);
+  margin-left: 4px;
+}
+
+.ct3d-stability-badge {
+  margin-left: auto;
+  padding: 2px 10px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ct3d-stability-badge.stable {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success-color, #10b981);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.ct3d-stability-badge.unstable {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error-color, #ef4444);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* --- Metrics Strip --- */
+.ct3d-metrics-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--surface-color, #131b2e);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, #1e293b);
+}
+
+.ct3d-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 12px;
+  min-width: 80px;
+}
+
+.ct3d-metric-label {
+  font-size: 10px;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ct3d-metric-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+  font-family: var(--font-mono, 'Fira Code', monospace);
+}
+
+.ct3d-metric-value.stable {
+  color: var(--success-color, #10b981);
+}
+
+.ct3d-metric-value.unstable {
+  color: var(--error-color, #ef4444);
+}
+
+/* --- Controller Details --- */
+.ct3d-controller-details {
+  background: var(--surface-color, #131b2e);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, #1e293b);
+  overflow: hidden;
+}
+
+.ct3d-controller-details summary {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary, #94a3b8);
+  user-select: none;
+  transition: color var(--transition-fast, 150ms);
+}
+
+.ct3d-controller-details summary:hover {
+  color: var(--text-primary, #f1f5f9);
+}
+
+.ct3d-controller-details[open] summary {
+  border-bottom: 1px solid var(--border-color, #1e293b);
+}
+
+.ct3d-details-content {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ct3d-detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ct3d-detail-label {
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.ct3d-detail-value {
+  font-size: 12px;
+  color: var(--text-primary, #f1f5f9);
+  word-break: break-all;
+}
+
+.ct3d-mono {
+  font-family: var(--font-mono, 'Fira Code', monospace);
+}
+
+/* --- Plots Grid --- */
+.ct3d-plots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 10px;
+}
+
+.ct3d-plot-cell {
+  background: var(--surface-color, #131b2e);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, #1e293b);
+  overflow: hidden;
+  min-height: 280px;
+}
+
+.ct3d-plot-cell .js-plotly-plot {
+  width: 100% !important;
+}
+
+/* --- Loading --- */
+.ct3d-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 420px;
+  color: var(--text-muted, #64748b);
+  font-size: 14px;
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+  .ct3d-canvas-3d {
+    height: 300px;
+  }
+
+  .ct3d-metrics-strip {
+    gap: 4px;
+  }
+
+  .ct3d-metric {
+    min-width: 60px;
+    padding: 4px 8px;
+  }
+
+  .ct3d-plots-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Light theme --- */
+[data-theme="light"] .ct3d-viewport-section {
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .ct3d-animation-controls {
+  background: rgba(248, 250, 252, 0.9);
+  border-top-color: #e2e8f0;
+}
+
+[data-theme="light"] .ct3d-ctrl-btn {
+  border-color: #e2e8f0;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+[data-theme="light"] .ct3d-metrics-strip {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .ct3d-controller-details {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .ct3d-plot-cell {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}

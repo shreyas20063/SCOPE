@@ -575,6 +575,60 @@ a {
   background: var(--primary-hover);
 }
 
+/* Sections Container */
+.sections-container {
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+}
+
+.section-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--section-color) 8%, transparent), transparent 70%);
+  border-left: 3px solid var(--section-color);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.section-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.section-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.section-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+.section-count {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--section-color);
+  background: color-mix(in srgb, var(--section-color) 12%, transparent);
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  min-width: 1.75rem;
+  text-align: center;
+}
+
 /* Simulations Grid */
 .simulations-grid {
   display: grid;
@@ -1133,6 +1187,20 @@ a {
 
   .simulations-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sections-container {
+    gap: 2rem;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .section-subtitle {
+    font-size: 0.75rem;
   }
 
   .app-main {
