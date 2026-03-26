@@ -276,6 +276,10 @@
   border-radius: var(--radius-sm);
 }
 
+.ncl-derivation-label--spaced {
+  margin-top: 8px;
+}
+
 .ncl-derivation-math .katex {
   font-size: 14px;
 }
@@ -324,6 +328,12 @@
    Responsive
    -------------------------------------------------------------------------- */
 
+@media (max-width: 1024px) {
+  .ncl-phase-column {
+    flex: 0 0 50%;
+  }
+}
+
 @media (max-width: 768px) {
   .ncl-main-layout {
     flex-direction: column;
@@ -362,7 +372,11 @@
 }
 
 [data-theme="light"] .ncl-canvas-container {
-  background: #f8fafc;
+  background: var(--background-secondary);
+}
+
+[data-theme="light"] .ncl-metric-badge.not-controllable {
+  background: rgba(239, 68, 68, 0.1);
 }
 
 [data-theme="light"] .ncl-error-banner {

@@ -35,6 +35,7 @@ function CoupledTanks3D({ animation, isStable }) {
   const lastFrameTimeRef = useRef(0);
   const playingRef = useRef(true);
   const speedRef = useRef(1);
+  const animationRef = useRef(null);
 
   const [isPlaying, setIsPlaying] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
@@ -119,7 +120,23 @@ function CoupledTanks3D({ animation, isStable }) {
 
     clockRef.current.start();
     let animId;
-    const renderLoop = () => {
+    const renderLoop = (ts) => {
+      // Frame advancement (merged from separate animation loop)
+      const anim = animationRef.current;
+      if (anim && anim.num_frames >= 2 && playingRef.current) {
+        const frameDt = (anim.dt || 0.04) * 1000;
+        const elapsed = ts - lastFrameTimeRef.current;
+        const adjusted = frameDt / speedRef.current;
+        if (elapsed >= adjusted) {
+          lastFrameTimeRef.current = ts;
+          frameRef.current = (frameRef.current + 1) % anim.num_frames;
+          setCurrentTime(anim.t[frameRef.current] || 0);
+        }
+      }
+      if (anim) {
+        updatePositions(anim, frameRef.current);
+      }
+
       controls.update();
       updateGlowEffects(clockRef.current.getElapsedTime());
       renderer.render(scene, camera);
@@ -130,6 +147,10 @@ function CoupledTanks3D({ animation, isStable }) {
     return () => {
       cancelAnimationFrame(animId);
       resizeObs.disconnect();
+      if (controlsRef.current) {
+        controlsRef.current.dispose();
+        controlsRef.current = null;
+      }
       renderer.dispose();
       scene.traverse((obj) => {
         if (obj.geometry) obj.geometry.dispose();
@@ -423,13 +444,13 @@ function CoupledTanks3D({ animation, isStable }) {
     const droplets1 = [];
     const droplets2 = [];
 
+    const dropletGeoTemplate = new THREE.SphereGeometry(0.015, 6, 6);
     for (let i = 0; i < NUM_DROPLETS; i++) {
-      // Tank 1 droplets
-      const dGeo = new THREE.SphereGeometry(0.015, 6, 6);
+      // Tank 1 droplets — each gets its own geometry clone
       const dMat1 = new THREE.MeshBasicMaterial({
         color: COLORS.droplet1, transparent: true, opacity: 0.7,
       });
-      const d1 = new THREE.Mesh(dGeo, dMat1);
+      const d1 = new THREE.Mesh(dropletGeoTemplate.clone(), dMat1);
       d1.position.set(tankX1, MAX_TANK_HEIGHT, 0);
       d1.visible = false;
       scene.add(d1);
@@ -439,12 +460,13 @@ function CoupledTanks3D({ animation, isStable }) {
       const dMat2 = new THREE.MeshBasicMaterial({
         color: COLORS.droplet2, transparent: true, opacity: 0.7,
       });
-      const d2 = new THREE.Mesh(dGeo.clone(), dMat2);
+      const d2 = new THREE.Mesh(dropletGeoTemplate.clone(), dMat2);
       d2.position.set(tankX2, MAX_TANK_HEIGHT, 0);
       d2.visible = false;
       scene.add(d2);
       droplets2.push({ mesh: d2, mat: dMat2, phase: i / NUM_DROPLETS, active: false });
     }
+    dropletGeoTemplate.dispose();
 
     obj.droplets1 = droplets1;
     obj.droplets2 = droplets2;
@@ -570,34 +592,9 @@ function CoupledTanks3D({ animation, isStable }) {
     return cleanup;
   }, [initScene]);
 
-  // Animation loop
+  // Track animation data in ref for the merged render loop
   useEffect(() => {
-    if (!animation || animation.num_frames < 2) return;
-
-    const frameDt = (animation.dt || 0.04) * 1000;
-    lastFrameTimeRef.current = performance.now();
-    let animId;
-
-    const loop = (ts) => {
-      if (playingRef.current) {
-        const elapsed = ts - lastFrameTimeRef.current;
-        const adjusted = frameDt / speedRef.current;
-        if (elapsed >= adjusted) {
-          lastFrameTimeRef.current = ts;
-          frameRef.current = (frameRef.current + 1) % animation.num_frames;
-          setCurrentTime(animation.t[frameRef.current] || 0);
-        }
-      }
-      updatePositions(animation, frameRef.current);
-      animId = requestAnimationFrame(loop);
-    };
-
-    animId = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(animId);
-  }, [animation, updatePositions]);
-
-  // Reset on data change
-  useEffect(() => {
+    animationRef.current = animation;
     frameRef.current = 0;
     lastFrameTimeRef.current = performance.now();
     setCurrentTime(0);
@@ -619,19 +616,19 @@ function CoupledTanks3D({ animation, isStable }) {
 
   return (
     <div className="ct3d-animation-panel">
-      <div ref={containerRef} className="ct3d-canvas-3d">
+      <div ref={containerRef} className="ct3d-canvas-3d" role="img" aria-label="3D coupled tanks visualization">
         <div className="ct3d-3d-hint">
           Drag to rotate &middot; Scroll to zoom
         </div>
       </div>
       <div className="ct3d-animation-controls">
-        <button className="ct3d-ctrl-btn" onClick={togglePlay} title={isPlaying ? 'Pause' : 'Play'}>
+        <button className="ct3d-ctrl-btn" onClick={togglePlay} aria-label={isPlaying ? 'Pause animation' : 'Play animation'} title={isPlaying ? 'Pause' : 'Play'}>
           {isPlaying ? '\u23F8' : '\u25B6'}
         </button>
-        <button className="ct3d-ctrl-btn" onClick={restart} title="Restart">
+        <button className="ct3d-ctrl-btn" onClick={restart} aria-label="Restart animation" title="Restart">
           {'\u21BA'}
         </button>
-        <button className="ct3d-ctrl-btn ct3d-speed-btn" onClick={cycleSpeed} title="Speed">
+        <button className="ct3d-ctrl-btn ct3d-speed-btn" onClick={cycleSpeed} aria-label={`Playback speed: ${speed}x`} title={`Speed: ${speed}x`}>
           {speed}&times;
         </button>
         <span className="ct3d-time-label">

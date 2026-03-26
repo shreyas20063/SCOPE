@@ -56,8 +56,8 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: rgba(10, 14, 39, 0.8);
-  border-top: 1px solid var(--border-color, #1e293b);
+  background: var(--surface-color);
+  border-top: 1px solid var(--border-color);
 }
 
 .ct3d-ctrl-btn {
@@ -264,32 +264,25 @@
 }
 
 /* --- Light theme --- */
-[data-theme="light"] .ct3d-viewport-section {
-  border-color: #e2e8f0;
+[data-theme="light"] .ct3d-viewport-section,
+[data-theme="light"] .ct3d-metrics-strip,
+[data-theme="light"] .ct3d-controller-details,
+[data-theme="light"] .ct3d-plot-cell {
+  background: rgba(255, 255, 255, 0.98);
 }
 
 [data-theme="light"] .ct3d-animation-controls {
-  background: rgba(248, 250, 252, 0.9);
-  border-top-color: #e2e8f0;
+  background: rgba(248, 250, 252, 0.95);
 }
 
 [data-theme="light"] .ct3d-ctrl-btn {
-  border-color: #e2e8f0;
-  background: #ffffff;
-  color: #1e293b;
+  background: rgba(255, 255, 255, 0.98);
 }
 
-[data-theme="light"] .ct3d-metrics-strip {
-  background: #ffffff;
-  border-color: #e2e8f0;
+[data-theme="light"] .ct3d-stability-badge.stable {
+  background: rgba(16, 185, 129, 0.1);
 }
 
-[data-theme="light"] .ct3d-controller-details {
-  background: #ffffff;
-  border-color: #e2e8f0;
-}
-
-[data-theme="light"] .ct3d-plot-cell {
-  background: #ffffff;
-  border-color: #e2e8f0;
+[data-theme="light"] .ct3d-stability-badge.unstable {
+  background: rgba(239, 68, 68, 0.1);
 }

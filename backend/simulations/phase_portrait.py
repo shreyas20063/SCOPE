@@ -809,7 +809,7 @@ class PhasePortraitSimulator(BaseSimulator):
             "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
             "legend": {
                 "x": 1.0, "y": 1.0, "xanchor": "right",
-                "bgcolor": "rgba(19, 27, 46, 0.8)",
+                "bgcolor": "rgba(0, 0, 0, 0)",
                 "font": {"size": 11},
             },
             "hovermode": "closest",
@@ -854,7 +854,7 @@ class PhasePortraitSimulator(BaseSimulator):
             "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
             "legend": {
                 "x": 1.0, "y": 1.0, "xanchor": "right",
-                "bgcolor": "rgba(19, 27, 46, 0.8)",
+                "bgcolor": "rgba(0, 0, 0, 0)",
                 "font": {"size": 11},
             },
         }

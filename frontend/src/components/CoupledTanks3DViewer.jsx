@@ -17,15 +17,26 @@ function CoupledTanks3DViewer({ metadata, plots }) {
   const metrics = metadata?.metrics || {};
   const isStable = metrics.is_stable ?? false;
 
-  const isDark = useMemo(() => {
-    return document.documentElement.getAttribute('data-theme') !== 'light';
+  const [isDark, setIsDark] = React.useState(
+    () => document.documentElement.getAttribute('data-theme') !== 'light'
+  );
+  React.useEffect(() => {
+    const check = () => setIsDark(document.documentElement.getAttribute('data-theme') !== 'light');
+    const obs = new MutationObserver(check);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => obs.disconnect();
   }, []);
 
   // Format eigenvalues for display
   const formatEig = (eig) => {
     if (!eig) return '—';
-    const re = typeof eig === 'object' ? eig.re ?? eig[0] : (typeof eig === 'number' ? eig : parseFloat(eig));
-    const im = typeof eig === 'object' ? eig.im ?? eig[1] : 0;
+    // DataHandler serializes complex numbers as {real, imag}
+    const re = typeof eig === 'object'
+      ? (eig.real ?? eig.re ?? eig[0])
+      : (typeof eig === 'number' ? eig : parseFloat(eig));
+    const im = typeof eig === 'object'
+      ? (eig.imag ?? eig.im ?? eig[1] ?? 0)
+      : 0;
     if (typeof re !== 'number' || isNaN(re)) return String(eig);
     const reStr = re.toFixed(2);
     if (Math.abs(im) < 0.001) return reStr;
@@ -56,11 +67,13 @@ function CoupledTanks3DViewer({ metadata, plots }) {
       {/* 3D Viewport */}
       <div className="ct3d-viewport-section">
         <Suspense fallback={<div className="ct3d-loading">Loading 3D...</div>}>
-          {animation && (
+          {animation ? (
             <CoupledTanks3D
               animation={animation}
               isStable={isStable}
             />
+          ) : (
+            <div className="ct3d-loading">Waiting for simulation data...</div>
           )}
         </Suspense>
       </div>
@@ -89,7 +102,7 @@ function CoupledTanks3DViewer({ metadata, plots }) {
             <span className="ct3d-metric-value">{metrics.h2_ss_error.toFixed(3)}m</span>
           </div>
         )}
-        {metrics.settling_time != null && metrics.settling_time !== Infinity && (
+        {metrics.settling_time != null && isFinite(metrics.settling_time) && metrics.settling_time >= 0 && (
           <div className="ct3d-metric">
             <span className="ct3d-metric-label">Settling</span>
             <span className="ct3d-metric-value">{metrics.settling_time.toFixed(2)}s</span>

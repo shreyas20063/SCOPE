@@ -18,10 +18,11 @@ import '../styles/PhasePortrait.css';
 // ============================================================================
 
 function useIsDark() {
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(
+    () => document.documentElement.getAttribute('data-theme') !== 'light'
+  );
   useEffect(() => {
     const check = () => setIsDark(document.documentElement.getAttribute('data-theme') !== 'light');
-    check();
     const obs = new MutationObserver(check);
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     return () => obs.disconnect();
@@ -52,13 +53,6 @@ const EQ_COLORS = {
   center: '#8b5cf6',
   degenerate: '#64748b',
 };
-
-function formatEigenvalue(ev) {
-  const re = ev.real.toFixed(4);
-  const im = Math.abs(ev.imag);
-  if (im < 1e-8) return re;
-  return `${re} ± ${im.toFixed(4)}j`;
-}
 
 function formatComplex(ev) {
   const re = ev.real.toFixed(3);
@@ -203,6 +197,7 @@ const TrajectoryList = memo(function TrajectoryList({ trajectories, onRemove, on
               className="pp-traj-remove"
               onClick={() => onRemove(t.id)}
               title="Remove trajectory"
+              aria-label="Remove trajectory"
             >
               ×
             </button>
@@ -247,22 +242,28 @@ function PhasePortraitViewer({ metadata, plots, onButtonClick, isUpdating }) {
   const equilibria = metadata?.equilibria || [];
   const trajectories = metadata?.trajectories || [];
 
-  // Reset selected eq when equilibria change
+  // Reset selected eq when equilibria change (including preset switches)
+  const eqKey = useMemo(() => {
+    return equilibria.map(e => `${e.x1.toFixed(3)},${e.x2.toFixed(3)}`).join('|');
+  }, [equilibria]);
   useEffect(() => {
-    if (selectedEqIdx !== null && selectedEqIdx >= equilibria.length) {
-      setSelectedEqIdx(null);
-    }
-  }, [equilibria.length, selectedEqIdx]);
+    setSelectedEqIdx(null);
+  }, [eqKey]);
 
   // --- Click handler for adding trajectories ---
   const handlePlotClick = useCallback((event) => {
     if (!event?.points?.[0]) return;
     const pt = event.points[0];
-    // Only handle clicks on the phase portrait plot area (not on existing markers)
+    // Skip clicks on existing trajectory/equilibrium traces — only use empty-area clicks
+    // Trace indices 0..N are vector field arrows, equilibria markers, and trajectory lines.
+    // Use the plotly event's xaxis/yaxis coordinates for background clicks.
     const x1 = pt.x;
     const x2 = pt.y;
     if (typeof x1 !== 'number' || typeof x2 !== 'number') return;
     if (!isFinite(x1) || !isFinite(x2)) return;
+    // Filter: ignore clicks on scatter markers (equilibria, IC dots) to prevent
+    // accidentally adding trajectories on top of existing points
+    if (pt.data?.mode === 'markers' || pt.data?.mode === 'markers+text') return;
     if (onButtonClick) {
       onButtonClick('add_trajectory', { x1, x2 });
     }
@@ -291,9 +292,8 @@ function PhasePortraitViewer({ metadata, plots, onButtonClick, isUpdating }) {
         paper_bgcolor: isDark ? '#0a0e27' : 'rgba(255,255,255,0.98)',
         plot_bgcolor: isDark ? '#131b2e' : '#f8fafc',
         font: { family: 'Inter, sans-serif', size: 12, color: isDark ? '#f1f5f9' : '#1e293b' },
-        datarevision: `phase-${Date.now()}`,
+        datarevision: `phase_portrait-${plot.title}-${Date.now()}`,
         uirevision: 'phase_portrait',
-        dragmode: false,
       },
     };
   }, [plots, isDark]);
@@ -307,8 +307,8 @@ function PhasePortraitViewer({ metadata, plots, onButtonClick, isUpdating }) {
         ...plot.layout,
         paper_bgcolor: isDark ? '#0a0e27' : 'rgba(255,255,255,0.98)',
         plot_bgcolor: isDark ? '#131b2e' : '#f8fafc',
-        font: { family: 'Inter, sans-serif', size: 12, color: isDark ? '#f1f5f9' : '#94a3b8' },
-        datarevision: `time-${Date.now()}`,
+        font: { family: 'Inter, sans-serif', size: 12, color: isDark ? '#f1f5f9' : '#1e293b' },
+        datarevision: `time_series-${plot.title}-${Date.now()}`,
         uirevision: 'time_series',
       },
     };

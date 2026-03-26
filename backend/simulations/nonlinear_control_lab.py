@@ -601,10 +601,24 @@ def _simulate_linear(A: np.ndarray,
     x_out = np.zeros((n_points, n))
     u_out = np.zeros((n_points, m))
 
-    for i, t in enumerate(t_arr):
-        dx = expm(A_cl * t) @ dx0
-        x_out[i] = dx + x_eq
-        u_out[i] = (-K @ dx + u_eq.reshape(-1)).flatten()
+    # Vectorize via eigendecomposition: expm(A*t) = V @ diag(exp(lam*t)) @ V^{-1}
+    try:
+        eigenvalues, V = np.linalg.eig(A_cl)
+        V_inv = np.linalg.inv(V)
+        # exp(lam * t) for all time points — shape (n_points, n)
+        exp_lam_t = np.exp(np.outer(t_arr, eigenvalues))
+        for i in range(n_points):
+            dx = (V @ np.diag(exp_lam_t[i]) @ V_inv @ dx0).real
+            # Overflow guard: clamp to ±1e6
+            if np.any(np.abs(dx) > 1e6):
+                dx = np.clip(dx, -1e6, 1e6)
+            x_out[i] = dx + x_eq
+            u_out[i] = (-K @ dx + u_eq.reshape(-1)).flatten()
+    except np.linalg.LinAlgError:
+        # Fallback: return equilibrium (no linear prediction available)
+        for i in range(n_points):
+            x_out[i] = x_eq
+            u_out[i] = u_eq.reshape(-1)
 
     return t_arr, x_out, u_out
 
@@ -685,11 +699,11 @@ def _compute_vector_field(f_numeric: callable,
         DY_norm = DY
 
     return {
-        "x_grid": X.tolist(),
-        "y_grid": Y.tolist(),
+        "x_grid": x_vals.tolist(),
+        "y_grid": y_vals.tolist(),
         "dx": DX_norm.tolist(),
         "dy": DY_norm.tolist(),
-        "mag": mag.tolist(),
+        "magnitudes": mag.tolist(),
     }
 
 
@@ -1638,6 +1652,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
             "n_inputs": self._n_inputs,
             "is_controllable": False,
             "is_stable": False,
+            "controllability_rank": 0,
         }
         # Empty plots
         plots = [
@@ -2097,11 +2112,16 @@ class NonlinearControlLabSimulator(BaseSimulator):
         ol_eig_strs = [fmt_eig(e) for e in self._ol_eigenvalues]
         cl_eig_strs = [fmt_eig(e) for e in self._cl_eigenvalues]
 
-        # Trajectory data for canvas rendering
+        # Trajectory data for canvas rendering — transpose to (n_states, n_points)
+        # so frontend can index as stateData[stateIdx][timeIdx]
+        x_nl_raw = sim_data.get("x_nonlinear", [])
+        x_lin_raw = sim_data.get("x_linear", [])
+        x_nl_arr = np.array(x_nl_raw) if len(x_nl_raw) > 0 else np.empty((0, 0))
+        x_lin_arr = np.array(x_lin_raw) if len(x_lin_raw) > 0 else np.empty((0, 0))
         trajectory_data = {
             "t": sim_data.get("t", []),
-            "x_nonlinear": sim_data.get("x_nonlinear", []),
-            "x_linear": sim_data.get("x_linear", []),
+            "x_nonlinear": x_nl_arr.T.tolist() if x_nl_arr.size > 0 else [],
+            "x_linear": x_lin_arr.T.tolist() if x_lin_arr.size > 0 else [],
         }
 
         # Plant description

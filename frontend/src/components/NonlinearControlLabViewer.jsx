@@ -45,10 +45,11 @@ function renderLatex(latex, displayMode = false) {
 // ============================================================================
 
 function useIsDark() {
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(
+    () => document.documentElement.getAttribute('data-theme') !== 'light'
+  );
   useEffect(() => {
     const check = () => setIsDark(document.documentElement.getAttribute('data-theme') !== 'light');
-    check();
     const obs = new MutationObserver(check);
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     return () => obs.disconnect();
@@ -181,11 +182,11 @@ const PhasePortraitCanvas = memo(function PhasePortraitCanvas({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const cx = (e.clientX - rect.left) * (canvasSize.width / rect.width);
-    const cy = (e.clientY - rect.top) * (canvasSize.height / rect.height);
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
     const [sx, sy] = transform.toState(cx, cy);
     onCanvasClick(sx, sy);
-  }, [transform, onCanvasClick, canvasSize]);
+  }, [transform, onCanvasClick]);
 
   // State names for axis label overlay
   const stateNames = metadata?.state_names || [];
@@ -201,7 +202,8 @@ const PhasePortraitCanvas = memo(function PhasePortraitCanvas({
         ref={canvasRef}
         className="ncl-canvas"
         onClick={handleClick}
-        style={{ width: '100%', height: canvasSize.height + 'px' }}
+        role="img"
+        aria-label="Phase portrait canvas — click to set initial condition"
       />
       <div className="ncl-canvas-axes-label">{xLabel} vs {yLabel}</div>
       <div className="ncl-canvas-hint">Click to set initial condition</div>
@@ -449,14 +451,14 @@ function drawTrajectory(ctx, stateData, transform, opts) {
 
   // Start marker (circle)
   const [sx, sy] = transform.toCanvas(xs[0], ys[0]);
-  ctx.fillStyle = typeof color === 'string' && color.startsWith('#') ? color : '#ef4444';
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(sx, sy, 4, 0, Math.PI * 2);
   ctx.fill();
 
   // End marker (small diamond)
   const [ex, ey] = transform.toCanvas(xs[xs.length - 1], ys[ys.length - 1]);
-  ctx.fillStyle = gradientEnd || (typeof color === 'string' && color.startsWith('#') ? color : '#ef4444');
+  ctx.fillStyle = gradientEnd || color;
   ctx.beginPath();
   ctx.moveTo(ex, ey - 4);
   ctx.lineTo(ex + 4, ey);
@@ -719,7 +721,7 @@ const DerivationChain = memo(function DerivationChain({ metadata, isDark }) {
                   <React.Fragment>
                     {step.olEigenvalues && (
                       <React.Fragment>
-                        <div className="ncl-derivation-label" style={{ marginTop: 8 }}>
+                        <div className="ncl-derivation-label ncl-derivation-label--spaced">
                           Open-Loop Eigenvalues
                         </div>
                         <div className="ncl-eigenvalue-list">
@@ -734,7 +736,7 @@ const DerivationChain = memo(function DerivationChain({ metadata, isDark }) {
                         </div>
                       </React.Fragment>
                     )}
-                    <div className="ncl-derivation-label" style={{ marginTop: 4 }}>
+                    <div className="ncl-derivation-label ncl-derivation-label--spaced">
                       Closed-Loop Eigenvalues
                     </div>
                     <div className="ncl-eigenvalue-list">
@@ -823,7 +825,7 @@ function NonlinearControlLabViewer({ metadata, plots, currentParams, onParamChan
       uirevision: plotData.id,
     };
     return (
-      <div className="ncl-plot-card" key={plotData.id}>
+      <div className="ncl-plot-card" key={plotData.id} style={height ? { height: height + 'px' } : undefined}>
         <Plot
           data={plotData.data || []}
           layout={layout}
