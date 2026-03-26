@@ -4,7 +4,7 @@ A free, browser-native platform for control systems analysis and design that req
 
 A cross-simulation data hub automatically propagates and enriches system representations across the platform, eliminating manual re-entry between tools.
 
-**Paper**: *A Browser-Native Platform for Control Systems Analysis and Design*
+**Paper(To-be-reviewed)**: *A Browser-Native Platform for Control Systems Analysis and Design*
 **Authors**: Shreyas Reddy Duggimpudi and Ameer K. Mulla, IIT Dharwad
 
 ## Quick Start
