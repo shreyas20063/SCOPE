@@ -2,7 +2,7 @@
  * WebsiteLaunchAnimation
  *
  * Full-viewport brand intro animation for first website visit.
- * Neon waveform sweeps across the screen behind "Signals & Systems" title,
+ * Neon waveform sweeps across the screen behind "SCOPE" title,
  * builds to chaos, then CRT shutdown collapse.
  * Same visual language as SimulationLaunchAnimation but no device chrome.
  */
@@ -462,7 +462,7 @@ function WebsiteLaunchAnimation({ onComplete }) {
 
       <div className="website-launch-content">
         <h1 className={titleClasses}>
-          Signals &amp; Systems
+          SCOPE
         </h1>
         <p className={subClasses}>
           Interactive Learning Platform

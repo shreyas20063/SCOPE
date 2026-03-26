@@ -24,7 +24,7 @@ const FormulaFooter = memo(function FormulaFooter({ mode, formula }) {
   return (
     <div className="conv-formula-footer">
       <span className="conv-formula">{formula || defaultFormula}</span>
-      <span className="conv-credit">Signals & Systems - Convolution Simulator</span>
+      <span className="conv-credit">SCOPE - Convolution Simulator</span>
     </div>
   );
 });

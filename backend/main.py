@@ -1,5 +1,5 @@
 """
-FastAPI Backend for Signals & Systems Web Platform
+FastAPI Backend for SCOPE Platform
 
 Optimized for 100 concurrent users with:
 - WebSocket real-time updates
@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Handle startup and shutdown events."""
     # Startup
-    logger.info("Starting Signals & Systems Backend v2.0...")
+    logger.info("Starting SCOPE Backend v2.0...")
     logger.info(f"Cache: max_size={simulation_cache.max_size}, TTL={simulation_cache.ttl_seconds}s")
 
     # Start background cleanup task
@@ -97,7 +97,7 @@ async def periodic_cleanup():
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Signals & Systems Simulation Platform",
+    title="SCOPE Platform",
     description="High-performance web platform for interactive signal processing simulations",
     version="2.0.0",
     lifespan=lifespan,
@@ -861,7 +861,7 @@ async def cancel_ppo_training():
 async def root():
     """API information."""
     return {
-        "name": "Signals & Systems Simulation Platform API",
+        "name": "SCOPE Platform API",
         "version": "2.0.0",
         "docs": "/docs",
         "features": [

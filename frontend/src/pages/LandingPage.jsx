@@ -139,7 +139,7 @@ function LandingPage() {
     <div className="landing-page">
       <section className="hero" onMouseMove={handleHeroMouse} onMouseLeave={handleHeroLeave}>
         <HeroCanvas mousePos={mousePos} />
-        <h2>Signals & Systems</h2>
+        <h2>SCOPE</h2>
         <p>Interactive simulations for learning signal processing, control systems, and transforms.</p>
         <div className="hero-accent" />
       </section>

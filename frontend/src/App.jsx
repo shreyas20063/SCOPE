@@ -79,7 +79,7 @@ function App() {
 
       <header className={`app-header ${scrolled ? 'scrolled' : ''}`}>
         <Link to="/" className="logo">
-          <h1>Signals & Systems</h1>
+          <h1>SCOPE</h1>
         </Link>
         <nav className="nav-links" role="navigation" aria-label="Main navigation">
           <Link to="/">Home</Link>

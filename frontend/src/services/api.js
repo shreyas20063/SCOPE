@@ -1,5 +1,5 @@
 /**
- * API Client for Signals & Systems Simulation Platform
+ * API Client for SCOPE Platform
  *
  * Provides methods to interact with the backend API:
  * - Get simulations list
