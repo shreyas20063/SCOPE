@@ -37,7 +37,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md -- Test infrastructure: pytest config, dev dependencies, conftest.py with tolerance tiers and BDB fixture
-- [ ] 01-02-PLAN.md -- Polynomial arithmetic tests and coefficient convention conversion tests
+- [x] 01-02-PLAN.md -- Polynomial arithmetic tests and coefficient convention conversion tests
 
 ### Phase 2: Shared Delta & Path Enumeration
 **Goal**: Mason's graph determinant Delta is computed once from the full graph and correctly shared across all G_ij entries, with DFS correctly handling cycles

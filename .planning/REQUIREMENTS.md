@@ -6,7 +6,7 @@
 
 - [ ] **MATH-01**: Mason's graph determinant Delta is computed once from the full graph and shared across all transfer matrix entries G_ij — no per-pair recomputation
 - [ ] **MATH-02**: Superposition (zero-gating) isolates signals at the flow level without mutating block types in-place — topology remains stable during computation
-- [ ] **MATH-03**: Polynomial coefficient convention is consistent throughout (high-power-first for scipy/np.roots compatibility) with explicit conversion at boundaries
+- [x] **MATH-03**: Polynomial coefficient convention is consistent throughout (high-power-first for scipy/np.roots compatibility) with explicit conversion at boundaries
 - [ ] **MATH-04**: Adder block signs are correctly applied in all feedback configurations — verified against Nise block diagram reduction rules
 - [ ] **MATH-05**: DFS traversal correctly handles target node revisit in cyclic graphs — forward paths and loops enumerated per Mason's definition (Ogata Ch.3)
 - [ ] **MATH-06**: Transfer matrix G(s) for standard textbook MIMO topologies matches hand-computed results within 1e-10 tolerance
@@ -14,7 +14,7 @@
 
 ### Validation Infrastructure (TEST)
 
-- [ ] **TEST-01**: Polynomial arithmetic unit tests cover convolution, addition, and scalar operations with edge cases (zero polynomial, unity, high-order)
+- [x] **TEST-01**: Polynomial arithmetic unit tests cover convolution, addition, and scalar operations with edge cases (zero polynomial, unity, high-order)
 - [ ] **TEST-02**: MIMO transfer matrix correctness tests use programmatically-built textbook topologies (not GUI interactions)
 - [ ] **TEST-03**: SymPy symbolic oracle cross-validates numeric transfer function results for at least 5 textbook examples
 - [ ] **TEST-04**: API contract tests verify `/api/simulations/block_diagram_builder/execute` returns correct MIMO response format
@@ -57,12 +57,12 @@
 |-------------|-------|--------|
 | MATH-01 | Phase 2 | Pending |
 | MATH-02 | Phase 3 | Pending |
-| MATH-03 | Phase 1 | Pending |
+| MATH-03 | Phase 1 | Complete |
 | MATH-04 | Phase 3 | Pending |
 | MATH-05 | Phase 2 | Pending |
 | MATH-06 | Phase 5 | Pending |
 | MATH-07 | Phase 4 | Pending |
-| TEST-01 | Phase 1 | Pending |
+| TEST-01 | Phase 1 | Complete |
 | TEST-02 | Phase 5 | Pending |
 | TEST-03 | Phase 5 | Pending |
 | TEST-04 | Phase 6 | Pending |
