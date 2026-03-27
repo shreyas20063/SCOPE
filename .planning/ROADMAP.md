@@ -50,7 +50,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Tests for shared Delta denominator (MATH-01) and DFS path/loop enumeration (MATH-05)
+- [x] 02-01-PLAN.md -- Tests for shared Delta denominator (MATH-01) and DFS path/loop enumeration (MATH-05)
 - [ ] 02-02-PLAN.md -- Refactor Mason's computation: graph-level Delta, extracted helpers, fixed DFS forward paths
 
 ### Phase 3: Signal Isolation & Adder Signs
