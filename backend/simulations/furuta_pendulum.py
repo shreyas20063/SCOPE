@@ -15,9 +15,10 @@ from typing import Any, Dict, List, Optional
 from .base_simulator import BaseSimulator
 from core.controllers import (
     numerical_jacobian, controllability_matrix,
-    compute_lqr, compute_pole_placement, compute_lqg,
-    simulate_state_feedback, simulate_lqg,
+    compute_lqr, compute_pole_placement, compute_lqg, compute_pid_gains,
+    simulate_pid, simulate_state_feedback, simulate_lqg,
     compute_performance_metrics, compute_energy,
+    ss2tf_siso, auto_tune_zn_closed, auto_tune_itae, auto_tune_lqr_itae,
 )
 
 
@@ -42,9 +43,9 @@ class FurutaPendulumSimulator(BaseSimulator):
     TORQUE_LIMIT = 5.0  # Max motor torque (Nm)
     INTEGRAL_LIMIT = 2.0  # Anti-windup limit
 
-    # Damping coefficients (realistic friction)
-    PENDULUM_DAMPING = 0.02  # Pendulum joint friction
-    ARM_DAMPING = 0.05  # Arm bearing friction
+    # Damping coefficients (realistic for tabletop device, Quanser SRV02 scale)
+    PENDULUM_DAMPING = 0.005  # Pendulum joint viscous friction (N·m·s/rad)
+    ARM_DAMPING = 0.01  # Arm bearing viscous friction (N·m·s/rad)
 
     # Unified color palette
     COLORS = {
@@ -63,9 +64,9 @@ class FurutaPendulumSimulator(BaseSimulator):
         "pendulum_length": 0.3, # 30cm pendulum
         "arm_length": 0.2,      # 20cm arm
         "controller": "pid",   # Default to PID
-        "Kp": 1,               # Proportional gain
-        "Kd": 0,               # Derivative gain
-        "Ki": 0.5,             # Integral gain
+        "Kp": 80,              # Proportional gain (from LQR K[0,0] ≈ 83)
+        "Kd": 16,              # Derivative gain (from LQR K[0,1] ≈ 16)
+        "Ki": 2.0,             # Integral gain
         "initial_angle": 15,   # Start 15 degrees from vertical
         # LQR weights
         "lqr_q_theta": 10.0, "lqr_q_phi": 1.0, "lqr_r": 0.1,
@@ -108,6 +109,8 @@ class FurutaPendulumSimulator(BaseSimulator):
             "options": [
                 {"value": "none", "label": "No Control"},
                 {"value": "pid", "label": "PID"},
+                {"value": "zn_closed", "label": "Auto-Tune (Fast)"},
+                {"value": "itae_optimal", "label": "Auto-Tune (ITAE)"},
                 {"value": "lqr", "label": "LQR (Optimal)"},
                 {"value": "pole_placement", "label": "Pole Placement"},
                 {"value": "lqg", "label": "LQG (Observer)"},
@@ -116,21 +119,21 @@ class FurutaPendulumSimulator(BaseSimulator):
         },
         "Kp": {
             "type": "slider", "label": "Kp (Proportional)",
-            "min": 0, "max": 100, "step": 1, "default": 1,
+            "min": 0, "max": 100, "step": 1, "default": 80,
             "unit": "", "description": "Proportional gain - main restoring force",
             "group": "PID Gains",
             "visible_when": {"controller": "pid"},
         },
         "Kd": {
             "type": "slider", "label": "Kd (Derivative)",
-            "min": 0, "max": 20, "step": 0.5, "default": 0,
+            "min": 0, "max": 20, "step": 0.5, "default": 16,
             "unit": "", "description": "Derivative gain - damping",
             "group": "PID Gains",
             "visible_when": {"controller": "pid"},
         },
         "Ki": {
             "type": "slider", "label": "Ki (Integral)",
-            "min": 0, "max": 10, "step": 0.5, "default": 0.5,
+            "min": 0, "max": 10, "step": 0.5, "default": 2,
             "unit": "", "description": "Integral gain - steady-state correction",
             "group": "PID Gains",
             "visible_when": {"controller": "pid"},
@@ -244,9 +247,12 @@ class FurutaPendulumSimulator(BaseSimulator):
         ctrl = self.parameters.get("controller", "pid")
         initial_angle_deg = self.parameters["initial_angle"]
 
-        # Moments of inertia
-        I_p = mass * l**2  # Pendulum about pivot
-        I_r = 0.005 + 0.5 * mass * r**2  # Arm + effect of pendulum mass
+        # Moments of inertia (proper rigid-body values)
+        # Pendulum: uniform rod about pivot end → m·l²/3
+        I_p = mass * l**2 / 3.0
+        # Arm: uniform rod about center pivot → M_arm·r²/3, fixed arm mass 0.15 kg
+        ARM_MASS = 0.15
+        I_r = ARM_MASS * r**2 / 3.0
 
         # Initial state: [theta, theta_dot, phi, phi_dot]
         initial_angle = np.radians(initial_angle_deg)
@@ -259,8 +265,8 @@ class FurutaPendulumSimulator(BaseSimulator):
         # Controller info for metadata
         self._controller_info = {"type": ctrl}
 
-        # For LQR/PP/LQG: linearize at equilibrium
-        if ctrl in ("lqr", "pole_placement", "lqg", "none"):
+        # For LQR/PP/LQG/auto-tune: linearize at equilibrium
+        if ctrl in ("lqr", "pole_placement", "lqg", "none", "zn_closed", "itae_optimal"):
             try:
                 A, B = numerical_jacobian(self._dynamics_wrapper, x_eq, u_eq)
                 Wc = controllability_matrix(A, B)
@@ -294,7 +300,7 @@ class FurutaPendulumSimulator(BaseSimulator):
                 elif ctrl == "lqg":
                     p = self.parameters
                     n = 4
-                    C = np.eye(n)
+                    C = np.eye(n)  # Full-state observation (C=I required by compute_lqg)
                     Q_lqr = np.diag([p["lqg_q_theta"], 1.0, p["lqg_q_phi"], 1.0])
                     R_lqr = np.array([[p["lqg_r"]]])
                     Q_kalman = p["lqg_process_noise"] * np.eye(n)
@@ -305,6 +311,32 @@ class FurutaPendulumSimulator(BaseSimulator):
                     self._controller_info["L"] = L.tolist()
                     self._controller_info["cl_eigenvalues"] = np.linalg.eigvals(A - B @ K).tolist()
                     self._controller_info["est_eigenvalues"] = np.linalg.eigvals(A - L @ C).tolist()
+
+                elif ctrl in ("zn_closed", "itae_optimal"):
+                    # Auto-tune: optimize LQR Q/R to minimize ITAE
+                    tuned = auto_tune_lqr_itae(
+                        self._dynamics_wrapper, x0, A, B, x_eq, u_eq,
+                        output_index=0, x_ref=0.0,
+                        u_max=self.TORQUE_LIMIT,
+                        duration=self.SIMULATION_TIME, dt=self.DT)
+                    if tuned is not None:
+                        K_auto, q_diag, r_val = tuned
+                        self._run_with_state_feedback(x0, K_auto, x_eq, u_eq)
+                        self._controller_info["K"] = K_auto.tolist()
+                        self._controller_info["cl_eigenvalues"] = np.linalg.eigvals(
+                            A - B @ K_auto).tolist()
+                        self._controller_info["Q"] = np.diag(q_diag).tolist()
+                        self._controller_info["R"] = [[r_val]]
+                    else:
+                        # Fallback to default LQR
+                        Q = np.diag([10.0, 1.0, 1.0, 1.0])
+                        R = np.array([[0.1]])
+                        K_auto, _, cl_eigs = compute_lqr(A, B, Q, R)
+                        self._run_with_state_feedback(x0, K_auto, x_eq, u_eq)
+                        self._controller_info["K"] = K_auto.tolist()
+                        self._controller_info["cl_eigenvalues"] = cl_eigs.tolist()
+                        self._controller_info["auto_tune_fallback"] = True
+                    self._controller_info["auto_tune_method"] = ctrl
 
                 # Compute stability and settling
                 self._peak_angle = float(np.max(np.abs(self._theta)))
@@ -327,170 +359,182 @@ class FurutaPendulumSimulator(BaseSimulator):
                 self._controller_info["error"] = str(e)
                 # Fall through to PID as fallback
 
-        # PID path (original implementation)
+        # PID path — uses solve_ivp with augmented state for integral term
+        # Augmented state: [theta, theta_dot, phi, phi_dot, integral_error]
+        from scipy.integrate import solve_ivp
+
         Kp = self.parameters["Kp"]
         Ki = self.parameters["Ki"]
         Kd = self.parameters["Kd"]
-        state = x0
 
-        # Storage arrays
-        self._time = np.zeros(self.NUM_STEPS)
-        self._theta = np.zeros(self.NUM_STEPS)
-        self._theta_dot = np.zeros(self.NUM_STEPS)
-        self._phi = np.zeros(self.NUM_STEPS)
-        self._phi_dot = np.zeros(self.NUM_STEPS)
-        self._torque = np.zeros(self.NUM_STEPS)
+        # Arm feedback gains (essential for underactuated stability):
+        # The Furuta pendulum requires full-state feedback for stabilization.
+        # Pure theta-only PID cannot stabilize it because the arm (phi) dynamics
+        # are strongly coupled through the off-diagonal mass matrix term m·r·l·cos(θ).
+        arm_position_gain = 3.0   # ≈ |K[0,2]| from default LQR
+        arm_damping_gain = 5.0    # ≈ |K[0,3]| from default LQR
 
-        # PID state
-        integral_error = 0.0
-        prev_error = 0.0
+        def pid_rhs(t, z):
+            theta_v, theta_dot_v, phi_v, phi_dot_v, ie = z
+            error = theta_v
+            # PID + arm feedback
+            u = (Kp * error + Ki * ie + Kd * theta_dot_v
+                 + arm_position_gain * phi_v + arm_damping_gain * phi_dot_v)
+            u = np.clip(u, -self.TORQUE_LIMIT, self.TORQUE_LIMIT)
+            dxdt = self._compute_dynamics(
+                np.array([theta_v, theta_dot_v, phi_v, phi_dot_v]),
+                u, mass, l, r, I_p, I_r)
+            # Integral of error with anti-windup
+            die = error if abs(ie) < self.INTEGRAL_LIMIT else 0.0
+            return [dxdt[0], dxdt[1], dxdt[2], dxdt[3], die]
 
-        # Full trajectory storage (for animation)
+        z0 = [x0[0], x0[1], x0[2], x0[3], 0.0]
+        t_eval = np.linspace(0, self.SIMULATION_TIME, self.NUM_STEPS)
+        sol = solve_ivp(pid_rhs, [0, self.SIMULATION_TIME], z0,
+                        method='RK45', t_eval=t_eval,
+                        rtol=1e-8, atol=1e-10, max_step=0.01)
+
+        if not sol.success:
+            # Retry with stiff solver
+            sol = solve_ivp(pid_rhs, [0, self.SIMULATION_TIME], z0,
+                            method='LSODA', t_eval=t_eval,
+                            rtol=1e-6, atol=1e-8)
+
+        n_pts = len(sol.t)
+        self._time = sol.t
+        self._theta = sol.y[0]
+        self._theta_dot = sol.y[1]
+        self._phi = sol.y[2]
+        self._phi_dot = sol.y[3]
+
+        # Reconstruct torque
+        self._torque = np.zeros(n_pts)
+        for i in range(n_pts):
+            ie_val = sol.y[4, i]
+            self._torque[i] = np.clip(
+                Kp * self._theta[i] + Ki * ie_val + Kd * self._theta_dot[i]
+                + arm_position_gain * self._phi[i] + arm_damping_gain * self._phi_dot[i],
+                -self.TORQUE_LIMIT, self.TORQUE_LIMIT)
+
+        # Build 3D trajectory from result
         self._arm_positions = []
         self._pendulum_positions = []
         self._velocities = []
         self._energies = []
         self._angular_velocities = []
 
-        for i in range(self.NUM_STEPS):
-            t = i * self.DT
-            theta, theta_dot, phi, phi_dot = state
+        for i in range(n_pts):
+            theta_v = self._theta[i]
+            phi_v = self._phi[i]
+            theta_dot_v = self._theta_dot[i]
+            phi_dot_v = self._phi_dot[i]
 
-            # PID control (target: theta = 0, upright)
-            error = theta
-            integral_error += error * self.DT
-            integral_error = np.clip(integral_error, -self.INTEGRAL_LIMIT, self.INTEGRAL_LIMIT)
+            arm_x = r * np.cos(phi_v)
+            arm_y = r * np.sin(phi_v)
+            perp_x = -np.sin(phi_v)
+            perp_y = np.cos(phi_v)
+            pend_x = arm_x + l * np.sin(theta_v) * perp_x
+            pend_y = arm_y + l * np.sin(theta_v) * perp_y
+            pend_z = l * np.cos(theta_v)
 
-            derivative_error = theta_dot  # Use actual velocity for better derivative
-
-            # PID output with sign convention: positive torque should push pendulum back
-            torque = -(Kp * error + Ki * integral_error + Kd * derivative_error)
-            torque = np.clip(torque, -self.TORQUE_LIMIT, self.TORQUE_LIMIT)
-
-            # Store values
-            self._time[i] = t
-            self._theta[i] = theta
-            self._theta_dot[i] = theta_dot
-            self._phi[i] = phi
-            self._phi_dot[i] = phi_dot
-            self._torque[i] = torque
-
-            # Calculate 3D positions for visualization
-            # Arm endpoint (rotates in XY plane at height 0)
-            arm_x = r * np.cos(phi)
-            arm_y = r * np.sin(phi)
-            arm_z = 0.0
-
-            # Pendulum swings PERPENDICULAR to arm direction
-            # perp direction in XY plane
-            perp_x = -np.sin(phi)
-            perp_y = np.cos(phi)
-
-            # Pendulum mass position
-            # When theta=0 (upright): pendulum points straight up (+Z)
-            # When theta>0: pendulum leans in the perpendicular direction
-            pend_x = arm_x + l * np.sin(theta) * perp_x
-            pend_y = arm_y + l * np.sin(theta) * perp_y
-            pend_z = l * np.cos(theta)  # Height above arm level
-
-            # Store positions for animation (every frame for smooth animation)
-            self._arm_positions.append([float(arm_x), float(arm_y), float(arm_z)])
+            self._arm_positions.append([float(arm_x), float(arm_y), 0.0])
             self._pendulum_positions.append([float(pend_x), float(pend_y), float(pend_z)])
 
-            # Calculate and store physics data for visualization
-            # Velocity vector of pendulum mass (for visual effects)
             if i > 0:
-                prev_pend = self._pendulum_positions[-2]
-                vel_x = (pend_x - prev_pend[0]) / self.DT
-                vel_y = (pend_y - prev_pend[1]) / self.DT
-                vel_z = (pend_z - prev_pend[2]) / self.DT
+                prev = self._pendulum_positions[-2]
+                dt_val = max(sol.t[i] - sol.t[i - 1], 1e-6)
+                vel_x = (pend_x - prev[0]) / dt_val
+                vel_y = (pend_y - prev[1]) / dt_val
+                vel_z = (pend_z - prev[2]) / dt_val
                 speed = np.sqrt(vel_x**2 + vel_y**2 + vel_z**2)
             else:
                 vel_x, vel_y, vel_z, speed = 0.0, 0.0, 0.0, 0.0
             self._velocities.append([float(vel_x), float(vel_y), float(vel_z), float(speed)])
 
-            # Calculate total energy (kinetic + potential)
-            # Kinetic energy: 0.5 * m * v^2 + 0.5 * I * omega^2
-            ke_translational = 0.5 * mass * speed**2
-            ke_rotational = 0.5 * (mass * l**2) * theta_dot**2 + 0.5 * (mass * r**2) * phi_dot**2
-            # Potential energy: m * g * h (relative to lowest point)
-            pe = mass * self.G * (l * np.cos(theta))  # Height = l * cos(theta)
-            total_energy = ke_translational + ke_rotational + pe
-            self._energies.append(float(total_energy))
+            # Energy from mass matrix
+            I_p_loc = mass * l**2 / 3.0
+            ARM_M = 0.15
+            I_r_loc = ARM_M * r**2 / 3.0
+            M11_ = I_p_loc + mass * l**2
+            M12_ = mass * r * l * np.cos(theta_v)
+            M22_ = I_r_loc + mass * r**2 + mass * l**2 * np.sin(theta_v)**2
+            ke = 0.5 * (M11_ * theta_dot_v**2 + 2 * M12_ * theta_dot_v * phi_dot_v + M22_ * phi_dot_v**2)
+            pe = mass * self.G * l * np.cos(theta_v)
+            self._energies.append(float(ke + pe))
+            self._angular_velocities.append([float(theta_dot_v), float(phi_dot_v)])
 
-            # Store angular velocities
-            self._angular_velocities.append([float(theta_dot), float(phi_dot)])
+        self._current_arm_pos = self._arm_positions[-1] if self._arm_positions else [0, 0, 0]
+        self._current_pendulum_pos = self._pendulum_positions[-1] if self._pendulum_positions else [0, 0, 0.3]
 
-            # Current position (final frame)
-            if i == self.NUM_STEPS - 1:
-                self._current_arm_pos = [float(arm_x), float(arm_y), float(arm_z)]
-                self._current_pendulum_pos = [float(pend_x), float(pend_y), float(pend_z)]
-
-            # Integrate dynamics using RK4
-            state = self._integrate_rk4(state, torque, mass, l, r, I_p, I_r)
-            prev_error = error
-
-        # Track peak angle reached during simulation
+        # Stability metrics
         self._peak_angle = float(np.max(np.abs(self._theta)))
         self._peak_angle_deg = float(np.degrees(self._peak_angle))
-
-        # Check stability (within 5 degrees for last 2 seconds)
-        last_samples = 200  # 2 seconds at 100 Hz
+        last_samples = min(200, n_pts)
         self._is_stable = np.all(np.abs(self._theta[-last_samples:]) < np.radians(5))
-
-        # Also mark as unstable if pendulum ever exceeds 90 degrees (fell over)
         if self._peak_angle > np.radians(90):
             self._is_stable = False
 
-        # Find settling time (first time pendulum stays within 5° for 1 second)
         within_tolerance = np.abs(self._theta) < np.radians(5)
         self._settling_time = None
-        settling_window = 100  # 1 second at 100 Hz
-        if np.any(within_tolerance) and self._is_stable:
+        settling_window = min(100, n_pts // 2)
+        if np.any(within_tolerance) and self._is_stable and settling_window > 0:
             for i in range(len(within_tolerance) - settling_window):
                 if np.all(within_tolerance[i:i + settling_window]):
-                    self._settling_time = self._time[i]
+                    self._settling_time = float(self._time[i])
                     break
 
     def _compute_dynamics(self, state: np.ndarray, torque: float,
                           mass: float, l: float, r: float,
                           I_p: float, I_r: float) -> np.ndarray:
         """
-        Compute state derivatives using proper Furuta pendulum equations.
+        Compute state derivatives using full Euler-Lagrange mass matrix formulation.
 
-        The dynamics are derived from Lagrangian mechanics.
-        Pendulum swings perpendicular to the arm.
+        Derived from the Lagrangian L = T - V for a rotary inverted pendulum.
+        State: [theta, theta_dot, phi, phi_dot]
+          theta: pendulum angle from upright (0 = up)
+          phi: arm rotation angle (horizontal plane)
+
+        Mass matrix M(q):
+          M11 = I_p + m·l²        (pendulum inertia about pivot)
+          M12 = m·r·l·cos(theta)  (coupling: arm ↔ pendulum)
+          M21 = M12
+          M22 = I_r + m·r² + m·l²·sin²(theta)  (effective arm inertia)
+
+        Equations: M(q)·[theta_dd, phi_dd]' = tau_gen
+        Solved via 2×2 matrix inversion: [theta_dd, phi_dd]' = M⁻¹ · tau_gen
+
+        References: Furuta (1992), Quanser SRV02 documentation,
+                    Åström & Furuta (2000) "Swinging up a pendulum by energy control"
         """
         theta, theta_dot, phi, phi_dot = state
 
-        # Safety bounds
         l_safe = max(l, 0.01)
-
-        # Pendulum angular acceleration
-        # Gravity restoring torque + coupling from arm rotation
         sin_theta = np.sin(theta)
         cos_theta = np.cos(theta)
 
-        # Gravitational torque (tries to pull pendulum down)
-        gravity_term = (self.G / l_safe) * sin_theta
+        # Mass matrix elements
+        M11 = I_p + mass * l_safe**2
+        M12 = mass * r * l_safe * cos_theta
+        M22 = I_r + mass * r**2 + mass * l_safe**2 * sin_theta**2
 
-        # Coupling from arm acceleration (torque effect on pendulum)
-        # When arm accelerates, pendulum feels a reaction torque
-        coupling_term = (r / l_safe) * cos_theta * (torque / (I_r + mass * r**2))
+        # Determinant of mass matrix (always positive for physical params)
+        det_M = M11 * M22 - M12 * M12
+        det_M = max(abs(det_M), 1e-10)
 
-        # Centripetal effect from arm rotation
-        centripetal_term = -phi_dot**2 * sin_theta * cos_theta * (r / l_safe)
+        # Generalized forces (RHS before M⁻¹)
+        # Pendulum equation: gravity + centrifugal from arm rotation - damping
+        tau_theta = (mass * self.G * l_safe * sin_theta
+                     + mass * r * l_safe * sin_theta * phi_dot**2
+                     - self.PENDULUM_DAMPING * theta_dot)
 
-        # Damping
-        damping_term = -self.PENDULUM_DAMPING * theta_dot / (mass * l_safe**2)
+        # Arm equation: motor torque - Coriolis - damping
+        tau_phi = (torque
+                   - 2.0 * mass * l_safe**2 * sin_theta * cos_theta * theta_dot * phi_dot
+                   - self.ARM_DAMPING * phi_dot)
 
-        theta_acc = gravity_term + coupling_term + centripetal_term + damping_term
-
-        # Arm angular acceleration
-        # Effective inertia includes pendulum contribution
-        I_eff = I_r + mass * r**2 * cos_theta**2
-        arm_damping = -self.ARM_DAMPING * phi_dot
-        phi_acc = (torque + arm_damping) / max(I_eff, 0.001)
+        # Solve M·[theta_dd, phi_dd]' = [tau_theta, tau_phi]' via Cramer's rule
+        theta_acc = (M22 * tau_theta - M12 * tau_phi) / det_M
+        phi_acc = (-M12 * tau_theta + M11 * tau_phi) / det_M
 
         return np.array([theta_dot, theta_acc, phi_dot, phi_acc])
 
@@ -510,8 +554,9 @@ class FurutaPendulumSimulator(BaseSimulator):
         mass = self.parameters["mass"]
         l = self.parameters["pendulum_length"]
         r = self.parameters["arm_length"]
-        I_p = mass * l**2
-        I_r = 0.005 + 0.5 * mass * r**2
+        I_p = mass * l**2 / 3.0  # Uniform rod about pivot end
+        ARM_MASS = 0.15
+        I_r = ARM_MASS * r**2 / 3.0  # Uniform rod about center pivot
         torque = u[0] if len(u) > 0 else 0.0
         return self._compute_dynamics(x, torque, mass, l, r, I_p, I_r)
 
@@ -590,7 +635,14 @@ class FurutaPendulumSimulator(BaseSimulator):
                 vel_x, vel_y, vel_z, speed = 0.0, 0.0, 0.0, 0.0
             self._velocities.append([float(vel_x), float(vel_y), float(vel_z), float(speed)])
 
-            ke = 0.5 * mass * speed**2 + 0.5 * mass * l**2 * theta_dot**2
+            # Energy from mass matrix (consistent with _compute_dynamics)
+            I_p_loc = mass * l**2 / 3.0
+            ARM_M = 0.15
+            I_r_loc = ARM_M * r**2 / 3.0
+            M11_ = I_p_loc + mass * l**2
+            M12_ = mass * r * l * np.cos(theta)
+            M22_ = I_r_loc + mass * r**2 + mass * l**2 * np.sin(theta)**2
+            ke = 0.5 * (M11_ * theta_dot**2 + 2 * M12_ * theta_dot * phi_dot + M22_ * phi_dot**2)
             pe = mass * self.G * l * np.cos(theta)
             self._energies.append(float(ke + pe))
             self._angular_velocities.append([float(theta_dot), float(phi_dot)])

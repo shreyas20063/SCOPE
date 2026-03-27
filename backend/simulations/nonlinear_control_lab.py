@@ -182,7 +182,7 @@ def _build_symbolic_dynamics(preset_name: str,
         denom = M_val + m_val * sp.sin(x3)**2
 
         f1 = x2
-        f2 = (u1 + m_val * sp.sin(x3) * (l_val * x4**2 + g_val * sp.cos(x3))) / denom
+        f2 = (u1 + m_val * sp.sin(x3) * (l_val * x4**2 - g_val * sp.cos(x3))) / denom
         f3 = x4
         f4 = (-u1 * sp.cos(x3) - m_val * l_val * x4**2 * sp.sin(x3) * sp.cos(x3)
                - (M_val + m_val) * g_val * sp.sin(x3)) / (l_val * denom)
@@ -334,6 +334,9 @@ def _compute_jacobians(f_vector: sp.Matrix,
     A_num = np.array(A_sym.subs(subs).tolist(), dtype=float)
     B_num = np.array(B_sym.subs(subs).tolist(), dtype=float)
 
+    if not np.all(np.isfinite(A_num)) or not np.all(np.isfinite(B_num)):
+        raise ValueError("Jacobian contains inf/nan — equilibrium may be at a singularity")
+
     return A_num, B_num
 
 
@@ -384,6 +387,12 @@ def _design_lqr(A: np.ndarray,
     if B.ndim == 1:
         B = B.reshape(-1, 1)
     try:
+        q_eigs = np.linalg.eigvalsh(Q)
+        r_eigs = np.linalg.eigvalsh(R)
+        if np.any(q_eigs < -1e-10):
+            raise ValueError("Q must be positive semi-definite")
+        if np.any(r_eigs <= 1e-10):
+            raise ValueError("R must be positive definite")
         P = solve_continuous_are(A, B, Q, R)
         K = np.linalg.solve(R, B.T @ P)
         return K, P, ""
@@ -508,7 +517,8 @@ def _simulate_nonlinear(f_numeric: callable,
         try:
             dxdt = f_numeric(x, u)
             if np.any(np.isnan(dxdt)) or np.any(np.isinf(dxdt)):
-                return np.zeros(n)
+                # Signal divergence instead of freezing
+                return dxdt * 0.0 + 1e6  # Large derivative triggers divergence event
             return np.array(dxdt).flatten()
         except Exception:
             return np.zeros(n)
@@ -601,24 +611,18 @@ def _simulate_linear(A: np.ndarray,
     x_out = np.zeros((n_points, n))
     u_out = np.zeros((n_points, m))
 
-    # Vectorize via eigendecomposition: expm(A*t) = V @ diag(exp(lam*t)) @ V^{-1}
     try:
-        eigenvalues, V = np.linalg.eig(A_cl)
-        V_inv = np.linalg.inv(V)
-        # exp(lam * t) for all time points — shape (n_points, n)
-        exp_lam_t = np.exp(np.outer(t_arr, eigenvalues))
         for i in range(n_points):
-            dx = (V @ np.diag(exp_lam_t[i]) @ V_inv @ dx0).real
-            # Overflow guard: clamp to ±1e6
+            t_val = t_arr[i]
+            dx = (expm(A_cl * t_val) @ dx0).real
+            # Overflow guard
             if np.any(np.abs(dx) > 1e6):
                 dx = np.clip(dx, -1e6, 1e6)
             x_out[i] = dx + x_eq
             u_out[i] = (-K @ dx + u_eq.reshape(-1)).flatten()
-    except np.linalg.LinAlgError:
-        # Fallback: return equilibrium (no linear prediction available)
-        for i in range(n_points):
-            x_out[i] = x_eq
-            u_out[i] = u_eq.reshape(-1)
+    except Exception:
+        x_out[:] = x_eq
+        u_out[:] = u_eq.reshape(-1)
 
     return t_arr, x_out, u_out
 
@@ -1291,7 +1295,8 @@ class NonlinearControlLabSimulator(BaseSimulator):
         # Build numeric callable
         try:
             all_syms = list(x_syms) + list(u_syms)
-            f_lamb = sp_lambdify(all_syms, f_vector, modules="numpy")
+            safe_modules = [{"sqrt": lambda x: np.sqrt(np.maximum(x, 0.0))}, "numpy"]
+            f_lamb = sp_lambdify(all_syms, f_vector, modules=safe_modules)
 
             def f_numeric(x: np.ndarray, u: np.ndarray) -> np.ndarray:
                 args = list(x) + list(u.flatten())
@@ -2039,15 +2044,19 @@ class NonlinearControlLabSimulator(BaseSimulator):
                                                     "color": "#000000"}},
         })
 
-        layout = self._base_layout("Region of Attraction")
-        layout["xaxis"]["title"] = x_names[proj_x] if proj_x < len(x_names) else f"x{proj_x+1}"
-        layout["yaxis"]["title"] = x_names[proj_y] if proj_y < len(x_names) else f"x{proj_y+1}"
+        axis_label_x = x_names[proj_x] if proj_x < len(x_names) else f"x{proj_x+1}"
+        axis_label_y = x_names[proj_y] if proj_y < len(x_names) else f"x{proj_y+1}"
+        roa_title = f"ROA Slice ({axis_label_x} vs {axis_label_y}, other states at equilibrium)"
+
+        layout = self._base_layout(roa_title)
+        layout["xaxis"]["title"] = axis_label_x
+        layout["yaxis"]["title"] = axis_label_y
         layout["datarevision"] = f"roa-{time.time()}"
         layout["uirevision"] = "roa_heatmap"
 
         return {
             "id": "roa_heatmap",
-            "title": "Region of Attraction",
+            "title": roa_title,
             "data": traces,
             "layout": layout,
         }

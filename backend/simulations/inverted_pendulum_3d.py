@@ -21,6 +21,7 @@ from core.controllers import (
     compute_lqr, compute_pole_placement, compute_lqg, compute_pid_gains,
     simulate_uncontrolled, simulate_pid, simulate_state_feedback,
     simulate_lqg, compute_performance_metrics, compute_energy,
+    ss2tf_siso, auto_tune_zn_closed, auto_tune_itae, auto_tune_lqr_itae,
 )
 
 
@@ -77,6 +78,8 @@ class InvertedPendulum3DSimulator(BaseSimulator):
             "options": [
                 {"value": "none", "label": "No Control"},
                 {"value": "pid", "label": "PID"},
+                {"value": "zn_closed", "label": "Auto-Tune (Fast)"},
+                {"value": "itae_optimal", "label": "Auto-Tune (ITAE)"},
                 {"value": "lqr", "label": "LQR (Optimal)"},
                 {"value": "pole_placement", "label": "Pole Placement"},
                 {"value": "lqg", "label": "LQG (Observer)"},
@@ -294,6 +297,35 @@ class InvertedPendulum3DSimulator(BaseSimulator):
                 controller_info["cl_eigenvalues"] = cl_eigs.tolist()
                 controller_info["desired_poles"] = poles.tolist()
 
+            elif ctrl in ("zn_closed", "itae_optimal"):
+                # Auto-tune: optimize LQR Q/R weights to minimize ITAE
+                tuned = auto_tune_lqr_itae(
+                    self._dynamics, x0, A, B, x_eq, u_eq,
+                    output_index=2, x_ref=np.pi,
+                    u_max=200.0, duration=5.0, dt=self.DT)
+                if tuned is not None:
+                    K_auto, q_diag, r_val = tuned
+                    result = simulate_state_feedback(
+                        self._dynamics, x0, t_span, K_auto, x_eq, u_eq,
+                        u_max=200.0, dt=self.DT)
+                    controller_info["K"] = K_auto.tolist()
+                    controller_info["cl_eigenvalues"] = np.linalg.eigvals(
+                        A - B @ K_auto).tolist()
+                    controller_info["Q"] = np.diag(q_diag).tolist()
+                    controller_info["R"] = [[r_val]]
+                else:
+                    # Fallback to default LQR
+                    Q = np.diag([1.0, 1.0, 10.0, 1.0])
+                    R = np.array([[0.1]])
+                    K_auto, _, cl_eigs = compute_lqr(A, B, Q, R)
+                    result = simulate_state_feedback(
+                        self._dynamics, x0, t_span, K_auto, x_eq, u_eq,
+                        u_max=200.0, dt=self.DT)
+                    controller_info["K"] = K_auto.tolist()
+                    controller_info["cl_eigenvalues"] = cl_eigs.tolist()
+                    controller_info["auto_tune_fallback"] = True
+                controller_info["auto_tune_method"] = ctrl
+
             elif ctrl == "lqg":
                 Q_lqr = np.diag([p["lqg_q_x"], 1.0, p["lqg_q_theta"], 1.0])
                 R_lqr = np.array([[p["lqg_r"]]])
@@ -326,10 +358,16 @@ class InvertedPendulum3DSimulator(BaseSimulator):
                 self._dynamics, x0, t_span, n_inputs=1, dt=self.DT)
             controller_info["error"] = str(e)
 
-        # Check stability: did θ stay near π?
+        # Check stability: did θ converge near π (upright)?
         theta_traj = result["x"][:, 2]
         final_err = abs(theta_traj[-1] - np.pi)
-        is_stable = final_err < 0.3 and np.all(np.abs(theta_traj - np.pi) < np.pi / 2)
+        tail = max(1, len(theta_traj) // 5)  # last 20%
+        tail_err = np.abs(theta_traj[-tail:] - np.pi)
+        tail_std = float(np.std(tail_err))
+        # Must converge within 5.7° AND not oscillate AND never fall past 90°
+        is_stable = (final_err < 0.1
+                     and tail_std < 0.05
+                     and np.all(np.abs(theta_traj - np.pi) < np.pi / 2))
 
         # Performance metrics (angle tracking π)
         metrics = compute_performance_metrics(
@@ -481,8 +519,7 @@ class InvertedPendulum3DSimulator(BaseSimulator):
             ],
             "layout": {
                 **layout_base,
-                "xaxis": {**layout_base["xaxis"], "title": "θ (deg from upright)",
-                          "scaleanchor": "y"},
+                "xaxis": {**layout_base["xaxis"], "title": "θ (deg from upright)"},
                 "yaxis": {**layout_base["yaxis"], "title": "θ̇ (deg/s)"},
                 "datarevision": f"phase-{id(self._result)}",
                 "uirevision": "phase",

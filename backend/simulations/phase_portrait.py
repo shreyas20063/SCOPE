@@ -13,6 +13,7 @@ Core theory (Khalil Ch 2-4, Strogatz Ch 5-8):
 - Classification: node, spiral, saddle, center (from 2×2 eigenvalue structure)
 """
 
+import math
 import re
 import numpy as np
 from typing import Any, Dict, List, Optional, Tuple
@@ -231,7 +232,7 @@ class PhasePortraitSimulator(BaseSimulator):
         "g_expr": {"type": "expression", "default": "-sin(x1) - 0.5*x2"},
         # Preset-specific sliders
         "mu": {
-            "type": "slider", "min": 0.1, "max": 5.0,
+            "type": "slider", "min": 0.0, "max": 5.0,
             "step": 0.1, "default": 1.0,
             "visible_when": {"preset": "van_der_pol"},
         },
@@ -325,6 +326,11 @@ class PhasePortraitSimulator(BaseSimulator):
                 self._compile_functions()
                 self._find_equilibria()
                 self._reintegrate_trajectories()
+            else:
+                needs_eq_update = name in ("x_min", "x_max", "y_min", "y_max", "grid_density")
+                if needs_eq_update:
+                    self._find_equilibria()
+                    self._reintegrate_trajectories()
 
         return self.get_state()
 
@@ -402,6 +408,8 @@ class PhasePortraitSimulator(BaseSimulator):
 
     def _substitute_params(self, expr: str) -> str:
         """Replace named parameters (mu, alpha, etc.) with numeric values."""
+        if self.parameters.get("preset") == "custom":
+            return expr
         result = expr
         param_map = {
             "mu": self.parameters.get("mu", 1.0),
@@ -434,6 +442,10 @@ class PhasePortraitSimulator(BaseSimulator):
             dx2 = float(self._g_func(x1, x2))
         except Exception:
             dx1, dx2 = 0.0, 0.0
+        if math.isnan(dx1) or math.isinf(dx1):
+            dx1 = 0.0
+        if math.isnan(dx2) or math.isinf(dx2):
+            dx2 = 0.0
         clamp = 1e6
         dx1 = max(-clamp, min(clamp, dx1))
         dx2 = max(-clamp, min(clamp, dx2))
@@ -497,8 +509,15 @@ class PhasePortraitSimulator(BaseSimulator):
             sol_fwd = solve_ivp(
                 self._dynamics, [0, t_max], [x0, y0],
                 method="RK45", max_step=0.05,
-                rtol=1e-6, atol=1e-8,
+                dense_output=False, rtol=1e-8, atol=1e-10,
             )
+            if not sol_fwd.success:
+                # Retry with stiff-capable solver
+                sol_fwd = solve_ivp(
+                    self._dynamics, [0, t_max], [x0, y0],
+                    method="LSODA", max_step=0.05,
+                    dense_output=False, rtol=1e-6, atol=1e-8,
+                )
             if sol_fwd.success:
                 x1_fwd = sol_fwd.y[0].tolist()
                 x2_fwd = sol_fwd.y[1].tolist()
@@ -513,12 +532,19 @@ class PhasePortraitSimulator(BaseSimulator):
             sol_bwd = solve_ivp(
                 self._dynamics, [0, -t_max], [x0, y0],
                 method="RK45", max_step=0.05,
-                rtol=1e-6, atol=1e-8,
+                dense_output=False, rtol=1e-8, atol=1e-10,
             )
+            if not sol_bwd.success:
+                # Retry with stiff-capable solver
+                sol_bwd = solve_ivp(
+                    self._dynamics, [0, -t_max], [x0, y0],
+                    method="LSODA", max_step=0.05,
+                    dense_output=False, rtol=1e-6, atol=1e-8,
+                )
             if sol_bwd.success and len(sol_bwd.t) > 1:
                 x1_bwd = sol_bwd.y[0][1:][::-1].tolist()
                 x2_bwd = sol_bwd.y[1][1:][::-1].tolist()
-                t_bwd = (-sol_bwd.t[1:][::-1]).tolist()
+                t_bwd = sol_bwd.t[1:][::-1].tolist()
             else:
                 x1_bwd, x2_bwd, t_bwd = [], [], []
         except Exception:
@@ -577,7 +603,10 @@ class PhasePortraitSimulator(BaseSimulator):
             except Exception:
                 return [1e10, 1e10]
 
-        n_guess = 8
+        x_range = x_max - x_min
+        y_range = y_max - y_min
+        n_guess = max(8, min(20, int(2 * max(x_range, y_range))))
+        dedup_tol = 0.01 * max(x_range, y_range, 0.1)
         x_guesses = np.linspace(x_min, x_max, n_guess)
         y_guesses = np.linspace(y_min, y_max, n_guess)
         found_points: List[np.ndarray] = []
@@ -595,7 +624,7 @@ class PhasePortraitSimulator(BaseSimulator):
                             if (x_min - margin <= sol[0] <= x_max + margin and
                                     y_min - margin <= sol[1] <= y_max + margin):
                                 is_dup = any(
-                                    np.linalg.norm(sol - fp) < 0.05
+                                    np.linalg.norm(sol - fp) < dedup_tol
                                     for fp in found_points
                                 )
                                 if not is_dup:
@@ -724,11 +753,20 @@ class PhasePortraitSimulator(BaseSimulator):
             n_traj = len(traj["x1"])
             if n_traj > 10:
                 mid = n_traj // 2
+                if mid > 0 and mid < len(traj["x1"]) - 1:
+                    dx = traj["x1"][mid + 1] - traj["x1"][mid - 1]
+                    dy = traj["x2"][mid + 1] - traj["x2"][mid - 1]
+                    if abs(dx) >= abs(dy):
+                        arrow_symbol = "triangle-right" if dx >= 0 else "triangle-left"
+                    else:
+                        arrow_symbol = "triangle-up" if dy >= 0 else "triangle-down"
+                else:
+                    arrow_symbol = "triangle-right"
                 traces.append({
                     "x": [traj["x1"][mid]],
                     "y": [traj["x2"][mid]],
                     "mode": "markers",
-                    "marker": {"size": 6, "color": color, "symbol": "triangle-right"},
+                    "marker": {"size": 6, "color": color, "symbol": arrow_symbol},
                     "showlegend": False,
                     "hoverinfo": "skip",
                 })
@@ -766,11 +804,20 @@ class PhasePortraitSimulator(BaseSimulator):
             hovers = []
             for eq in eqs:
                 ev_strs = []
-                for ev in eq["eigenvalues"]:
+                shown = set()
+                for idx, ev in enumerate(eq["eigenvalues"]):
+                    if idx in shown:
+                        continue
                     if abs(ev.imag) < 1e-8:
                         ev_strs.append(f"{ev.real:.4f}")
                     else:
-                        ev_strs.append(f"{ev.real:.4f} \u00b1 {abs(ev.imag):.4f}j")
+                        ev_strs.append(f"{ev.real:.4f} + {abs(ev.imag):.4f}j")
+                        ev_strs.append(f"{ev.real:.4f} \u2212 {abs(ev.imag):.4f}j")
+                        # Skip the conjugate
+                        for j in range(idx + 1, len(eq["eigenvalues"])):
+                            if abs(eq["eigenvalues"][j].real - ev.real) < 1e-8 and abs(eq["eigenvalues"][j].imag + ev.imag) < 1e-8:
+                                shown.add(j)
+                                break
                 hovers.append(
                     f"({eq['x1']:.3f}, {eq['x2']:.3f})<br>"
                     f"{eq_labels[et]}<br>"

@@ -22,6 +22,7 @@ from core.controllers import (
     compute_lqr, compute_pole_placement, compute_lqg, compute_pid_gains,
     simulate_uncontrolled, simulate_pid, simulate_state_feedback,
     simulate_lqg, compute_performance_metrics, compute_energy,
+    ss2tf_siso, auto_tune_zn_closed, auto_tune_itae, auto_tune_lqr_itae,
 )
 
 
@@ -78,6 +79,8 @@ class BallBeam3DSimulator(BaseSimulator):
             "options": [
                 {"value": "none", "label": "No Control"},
                 {"value": "pid", "label": "PID"},
+                {"value": "zn_closed", "label": "Auto-Tune (Fast)"},
+                {"value": "itae_optimal", "label": "Auto-Tune (ITAE)"},
                 {"value": "lqr", "label": "LQR (Optimal)"},
                 {"value": "pole_placement", "label": "Pole Placement"},
                 {"value": "lqg", "label": "LQG (Observer)"},
@@ -203,7 +206,11 @@ class BallBeam3DSimulator(BaseSimulator):
         alpha = beam tilt angle from horizontal (positive = CW)
         """
         m = self.parameters["ball_mass"]
-        J = 0.05  # beam moment of inertia about pivot
+        beam_length = self.parameters.get("beam_length", 1.0)
+        # Beam inertia scales with length²: J = M_beam·L²/12 for uniform beam
+        # about center pivot. Using fixed beam mass of 0.5 kg.
+        BEAM_MASS = 0.5
+        J = BEAM_MASS * beam_length**2 / 12.0
         g = self.G
 
         r, r_dot, alpha, alpha_dot = x
@@ -299,6 +306,35 @@ class BallBeam3DSimulator(BaseSimulator):
                 controller_info["cl_eigenvalues"] = cl_eigs.tolist()
                 controller_info["desired_poles"] = poles.tolist()
 
+            elif ctrl in ("zn_closed", "itae_optimal"):
+                # Auto-tune: optimize LQR Q/R weights to minimize ITAE
+                tuned = auto_tune_lqr_itae(
+                    self._dynamics, x0, A, B, x_eq, u_eq,
+                    output_index=0, x_ref=0.0,
+                    u_max=50.0, duration=5.0, dt=self.DT)
+                if tuned is not None:
+                    K_auto, q_diag, r_val = tuned
+                    result = simulate_state_feedback(
+                        self._dynamics, x0, t_span, K_auto, x_eq, u_eq,
+                        u_max=50.0, dt=self.DT)
+                    controller_info["K"] = K_auto.tolist()
+                    controller_info["cl_eigenvalues"] = np.linalg.eigvals(
+                        A - B @ K_auto).tolist()
+                    controller_info["Q"] = np.diag(q_diag).tolist()
+                    controller_info["R"] = [[r_val]]
+                else:
+                    # Fallback to default LQR
+                    Q = np.diag([10.0, 1.0, 1.0, 1.0])
+                    R = np.array([[0.1]])
+                    K_auto, _, cl_eigs = compute_lqr(A, B, Q, R)
+                    result = simulate_state_feedback(
+                        self._dynamics, x0, t_span, K_auto, x_eq, u_eq,
+                        u_max=50.0, dt=self.DT)
+                    controller_info["K"] = K_auto.tolist()
+                    controller_info["cl_eigenvalues"] = cl_eigs.tolist()
+                    controller_info["auto_tune_fallback"] = True
+                controller_info["auto_tune_method"] = ctrl
+
             elif ctrl == "lqg":
                 Q_lqr = np.diag([p["lqg_q_r"], 1.0, p["lqg_q_alpha"], 1.0])
                 R_lqr = np.array([[p["lqg_r"]]])
@@ -327,12 +363,17 @@ class BallBeam3DSimulator(BaseSimulator):
                 self._dynamics, x0, t_span, n_inputs=1, dt=self.DT)
             controller_info["error"] = str(e)
 
-        # Check stability: did ball stay near r=0?
+        # Check stability: did ball converge to r=0 without oscillation?
         r_traj = result["x"][:, 0]
         beam_half = p["beam_length"] / 2
+        ball_fell_off = bool(np.any(np.abs(r_traj) > beam_half))
         final_err = abs(r_traj[-1])
+        tail = max(1, len(r_traj) // 5)  # last 20%
+        tail_std = float(np.std(r_traj[-tail:]))
+        # Must converge within 5cm AND not oscillate AND stay on beam
         is_stable = (final_err < 0.05
-                     and np.all(np.abs(r_traj) < beam_half))
+                     and tail_std < 0.02
+                     and not ball_fell_off)
 
         # Performance metrics (ball position tracking r=0)
         metrics = compute_performance_metrics(
@@ -360,6 +401,10 @@ class BallBeam3DSimulator(BaseSimulator):
                 "beam_length": p["beam_length"],
                 "ball_radius": p["ball_radius"],
                 "is_stable": is_stable,
+                "ball_fell_off": ball_fell_off,
+                "ball_fell_off_warning": (
+                    "Ball rolled off the beam — dynamics are unphysical beyond the beam edge."
+                ) if ball_fell_off else None,
             },
         }
         if ctrl == "lqg" and "x_hat" in result:
@@ -490,8 +535,7 @@ class BallBeam3DSimulator(BaseSimulator):
             ],
             "layout": {
                 **layout_base,
-                "xaxis": {**layout_base["xaxis"], "title": "r (m)",
-                          "scaleanchor": "y"},
+                "xaxis": {**layout_base["xaxis"], "title": "r (m)"},
                 "yaxis": {**layout_base["yaxis"], "title": "\u1e59 (m/s)"},
                 "datarevision": f"phase-{id(self._result)}",
                 "uirevision": "phase",
