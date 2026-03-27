@@ -47,11 +47,11 @@ Plans:
   1. For any MIMO diagram, all transfer matrix entries G_ij share the same denominator polynomial (the graph determinant Delta)
   2. DFS traversal enumerates all forward paths and loops per Mason's definition, including when the target node participates in a cycle
   3. A test case with known loops and forward paths produces exact match on enumerated paths/loops count and Delta polynomial
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md -- Tests for shared Delta denominator (MATH-01) and DFS path/loop enumeration (MATH-05)
+- [ ] 02-02-PLAN.md -- Refactor Mason's computation: graph-level Delta, extracted helpers, fixed DFS forward paths
 
 ### Phase 3: Signal Isolation & Adder Signs
 **Goal**: Superposition isolates signals without mutating block types, and adder signs are correct for all feedback configurations
@@ -157,7 +157,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Test Infrastructure & Polynomial Foundation | 0/2 | Not started | - |
+| 1. Test Infrastructure & Polynomial Foundation | 2/2 | Complete | 2026-03-27 |
 | 2. Shared Delta & Path Enumeration | 0/2 | Not started | - |
 | 3. Signal Isolation & Adder Signs | 0/2 | Not started | - |
 | 4. MIMO Feedback Correctness | 0/1 | Not started | - |
