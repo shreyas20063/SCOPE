@@ -51,7 +51,7 @@ Plans:
 
 Plans:
 - [x] 02-01-PLAN.md -- Tests for shared Delta denominator (MATH-01) and DFS path/loop enumeration (MATH-05)
-- [ ] 02-02-PLAN.md -- Refactor Mason's computation: graph-level Delta, extracted helpers, fixed DFS forward paths
+- [x] 02-02-PLAN.md -- Refactor Mason's computation: graph-level Delta, extracted helpers, fixed DFS forward paths
 
 ### Phase 3: Signal Isolation & Adder Signs
 **Goal**: Superposition isolates signals without mutating block types, and adder signs are correct for all feedback configurations
