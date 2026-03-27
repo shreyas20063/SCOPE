@@ -73,6 +73,24 @@ class BlockDiagramSimulator(BaseSimulator):
             "equation": "dy/dt = -a·y + x(t)",
             "system_type": "ct",
         },
+        "mimo_2x2_coupled": {
+            "name": "2\u00d72 Coupled System",
+            "equation": "y\u2081 = G\u2081\u2081\u00b7u\u2081 + G\u2081\u2082\u00b7u\u2082,  y\u2082 = G\u2082\u2081\u00b7u\u2081 + G\u2082\u2082\u00b7u\u2082",
+            "system_type": "ct",
+            "mimo": True,
+        },
+        "mimo_2x1_miso": {
+            "name": "2\u00d71 MISO",
+            "equation": "y = G\u2081\u00b7u\u2081 + G\u2082\u00b7u\u2082",
+            "system_type": "ct",
+            "mimo": True,
+        },
+        "mimo_1x2_simo": {
+            "name": "1\u00d72 SIMO",
+            "equation": "y\u2081 = G\u2081\u00b7u,  y\u2082 = G\u2082\u00b7u",
+            "system_type": "ct",
+            "mimo": True,
+        },
     }
 
     # Plot colors
@@ -130,6 +148,25 @@ class BlockDiagramSimulator(BaseSimulator):
         """Generate unique block ID."""
         self._next_block_id += 1
         return f"block_{self._next_block_id}"
+
+    @staticmethod
+    def _subscript(n: int) -> str:
+        """Convert integer to Unicode subscript string."""
+        subs = "₀₁₂₃₄₅₆₇₈₉"
+        return "".join(subs[int(d)] for d in str(n))
+
+    def _reindex_io(self, block_type: str) -> None:
+        """Re-index all blocks of given type to stay contiguous after deletion."""
+        io_blocks = sorted(
+            [b for b in self.blocks.values() if b["type"] == block_type],
+            key=lambda b: b.get("index", 0)
+        )
+        prefix = "u" if block_type == "input" else "y"
+        for i, b in enumerate(io_blocks, 1):
+            b["index"] = i
+            # Only update label if it still matches auto-generated pattern
+            if b.get("label", "").startswith(prefix):
+                b["label"] = f"{prefix}{self._subscript(i)}"
 
     def _save_history(self) -> None:
         """Save current state to history stack for undo."""
@@ -210,6 +247,7 @@ class BlockDiagramSimulator(BaseSimulator):
             "redo": self._action_redo,
             "split_wire": self._action_split_wire,
             "auto_arrange": self._action_auto_arrange,
+            "update_block_label": self._action_update_block_label,
         }
 
         handler = action_map.get(action)
@@ -259,6 +297,28 @@ class BlockDiagramSimulator(BaseSimulator):
             "position": {"x": float(position.get("x", 400)), "y": float(position.get("y", 250))},
         }
 
+        # Auto-label and index I/O blocks
+        if block_type == "input":
+            existing = sorted(
+                [b for b in self.blocks.values() if b["type"] == "input"],
+                key=lambda b: b.get("index", 0)
+            )
+            if len(existing) >= 4:
+                raise ValueError("Maximum 4 input blocks allowed.")
+            idx = len(existing) + 1
+            block["index"] = idx
+            block["label"] = f"u{self._subscript(idx)}"
+        elif block_type == "output":
+            existing = sorted(
+                [b for b in self.blocks.values() if b["type"] == "output"],
+                key=lambda b: b.get("index", 0)
+            )
+            if len(existing) >= 4:
+                raise ValueError("Maximum 4 output blocks allowed.")
+            idx = len(existing) + 1
+            block["index"] = idx
+            block["label"] = f"y{self._subscript(idx)}"
+
         # Set default value for gain blocks
         if block_type == "gain":
             raw_val = float(value) if value is not None else type_def.get("default_value", 1.0)
@@ -287,12 +347,16 @@ class BlockDiagramSimulator(BaseSimulator):
         if block_id not in self.blocks:
             raise ValueError(f"Block not found: {block_id}")
 
+        block = self.blocks[block_id]
         del self.blocks[block_id]
         # Remove all connections involving this block
         self.connections = [
             c for c in self.connections
             if c["from_block"] != block_id and c["to_block"] != block_id
         ]
+        # Re-index I/O blocks if we deleted one
+        if block.get("type") in ("input", "output"):
+            self._reindex_io(block["type"])
         self._recompute_tf()
 
     def _action_move_block(self, params: Dict[str, Any]) -> None:
@@ -391,6 +455,24 @@ class BlockDiagramSimulator(BaseSimulator):
         if label is not None and block["type"] == "custom_tf":
             block["label"] = str(label).strip()
         self._recompute_tf()
+
+    def _action_update_block_label(self, params: Dict[str, Any]) -> None:
+        """Update an I/O block's display label."""
+        block_id = params.get("block_id")
+        label = params.get("label", "").strip()
+        if block_id not in self.blocks:
+            raise ValueError(f"Block not found: {block_id}")
+        block = self.blocks[block_id]
+        if block["type"] not in ("input", "output"):
+            raise ValueError("Only input/output blocks have editable labels.")
+        if not label or len(label) > 20:
+            raise ValueError("Label must be 1-20 characters.")
+        # Check uniqueness among same type
+        for bid, b in self.blocks.items():
+            if bid != block_id and b["type"] == block["type"] and b.get("label") == label:
+                raise ValueError(f"Label '{label}' is already used by another {block['type']} block.")
+        self._save_history()
+        block["label"] = label
 
     def _action_add_connection(self, params: Dict[str, Any]) -> None:
         """Add a connection (wire) between two blocks with full validation."""
@@ -628,6 +710,12 @@ class BlockDiagramSimulator(BaseSimulator):
             self._build_second_order_dt_preset()
         elif preset_name == "first_order_ct":
             self._build_first_order_ct_preset()
+        elif preset_name == "mimo_2x2_coupled":
+            self._build_mimo_2x2_coupled_preset()
+        elif preset_name == "mimo_2x1_miso":
+            self._build_mimo_2x1_miso_preset()
+        elif preset_name == "mimo_1x2_simo":
+            self._build_mimo_1x2_simo_preset()
 
         self._fix_port_directions()
         self._center_diagram()
@@ -1116,6 +1204,227 @@ class BlockDiagramSimulator(BaseSimulator):
             {"from_block": gain, "from_port": 0, "to_block": adder, "to_port": 1},
         ]
 
+    def _build_mimo_2x2_coupled_preset(self) -> None:
+        """2x2 Coupled System: y1 = G11*u1 + G12*u2, y2 = G21*u1 + G22*u2.
+
+        Layout:
+          u1 -> junc1 -> G11 -> adder1 -> y1
+                  |               ^
+                  +-----> G21 -> adder2 -> y2
+          u2 -> junc2 -> G12 ----^(adder1 port1)
+                  +-----> G22 ----^(adder2 port1)
+        """
+        # Inputs
+        u1 = self._gen_block_id()
+        self.blocks[u1] = {
+            "id": u1, "type": "input",
+            "position": {"x": 100, "y": 120},
+            "label": "u\u2081", "index": 1,
+        }
+        u2 = self._gen_block_id()
+        self.blocks[u2] = {
+            "id": u2, "type": "input",
+            "position": {"x": 100, "y": 360},
+            "label": "u\u2082", "index": 2,
+        }
+
+        # Outputs
+        y1 = self._gen_block_id()
+        self.blocks[y1] = {
+            "id": y1, "type": "output",
+            "position": {"x": 700, "y": 120},
+            "label": "y\u2081", "index": 1,
+        }
+        y2 = self._gen_block_id()
+        self.blocks[y2] = {
+            "id": y2, "type": "output",
+            "position": {"x": 700, "y": 360},
+            "label": "y\u2082", "index": 2,
+        }
+
+        # Junctions (fan-out from each input)
+        junc1 = self._gen_block_id()
+        self.blocks[junc1] = {
+            "id": junc1, "type": "junction",
+            "position": {"x": 200, "y": 120},
+        }
+        junc2 = self._gen_block_id()
+        self.blocks[junc2] = {
+            "id": junc2, "type": "junction",
+            "position": {"x": 200, "y": 360},
+        }
+
+        # Gain blocks
+        g11 = self._gen_block_id()
+        self.blocks[g11] = {
+            "id": g11, "type": "gain",
+            "position": {"x": 300, "y": 80}, "value": 2.0,
+        }
+        g12 = self._gen_block_id()
+        self.blocks[g12] = {
+            "id": g12, "type": "gain",
+            "position": {"x": 300, "y": 160}, "value": 0.5,
+        }
+        g21 = self._gen_block_id()
+        self.blocks[g21] = {
+            "id": g21, "type": "gain",
+            "position": {"x": 300, "y": 320}, "value": 0.3,
+        }
+        g22 = self._gen_block_id()
+        self.blocks[g22] = {
+            "id": g22, "type": "gain",
+            "position": {"x": 300, "y": 400}, "value": 1.5,
+        }
+
+        # Adders
+        adder1 = self._gen_block_id()
+        self.blocks[adder1] = {
+            "id": adder1, "type": "adder",
+            "position": {"x": 500, "y": 120}, "signs": ["+", "+", "+"],
+        }
+        adder2 = self._gen_block_id()
+        self.blocks[adder2] = {
+            "id": adder2, "type": "adder",
+            "position": {"x": 500, "y": 360}, "signs": ["+", "+", "+"],
+        }
+
+        # Wiring
+        self.connections = [
+            # u1 -> junc1
+            {"from_block": u1, "from_port": 0, "to_block": junc1, "to_port": 0},
+            # junc1 -> G11 -> adder1(port0)
+            {"from_block": junc1, "from_port": 1, "to_block": g11, "to_port": 0},
+            {"from_block": g11, "from_port": 1, "to_block": adder1, "to_port": 0},
+            # junc1 -> G21 -> adder2(port0)
+            {"from_block": junc1, "from_port": 2, "to_block": g21, "to_port": 0},
+            {"from_block": g21, "from_port": 1, "to_block": adder2, "to_port": 0},
+            # u2 -> junc2
+            {"from_block": u2, "from_port": 0, "to_block": junc2, "to_port": 0},
+            # junc2 -> G12 -> adder1(port1)
+            {"from_block": junc2, "from_port": 1, "to_block": g12, "to_port": 0},
+            {"from_block": g12, "from_port": 1, "to_block": adder1, "to_port": 1},
+            # junc2 -> G22 -> adder2(port1)
+            {"from_block": junc2, "from_port": 2, "to_block": g22, "to_port": 0},
+            {"from_block": g22, "from_port": 1, "to_block": adder2, "to_port": 1},
+            # adder1 -> y1, adder2 -> y2
+            {"from_block": adder1, "from_port": 2, "to_block": y1, "to_port": 0},
+            {"from_block": adder2, "from_port": 2, "to_block": y2, "to_port": 0},
+        ]
+
+    def _build_mimo_2x1_miso_preset(self) -> None:
+        """2x1 MISO: y = G1*u1 + G2*u2.
+
+        Layout:
+          u1 -> G1 -> adder -> y
+          u2 -> G2 ----^(port1)
+        """
+        # Inputs
+        u1 = self._gen_block_id()
+        self.blocks[u1] = {
+            "id": u1, "type": "input",
+            "position": {"x": 100, "y": 120},
+            "label": "u\u2081", "index": 1,
+        }
+        u2 = self._gen_block_id()
+        self.blocks[u2] = {
+            "id": u2, "type": "input",
+            "position": {"x": 100, "y": 280},
+            "label": "u\u2082", "index": 2,
+        }
+
+        # Output
+        y = self._gen_block_id()
+        self.blocks[y] = {
+            "id": y, "type": "output",
+            "position": {"x": 600, "y": 200},
+            "label": "y\u2081", "index": 1,
+        }
+
+        # Gain blocks
+        g1 = self._gen_block_id()
+        self.blocks[g1] = {
+            "id": g1, "type": "gain",
+            "position": {"x": 300, "y": 120}, "value": 2.0,
+        }
+        g2 = self._gen_block_id()
+        self.blocks[g2] = {
+            "id": g2, "type": "gain",
+            "position": {"x": 300, "y": 280}, "value": 3.0,
+        }
+
+        # Adder
+        adder = self._gen_block_id()
+        self.blocks[adder] = {
+            "id": adder, "type": "adder",
+            "position": {"x": 450, "y": 200}, "signs": ["+", "+", "+"],
+        }
+
+        # Wiring
+        self.connections = [
+            {"from_block": u1, "from_port": 0, "to_block": g1, "to_port": 0},
+            {"from_block": g1, "from_port": 1, "to_block": adder, "to_port": 0},
+            {"from_block": u2, "from_port": 0, "to_block": g2, "to_port": 0},
+            {"from_block": g2, "from_port": 1, "to_block": adder, "to_port": 1},
+            {"from_block": adder, "from_port": 2, "to_block": y, "to_port": 0},
+        ]
+
+    def _build_mimo_1x2_simo_preset(self) -> None:
+        """1x2 SIMO: y1 = G1*u, y2 = G2*u.
+
+        Layout:
+          u -> junc -> G1 -> y1
+                  +---> G2 -> y2
+        """
+        # Input
+        u = self._gen_block_id()
+        self.blocks[u] = {
+            "id": u, "type": "input",
+            "position": {"x": 100, "y": 200},
+            "label": "u\u2081", "index": 1,
+        }
+
+        # Outputs
+        y1 = self._gen_block_id()
+        self.blocks[y1] = {
+            "id": y1, "type": "output",
+            "position": {"x": 600, "y": 120},
+            "label": "y\u2081", "index": 1,
+        }
+        y2 = self._gen_block_id()
+        self.blocks[y2] = {
+            "id": y2, "type": "output",
+            "position": {"x": 600, "y": 280},
+            "label": "y\u2082", "index": 2,
+        }
+
+        # Junction (fan-out)
+        junc = self._gen_block_id()
+        self.blocks[junc] = {
+            "id": junc, "type": "junction",
+            "position": {"x": 200, "y": 200},
+        }
+
+        # Gain blocks
+        g1 = self._gen_block_id()
+        self.blocks[g1] = {
+            "id": g1, "type": "gain",
+            "position": {"x": 350, "y": 120}, "value": 2.0,
+        }
+        g2 = self._gen_block_id()
+        self.blocks[g2] = {
+            "id": g2, "type": "gain",
+            "position": {"x": 350, "y": 280}, "value": 3.0,
+        }
+
+        # Wiring
+        self.connections = [
+            {"from_block": u, "from_port": 0, "to_block": junc, "to_port": 0},
+            {"from_block": junc, "from_port": 1, "to_block": g1, "to_port": 0},
+            {"from_block": g1, "from_port": 1, "to_block": y1, "to_port": 0},
+            {"from_block": junc, "from_port": 2, "to_block": g2, "to_port": 0},
+            {"from_block": g2, "from_port": 1, "to_block": y2, "to_port": 0},
+        ]
+
     # =========================================================================
     # Polynomial arithmetic helpers (LOW-POWER-FIRST convention)
     # coeffs[i] = coefficient of R^i, e.g. [1, -0.5] = 1 - 0.5R
@@ -1168,29 +1477,114 @@ class BlockDiagramSimulator(BaseSimulator):
 
     def _compute_transfer_function(self) -> Dict[str, Any]:
         """
-        Compute the transfer function from the block diagram.
+        Compute the transfer function (matrix) from the block diagram.
 
-        Uses signal flow analysis:
-        1. Find input and output blocks
-        2. Build adjacency representation
-        3. Use Mason's gain formula for general graphs
+        For SISO (1 input, 1 output): returns legacy flat dict with all original keys.
+        For MIMO (multiple I/O): returns matrix structure with legacy compat for 1x1.
         """
-        input_blocks = [bid for bid, b in self.blocks.items() if b["type"] == "input"]
-        output_blocks = [bid for bid, b in self.blocks.items() if b["type"] == "output"]
+        input_blocks = sorted(
+            [b for b in self.blocks.values() if b["type"] == "input"],
+            key=lambda b: b.get("index", 0)
+        )
+        output_blocks = sorted(
+            [b for b in self.blocks.values() if b["type"] == "output"],
+            key=lambda b: b.get("index", 0)
+        )
 
         if not input_blocks:
             raise ValueError("No input block found. Add an Input block.")
         if not output_blocks:
             raise ValueError("No output block found. Add an Output block.")
-        if len(input_blocks) > 1:
-            raise ValueError("Multiple input blocks found. Only one is supported.")
-        if len(output_blocks) > 1:
-            raise ValueError("Multiple output blocks found. Only one is supported.")
 
-        input_id = input_blocks[0]
-        output_id = output_blocks[0]
+        m = len(input_blocks)   # columns (inputs)
+        p = len(output_blocks)  # rows (outputs)
 
-        return self._solve_signal_flow(input_id, output_id)
+        # Collect all input block IDs for signal isolation
+        all_input_ids = {b["id"] for b in input_blocks}
+
+        transfer_matrix = []
+        for out_block in output_blocks:
+            row = []
+            for in_block in input_blocks:
+                tf_entry = self._solve_for_pair(
+                    in_block["id"], out_block["id"], all_input_ids
+                )
+                row.append(tf_entry)
+            transfer_matrix.append(row)
+
+        # Check overall stability (only non-zero entries)
+        non_zero_entries = [
+            entry for row in transfer_matrix for entry in row
+            if entry.get("numerator") != [0.0]
+        ]
+        system_stable = all(e.get("is_stable", False) for e in non_zero_entries) if non_zero_entries else True
+
+        result = {
+            "mimo": m > 1 or p > 1,
+            "dimensions": {"inputs": m, "outputs": p},
+            "input_labels": [b.get("label", f"u{self._subscript(i+1)}") for i, b in enumerate(input_blocks)],
+            "output_labels": [b.get("label", f"y{self._subscript(i+1)}") for i, b in enumerate(output_blocks)],
+            "transfer_matrix": transfer_matrix,
+            "system_stable": system_stable,
+        }
+
+        # Legacy compat: for 1x1, spread the single entry's fields into top level
+        if m == 1 and p == 1:
+            result.update(transfer_matrix[0][0])
+
+        return result
+
+    def _solve_for_pair(
+        self, input_id: str, output_id: str, all_input_ids: set
+    ) -> Dict[str, Any]:
+        """
+        Solve Mason's gain formula for one (input, output) pair.
+
+        Signal isolation: other input blocks are temporarily set to zero gain
+        so signal from input_j does not flow through input_k (superposition).
+        """
+        # Temporarily zero-gate other input blocks
+        other_inputs = all_input_ids - {input_id}
+        saved = {}
+        for bid in other_inputs:
+            if bid in self.blocks:
+                saved[bid] = {
+                    "type": self.blocks[bid]["type"],
+                    "has_value": "value" in self.blocks[bid],
+                }
+                self.blocks[bid]["type"] = "gain"
+                self.blocks[bid]["value"] = 0.0
+
+        try:
+            result = self._solve_signal_flow(input_id, output_id)
+        except ValueError:
+            # No path or unreachable — return zero TF
+            op = "R" if self.system_type == "dt" else "A"
+            result = {
+                "expression": f"H({op}) = 0",
+                "domain_expression": "0",
+                "latex": "0",
+                "domain_latex": "0",
+                "operator": op,
+                "numerator": [0.0],
+                "denominator": [1.0],
+                "poles": [],
+                "zeros": [],
+                "is_stable": True,
+                "stability": "stable",
+                "num_forward_paths": 0,
+                "num_loops": 0,
+                "algebraic_loop_warning": None,
+            }
+        finally:
+            # Restore original types
+            for bid, info in saved.items():
+                if bid in self.blocks:
+                    self.blocks[bid]["type"] = info["type"]
+                    if not info["has_value"] and "value" in self.blocks[bid]:
+                        del self.blocks[bid]["value"]
+
+        return result
 
     def _solve_signal_flow(self, input_id: str, output_id: str) -> Dict[str, Any]:
         """
@@ -2715,18 +3109,36 @@ class BlockDiagramSimulator(BaseSimulator):
             return []
 
         try:
-            return [self._generate_response_plot()]
+            tf = self._tf_result
+            # For MIMO, use G₁₁ as default (first input -> first output)
+            if tf.get("mimo"):
+                matrix = tf.get("transfer_matrix", [[]])
+                if matrix and matrix[0]:
+                    entry = matrix[0][0]
+                else:
+                    return []
+            else:
+                entry = tf
+
+            num = entry.get("numerator")
+            den = entry.get("denominator")
+            if not num or not den or num == [0.0]:
+                return []
+
+            return [self._generate_response_plot_from(np.array(num), np.array(den))]
         except Exception:
             return []
 
     def _generate_response_plot(self) -> Dict[str, Any]:
-        """Generate step and impulse response plot."""
+        """Legacy method — delegates to _generate_response_plot_from."""
         tf = self._tf_result
-        num = np.array(tf["numerator"])
-        den = np.array(tf["denominator"])
+        return self._generate_response_plot_from(
+            np.array(tf["numerator"]), np.array(tf["denominator"])
+        )
 
+    def _generate_response_plot_from(self, num: np.ndarray, den: np.ndarray) -> Dict[str, Any]:
+        """Generate step and impulse response plot from num/den arrays."""
         if self.system_type == "dt":
-            # Convert R-polynomial to z-polynomial for scipy
             z_num, z_den = self._operator_to_z(num, den)
             return self._dt_response_plot(z_num, z_den)
         else:
@@ -2878,22 +3290,41 @@ class BlockDiagramSimulator(BaseSimulator):
     # =========================================================================
 
     def to_hub_data(self):
-        """Export block diagram topology and computed overall TF if available."""
+        """Export block diagram topology and computed TF(s)."""
         result = {
             "source": "block_diagram",
             "domain": self.HUB_DOMAIN,
-            "dimensions": self.HUB_DIMENSIONS,
             "block_diagram": {
                 "blocks": self.blocks,
                 "connections": self.connections,
             },
         }
-        if self._tf_result and "numerator" in self._tf_result:
-            result["tf"] = {
-                "num": self._tf_result["numerator"],
-                "den": self._tf_result["denominator"],
+
+        if not self._tf_result:
+            result["dimensions"] = self.HUB_DIMENSIONS
+            return result
+
+        tf = self._tf_result
+        if tf.get("mimo"):
+            # MIMO: export matrix structure
+            dims = tf["dimensions"]
+            result["dimensions"] = {"n": None, "m": dims["inputs"], "p": dims["outputs"]}
+            result["transfer_matrix"] = {
+                "entries": tf["transfer_matrix"],
+                "input_labels": tf["input_labels"],
+                "output_labels": tf["output_labels"],
                 "variable": "z" if self.system_type == "dt" else "s",
             }
+        else:
+            # SISO: legacy flat format
+            result["dimensions"] = {"n": None, "m": 1, "p": 1}
+            if "numerator" in tf:
+                result["tf"] = {
+                    "num": tf["numerator"],
+                    "den": tf["denominator"],
+                    "variable": "z" if self.system_type == "dt" else "s",
+                }
+
         return result
 
     # =========================================================================
@@ -2924,6 +3355,12 @@ class BlockDiagramSimulator(BaseSimulator):
                     "available": v.get("system") is None or v.get("system") == self.system_type,
                 }
                 for k, v in self.BLOCK_TYPES.items()
+            },
+            "io_counts": {
+                "inputs": sum(1 for b in self.blocks.values() if b["type"] == "input"),
+                "outputs": sum(1 for b in self.blocks.values() if b["type"] == "output"),
+                "max_inputs": 4,
+                "max_outputs": 4,
             },
         }
         return state

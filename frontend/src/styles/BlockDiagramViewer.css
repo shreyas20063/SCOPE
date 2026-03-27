@@ -1660,3 +1660,24 @@
 
 /* Light mode overrides for SFG labels */
 [data-theme="light"] .sfg-edge-label-katex .katex { color: #0891b2; }
+
+/* MIMO Transfer Function Matrix */
+.bd-mimo-tf { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.bd-mimo-header { display: flex; align-items: center; gap: 10px; }
+.bd-mimo-badge { background: var(--primary-light); color: var(--primary-color); padding: 2px 8px; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; }
+.bd-mimo-matrix { gap: 1px; background: var(--border-color); border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-color); }
+.bd-mimo-col-header { background: var(--surface-color); padding: 4px 8px; text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--primary-color); }
+.bd-mimo-corner { background: var(--surface-color); padding: 4px 8px; font-size: 0.7rem; color: var(--text-muted); text-align: center; }
+.bd-mimo-row-header { background: var(--surface-color); padding: 4px 8px; font-size: 0.75rem; font-weight: 600; color: var(--accent-purple); text-align: center; display: flex; align-items: center; justify-content: center; }
+.bd-mimo-cell { background: var(--background-secondary); padding: 6px 8px; cursor: pointer; position: relative; transition: background var(--transition-fast); display: flex; align-items: center; justify-content: center; min-height: 36px; }
+.bd-mimo-cell:hover { background: var(--surface-hover); }
+.bd-mimo-cell-selected { background: var(--primary-light) !important; outline: 1px solid var(--primary-color); }
+.bd-mimo-cell-zero { opacity: 0.5; }
+.bd-mimo-cell-zero-label { font-size: 0.85rem; color: var(--text-muted); }
+.bd-mimo-cell-expr .katex { font-size: 0.72rem; }
+.bd-mimo-cell-stability { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; }
+.bd-mimo-cell-stability.stable { background: var(--success-color); }
+.bd-mimo-cell-stability.unstable { background: var(--error-color); }
+.bd-mimo-cell-stability.marginally_stable { background: var(--warning-color); }
+.bd-mimo-detail { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.8rem; padding: 4px 0; }
+.bd-mimo-detail-expr .katex { font-size: 0.85rem; }

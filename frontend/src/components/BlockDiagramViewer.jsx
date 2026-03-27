@@ -1049,7 +1049,7 @@ function routeWire(fromPort, toPort, blocks, excludeIds = []) {
 function InputBlock({ block, isSelected, onMouseDown, onPortMouseDown, systemType }) {
   const { x, y } = block.position;
   const w = BLOCK_SIZES.input.width, h = BLOCK_SIZES.input.height;
-  const label = systemType === 'ct' ? 'x(t)' : 'x[n]';
+  const label = block.label || (systemType === 'ct' ? 'x(t)' : 'x[n]');
   return (
     <g
       className={`bd-block ${isSelected ? 'bd-block-selected' : ''}`}
@@ -1071,7 +1071,7 @@ function InputBlock({ block, isSelected, onMouseDown, onPortMouseDown, systemTyp
 function OutputBlock({ block, isSelected, onMouseDown, onPortMouseUp, systemType }) {
   const { x, y } = block.position;
   const w = BLOCK_SIZES.output.width, h = BLOCK_SIZES.output.height;
-  const label = systemType === 'ct' ? 'y(t)' : 'y[n]';
+  const label = block.label || (systemType === 'ct' ? 'y(t)' : 'y[n]');
   return (
     <g
       className={`bd-block ${isSelected ? 'bd-block-selected' : ''}`}
@@ -1372,10 +1372,10 @@ function convertToSFG(blocks, connections, systemType) {
     const type = block.type;
 
     if (type === 'input') {
-      const lbl = systemType === 'ct' ? 'x(t)' : 'x[n]';
+      const lbl = block.label || (systemType === 'ct' ? 'x(t)' : 'x[n]');
       addNode(block.id, lbl, x, y, 'source');
     } else if (type === 'output') {
-      const lbl = systemType === 'ct' ? 'y(t)' : 'y[n]';
+      const lbl = block.label || (systemType === 'ct' ? 'y(t)' : 'y[n]');
       addNode(block.id, lbl, x, y, 'sink');
     } else if (type === 'adder') {
       varIdx++;
@@ -2000,6 +2000,86 @@ function exportPNG(svgElement) {
     }, 'image/png');
   };
   img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+}
+
+// ============================================================================
+// MIMO Transfer Function Matrix Display
+// ============================================================================
+
+function MimoTfDisplay({ tfResult, systemType }) {
+  const [selectedCell, setSelectedCell] = useState(null);
+  const { dimensions, input_labels, output_labels, transfer_matrix, system_stable } = tfResult;
+  const varName = systemType === 'dt' ? 'z' : 's';
+
+  return (
+    <div className="bd-mimo-tf">
+      <div className="bd-mimo-header">
+        <span className="bd-mimo-badge">
+          {dimensions.outputs}×{dimensions.inputs} MIMO
+        </span>
+        <span className={`bd-tf-bar-stability ${system_stable ? 'stable' : 'unstable'}`}>
+          {system_stable ? '\u2713 System Stable' : '\u2717 System Unstable'}
+        </span>
+      </div>
+
+      <div className="bd-mimo-matrix" style={{ display: 'grid', gridTemplateColumns: `auto repeat(${dimensions.inputs}, 1fr)` }}>
+        {/* Column headers (input labels) */}
+        <div className="bd-mimo-corner">G({varName})</div>
+        {input_labels.map((lbl, j) => (
+          <div key={j} className="bd-mimo-col-header">{lbl}</div>
+        ))}
+
+        {/* Matrix rows */}
+        {transfer_matrix.map((row, i) => (
+          <React.Fragment key={i}>
+            <div className="bd-mimo-row-header">{output_labels[i]}</div>
+            {row.map((entry, j) => {
+              const isZero = !entry.numerator || (entry.numerator.length === 1 && Math.abs(entry.numerator[0]) < 1e-10);
+              const isSelected = selectedCell?.i === i && selectedCell?.j === j;
+              return (
+                <div
+                  key={j}
+                  className={`bd-mimo-cell ${isSelected ? 'bd-mimo-cell-selected' : ''} ${isZero ? 'bd-mimo-cell-zero' : ''}`}
+                  onClick={() => setSelectedCell(isSelected ? null : { i, j })}
+                >
+                  <span className={`bd-mimo-cell-stability ${entry.stability}`} />
+                  {isZero ? (
+                    <span className="bd-mimo-cell-zero-label">0</span>
+                  ) : (
+                    <LaTeX math={entry.domain_latex || entry.latex || '?'} className="bd-mimo-cell-expr" />
+                  )}
+                </div>
+              );
+            })}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* Detail panel for selected cell */}
+      {selectedCell && transfer_matrix[selectedCell.i]?.[selectedCell.j] && (() => {
+        const entry = transfer_matrix[selectedCell.i][selectedCell.j];
+        const isZero = !entry.numerator || (entry.numerator.length === 1 && Math.abs(entry.numerator[0]) < 1e-10);
+        return (
+          <div className="bd-mimo-detail">
+            <strong>G<sub>{selectedCell.i + 1},{selectedCell.j + 1}</sub>({varName})</strong>
+            {' \u2014 '}
+            <span>{input_labels[selectedCell.j]} \u2192 {output_labels[selectedCell.i]}</span>
+            {!isZero && entry.domain_latex && <LaTeX math={`= ${entry.domain_latex}`} className="bd-mimo-detail-expr" />}
+            <span className={`bd-tf-bar-stability ${entry.stability}`}>
+              {entry.stability === 'stable' ? '\u2713 Stable'
+               : entry.stability === 'marginally_stable' ? '\u25CB Marginal'
+               : '\u2717 Unstable'}
+            </span>
+            {entry.poles?.length > 0 && (
+              <span className="bd-tf-bar-poles">
+                Poles: {entry.poles.map(p => p.imag !== 0 ? `${p.real.toFixed(3)}\u00B1${Math.abs(p.imag).toFixed(3)}j` : p.real.toFixed(3)).join(', ')}
+              </span>
+            )}
+          </div>
+        );
+      })()}
+    </div>
+  );
 }
 
 // ============================================================================
@@ -2818,6 +2898,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     return { wireRoutes: routes, wireCrossingMap: crossingMap };
   }, [connections, blocks, blockFlowDir, adderPortMap, autoBranchMap]);
 
+  const ioCounts = metadata?.io_counts || { inputs: 0, outputs: 0, max_inputs: 4, max_outputs: 4 };
+
   // Available block types
   const availableBlocks = useMemo(() => {
     const base = ['input', 'output', 'gain', 'adder'];
@@ -2857,6 +2939,12 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   const handleExportSVG = useCallback(() => exportSVG(svgRef.current), []);
   const handleExportPNG = useCallback(() => exportPNG(svgRef.current), []);
   const handleExportJSON = useCallback(() => {
+    const isMimo = ioCounts.inputs > 1 || ioCounts.outputs > 1;
+    if (isMimo) {
+      setToastMessage('Signal Flow Scope supports SISO diagrams only');
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
     const diagramData = JSON.stringify({
       blocks,
       connections,
@@ -2872,7 +2960,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       setToastMessage('Export failed');
       setTimeout(() => setToastMessage(null), 2000);
     }
-  }, [blocks, connections, systemType]);
+  }, [blocks, connections, systemType, ioCounts]);
 
   // ========================================================================
   // Render
@@ -2888,17 +2976,26 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       <div className="bd-toolbar">
         <div className="bd-toolbar-section bd-toolbar-palette">
           <span className="bd-toolbar-label">Blocks</span>
-          {availableBlocks.map(type => (
-            <button key={type} className="bd-palette-btn"
-              draggable="true"
-              onDragStart={(e) => { e.dataTransfer.setData('block-type', type); e.dataTransfer.effectAllowed = 'copy'; }}
-              onClick={() => handleAddBlock(type)}
-              title={`Add ${blockLabels[type] || type} block — click or drag onto canvas`}
-            >
-              <span className="bd-palette-icon">{blockIcons[type]}</span>
-              <span className="bd-palette-text">{blockLabels[type]}</span>
-            </button>
-          ))}
+          {availableBlocks.map(type => {
+            const isInput = type === 'input';
+            const isOutput = type === 'output';
+            const atCap = (isInput && ioCounts.inputs >= ioCounts.max_inputs)
+              || (isOutput && ioCounts.outputs >= ioCounts.max_outputs);
+            const countLabel = isInput ? ` (${ioCounts.inputs}/${ioCounts.max_inputs})`
+              : isOutput ? ` (${ioCounts.outputs}/${ioCounts.max_outputs})` : '';
+            return (
+              <button key={type} className={`bd-palette-btn ${atCap ? 'bd-palette-disabled' : ''}`}
+                draggable={!atCap ? "true" : undefined}
+                onDragStart={atCap ? undefined : (e) => { e.dataTransfer.setData('block-type', type); e.dataTransfer.effectAllowed = 'copy'; }}
+                onClick={atCap ? undefined : () => handleAddBlock(type)}
+                disabled={atCap}
+                title={atCap ? `Maximum ${type} blocks reached` : `Add ${blockLabels[type] || type} block — click or drag onto canvas`}
+              >
+                <span className="bd-palette-icon">{blockIcons[type]}</span>
+                <span className="bd-palette-text">{blockLabels[type]}{countLabel}</span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="bd-toolbar-divider" />
@@ -2958,7 +3055,10 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
           <div className="bd-toolbar-divider" />
           <button className="bd-action-btn" onClick={handleExportSVG} title="Export SVG">SVG</button>
           <button className="bd-action-btn" onClick={handleExportPNG} title="Export PNG">PNG</button>
-          <button className="bd-action-btn" onClick={handleExportJSON} title="Export diagram for Signal Flow Scope">Export to Signal Scope</button>
+          <button className="bd-action-btn" onClick={handleExportJSON}
+            disabled={ioCounts.inputs > 1 || ioCounts.outputs > 1}
+            title={ioCounts.inputs > 1 || ioCounts.outputs > 1 ? 'Signal Flow Scope supports SISO only' : 'Export diagram for Signal Flow Scope'}
+          >Export to Signal Scope</button>
         </div>
       </div>
 
@@ -2984,28 +3084,32 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
           {error ? (
             <span className="bd-tf-bar-error">{error}</span>
           ) : tfResult ? (
-            <>
-              <LaTeX math={tfResult.latex || tfResult.expression} className="bd-tf-bar-expr" />
-              {tfResult.domain_latex && (
-                <>
-                  <span className="bd-tf-bar-eq">=</span>
-                  <LaTeX math={`H(${systemType === 'dt' ? 'z' : 's'}) = ${tfResult.domain_latex}`} className="bd-tf-bar-expr" />
-                </>
-              )}
-              <span className={`bd-tf-bar-stability ${tfResult.stability}`}>
-                {tfResult.stability === 'stable' ? '\u2713 Stable'
-                 : tfResult.stability === 'marginally_stable' ? '\u25CB Marginal'
-                 : '\u2717 Unstable'}
-              </span>
-              {tfResult.poles && tfResult.poles.length > 0 && (
-                <span className="bd-tf-bar-poles" title={tfResult.poles.map(p => p.imag !== 0 ? `${p.real.toFixed(3)} \u00B1 ${Math.abs(p.imag).toFixed(3)}j` : p.real.toFixed(3)).join(', ')}>
-                  Poles: {tfResult.poles.length}
+            tfResult.mimo ? (
+              <MimoTfDisplay tfResult={tfResult} systemType={systemType} />
+            ) : (
+              <>
+                <LaTeX math={tfResult.latex || tfResult.expression} className="bd-tf-bar-expr" />
+                {tfResult.domain_latex && (
+                  <>
+                    <span className="bd-tf-bar-eq">=</span>
+                    <LaTeX math={`H(${systemType === 'dt' ? 'z' : 's'}) = ${tfResult.domain_latex}`} className="bd-tf-bar-expr" />
+                  </>
+                )}
+                <span className={`bd-tf-bar-stability ${tfResult.stability}`}>
+                  {tfResult.stability === 'stable' ? '\u2713 Stable'
+                   : tfResult.stability === 'marginally_stable' ? '\u25CB Marginal'
+                   : '\u2717 Unstable'}
                 </span>
-              )}
-              {tfResult.algebraic_loop_warning && (
-                <span className="bd-tf-bar-warning" title={tfResult.algebraic_loop_warning}>{'\u26A0'} Algebraic Loop</span>
-              )}
-            </>
+                {tfResult.poles && tfResult.poles.length > 0 && (
+                  <span className="bd-tf-bar-poles" title={tfResult.poles.map(p => p.imag !== 0 ? `${p.real.toFixed(3)} \u00B1 ${Math.abs(p.imag).toFixed(3)}j` : p.real.toFixed(3)).join(', ')}>
+                    Poles: {tfResult.poles.length}
+                  </span>
+                )}
+                {tfResult.algebraic_loop_warning && (
+                  <span className="bd-tf-bar-warning" title={tfResult.algebraic_loop_warning}>{'\u26A0'} Algebraic Loop</span>
+                )}
+              </>
+            )
           ) : (
             <span className="bd-tf-bar-hint">Connect Input \u2192 blocks \u2192 Output to compute TF</span>
           )}
