@@ -61,11 +61,11 @@ Plans:
   1. After computing any G_ij via superposition, the block diagram topology is identical to before computation -- no block types or connections mutated
   2. Negative feedback loops produce the correct sign in the transfer function denominator (verified against Nise block diagram reduction rules)
   3. A mixed-feedback topology (positive and negative feedback in same diagram) produces correct transfer function for each path
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md -- Test-first: MATH-02 signal isolation tests and MATH-04 adder sign verification tests
+- [ ] 03-02-PLAN.md -- Replace block mutation with signal-level zero_inputs parameter threading
 
 ### Phase 4: MIMO Feedback Correctness
 **Goal**: Closed-loop MIMO transfer matrix matches Ogata's MIMO feedback formula
