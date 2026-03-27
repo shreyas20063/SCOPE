@@ -1481,6 +1481,9 @@ class BlockDiagramSimulator(BaseSimulator):
 
         For SISO (1 input, 1 output): returns legacy flat dict with all original keys.
         For MIMO (multiple I/O): returns matrix structure with legacy compat for 1x1.
+
+        MATH-01: Delta (graph determinant) is computed ONCE from the full graph
+        and shared across all G_ij entries. Only forward paths differ per I/O pair.
         """
         input_blocks = sorted(
             [b for b in self.blocks.values() if b["type"] == "input"],
@@ -1502,12 +1505,34 @@ class BlockDiagramSimulator(BaseSimulator):
         # Collect all input block IDs for signal isolation
         all_input_ids = {b["id"] for b in input_blocks}
 
+        # Build adjacency ONCE from full unmodified graph
+        incoming, outgoing = self._build_adjacency()
+
+        # Build connection port map ONCE
+        conn_port_map = self._build_conn_port_map()
+
+        # Enumerate ALL loops from full graph -- ONCE (MATH-01)
+        block_ids = list(self.blocks.keys())
+        all_loops: List[List[str]] = []
+        seen_loops: set = set()
+        for start_bid in block_ids:
+            self._dfs_loops(
+                start_bid, start_bid, outgoing,
+                [start_bid], set([start_bid]), all_loops, seen_loops
+            )
+
+        # Compute graph determinant Delta -- ONCE (MATH-01)
+        delta_num, delta_den = self._compute_graph_delta(all_loops, conn_port_map)
+
+        # Iterate per I/O pair -- only forward paths change
         transfer_matrix = []
         for out_block in output_blocks:
             row = []
             for in_block in input_blocks:
-                tf_entry = self._solve_for_pair(
-                    in_block["id"], out_block["id"], all_input_ids
+                tf_entry = self._solve_for_pair_with_shared_delta(
+                    in_block["id"], out_block["id"], all_input_ids,
+                    incoming, outgoing,
+                    all_loops, delta_num, delta_den, conn_port_map
                 )
                 row.append(tf_entry)
             transfer_matrix.append(row)
@@ -1534,16 +1559,155 @@ class BlockDiagramSimulator(BaseSimulator):
 
         return result
 
-    def _solve_for_pair(
-        self, input_id: str, output_id: str, all_input_ids: set
-    ) -> Dict[str, Any]:
-        """
-        Solve Mason's gain formula for one (input, output) pair.
+    # ── Graph-level helper methods (MATH-01 refactoring) ──
 
-        Signal isolation: other input blocks are temporarily set to zero gain
-        so signal from input_j does not flow through input_k (superposition).
+    def _build_adjacency(self) -> Tuple[Dict, Dict]:
+        """Build incoming/outgoing adjacency dicts from self.connections.
+
+        Returns (incoming, outgoing) where:
+          incoming[bid] = list of {"from": from_bid, "to_port": port}
+          outgoing[bid] = list of target block IDs
         """
-        # Temporarily zero-gate other input blocks
+        block_ids = list(self.blocks.keys())
+        incoming: Dict[str, list] = {bid: [] for bid in block_ids}
+        outgoing: Dict[str, set] = {bid: set() for bid in block_ids}
+        for conn in self.connections:
+            fb, tb = conn["from_block"], conn["to_block"]
+            if fb in self.blocks and tb in self.blocks:
+                incoming[tb].append({"from": fb, "to_port": conn["to_port"]})
+                outgoing[fb].add(tb)
+        outgoing_lists: Dict[str, list] = {bid: list(targets) for bid, targets in outgoing.items()}
+        return incoming, outgoing_lists
+
+    def _build_conn_port_map(self) -> Dict[Tuple[str, str], int]:
+        """Build (from_block, to_block) -> to_port lookup from self.connections."""
+        conn_port_map: Dict[Tuple[str, str], int] = {}
+        for conn in self.connections:
+            key = (conn["from_block"], conn["to_block"])
+            conn_port_map[key] = conn["to_port"]
+        return conn_port_map
+
+    def _block_tf(self, bid: str) -> Tuple[np.ndarray, np.ndarray]:
+        """Return (num, den) polynomials for a block (low-power-first)."""
+        block = self.blocks[bid]
+        btype = block["type"]
+        if btype == "gain":
+            val = block.get("value", 1.0)
+            return (np.array([val]), np.array([1.0]))
+        elif btype in ("delay", "integrator"):
+            return (np.array([0.0, 1.0]), np.array([1.0]))
+        elif btype == "custom_tf":
+            return (
+                np.array(block.get("num_coeffs", [1.0]), dtype=float),
+                np.array(block.get("den_coeffs", [1.0]), dtype=float),
+            )
+        else:
+            return (np.array([1.0]), np.array([1.0]))
+
+    def _compute_loop_gain(self, loop: List[str], conn_port_map: Dict) -> Tuple[np.ndarray, np.ndarray]:
+        """Compute gain around a loop."""
+        num = np.array([1.0])
+        den = np.array([1.0])
+        for i, bid in enumerate(loop):
+            block = self.blocks[bid]
+            if block["type"] == "adder":
+                prev_bid = loop[i - 1] if i > 0 else loop[-1]
+                port_idx = conn_port_map.get((prev_bid, bid), 0)
+                signs = block.get("signs", ["+", "+", "+"])
+                if port_idx < len(signs) and signs[port_idx] == "-":
+                    num = self._pscale(num, -1.0)
+            if block["type"] not in ("input", "output", "adder", "junction"):
+                bn, bd = self._block_tf(bid)
+                num = self._pmul(num, bn)
+                den = self._pmul(den, bd)
+        return (num, den)
+
+    def _compute_path_gain(self, path: List[str], conn_port_map: Dict) -> Tuple[np.ndarray, np.ndarray]:
+        """Compute gain along a forward path."""
+        num = np.array([1.0])
+        den = np.array([1.0])
+        for i, bid in enumerate(path):
+            block = self.blocks[bid]
+            if block["type"] == "adder" and i > 0:
+                prev_bid = path[i - 1]
+                port_idx = conn_port_map.get((prev_bid, bid), 0)
+                signs = block.get("signs", ["+", "+", "+"])
+                if port_idx < len(signs) and signs[port_idx] == "-":
+                    num = self._pscale(num, -1.0)
+            if block["type"] not in ("input", "output", "adder", "junction"):
+                bn, bd = self._block_tf(bid)
+                num = self._pmul(num, bn)
+                den = self._pmul(den, bd)
+        return (num, den)
+
+    def _compute_graph_delta(self, all_loops: List[List[str]], conn_port_map: Dict) -> Tuple[np.ndarray, np.ndarray]:
+        """Compute graph determinant Delta from all loops (Mason's formula).
+
+        Delta = 1 - sum(L_i) + sum(non-touching pairs L_i*L_j) - ...
+        """
+        d_num = np.array([1.0])
+        d_den = np.array([1.0])
+        if not all_loops:
+            return d_num, d_den
+
+        loop_gains = [self._compute_loop_gain(lp, conn_port_map) for lp in all_loops]
+        n_loops = len(loop_gains)
+        loop_sets = [set(lp) for lp in all_loops]
+
+        for k in range(1, n_loops + 1):
+            if n_loops > 20 and k > 4:
+                break
+            sign_positive = (k % 2 == 0)
+            found_any = False
+            for combo in combinations(range(n_loops), k):
+                all_non_touching = True
+                for ci in range(len(combo)):
+                    for cj in range(ci + 1, len(combo)):
+                        if not loop_sets[combo[ci]].isdisjoint(loop_sets[combo[cj]]):
+                            all_non_touching = False
+                            break
+                    if not all_non_touching:
+                        break
+                if all_non_touching:
+                    found_any = True
+                    prod_num = np.array([1.0])
+                    prod_den = np.array([1.0])
+                    for idx in combo:
+                        prod_num = self._pmul(prod_num, loop_gains[idx][0])
+                        prod_den = self._pmul(prod_den, loop_gains[idx][1])
+                    if sign_positive:
+                        d_num = self._padd(
+                            self._pmul(d_num, prod_den),
+                            self._pmul(prod_num, d_den)
+                        )
+                    else:
+                        d_num = self._psub(
+                            self._pmul(d_num, prod_den),
+                            self._pmul(prod_num, d_den)
+                        )
+                    d_den = self._pmul(d_den, prod_den)
+            if not found_any:
+                break
+
+        return d_num, d_den
+
+    def _compute_cofactor(self, path: List[str], all_loops: List[List[str]], conn_port_map: Dict) -> Tuple[np.ndarray, np.ndarray]:
+        """Compute cofactor Delta_k -- graph determinant using only non-touching loops."""
+        non_touching = [lp for lp in all_loops if set(path).isdisjoint(set(lp))]
+        return self._compute_graph_delta(non_touching, conn_port_map)
+
+    def _solve_for_pair_with_shared_delta(
+        self, input_id: str, output_id: str, all_input_ids: set,
+        incoming: Dict, outgoing: Dict,
+        all_loops: List[List[str]], delta_num: np.ndarray, delta_den: np.ndarray,
+        conn_port_map: Dict
+    ) -> Dict[str, Any]:
+        """Solve Mason's gain formula for one (input, output) pair using shared Delta.
+
+        MATH-01: Delta is pre-computed at graph level and passed in.
+        Only forward paths and their cofactors are computed per-pair.
+        """
+        # Temporarily zero-gate other input blocks (Phase 3 will fix mutation)
         other_inputs = all_input_ids - {input_id}
         saved = {}
         for bid in other_inputs:
@@ -1556,10 +1720,20 @@ class BlockDiagramSimulator(BaseSimulator):
                 self.blocks[bid]["value"] = 0.0
 
         try:
-            result = self._solve_signal_flow(input_id, output_id)
+            result = self._solve_signal_flow_with_shared_delta(
+                input_id, output_id, incoming, outgoing,
+                all_loops, delta_num, delta_den, conn_port_map
+            )
         except ValueError:
-            # No path or unreachable — return zero TF
+            # No path or unreachable — return zero TF with shared Delta denominator
             op = "R" if self.system_type == "dt" else "A"
+            # Build denominator from shared Delta: TF = 0 / Delta
+            # tf_den = total_den * delta_num where total_den=[1] for zero-path case
+            # This ensures the denominator matches non-zero entries' denominators
+            # after cleaning and normalization.
+            shared_den = self._clean_poly(delta_num.copy())
+            if len(shared_den) > 0 and abs(shared_den[0]) > 1e-12:
+                shared_den = shared_den / shared_den[0]
             result = {
                 "expression": f"H({op}) = 0",
                 "domain_expression": "0",
@@ -1567,13 +1741,13 @@ class BlockDiagramSimulator(BaseSimulator):
                 "domain_latex": "0",
                 "operator": op,
                 "numerator": [0.0],
-                "denominator": [1.0],
+                "denominator": shared_den.tolist(),
                 "poles": [],
                 "zeros": [],
                 "is_stable": True,
                 "stability": "stable",
                 "num_forward_paths": 0,
-                "num_loops": 0,
+                "num_loops": len(all_loops),
                 "algebraic_loop_warning": None,
             }
         finally:
@@ -1586,27 +1760,17 @@ class BlockDiagramSimulator(BaseSimulator):
 
         return result
 
-    def _solve_signal_flow(self, input_id: str, output_id: str) -> Dict[str, Any]:
-        """
-        Solve the signal flow graph using Mason's gain formula.
+    def _solve_signal_flow_with_shared_delta(
+        self, input_id: str, output_id: str,
+        incoming: Dict, outgoing: Dict,
+        all_loops: List[List[str]], delta_num: np.ndarray, delta_den: np.ndarray,
+        conn_port_map: Dict
+    ) -> Dict[str, Any]:
+        """Solve signal flow graph for one I/O pair using pre-computed shared Delta.
 
         Polynomials use LOW-POWER-FIRST convention:
         coeffs[i] = coefficient of R^i (or A^i).
-        E.g., [1, -0.5] represents 1 - 0.5R
         """
-        block_ids = list(self.blocks.keys())
-
-        # Build connection maps
-        incoming = {bid: [] for bid in block_ids}
-        outgoing = {bid: set() for bid in block_ids}
-        for conn in self.connections:
-            fb, tb = conn["from_block"], conn["to_block"]
-            if fb in self.blocks and tb in self.blocks:
-                incoming[tb].append({"from": fb, "to_port": conn["to_port"]})
-                outgoing[fb].add(tb)
-        # Convert outgoing sets to lists for consistent iteration
-        outgoing = {bid: list(targets) for bid, targets in outgoing.items()}
-
         # Check connectivity
         visited = set()
         stack = [input_id]
@@ -1621,53 +1785,17 @@ class BlockDiagramSimulator(BaseSimulator):
         if output_id not in visited:
             raise ValueError("Output is not reachable from Input. Connect them with wires.")
 
-        # Block transfer function (low-power-first)
-        def block_tf(bid: str) -> Tuple[np.ndarray, np.ndarray]:
-            """Return (num, den) polynomials for a block."""
-            block = self.blocks[bid]
-            btype = block["type"]
-            if btype == "gain":
-                val = block.get("value", 1.0)
-                return (np.array([val]), np.array([1.0]))
-            elif btype in ("delay", "integrator"):
-                # R or A operator: [0, 1] = 0 + 1*R = R
-                return (np.array([0.0, 1.0]), np.array([1.0]))
-            elif btype == "custom_tf":
-                return (
-                    np.array(block.get("num_coeffs", [1.0]), dtype=float),
-                    np.array(block.get("den_coeffs", [1.0]), dtype=float),
-                )
-            else:
-                # input, output, adder, junction: unity (pass-through)
-                return (np.array([1.0]), np.array([1.0]))
-
-        # Find all forward paths and loops
-        forward_paths = []
-        all_loops = []
-        seen_loops: set = set()
+        # Find forward paths (per-pair)
+        forward_paths: List[List[str]] = []
         self._dfs_forward_paths(
             input_id, output_id, incoming, outgoing,
             [input_id], set([input_id]), forward_paths
         )
-        for start_bid in block_ids:
-            self._dfs_loops(
-                start_bid, start_bid, outgoing,
-                [start_bid], set([start_bid]), all_loops, seen_loops
-            )
 
         if not forward_paths:
             raise ValueError("No forward path from Input to Output found.")
 
-        # Build connection lookup: (from_block, to_block) -> to_port
-        # O(1) lookup instead of linear scan per adder in path/loop gain
-        conn_port_map: Dict[Tuple[str, str], int] = {}
-        for conn in self.connections:
-            key = (conn["from_block"], conn["to_block"])
-            conn_port_map[key] = conn["to_port"]
-
         # ── Algebraic loop detection ──
-        # A loop is "algebraic" if it contains NO delay or integrator blocks,
-        # meaning it has direct feedthrough (instantaneous feedback).
         algebraic_loops = []
         for loop in all_loops:
             has_memory = any(
@@ -1681,151 +1809,21 @@ class BlockDiagramSimulator(BaseSimulator):
             if not has_memory:
                 algebraic_loops.append(loop)
 
-        def compute_path_gain(path: List[str]) -> Tuple[np.ndarray, np.ndarray]:
-            """Compute gain along a path as product of block TFs."""
-            num = np.array([1.0])
-            den = np.array([1.0])
-            for i, bid in enumerate(path):
-                block = self.blocks[bid]
-                # Handle adder sign
-                if block["type"] == "adder" and i > 0:
-                    prev_bid = path[i - 1]
-                    port_idx = conn_port_map.get((prev_bid, bid), 0)
-                    signs = block.get("signs", ["+", "+", "+"])
-                    if port_idx < len(signs) and signs[port_idx] == "-":
-                        num = self._pscale(num, -1.0)
-
-                # Multiply by block's transfer function
-                if block["type"] not in ("input", "output", "adder", "junction"):
-                    bn, bd = block_tf(bid)
-                    num = self._pmul(num, bn)
-                    den = self._pmul(den, bd)
-
-            return (num, den)
-
-        def compute_loop_gain(loop: List[str]) -> Tuple[np.ndarray, np.ndarray]:
-            """Compute gain around a loop."""
-            num = np.array([1.0])
-            den = np.array([1.0])
-            for i, bid in enumerate(loop):
-                block = self.blocks[bid]
-                if block["type"] == "adder":
-                    prev_bid = loop[i - 1] if i > 0 else loop[-1]
-                    port_idx = conn_port_map.get((prev_bid, bid), 0)
-                    signs = block.get("signs", ["+", "+", "+"])
-                    if port_idx < len(signs) and signs[port_idx] == "-":
-                        num = self._pscale(num, -1.0)
-
-                if block["type"] not in ("input", "output", "adder", "junction"):
-                    bn, bd = block_tf(bid)
-                    num = self._pmul(num, bn)
-                    den = self._pmul(den, bd)
-
-            return (num, den)
-
-        # ── Full Mason's gain formula ──
-        # T = Σ(P_k · Δ_k) / Δ
-        # Δ = 1 - Σ L_i + Σ L_i·L_j (non-touching pairs) - Σ L_i·L_j·L_k (non-touching triples) + ...
-        # Δ_k = graph determinant with all loops touching forward path k removed
-
-        def loops_are_non_touching(loop1: List[str], loop2: List[str]) -> bool:
-            """Two loops are non-touching if they share no common nodes."""
-            return set(loop1).isdisjoint(set(loop2))
-
-        def compute_delta(loops: List[List[str]]) -> Tuple[np.ndarray, np.ndarray]:
-            """Compute graph determinant Δ from a set of loops.
-            Δ = 1 - Σ L_i + Σ (non-touching pairs) L_i·L_j - Σ (triples) + ...
-            Generalized to all group sizes using itertools.combinations.
-            """
-            # Start with Δ = 1
-            d_num = np.array([1.0])
-            d_den = np.array([1.0])
-
-            if not loops:
-                return d_num, d_den
-
-            # Precompute loop gains
-            loop_gains = [compute_loop_gain(lp) for lp in loops]
-            n_loops = len(loop_gains)
-
-            # Precompute loop node sets for fast non-touching checks
-            loop_sets = [set(lp) for lp in loops]
-
-            # For k = 1, 2, ..., n_loops: add (-1)^k * sum of products
-            # of non-touching k-tuples
-            for k in range(1, n_loops + 1):
-                # Safety cap for very large diagrams
-                if n_loops > 20 and k > 4:
-                    break
-                sign_positive = (k % 2 == 0)  # k=1: subtract, k=2: add, ...
-                found_any = False
-
-                for combo in combinations(range(n_loops), k):
-                    # Check all pairs in combo are mutually non-touching
-                    all_non_touching = True
-                    for ci in range(len(combo)):
-                        for cj in range(ci + 1, len(combo)):
-                            if not loop_sets[combo[ci]].isdisjoint(loop_sets[combo[cj]]):
-                                all_non_touching = False
-                                break
-                        if not all_non_touching:
-                            break
-
-                    if all_non_touching:
-                        found_any = True
-                        prod_num = np.array([1.0])
-                        prod_den = np.array([1.0])
-                        for idx in combo:
-                            prod_num = self._pmul(prod_num, loop_gains[idx][0])
-                            prod_den = self._pmul(prod_den, loop_gains[idx][1])
-
-                        if sign_positive:
-                            d_num = self._padd(
-                                self._pmul(d_num, prod_den),
-                                self._pmul(prod_num, d_den)
-                            )
-                        else:
-                            d_num = self._psub(
-                                self._pmul(d_num, prod_den),
-                                self._pmul(prod_num, d_den)
-                            )
-                        d_den = self._pmul(d_den, prod_den)
-
-                # If no non-touching groups of size k exist, no larger groups can either
-                if not found_any:
-                    break
-
-            return d_num, d_den
-
-        def path_touches_loop(path: List[str], loop: List[str]) -> bool:
-            """A forward path touches a loop if they share any node."""
-            return not set(path).isdisjoint(set(loop))
-
-        def compute_cofactor(path: List[str], loops: List[List[str]]) -> Tuple[np.ndarray, np.ndarray]:
-            """Compute Δ_k — the graph determinant using only loops that don't touch path k."""
-            non_touching = [lp for lp in loops if not path_touches_loop(path, lp)]
-            return compute_delta(non_touching)
-
-        # Compute full Δ
-        delta_num, delta_den = compute_delta(all_loops)
-
-        # Compute numerator: Σ P_k · Δ_k
+        # Compute numerator: sum(P_k * Delta_k)
         total_num = np.array([0.0])
         total_den = np.array([1.0])
         for fp in forward_paths:
-            p_n, p_d = compute_path_gain(fp)
-            cofactor_num, cofactor_den = compute_cofactor(fp, all_loops)
-            # P_k · Δ_k = (p_n · cofactor_num) / (p_d · cofactor_den)
+            p_n, p_d = self._compute_path_gain(fp, conn_port_map)
+            cofactor_num, cofactor_den = self._compute_cofactor(fp, all_loops, conn_port_map)
             term_num = self._pmul(p_n, cofactor_num)
             term_den = self._pmul(p_d, cofactor_den)
-            # Add to running total
             total_num = self._padd(
                 self._pmul(total_num, term_den),
                 self._pmul(term_num, total_den)
             )
             total_den = self._pmul(total_den, term_den)
 
-        # TF = (total_num · delta_den) / (total_den · delta_num)
+        # TF = (total_num * delta_den) / (total_den * delta_num)
         tf_num = self._pmul(total_num, delta_den)
         tf_den = self._pmul(total_den, delta_num)
 
@@ -1833,7 +1831,7 @@ class BlockDiagramSimulator(BaseSimulator):
         tf_num = self._clean_poly(tf_num)
         tf_den = self._clean_poly(tf_den)
 
-        # Check for degenerate denominator (algebraic loop made Δ ≈ 0)
+        # Check for degenerate denominator (algebraic loop made Delta ~ 0)
         if len(tf_den) == 0 or np.all(np.abs(tf_den) < 1e-10):
             raise ValueError(
                 "Algebraic loop detected: feedback path has no delay or "
@@ -1841,7 +1839,7 @@ class BlockDiagramSimulator(BaseSimulator):
                 "Add a Delay (DT) or Integrator (CT) block in the feedback path."
             )
 
-        # Check for NaN/Inf in numerator or denominator
+        # Check for NaN/Inf
         if np.any(~np.isfinite(tf_num)) or np.any(~np.isfinite(tf_den)):
             raise ValueError(
                 "Transfer function has invalid coefficients (NaN/Inf). "
@@ -1862,7 +1860,6 @@ class BlockDiagramSimulator(BaseSimulator):
         # Convert to z-domain or s-domain for poles/zeros
         if self.system_type == "dt":
             z_num, z_den = self._operator_to_z(tf_num, tf_den)
-            # Normalize so leading coeff of denominator = 1
             if len(z_den) > 0 and abs(z_den[0]) > 1e-12:
                 scale = z_den[0]
                 z_num = z_num / scale
@@ -1939,19 +1936,29 @@ class BlockDiagramSimulator(BaseSimulator):
         path: List[str], visited: set,
         results: List[List[str]]
     ) -> None:
-        """Find all forward paths from current to target via DFS."""
+        """Find all forward paths from current to target via DFS.
+
+        MATH-05: target node is only accepted as the terminal node,
+        never as an intermediate node in the path.
+        """
         if current == target and len(path) > 1:
             results.append(list(path))
-            return
+            return  # Do NOT continue DFS from target
 
         for next_block in outgoing.get(current, []):
-            if next_block not in visited or next_block == target:
+            if next_block == target:
+                # Target found -- record path, do NOT recurse from target
+                path.append(next_block)
+                results.append(list(path))
+                path.pop()
+            elif next_block not in visited:
                 visited.add(next_block)
                 path.append(next_block)
-                self._dfs_forward_paths(next_block, target, incoming, outgoing, path, visited, results)
+                self._dfs_forward_paths(
+                    next_block, target, incoming, outgoing, path, visited, results
+                )
                 path.pop()
-                if next_block != target:
-                    visited.discard(next_block)
+                visited.discard(next_block)
 
     @staticmethod
     def _block_sort_key(bid: str) -> Tuple:
