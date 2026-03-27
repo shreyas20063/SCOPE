@@ -1,0 +1,4 @@
+# Dev/test dependencies -- install with: pip install -r requirements-dev.txt
+pytest>=8.0,<9.0
+pytest-timeout>=2.4
+control>=0.10.2
