@@ -2008,8 +2008,10 @@ function exportPNG(svgElement) {
 
 function MimoTfDisplay({ tfResult, systemType }) {
   const [selectedCell, setSelectedCell] = useState(null);
-  const { dimensions, input_labels, output_labels, transfer_matrix, system_stable } = tfResult;
+  const { dimensions, input_labels, output_labels, transfer_matrix, system_stable } = tfResult || {};
   const varName = systemType === 'dt' ? 'z' : 's';
+
+  if (!dimensions || !transfer_matrix) return null;
 
   return (
     <div className="bd-mimo-tf">

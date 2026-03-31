@@ -82,6 +82,9 @@ class LeadLagDesignerSimulator(BaseSimulator):
     def update_parameter(self, name, value):
         if name in self.parameters:
             self.parameters[name] = self._validate_param(name, value)
+            # Manual edit of custom_num/custom_den switches preset to custom
+            if name in ("custom_num", "custom_den"):
+                self.parameters["plant_preset"] = "custom"
         return self.get_state()
 
     def get_plots(self):

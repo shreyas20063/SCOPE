@@ -274,13 +274,16 @@ class ApiClient {
    */
   async validateHubData(slot, data) {
     try {
-      const response = await apiClient.post('/hub/validate', { slot, data });
+      const response = await apiClient.post('/hub/validate', { slot, data }, { timeout: 5000 });
       return {
         success: response.data.success,
         data: response.data.data || null,
         error: response.data.error || null,
       };
     } catch (error) {
+      if (error.code === 'ECONNABORTED') {
+        return { success: false, error: 'Validation timed out', data: null };
+      }
       return handleError(error);
     }
   }

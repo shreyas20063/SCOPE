@@ -12,7 +12,7 @@ function HubButton({ isOpen, onToggle }) {
   const { hubState } = useHubContext();
 
   const hasData = useMemo(() => {
-    return Object.values(hubState).some(slot => slot !== null);
+    return hubState.control !== null;
   }, [hubState]);
 
   return (

@@ -114,6 +114,9 @@ logs/
 # Claude Code
 .claude/
 
+# GSD Planning
+.planning/
+
 # Temporary files
 temp/
 tmp/
@@ -155,3 +158,6 @@ secrets/
 *.pem
 *.key
 credentials.json
+
+# Validation results (generated)
+validation/results/

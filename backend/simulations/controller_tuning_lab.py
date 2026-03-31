@@ -387,6 +387,10 @@ class ControllerTuningLabSimulator(BaseSimulator):
         elif name in self.parameters:
             self.parameters[name] = value
 
+        # Manual edit of custom_num/custom_den switches preset to custom
+        if name in ("custom_num", "custom_den"):
+            self.parameters["plant_preset"] = "custom"
+
         # Reset dependent state when key mode params change
         if name == "controller_type":
             self._tuning_info = None
@@ -1200,10 +1204,18 @@ class ControllerTuningLabSimulator(BaseSimulator):
         """Fit FOPDT model (K_p, tau_p, L) to plant step response.
 
         Returns (K_p, tau_p, L) — process gain, time constant, dead time.
+        For FOPDT preset, returns the user's exact parameters (no fitting).
         For unstable plants, returns an approximation based on the dominant
         RHP pole (FOPDT is not physically meaningful but gives the tuning
         methods *something* reasonable to work with).
         """
+        # ── FOPDT preset: use exact user parameters, skip lossy re-fitting ──
+        if self.parameters.get("plant_preset") == "fopdt":
+            K_p = float(self.parameters.get("plant_gain", 1.0))
+            tau_p = float(self.parameters.get("plant_tau", 1.0))
+            L = float(self.parameters.get("plant_delay", 0.5))
+            return max(abs(K_p), 0.001), max(tau_p, 0.001), max(L, 0.001)
+
         plant_type = self._detect_plant_type()
 
         # ── Unstable plants: FOPDT from dominant RHP pole ──
@@ -1652,6 +1664,9 @@ class ControllerTuningLabSimulator(BaseSimulator):
     def _save_reference(self) -> None:
         """Save current step response as a reference snapshot."""
         t, y = self._compute_step_response()
+        e = self._compute_error_signal(y)
+        w, mag_db, phase_deg = self._compute_bode()
+        metrics = self._compute_performance_metrics(t, y, e, w, mag_db, phase_deg)
         label = self._make_reference_label()
         ctype = self.parameters.get("controller_type", "PID")
         # Include relevant params for the current controller type
@@ -1681,6 +1696,7 @@ class ControllerTuningLabSimulator(BaseSimulator):
             "y": y.tolist(),
             "label": label,
             "params": saved_params,
+            "metrics": metrics,
         }
         if len(self._reference_responses) >= 5:
             self._reference_responses.pop(0)

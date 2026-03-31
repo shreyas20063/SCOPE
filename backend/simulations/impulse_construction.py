@@ -67,7 +67,7 @@ class ImpulseConstructionSimulator(BaseSimulator):
         "show_limit": True,
     }
 
-    HUB_SLOTS = ['signal']
+    HUB_SLOTS = []
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}

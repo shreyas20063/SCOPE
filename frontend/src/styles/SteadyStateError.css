@@ -165,6 +165,8 @@
 
 .sse-section-header {
   padding: 10px 16px 0;
+  display: flex;
+  align-items: center;
 }
 
 .sse-section-title {
@@ -314,6 +316,30 @@
   color: var(--primary-color);
 }
 
+/* Clickable rows */
+.sse-error-row.clickable {
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.sse-error-row.clickable:hover {
+  background: rgba(20, 184, 166, 0.08) !important;
+}
+
+/* Section hint */
+.sse-section-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-left: auto;
+}
+
+/* Feedback block variant */
+.sse-feedback-block {
+  fill: rgba(124, 58, 237, 0.08);
+  stroke: var(--accent-purple, #7c3aed);
+}
+
 /* ==========================================================================
    FVT Display
    ========================================================================== */
@@ -395,6 +421,22 @@
   color: var(--error-color);
   font-size: 12px;
   font-weight: 500;
+}
+
+/* ==========================================================================
+   Disturbance Panel
+   ========================================================================== */
+
+.sse-disturbance-panel {
+  background: var(--surface-color);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.sse-disturbance-plot {
+  height: 220px;
+  padding: 0 8px 8px;
 }
 
 /* ==========================================================================
@@ -535,4 +577,9 @@
 [data-theme="light"] .sse-plot-card {
   background: rgba(248, 250, 252, 0.98);
   border-color: rgba(226, 232, 240, 0.8);
+}
+
+[data-theme="light"] .sse-disturbance-panel {
+  background: rgba(248, 250, 252, 0.98);
+  border-color: rgba(245, 158, 11, 0.25);
 }

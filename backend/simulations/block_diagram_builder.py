@@ -3312,23 +3312,41 @@ class BlockDiagramSimulator(BaseSimulator):
             return result
 
         tf = self._tf_result
+        convert = self._operator_to_z if self.system_type == "dt" else self._operator_to_s
+        var = "z" if self.system_type == "dt" else "s"
+
         if tf.get("mimo"):
-            # MIMO: export matrix structure
+            # MIMO: export matrix with s/z-domain coefficients
             dims = tf["dimensions"]
             result["dimensions"] = {"n": None, "m": dims["inputs"], "p": dims["outputs"]}
+            converted_entries = []
+            for row in tf["transfer_matrix"]:
+                converted_row = []
+                for entry in row:
+                    op_num = np.array(entry.get("numerator", [0.0]))
+                    op_den = np.array(entry.get("denominator", [1.0]))
+                    dom_num, dom_den = convert(op_num, op_den)
+                    converted_row.append({
+                        "numerator": dom_num.tolist(),
+                        "denominator": dom_den.tolist(),
+                    })
+                converted_entries.append(converted_row)
             result["transfer_matrix"] = {
-                "entries": tf["transfer_matrix"],
+                "entries": converted_entries,
                 "input_labels": tf["input_labels"],
                 "output_labels": tf["output_labels"],
-                "variable": "z" if self.system_type == "dt" else "s",
+                "variable": var,
             }
         else:
-            # SISO: legacy flat format
+            # SISO: legacy flat format with s/z-domain coefficients
             result["dimensions"] = {"n": None, "m": 1, "p": 1}
             if "numerator" in tf:
+                op_num = np.array(tf["numerator"])
+                op_den = np.array(tf["denominator"])
+                dom_num, dom_den = convert(op_num, op_den)
                 result["tf"] = {
-                    "num": tf["numerator"],
-                    "den": tf["denominator"],
+                    "num": dom_num.tolist(),
+                    "den": dom_den.tolist(),
                     "variable": "z" if self.system_type == "dt" else "s",
                 }
 

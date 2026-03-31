@@ -18,9 +18,9 @@ import '../styles/LensOpticsViewer.css';
  */
 const TabBar = memo(function TabBar({ activeTab, onTabChange }) {
   const tabs = [
-    { id: 'images', label: 'Images', icon: '🖼️' },
-    { id: 'psf', label: 'PSF Analysis', icon: '🎯' },
-    { id: 'metrics', label: 'Quality Metrics', icon: '📊' },
+    { id: 'images', label: 'Images' },
+    { id: 'psf', label: 'PSF Analysis' },
+    { id: 'metrics', label: 'Quality Metrics' },
   ];
 
   return (
@@ -31,7 +31,6 @@ const TabBar = memo(function TabBar({ activeTab, onTabChange }) {
           className={`lens-tab-button ${activeTab === tab.id ? 'active' : ''}`}
           onClick={() => onTabChange(tab.id)}
         >
-          <span className="lens-tab-icon">{tab.icon}</span>
           <span className="lens-tab-label">{tab.label}</span>
         </button>
       ))}
@@ -337,7 +336,7 @@ const MetricsTab = memo(function MetricsTab({ metadata, plots }) {
         </MetricCard>
 
         {/* PSF Metrics */}
-        <MetricCard title="PSF Metrics" icon="🎯" color="#a855f7">
+        <MetricCard title="PSF Metrics" icon="PSF" color="#a855f7">
           <MetricRow label="FWHM" value={psfMetrics.fwhm_um} unit="um" color="#22c55e" />
           <MetricRow label="Airy Radius" value={lensInfo.airy_radius_um} unit="um" color="#f59e0b" />
           <MetricRow label="EE50 Radius" value={psfMetrics.ee50_um} unit="um" />
@@ -347,7 +346,7 @@ const MetricsTab = memo(function MetricsTab({ metadata, plots }) {
         </MetricCard>
 
         {/* Image Quality */}
-        <MetricCard title="Image Quality" icon="📈" color="#22c55e">
+        <MetricCard title="Image Quality" icon="IQ" color="#22c55e">
           <MetricRow label="SSIM" value={qualityMetrics.ssim} color="#22c55e" />
           <MetricRow label="PSNR" value={qualityMetrics.psnr} unit="dB" />
           <MetricRow label="MSE" value={qualityMetrics.mse} />
@@ -382,8 +381,8 @@ const MetricsTab = memo(function MetricsTab({ metadata, plots }) {
       {/* Quality Assessment */}
       <div className="lens-assessment-banner">
         <span className="lens-assessment-icon">
-          {metadata?.quality_assessment?.includes('Excellent') ? '🌟' :
-           metadata?.quality_assessment?.includes('Good') ? '✓' : '⚠️'}
+          {metadata?.quality_assessment?.includes('Excellent') ? 'Excellent' :
+           metadata?.quality_assessment?.includes('Good') ? 'Good' : 'Fair'}
         </span>
         <span className="lens-assessment-text">{metadata?.quality_assessment}</span>
       </div>

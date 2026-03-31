@@ -44,7 +44,7 @@ class LensOpticsSimulator(BaseSimulator):
         "test_pattern": "edge_target",
     }
 
-    HUB_SLOTS = ['optics']
+    HUB_SLOTS = []
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)

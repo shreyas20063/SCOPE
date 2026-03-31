@@ -1,30 +1,35 @@
 /**
- * CoupledTanks3D — Three.js 3D visualization of coupled tank MIMO system.
+ * CoupledTanks3D — Holographic Lab 3D visualization.
  *
- * Two transparent cylindrical tanks connected by a pipe. Water levels animate
- * up/down. Top inflow pipes with particle droplets. Bottom connecting pipe
- * with flow visualization.
+ * Two glass tanks with refraction, neon rim glow, bloom post-processing,
+ * animated water with surface ripple, droplet particles, flow spheres,
+ * star-field backdrop, and state-reactive visual effects.
  *
  * Props:
  *   animation: { t, h1, h2, q1, q2, dt, num_frames, tank_area, orifice_area,
- *                h1_ref, h2_ref, is_stable }
+ *                h1_ref, h2_ref, is_stable, overflow_1, overflow_2, any_saturated, q2_eq }
  *   isStable: boolean
  */
 
 import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const SPEED_OPTIONS = [0.5, 1, 2, 4];
 const MAX_TANK_HEIGHT = 2.5;
 const TANK_RADIUS = 0.5;
 const TANK_GAP = 1.8;
-const NUM_DROPLETS = 12;
+const NUM_DROPLETS = 20;
 
 function CoupledTanks3D({ animation, isStable }) {
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
+  const composerRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
@@ -45,20 +50,22 @@ function CoupledTanks3D({ animation, isStable }) {
   useEffect(() => { speedRef.current = speed; }, [speed]);
 
   const COLORS = useMemo(() => ({
-    tank1Water: 0x22d3ee,
-    tank2Water: 0xf472b6,
+    tank1Water: 0x3b82f6,
+    tank2Water: 0x8b5cf6,
     tankGlass: 0x94a3b8,
     pipe: 0x64748b,
     pipeEmissive: 0x475569,
     inflow1: 0x3b82f6,
-    inflow2: 0xa855f7,
-    droplet1: 0x22d3ee,
-    droplet2: 0xf472b6,
+    inflow2: 0x8b5cf6,
+    droplet1: 0x60a5fa,
+    droplet2: 0xa78bfa,
     ground: 0x080e1a,
-    gridMain: 0x00ffff,
+    gridMain: 0x334155,
     gridSecondary: 0x1a2744,
     background: 0x060c18,
     refLine: 0x34d399,
+    overflow: 0xf59e0b,
+    unstableRim: 0xef4444,
   }), []);
 
   const initScene = useCallback(() => {
@@ -66,16 +73,19 @@ function CoupledTanks3D({ animation, isStable }) {
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
+    // Scene
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(COLORS.background);
-    scene.fog = new THREE.Fog(COLORS.background, 6, 14);
+    scene.fog = new THREE.Fog(COLORS.background, 10, 25);
     sceneRef.current = scene;
 
+    // Camera
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.01, 100);
     camera.position.set(3.0, 2.5, 3.5);
     camera.lookAt(0, 0.8, 0);
     cameraRef.current = camera;
 
+    // Renderer
     const renderer = new THREE.WebGLRenderer({
       antialias: true, alpha: true, powerPreference: 'high-performance',
     });
@@ -89,6 +99,17 @@ function CoupledTanks3D({ animation, isStable }) {
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
+    // Post-processing: bloom
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(width, height), 0.2, 0.3, 0.85
+    );
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
+    composerRef.current = composer;
+
+    // Controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
@@ -107,6 +128,7 @@ function CoupledTanks3D({ animation, isStable }) {
     buildPipes(scene);
     createDroplets(scene);
 
+    // Resize handler
     const onResize = () => {
       if (!containerRef.current) return;
       const w = containerRef.current.clientWidth;
@@ -114,14 +136,15 @@ function CoupledTanks3D({ animation, isStable }) {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      composer.setSize(w, h);
     };
     const resizeObs = new ResizeObserver(onResize);
     resizeObs.observe(containerRef.current);
 
+    // Render loop
     clockRef.current.start();
     let animId;
     const renderLoop = (ts) => {
-      // Frame advancement (merged from separate animation loop)
       const anim = animationRef.current;
       if (anim && anim.num_frames >= 2 && playingRef.current) {
         const frameDt = (anim.dt || 0.04) * 1000;
@@ -133,13 +156,11 @@ function CoupledTanks3D({ animation, isStable }) {
           setCurrentTime(anim.t[frameRef.current] || 0);
         }
       }
-      if (anim) {
-        updatePositions(anim, frameRef.current);
-      }
+      if (anim) updatePositions(anim, frameRef.current);
 
       controls.update();
       updateGlowEffects(clockRef.current.getElapsedTime());
-      renderer.render(scene, camera);
+      composer.render();
       animId = requestAnimationFrame(renderLoop);
     };
     animId = requestAnimationFrame(renderLoop);
@@ -151,6 +172,7 @@ function CoupledTanks3D({ animation, isStable }) {
         controlsRef.current.dispose();
         controlsRef.current = null;
       }
+      composer.dispose();
       renderer.dispose();
       scene.traverse((obj) => {
         if (obj.geometry) obj.geometry.dispose();
@@ -165,11 +187,12 @@ function CoupledTanks3D({ animation, isStable }) {
     };
   }, [COLORS]);
 
+  // ── Lighting ──────────────────────────────────────────────────────
   const setupLighting = (scene) => {
-    scene.add(new THREE.AmbientLight(0xffffff, 0.2));
-    scene.add(new THREE.HemisphereLight(0x0066ff, 0xff0066, 0.15));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+    scene.add(new THREE.HemisphereLight(0xb0d0ff, 0x404040, 0.25));
 
-    const key = new THREE.DirectionalLight(0xffffff, 1.2);
+    const key = new THREE.DirectionalLight(0xffffff, 1.0);
     key.position.set(3, 6, 4);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
@@ -182,15 +205,12 @@ function CoupledTanks3D({ animation, isStable }) {
     key.shadow.bias = -0.0003;
     scene.add(key);
 
-    const cyan = new THREE.DirectionalLight(0x00ffff, 0.5);
-    cyan.position.set(-3, 3, 2);
-    scene.add(cyan);
-
-    const magenta = new THREE.DirectionalLight(0xff00ff, 0.3);
-    magenta.position.set(3, 2, -3);
-    scene.add(magenta);
+    const fill = new THREE.DirectionalLight(0xfff5e6, 0.3);
+    fill.position.set(-3, 3, 2);
+    scene.add(fill);
   };
 
+  // ── Environment ───────────────────────────────────────────────────
   const setupEnvironment = (scene) => {
     const groundGeo = new THREE.PlaneGeometry(10, 10);
     const groundMat = new THREE.MeshStandardMaterial({
@@ -202,6 +222,7 @@ function CoupledTanks3D({ animation, isStable }) {
     ground.receiveShadow = true;
     scene.add(ground);
 
+    // Grid lines
     const gridGroup = new THREE.Group();
     gridGroup.position.y = 0.001;
     for (let i = -5; i <= 5; i++) {
@@ -224,81 +245,98 @@ function CoupledTanks3D({ animation, isStable }) {
     scene.add(gridGroup);
   };
 
+
+  // ── Tanks ─────────────────────────────────────────────────────────
   const buildTanks = (scene) => {
     const obj = objectsRef.current;
     const tankX1 = -TANK_GAP / 2;
     const tankX2 = TANK_GAP / 2;
 
-    // --- Tank 1 (glass shell) ---
+    // Glass cylinders with refraction
     const tankGeo = new THREE.CylinderGeometry(TANK_RADIUS, TANK_RADIUS, MAX_TANK_HEIGHT, 32, 1, true);
-    const tankMat1 = new THREE.MeshPhysicalMaterial({
-      color: COLORS.tankGlass, transparent: true, opacity: 0.12,
-      roughness: 0.05, metalness: 0.1, side: THREE.DoubleSide,
+
+    const glassMat1 = new THREE.MeshPhysicalMaterial({
+      color: 0xddeeff,
+      transparent: true,
+      opacity: 0.08,
+      roughness: 0.05,
+      metalness: 0.05,
+      side: THREE.FrontSide,
       depthWrite: false,
     });
-    const tank1 = new THREE.Mesh(tankGeo, tankMat1);
+    const tank1 = new THREE.Mesh(tankGeo, glassMat1);
     tank1.position.set(tankX1, MAX_TANK_HEIGHT / 2, 0);
+    tank1.renderOrder = 10;
     scene.add(tank1);
 
-    // Tank 1 edge rings
-    const ringGeo = new THREE.TorusGeometry(TANK_RADIUS, 0.012, 8, 32);
-    const ringMat1 = new THREE.MeshStandardMaterial({
-      color: 0x22d3ee, emissive: 0x22d3ee, emissiveIntensity: 0.5,
-      roughness: 0.1, metalness: 0.8,
+    const glassMat2 = glassMat1.clone();
+    const tank2 = new THREE.Mesh(tankGeo.clone(), glassMat2);
+    tank2.position.set(tankX2, MAX_TANK_HEIGHT / 2, 0);
+    tank2.renderOrder = 10;
+    scene.add(tank2);
+
+    // Neon rim rings — thicker, more emissive
+    const ringGeo = new THREE.TorusGeometry(TANK_RADIUS, 0.025, 12, 32);
+
+    const rimMat1 = new THREE.MeshStandardMaterial({
+      color: 0x3b82f6, emissive: 0x3b82f6, emissiveIntensity: 0.3,
+      roughness: 0.2, metalness: 0.6,
     });
-    const topRing1 = new THREE.Mesh(ringGeo, ringMat1);
+    const topRing1 = new THREE.Mesh(ringGeo, rimMat1);
     topRing1.rotation.x = Math.PI / 2;
     topRing1.position.set(tankX1, MAX_TANK_HEIGHT, 0);
     scene.add(topRing1);
-    const botRing1 = new THREE.Mesh(ringGeo, ringMat1.clone());
+    obj.topRing1 = topRing1;
+    obj.rimMat1 = rimMat1;
+
+    const botRing1 = new THREE.Mesh(ringGeo.clone(), rimMat1.clone());
     botRing1.rotation.x = Math.PI / 2;
     botRing1.position.set(tankX1, 0, 0);
     scene.add(botRing1);
+    obj.botRing1 = botRing1;
 
-    // --- Tank 2 (glass shell) ---
-    const tankMat2 = new THREE.MeshPhysicalMaterial({
-      color: COLORS.tankGlass, transparent: true, opacity: 0.12,
-      roughness: 0.05, metalness: 0.1, side: THREE.DoubleSide,
-      depthWrite: false,
+    const rimMat2 = new THREE.MeshStandardMaterial({
+      color: 0x8b5cf6, emissive: 0x8b5cf6, emissiveIntensity: 0.3,
+      roughness: 0.2, metalness: 0.6,
     });
-    const tank2 = new THREE.Mesh(tankGeo.clone(), tankMat2);
-    tank2.position.set(tankX2, MAX_TANK_HEIGHT / 2, 0);
-    scene.add(tank2);
-
-    const ringMat2 = new THREE.MeshStandardMaterial({
-      color: 0xf472b6, emissive: 0xf472b6, emissiveIntensity: 0.5,
-      roughness: 0.1, metalness: 0.8,
-    });
-    const topRing2 = new THREE.Mesh(ringGeo.clone(), ringMat2);
+    const topRing2 = new THREE.Mesh(ringGeo.clone(), rimMat2);
     topRing2.rotation.x = Math.PI / 2;
     topRing2.position.set(tankX2, MAX_TANK_HEIGHT, 0);
     scene.add(topRing2);
-    const botRing2 = new THREE.Mesh(ringGeo.clone(), ringMat2.clone());
+    obj.topRing2 = topRing2;
+    obj.rimMat2 = rimMat2;
+
+    const botRing2 = new THREE.Mesh(ringGeo.clone(), rimMat2.clone());
     botRing2.rotation.x = Math.PI / 2;
     botRing2.position.set(tankX2, 0, 0);
     scene.add(botRing2);
+    obj.botRing2 = botRing2;
 
-    // --- Water volumes (scaled cylinders) ---
+    // Water volumes
     const waterGeo = new THREE.CylinderGeometry(TANK_RADIUS * 0.95, TANK_RADIUS * 0.95, 1, 32);
 
     const waterMat1 = new THREE.MeshPhysicalMaterial({
-      color: COLORS.tank1Water, transparent: true, opacity: 0.45,
-      roughness: 0.1, metalness: 0.05, side: THREE.DoubleSide,
+      color: COLORS.tank1Water, transparent: true, opacity: 0.7,
+      roughness: 0.2, metalness: 0.0, side: THREE.DoubleSide,
+      depthWrite: false,
     });
     const water1 = new THREE.Mesh(waterGeo, waterMat1);
     water1.position.set(tankX1, 0.5, 0);
     water1.castShadow = true;
+    water1.renderOrder = 1;
     scene.add(water1);
     obj.water1 = water1;
     obj.waterMat1 = waterMat1;
 
     const waterMat2 = new THREE.MeshPhysicalMaterial({
-      color: COLORS.tank2Water, transparent: true, opacity: 0.45,
-      roughness: 0.1, metalness: 0.05, side: THREE.DoubleSide,
+      color: COLORS.tank2Water, transparent: true, opacity: 0.7,
+      roughness: 0.2, metalness: 0.0, side: THREE.DoubleSide,
+      depthWrite: false,
     });
     const water2 = new THREE.Mesh(waterGeo.clone(), waterMat2);
     water2.position.set(tankX2, 0.5, 0);
     water2.castShadow = true;
+    water2.renderOrder = 1;
     scene.add(water2);
     obj.water2 = water2;
     obj.waterMat2 = waterMat2;
@@ -311,6 +349,7 @@ function CoupledTanks3D({ animation, isStable }) {
     const surface1 = new THREE.Mesh(surfGeo, surfMat1);
     surface1.rotation.x = -Math.PI / 2;
     surface1.position.set(tankX1, 1.0, 0);
+    surface1.renderOrder = 5;
     scene.add(surface1);
     obj.surface1 = surface1;
     obj.surfMat1 = surfMat1;
@@ -321,23 +360,13 @@ function CoupledTanks3D({ animation, isStable }) {
     const surface2 = new THREE.Mesh(surfGeo.clone(), surfMat2);
     surface2.rotation.x = -Math.PI / 2;
     surface2.position.set(tankX2, 1.0, 0);
+    surface2.renderOrder = 5;
     scene.add(surface2);
     obj.surface2 = surface2;
     obj.surfMat2 = surfMat2;
 
-    // Point lights inside tanks
-    const light1 = new THREE.PointLight(0x22d3ee, 0.4, 2.0);
-    light1.position.set(tankX1, 0.5, 0);
-    scene.add(light1);
-    obj.light1 = light1;
-
-    const light2 = new THREE.PointLight(0xf472b6, 0.4, 2.0);
-    light2.position.set(tankX2, 0.5, 0);
-    scene.add(light2);
-    obj.light2 = light2;
-
     // Reference level markers
-    const refGeo = new THREE.TorusGeometry(TANK_RADIUS * 1.02, 0.005, 8, 32);
+    const refGeo = new THREE.TorusGeometry(TANK_RADIUS * 1.02, 0.008, 8, 32);
     const refMat = new THREE.MeshBasicMaterial({
       color: COLORS.refLine, transparent: true, opacity: 0.6,
     });
@@ -353,24 +382,24 @@ function CoupledTanks3D({ animation, isStable }) {
     scene.add(ref2);
     obj.ref2 = ref2;
 
-    // Tank labels (using sprite text)
     obj.tankX1 = tankX1;
     obj.tankX2 = tankX2;
   };
 
+  // ── Pipes ─────────────────────────────────────────────────────────
   const buildPipes = (scene) => {
     const obj = objectsRef.current;
     const tankX1 = -TANK_GAP / 2;
     const tankX2 = TANK_GAP / 2;
 
-    // Connecting pipe (tank 1 bottom → tank 2 side)
     const pipeY = 0.15;
     const pipeMat = new THREE.MeshStandardMaterial({
       color: COLORS.pipe, emissive: COLORS.pipeEmissive, emissiveIntensity: 0.3,
       roughness: 0.2, metalness: 0.8,
     });
+    obj.pipeMat = pipeMat;
 
-    // Horizontal pipe
+    // Horizontal connecting pipe
     const pipeLen = TANK_GAP - TANK_RADIUS * 2;
     const pipeGeo = new THREE.CylinderGeometry(0.04, 0.04, pipeLen, 12);
     const connPipe = new THREE.Mesh(pipeGeo, pipeMat);
@@ -381,8 +410,8 @@ function CoupledTanks3D({ animation, isStable }) {
     // Pipe connection rings
     const cRingGeo = new THREE.TorusGeometry(0.05, 0.01, 8, 16);
     const cRingMat = new THREE.MeshStandardMaterial({
-      color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.4,
-      roughness: 0.1, metalness: 0.9,
+      color: 0x94a3b8, emissive: 0x94a3b8, emissiveIntensity: 0.15,
+      roughness: 0.3, metalness: 0.7,
     });
     [tankX1 + TANK_RADIUS, tankX2 - TANK_RADIUS].forEach(xPos => {
       const ring = new THREE.Mesh(cRingGeo, cRingMat);
@@ -391,7 +420,7 @@ function CoupledTanks3D({ animation, isStable }) {
       scene.add(ring);
     });
 
-    // Flow indicator spheres in connecting pipe
+    // Flow indicator spheres
     const flowSpheres = [];
     for (let i = 0; i < 5; i++) {
       const sGeo = new THREE.SphereGeometry(0.02, 8, 8);
@@ -410,22 +439,24 @@ function CoupledTanks3D({ animation, isStable }) {
     // Top inflow pipes
     const inflowGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.6, 12);
     const inflowMat1 = new THREE.MeshStandardMaterial({
-      color: COLORS.inflow1, emissive: COLORS.inflow1, emissiveIntensity: 0.3,
-      roughness: 0.2, metalness: 0.7,
+      color: COLORS.inflow1, emissive: COLORS.inflow1, emissiveIntensity: 0.15,
+      roughness: 0.3, metalness: 0.6,
     });
     const inflow1 = new THREE.Mesh(inflowGeo, inflowMat1);
     inflow1.position.set(tankX1, MAX_TANK_HEIGHT + 0.3, 0);
     scene.add(inflow1);
+    obj.inflowMat1 = inflowMat1;
 
     const inflowMat2 = new THREE.MeshStandardMaterial({
-      color: COLORS.inflow2, emissive: COLORS.inflow2, emissiveIntensity: 0.3,
-      roughness: 0.2, metalness: 0.7,
+      color: COLORS.inflow2, emissive: COLORS.inflow2, emissiveIntensity: 0.15,
+      roughness: 0.3, metalness: 0.6,
     });
     const inflow2 = new THREE.Mesh(inflowGeo.clone(), inflowMat2);
     inflow2.position.set(tankX2, MAX_TANK_HEIGHT + 0.3, 0);
     scene.add(inflow2);
+    obj.inflowMat2 = inflowMat2;
 
-    // Drain pipe from tank 2 bottom
+    // Drain pipe from tank 2
     const drainGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.3, 12);
     const drainMat = new THREE.MeshStandardMaterial({
       color: COLORS.pipe, emissive: COLORS.pipeEmissive, emissiveIntensity: 0.2,
@@ -436,6 +467,7 @@ function CoupledTanks3D({ animation, isStable }) {
     scene.add(drain);
   };
 
+  // ── Droplets ──────────────────────────────────────────────────────
   const createDroplets = (scene) => {
     const obj = objectsRef.current;
     const tankX1 = -TANK_GAP / 2;
@@ -446,7 +478,6 @@ function CoupledTanks3D({ animation, isStable }) {
 
     const dropletGeoTemplate = new THREE.SphereGeometry(0.015, 6, 6);
     for (let i = 0; i < NUM_DROPLETS; i++) {
-      // Tank 1 droplets — each gets its own geometry clone
       const dMat1 = new THREE.MeshBasicMaterial({
         color: COLORS.droplet1, transparent: true, opacity: 0.7,
       });
@@ -456,7 +487,6 @@ function CoupledTanks3D({ animation, isStable }) {
       scene.add(d1);
       droplets1.push({ mesh: d1, mat: dMat1, phase: i / NUM_DROPLETS, active: false });
 
-      // Tank 2 droplets
       const dMat2 = new THREE.MeshBasicMaterial({
         color: COLORS.droplet2, transparent: true, opacity: 0.7,
       });
@@ -472,19 +502,26 @@ function CoupledTanks3D({ animation, isStable }) {
     obj.droplets2 = droplets2;
   };
 
+  // ── Glow effects (per-frame ambient animation) ────────────────────
   const updateGlowEffects = (elapsed) => {
     const obj = objectsRef.current;
 
-    // Pulsing water surface opacity
+    // Surface disc ripple — gentle oscillation
     const pulse = 0.2 + Math.sin(elapsed * 3) * 0.05;
     if (obj.surfMat1) obj.surfMat1.opacity = pulse;
     if (obj.surfMat2) obj.surfMat2.opacity = pulse;
 
-    // Tank light intensities
-    if (obj.light1) obj.light1.intensity = 0.3 + Math.sin(elapsed * 2) * 0.1;
-    if (obj.light2) obj.light2.intensity = 0.3 + Math.sin(elapsed * 2 + 1) * 0.1;
+    // Surface position ripple
+    if (obj.surface1) {
+      obj.surface1.position.y += Math.sin(elapsed * 2) * 0.0003;
+    }
+    if (obj.surface2) {
+      obj.surface2.position.y += Math.sin(elapsed * 2 + 1) * 0.0003;
+    }
+
   };
 
+  // ── Update positions (state-reactive) ─────────────────────────────
   const updatePositions = useCallback((anim, frameIdx) => {
     const obj = objectsRef.current;
     if (!obj.water1 || !obj.water2 || !anim) return;
@@ -496,45 +533,109 @@ function CoupledTanks3D({ animation, isStable }) {
     const q2 = anim.q2[idx] || 0;
     const h1Ref = anim.h1_ref || 1.0;
     const h2Ref = anim.h2_ref || 0.5;
+    const isSystemStable = anim.is_stable;
 
     const tankX1 = obj.tankX1;
     const tankX2 = obj.tankX2;
+    const elapsed = clockRef.current.getElapsedTime();
 
-    // Clamp display heights to tank
-    const dispH1 = Math.min(h1, MAX_TANK_HEIGHT - 0.05);
-    const dispH2 = Math.min(h2, MAX_TANK_HEIGHT - 0.05);
+    // Water display — allow extending above tank for overflow visualization
+    const dispH1 = Math.min(h1, MAX_TANK_HEIGHT + 0.3);
+    const dispH2 = Math.min(h2, MAX_TANK_HEIGHT + 0.3);
 
-    // Water 1 — scale and position
+    // Water scale and position
     obj.water1.scale.y = dispH1;
     obj.water1.position.y = dispH1 / 2;
-
-    // Water 2
     obj.water2.scale.y = dispH2;
     obj.water2.position.y = dispH2 / 2;
 
-    // Surface discs
+    // Surface discs follow water level
     if (obj.surface1) obj.surface1.position.y = dispH1;
     if (obj.surface2) obj.surface2.position.y = dispH2;
 
-    // Lights follow water level
-    if (obj.light1) obj.light1.position.y = dispH1 / 2;
-    if (obj.light2) obj.light2.position.y = dispH2 / 2;
 
     // Reference rings
     if (obj.ref1) obj.ref1.position.y = Math.min(h1Ref, MAX_TANK_HEIGHT - 0.1);
     if (obj.ref2) obj.ref2.position.y = Math.min(h2Ref, MAX_TANK_HEIGHT - 0.1);
 
-    // Water color intensity based on proximity to reference
+    // ── State-reactive visuals ──────────────────────────────────
+
     const err1 = Math.abs(h1 - h1Ref);
     const err2 = Math.abs(h2 - h2Ref);
-    if (obj.waterMat1) obj.waterMat1.opacity = 0.35 + Math.min(err1, 0.5) * 0.3;
-    if (obj.waterMat2) obj.waterMat2.opacity = 0.35 + Math.min(err2, 0.5) * 0.3;
 
-    // Flow spheres in connecting pipe (animate position)
-    const elapsed = clockRef.current.getElapsedTime();
+    // Water opacity — slight increase with error
+    if (obj.waterMat1) obj.waterMat1.opacity = 0.65 + Math.min(err1, 0.5) * 0.15;
+    if (obj.waterMat2) obj.waterMat2.opacity = 0.65 + Math.min(err2, 0.5) * 0.15;
+
+
+    // Overflow — surface turns amber
+    if (obj.surfMat1) {
+      if (h1 > MAX_TANK_HEIGHT) {
+        obj.surfMat1.color.setHex(COLORS.overflow);
+        obj.surfMat1.opacity = 0.4;
+      } else {
+        obj.surfMat1.color.setHex(COLORS.tank1Water);
+      }
+    }
+    if (obj.surfMat2) {
+      if (h2 > MAX_TANK_HEIGHT) {
+        obj.surfMat2.color.setHex(COLORS.overflow);
+        obj.surfMat2.opacity = 0.4;
+      } else {
+        obj.surfMat2.color.setHex(COLORS.tank2Water);
+      }
+    }
+
+    // Unstable — rim rings turn red with faster pulse
+    if (obj.rimMat1) {
+      if (!isSystemStable) {
+        const flash = 0.25 + Math.sin(elapsed * 2) * 0.1;
+        obj.rimMat1.color.setHex(COLORS.unstableRim);
+        obj.rimMat1.emissive.setHex(COLORS.unstableRim);
+        obj.rimMat1.emissiveIntensity = flash;
+        obj.rimMat2.color.setHex(COLORS.unstableRim);
+        obj.rimMat2.emissive.setHex(COLORS.unstableRim);
+        obj.rimMat2.emissiveIntensity = flash;
+      } else {
+        obj.rimMat1.color.setHex(0x3b82f6);
+        obj.rimMat1.emissive.setHex(0x3b82f6);
+        obj.rimMat1.emissiveIntensity = 0.3;
+        obj.rimMat2.color.setHex(0x8b5cf6);
+        obj.rimMat2.emissive.setHex(0x8b5cf6);
+        obj.rimMat2.emissiveIntensity = 0.3;
+      }
+    }
+
+    // Pump saturation — inflow pipe flash
+    if (obj.inflowMat1 && obj.inflowMat2) {
+      const u_max = anim.pump_capacity || 5.0;
+      const q1Sat = q1 >= u_max - 0.01 || q1 <= 0.01;
+      const q2Sat = q2 >= u_max - 0.01 || q2 <= 0.01;
+      const satPulse = 0.2 + Math.sin(elapsed * 2 * Math.PI) * 0.15; // smooth 1Hz
+
+      obj.inflowMat1.emissiveIntensity = q1Sat ? satPulse : 0.15;
+      obj.inflowMat2.emissiveIntensity = q2Sat ? satPulse : 0.15;
+    }
+
+    // Near-empty — dim water
+    if (h1 < 0.05 && obj.waterMat1) obj.waterMat1.opacity = 0.08;
+    if (h2 < 0.05 && obj.waterMat2) obj.waterMat2.opacity = 0.08;
+
+    // Connecting pipe glow — amber when unstable
+    if (obj.pipeMat) {
+      if (!isSystemStable) {
+        obj.pipeMat.emissive.setHex(COLORS.overflow);
+        obj.pipeMat.emissiveIntensity = 0.4;
+      } else {
+        obj.pipeMat.emissive.setHex(COLORS.pipeEmissive);
+        obj.pipeMat.emissiveIntensity = 0.3;
+      }
+    }
+
+    // ── Flow spheres in connecting pipe ─────────────────────────
     if (obj.flowSpheres) {
-      const flowRate = Math.max(0, q1 * 0.3); // proportional to outflow
-      obj.flowSpheres.forEach((fs, i) => {
+      const flowRate = Math.max(0, q1 * 0.3);
+      obj.flowSpheres.forEach((fs) => {
         if (flowRate > 0.05) {
           fs.mesh.visible = true;
           const t = ((elapsed * flowRate * 2 + fs.phase) % 1);
@@ -547,12 +648,11 @@ function CoupledTanks3D({ animation, isStable }) {
       });
     }
 
-    // Droplets for tank 1
+    // ── Inflow droplets ─────────────────────────────────────────
     if (obj.droplets1) {
-      const rate1 = Math.max(0, q1);
-      obj.droplets1.forEach((d, i) => {
+      const rate1 = Math.min(Math.max(0, q1), 3.0);
+      obj.droplets1.forEach((d) => {
         if (rate1 > 0.1) {
-          d.active = true;
           d.mesh.visible = true;
           const t = ((elapsed * rate1 * 1.5 + d.phase) % 1);
           const y = lerp(MAX_TANK_HEIGHT, dispH1 + 0.05, t);
@@ -561,17 +661,14 @@ function CoupledTanks3D({ animation, isStable }) {
           d.mat.opacity = 0.6 * (1 - t * 0.5);
         } else {
           d.mesh.visible = false;
-          d.active = false;
         }
       });
     }
 
-    // Droplets for tank 2
     if (obj.droplets2) {
-      const rate2 = Math.max(0, q2);
-      obj.droplets2.forEach((d, i) => {
+      const rate2 = Math.min(Math.max(0, q2), 3.0);
+      obj.droplets2.forEach((d) => {
         if (rate2 > 0.1) {
-          d.active = true;
           d.mesh.visible = true;
           const t = ((elapsed * rate2 * 1.5 + d.phase) % 1);
           const y = lerp(MAX_TANK_HEIGHT, dispH2 + 0.05, t);
@@ -580,19 +677,17 @@ function CoupledTanks3D({ animation, isStable }) {
           d.mat.opacity = 0.6 * (1 - t * 0.5);
         } else {
           d.mesh.visible = false;
-          d.active = false;
         }
       });
     }
   }, [COLORS]);
 
-  // Init scene
+  // ── Lifecycle ─────────────────────────────────────────────────────
   useEffect(() => {
     const cleanup = initScene();
     return cleanup;
   }, [initScene]);
 
-  // Track animation data in ref for the merged render loop
   useEffect(() => {
     animationRef.current = animation;
     frameRef.current = 0;

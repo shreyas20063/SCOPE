@@ -160,7 +160,22 @@ function MobileTabSwitcher({ activeTab, onTabChange, hasControls = true }) {
 /**
  * Simulation header with title and metadata
  */
-function SimulationHeader({ simulation, currentParams, hubSlot, onPushToHub, hubSynced }) {
+function SimulationHeader({ simulation, currentParams, hubSlot, onPushToHub, isPushing, pushResult, hubSynced }) {
+  // Determine push button state
+  const btnClass = isPushing
+    ? 'hub-push-btn hub-push-btn--pushing'
+    : pushResult?.success
+      ? 'hub-push-btn hub-push-btn--success'
+      : pushResult && !pushResult.success
+        ? 'hub-push-btn hub-push-btn--error'
+        : 'hub-push-btn';
+
+  const btnLabel = isPushing
+    ? 'Pushing\u2026'
+    : pushResult?.success
+      ? 'Pushed \u2713'
+      : 'Push to Hub';
+
   return (
     <div className="simulation-header">
       <div className="header-content">
@@ -196,22 +211,27 @@ function SimulationHeader({ simulation, currentParams, hubSlot, onPushToHub, hub
       <div className="header-actions">
         {hubSlot && (
           <button
-            className="hub-push-btn"
+            className={btnClass}
             onClick={onPushToHub}
-            title="Push current system to hub"
+            disabled={isPushing}
+            title={isPushing ? 'Pushing to hub\u2026' : `Push current system to ${hubSlot} slot`}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3"/>
-              <line x1="12" y1="2" x2="12" y2="9"/>
-              <line x1="12" y1="15" x2="12" y2="22"/>
-              <line x1="2" y1="12" x2="9" y2="12"/>
-              <line x1="15" y1="12" x2="22" y2="12"/>
-            </svg>
-            Push to Hub
+            {isPushing ? (
+              <span className="hub-push-btn__spinner" />
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3"/>
+                <line x1="12" y1="2" x2="12" y2="9"/>
+                <line x1="12" y1="15" x2="12" y2="22"/>
+                <line x1="2" y1="12" x2="9" y2="12"/>
+                <line x1="15" y1="12" x2="22" y2="12"/>
+              </svg>
+            )}
+            {btnLabel}
           </button>
         )}
         {hubSynced && (
-          <span className="hub-synced-badge" title="Loaded from System Hub">
+          <span className="hub-synced-badge" title="This simulation loaded parameters from the System Hub on startup">
             Hub Synced
           </span>
         )}
@@ -233,7 +253,7 @@ function NotImplementedPlaceholder({ simulation }) {
   return (
     <div className="not-implemented">
       <div className="placeholder-content">
-        <span className="placeholder-icon">{simulation?.thumbnail || '📊'}</span>
+        <span className="placeholder-icon">{simulation?.thumbnail || ''}</span>
         <h3>Simulation Coming Soon</h3>
         <p>
           This simulation is not yet implemented on the web platform.
@@ -434,7 +454,6 @@ function DCMotorInfoPanel({ metadata }) {
               </div>
               <div className="info-card-value">{system_info.poles}</div>
               <div className="info-card-badge">
-                {system_info.pole_type.includes('Oscillatory') ? '🔄 ' : '✓ '}
                 {system_info.pole_type}
               </div>
             </div>
@@ -526,7 +545,6 @@ function SecondOrderInfoPanel({ metadata }) {
             </div>
             <div className="info-card-value">{system_info.zeta}</div>
             <div className={`info-card-badge ${isUnderdamped ? 'underdamped' : isCritical ? 'critical' : 'overdamped'}`}>
-              {isUnderdamped ? '🔄 ' : isCritical ? '⚖️ ' : '🎯 '}
               {system_info.damping_type?.split('(')[0]?.trim()}
             </div>
           </div>
@@ -754,7 +772,7 @@ function FurutaPendulumInfoPanel({ metadata, animationFrame = { current: 0, tota
           </svg>
           Furuta Pendulum Control
           <span className={`status-chip ${isStable ? 'stable' : 'unstable'}`}>
-            {isStable ? '✓ Stable' : '⚠ Unstable'}
+            {isStable ? 'Stable' : 'Unstable'}
           </span>
         </h4>
 
@@ -869,7 +887,7 @@ function FourierPhaseMagnitudeInfoPanel({ metadata }) {
           </svg>
           Fourier Analysis: Phase vs Magnitude
           <span className={`mode-chip ${isImageMode ? 'image' : 'audio'}`}>
-            {isImageMode ? '🖼️ Image' : '🔊 Audio'}
+            {isImageMode ? 'Image' : 'Audio'}
           </span>
         </h4>
 
@@ -925,7 +943,7 @@ function FourierPhaseMagnitudeInfoPanel({ metadata }) {
           {/* Source 1 Metrics */}
           <div className="info-card metrics1-card">
             <div className="info-card-header">
-              <span className="info-card-icon metrics">📊</span>
+              <span className="info-card-icon metrics">Q</span>
               <span className="info-card-label">{isImageMode ? 'Image 1' : 'Audio 1'} Quality</span>
             </div>
             <div className="metrics-grid">
@@ -959,7 +977,7 @@ function FourierPhaseMagnitudeInfoPanel({ metadata }) {
           {/* Source 2 Metrics */}
           <div className="info-card metrics2-card">
             <div className="info-card-header">
-              <span className="info-card-icon metrics">📊</span>
+              <span className="info-card-icon metrics">Q</span>
               <span className="info-card-label">{isImageMode ? 'Image 2' : 'Audio 2'} Quality</span>
             </div>
             <div className="metrics-grid">
@@ -995,7 +1013,7 @@ function FourierPhaseMagnitudeInfoPanel({ metadata }) {
         {(system_info.hybrid1_correlation || system_info.hybrid2_correlation) && (
           <div className="info-card hybrid-metrics-card">
             <div className="info-card-header">
-              <span className="info-card-icon hybrid">⚡</span>
+              <span className="info-card-icon hybrid">H</span>
               <span className="info-card-label">Hybrid Phase Dominance</span>
             </div>
             <div className="hybrid-metrics-row">
@@ -1022,7 +1040,7 @@ function FourierPhaseMagnitudeInfoPanel({ metadata }) {
         {/* Key Insight Message */}
         {system_info.insight && (
           <div className="insight-banner">
-            <span className="insight-icon">💡</span>
+            <span className="insight-icon">Insight</span>
             <span className="insight-text">{system_info.insight}</span>
           </div>
         )}
@@ -1573,6 +1591,7 @@ function SimulationViewer({
   isLoading = false,
   isUpdating = false,
   isRunning = false,
+  hubMismatch = null,
 }) {
   const [mobileActiveTab, setMobileActiveTab] = useState('plots');
   const [animationFrame, setAnimationFrame] = useState({ current: 0, total: 0 });
@@ -1586,29 +1605,55 @@ function SimulationViewer({
 
   // Hub integration
   const primarySlot = metadata?.hub_slots?.[0] || null;
-  const { pushToSlot, hubUpdated } = useHub(primarySlot || 'control');
+  const { pushToSlot, hubUpdated, isPushing, pushResult, clearPushResult } = useHub(primarySlot || 'control');
 
-  const [showHubToast, setShowHubToast] = useState(false);
+  // Hub toast state: { message, type: 'success'|'error'|'warning'|'info' }
+  const [hubToast, setHubToast] = useState(null);
 
+  // Show toast on remote hub updates (cross-tab)
   useEffect(() => {
     if (hubUpdated > 0) {
-      setShowHubToast(true);
-      const timer = setTimeout(() => setShowHubToast(false), 8000);
+      setHubToast({ message: 'Hub updated from another simulation', type: 'info' });
+      const timer = setTimeout(() => setHubToast(null), 6000);
       return () => clearTimeout(timer);
     }
   }, [hubUpdated]);
 
+  // Show toast on local push result
+  useEffect(() => {
+    if (!pushResult) return;
+    if (pushResult.success) {
+      const slotLabel = primarySlot ? primarySlot.charAt(0).toUpperCase() + primarySlot.slice(1) : 'Hub';
+      let message = `Pushed to ${slotLabel} slot`;
+      let type = 'success';
+      if (pushResult.warning) {
+        message += ` (${pushResult.warning})`;
+        type = 'warning';
+      }
+      setHubToast({ message, type });
+    } else {
+      setHubToast({ message: pushResult.error || 'Push to hub failed', type: 'error' });
+    }
+    const timer = setTimeout(() => { setHubToast(null); clearPushResult(); }, 4000);
+    return () => clearTimeout(timer);
+  }, [pushResult, primarySlot, clearPushResult]);
+
   const handlePushToHub = useCallback(async () => {
-    if (!simulation?.id || !primarySlot || !pushToSlot) return;
+    if (!simulation?.id || !primarySlot || !pushToSlot || isPushing) return;
     try {
       const result = await api.executeSimulation(simulation.id, 'to_hub_data', {});
       if (result.success && result.data?.hub_data) {
         await pushToSlot(result.data.hub_data, simulation.id);
+      } else {
+        setHubToast({ message: result.error || 'No hub data available for this simulation', type: 'error' });
+        const timer = setTimeout(() => setHubToast(null), 4000);
+        // cleanup handled by component unmount
       }
     } catch (err) {
-      console.warn('Push to hub failed:', err);
+      setHubToast({ message: err.message || 'Push to hub failed', type: 'error' });
+      const timer = setTimeout(() => setHubToast(null), 4000);
     }
-  }, [simulation?.id, primarySlot, pushToSlot]);
+  }, [simulation?.id, primarySlot, pushToSlot, isPushing]);
 
   // Callback for 3D animation frame changes (memoized to prevent re-renders)
   const handleFrameChange = useCallback((currentFrame, totalFrames) => {
@@ -1622,8 +1667,28 @@ function SimulationViewer({
         currentParams={currentParams}
         hubSlot={primarySlot}
         onPushToHub={handlePushToHub}
+        isPushing={isPushing}
+        pushResult={pushResult}
         hubSynced={!!metadata?._hubSynced}
       />
+
+      {hubMismatch && (
+        <div className="hub-mismatch-banner" style={{
+          background: 'rgba(245, 158, 11, 0.12)',
+          border: '1px solid rgba(245, 158, 11, 0.3)',
+          borderRadius: 'var(--radius-md, 8px)',
+          padding: '8px 14px',
+          margin: '0 16px 8px',
+          fontSize: '13px',
+          color: '#f59e0b',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}>
+          <span style={{ fontSize: '16px' }}>&#9888;</span>
+          {hubMismatch}
+        </div>
+      )}
 
       {!hasSimulator ? (
         <NotImplementedPlaceholder simulation={simulation} />
@@ -2171,14 +2236,19 @@ function SimulationViewer({
           </div>
         </>
       )}
-      {showHubToast && (
-        <div className="hub-toast">
-          <span>Hub system updated</span>
+      {hubToast && (
+        <div className={`hub-toast hub-toast--${hubToast.type}`}>
+          <span className="hub-toast__icon">
+            {hubToast.type === 'success' ? '\u2713' : hubToast.type === 'error' ? '\u2717' : hubToast.type === 'warning' ? '\u26A0' : '\u2139'}
+          </span>
+          <span className="hub-toast__message">{hubToast.message}</span>
           <div className="hub-toast__actions">
-            <button className="hub-toast__btn hub-toast__btn--reload" onClick={() => window.location.reload()}>
-              Reload
-            </button>
-            <button className="hub-toast__btn" onClick={() => setShowHubToast(false)}>
+            {hubToast.type === 'info' && (
+              <button className="hub-toast__btn hub-toast__btn--reload" onClick={() => window.location.reload()}>
+                Reload
+              </button>
+            )}
+            <button className="hub-toast__btn" onClick={() => setHubToast(null)}>
               Dismiss
             </button>
           </div>

@@ -541,7 +541,7 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
       {!diagramLoaded ? (
         /* Empty state */
         <div className="sfs-empty">
-          <div style={{ fontSize: 48, marginBottom: 8 }}>📡</div>
+          <div style={{ fontSize: 18, marginBottom: 8, color: 'var(--text-muted)' }}>Signal Scope</div>
           <h3>Signal Scope</h3>
           <p>Import a diagram or select a preset to get started.</p>
           <div className="sfs-empty-row">

@@ -553,7 +553,7 @@ function ComparisonOverlay({ references, currentStepPlot, currentMetrics, curren
     const current = currentStepPlot?.data?.[0]
       ? { t: currentStepPlot.data[0].x, y: currentStepPlot.data[0].y, label: currentLabel, isCurrent: true, metrics: currentMetrics }
       : null;
-    const refs = (references || []).map(r => ({ t: r.t, y: r.y, label: r.label, isCurrent: false, metrics: null }));
+    const refs = (references || []).map(r => ({ t: r.t, y: r.y, label: r.label, isCurrent: false, metrics: r.metrics || null }));
     return current ? [current, ...refs] : refs;
   }, [references, currentStepPlot, currentLabel, currentMetrics]);
 

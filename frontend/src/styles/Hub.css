@@ -127,6 +127,11 @@
   color: var(--text-primary);
 }
 
+.hub-panel__close:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
 
 /* --- Tabs --- */
 .hub-panel__tabs {
@@ -156,6 +161,11 @@
 .hub-tab:hover {
   background: var(--surface-hover);
   color: var(--text-secondary);
+}
+
+.hub-tab:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
 }
 
 .hub-tab--active {
@@ -229,6 +239,27 @@
   display: flex;
   gap: 6px;
   margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+/* Validation warning banner */
+.hub-slot__warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  color: var(--warning-color);
+  line-height: 1.4;
+}
+
+.hub-slot__warning-icon {
+  flex-shrink: 0;
+  font-size: 1rem;
 }
 
 /* KaTeX display block */
@@ -249,7 +280,10 @@
   text-align: center;
   color: var(--text-muted);
   padding: 40px 20px;
-  font-style: italic;
+}
+
+.hub-slot__empty-icon {
+  margin-bottom: 12px;
 }
 
 .hub-slot__empty p {
@@ -258,8 +292,64 @@
 
 .hub-slot__hint {
   font-size: 0.8rem;
-  font-style: normal;
   opacity: 0.7;
+}
+
+
+/* --- MIMO Transfer Matrix Entries --- */
+.hub-mimo-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hub-mimo-entry {
+  padding: 8px;
+  background: var(--background-color);
+  border-radius: var(--radius-sm);
+  border-left: 2px solid var(--border-color);
+}
+
+.hub-mimo-entry__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.hub-mimo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.hub-mimo-dot--stable {
+  background: var(--success-color);
+}
+
+.hub-mimo-dot--unstable {
+  background: var(--error-color);
+}
+
+.hub-mimo-path {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.hub-slot__katex--compact {
+  padding: 4px 6px;
+  background: transparent;
+  font-size: 0.8rem;
+}
+
+.hub-slot__katex--compact .katex {
+  font-size: 0.85em;
+}
+
+[data-theme="light"] .hub-mimo-entry {
+  background: #f1f5f9;
 }
 
 
@@ -389,6 +479,11 @@
   cursor: not-allowed;
 }
 
+.hub-action:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
 .hub-action--danger:hover:not(:disabled) {
   color: var(--error-color);
   border-color: var(--error-color);
@@ -438,6 +533,16 @@
   background: rgba(0, 0, 0, 0.2);
 }
 
+[data-theme="light"] .hub-slot__warning {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+[data-theme="light"] .hub-toast {
+  background: white;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
 
 /* --- Push to Hub Button (in simulation header) --- */
 .hub-push-btn {
@@ -457,11 +562,66 @@
   white-space: nowrap;
 }
 
-.hub-push-btn:hover {
+.hub-push-btn:hover:not(:disabled) {
   background: var(--primary-color);
   color: white;
 }
 
+.hub-push-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.hub-push-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* Pushing state */
+.hub-push-btn--pushing {
+  background: var(--primary-light);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  pointer-events: none;
+}
+
+/* Success flash */
+.hub-push-btn--success {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success-color);
+  border-color: var(--success-color);
+  animation: hub-push-success-flash 0.3s ease;
+}
+
+/* Error flash */
+.hub-push-btn--error {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--error-color);
+  border-color: var(--error-color);
+}
+
+@keyframes hub-push-success-flash {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* Spinner inside push button */
+.hub-push-btn__spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(20, 184, 166, 0.3);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: hub-spinner-spin 0.6s linear infinite;
+}
+
+@keyframes hub-spinner-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Hub synced badge */
 .hub-synced-badge {
   display: inline-flex;
   align-items: center;
@@ -483,7 +643,7 @@
   right: 24px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding: 12px 20px;
   background: var(--surface-color);
   border: 1px solid var(--border-color);
@@ -494,11 +654,46 @@
   animation: hubToastSlideUp 0.3s ease-out;
   font-size: 0.85rem;
   color: var(--text-primary);
+  max-width: 420px;
+}
+
+/* Toast type variants */
+.hub-toast--success {
+  border-left-color: var(--success-color);
+}
+
+.hub-toast--error {
+  border-left-color: var(--error-color);
+}
+
+.hub-toast--warning {
+  border-left-color: var(--warning-color);
+}
+
+.hub-toast--info {
+  border-left-color: var(--primary-color);
+}
+
+.hub-toast__icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.hub-toast--success .hub-toast__icon { color: var(--success-color); }
+.hub-toast--error .hub-toast__icon { color: var(--error-color); }
+.hub-toast--warning .hub-toast__icon { color: var(--warning-color); }
+.hub-toast--info .hub-toast__icon { color: var(--primary-color); }
+
+.hub-toast__message {
+  flex: 1;
+  min-width: 0;
 }
 
 .hub-toast__actions {
   display: flex;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .hub-toast__btn {
@@ -517,6 +712,11 @@
   color: var(--text-primary);
 }
 
+.hub-toast__btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
 .hub-toast__btn--reload {
   background: var(--primary-light);
   color: var(--primary-color);
@@ -533,13 +733,21 @@
   to { transform: translateY(0); opacity: 1; }
 }
 
-[data-theme="light"] .hub-toast {
-  background: white;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
 
 /* --- Responsive --- */
+@media (max-width: 768px) {
+  .hub-panel {
+    width: 320px;
+  }
+
+  .hub-toast {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    max-width: none;
+  }
+}
+
 @media (max-width: 480px) {
   .hub-panel {
     width: 100%;
@@ -548,5 +756,20 @@
   .hub-tab {
     padding: 6px 8px;
     font-size: 0.75rem;
+  }
+
+  .hub-push-btn {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+  }
+
+  .hub-toast {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .hub-toast__actions {
+    justify-content: flex-end;
   }
 }

@@ -97,7 +97,7 @@ class SignalOperationsSimulator(BaseSimulator):
         "show_decomposition": False,
     }
 
-    HUB_SLOTS = ['signal']
+    HUB_SLOTS = []
 
     PRESETS = [
         {"label": "Identity", "params": {"amplitude": 1, "time_scale": 1, "time_shift": 0, "time_reverse": False, "dc_offset": 0}},

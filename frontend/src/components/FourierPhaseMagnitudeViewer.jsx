@@ -18,9 +18,9 @@ import '../styles/FourierPhaseMagnitudeViewer.css';
  */
 const TabBar = memo(function TabBar({ activeTab, onTabChange, isImageMode }) {
   const tabs = [
-    { id: 'sources', label: 'Sources', icon: '📊' },
-    { id: 'hybrid', label: 'Hybrid Analysis', icon: '⚡' },
-    { id: 'metrics', label: 'Detailed Metrics', icon: '📈' },
+    { id: 'sources', label: 'Sources' },
+    { id: 'hybrid', label: 'Hybrid Analysis' },
+    { id: 'metrics', label: 'Detailed Metrics' },
   ];
 
   return (
@@ -31,13 +31,12 @@ const TabBar = memo(function TabBar({ activeTab, onTabChange, isImageMode }) {
           className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
           onClick={() => onTabChange(tab.id)}
         >
-          <span className="tab-icon">{tab.icon}</span>
           <span className="tab-label">{tab.label}</span>
         </button>
       ))}
       <div className="tab-mode-indicator">
         <span className={`mode-pill ${isImageMode ? 'image' : 'audio'}`}>
-          {isImageMode ? '🖼️ Image' : '🔊 Audio'}
+          {isImageMode ? 'Image' : 'Audio'}
         </span>
       </div>
     </div>
@@ -256,7 +255,7 @@ const SourcesTab = memo(function SourcesTab({ source1, source2, type }) {
     <div className="sources-tab">
       {/* Intro Banner */}
       <div className="sources-intro">
-        <div className="intro-icon">🔬</div>
+        <div className="intro-icon">FT</div>
         <div className="intro-text">
           <strong>Fourier Transform Decomposition:</strong> Every image can be broken into
           <span className="highlight-mag"> magnitude</span> (how much of each frequency) and
@@ -298,7 +297,7 @@ const HybridTab = memo(function HybridTab({ hybrids, source1, source2, type }) {
     <div className="hybrid-tab">
       {/* Big Insight Banner */}
       <div className="insight-banner-large">
-        <div className="insight-icon">💡</div>
+        <div className="insight-icon">Key Insight</div>
         <div className="insight-content">
           <h3 className="insight-title">Phase Carries Structure!</h3>
           <p className="insight-description">
@@ -421,7 +420,7 @@ const MetricsTab = memo(function MetricsTab({ source1, source2, hybrids, type })
       {/* Source Comparison Table */}
       <div className="metrics-section">
         <h3 className="metrics-section-title">
-          <span className="section-icon">📊</span>
+          <span className="section-icon">SRC</span>
           Source Comparison
         </h3>
         <div className="metrics-table">
@@ -460,7 +459,7 @@ const MetricsTab = memo(function MetricsTab({ source1, source2, hybrids, type })
       {/* Hybrid Analysis Results */}
       <div className="metrics-section">
         <h3 className="metrics-section-title">
-          <span className="section-icon">⚡</span>
+          <span className="section-icon">HYB</span>
           Hybrid Analysis Results
         </h3>
         <div className="hybrid-metrics-grid">

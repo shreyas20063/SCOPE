@@ -13,6 +13,10 @@
 import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass';
 
 // Smooth interpolation utilities
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -31,6 +35,7 @@ const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
 function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
+  const composerRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
@@ -61,43 +66,43 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
   const frameRef = useRef(0);
   const lastFrameTimeRef = useRef(0);
 
-  // Premium VIBRANT color palette - Electric neon theme
+  // Color palette - refined, non-neon
   const COLORS = useMemo(() => ({
-    // Primary elements - ULTRA VIBRANT neon
-    arm: 0xff6fff,           // Hot magenta
-    armEmissive: 0xff00ff,   // Pure magenta glow
-    pendulum: 0x00ffff,      // Electric cyan
-    pendulumEmissive: 0x00e5ff, // Bright cyan glow
+    // Primary elements
+    arm: 0xa855f7,           // Purple
+    armEmissive: 0x7c3aed,
+    pendulum: 0x3b82f6,      // Blue
+    pendulumEmissive: 0x2563eb,
     pivot: 0xffffff,         // Bright white
     pivotMetal: 0xc0c0c0,    // Silver
 
-    // Mass - dynamic orange/gold (energy reactive)
-    mass: 0xff8c00,          // Vivid orange
-    massEmissive: 0xff6600,  // Hot orange glow
-    massGlow: 0xffaa00,      // Golden glow
-    massHighEnergy: 0xff0066, // Pink when high energy
-    massLowEnergy: 0x00ff88, // Green when stabilized
+    // Mass - dynamic (energy reactive)
+    mass: 0xf97316,          // Softer orange
+    massEmissive: 0xea580c,
+    massGlow: 0xfb923c,
+    massHighEnergy: 0xef4444, // Red when high energy
+    massLowEnergy: 0x10b981, // Green when stabilized
 
     // Environment - darker for contrast
     ground: 0x0a0f1a,        // Deep navy
     groundAccent: 0x1a2744,  // Subtle blue accent
-    gridMain: 0x00ffff,      // Cyan grid
+    gridMain: 0x334155,      // Subtle gray grid
     gridSecondary: 0x2a3f5f, // Dim blue-gray
 
-    // Trail effects - rainbow gradient
-    trailStart: 0x00ffff,    // Cyan (newest)
-    trailMid: 0xff00ff,      // Magenta (middle)
-    trailEnd: 0xff6600,      // Orange (oldest)
+    // Trail effects - gradient
+    trailStart: 0x3b82f6,    // Blue (newest)
+    trailMid: 0x8b5cf6,      // Purple (middle)
+    trailEnd: 0xf97316,      // Softer orange (oldest)
 
-    // Status - more vivid
-    stable: 0x00ff88,        // Bright mint green
-    unstable: 0xff3366,      // Hot pink-red
+    // Status
+    stable: 0x10b981,        // Green
+    unstable: 0xef4444,      // Red
 
     // Accent colors for physics viz
-    velocityArrow: 0xffff00, // Yellow velocity
-    forceArrow: 0xff4444,    // Red force
-    energyHigh: 0xff0088,    // Pink high energy
-    energyLow: 0x00ff88,     // Green low energy
+    velocityArrow: 0xf59e0b, // Amber velocity
+    forceArrow: 0xef4444,    // Red force
+    energyHigh: 0xef4444,    // Red high energy
+    energyLow: 0x10b981,     // Green low energy
 
     // Background - deep space
     background: 0x050a15,    // Near black with blue tint
@@ -118,7 +123,7 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
     // Scene with fog for depth
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(COLORS.background);
-    scene.fog = new THREE.Fog(COLORS.background, 1.5, 4);
+    scene.fog = new THREE.Fog(COLORS.background, 3, 8);
     sceneRef.current = scene;
 
     // Camera with cinematic FOV
@@ -142,6 +147,16 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
+
+    // Post-processing: bloom
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(width, height), 0.2, 0.3, 0.85
+    );
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
+    composerRef.current = composer;
 
     // Smooth orbit controls
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -181,24 +196,18 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
       // Update motion trail
       updateMotionTrail();
 
-      renderer.render(scene, camera);
+      composer.render();
       requestAnimationFrame(renderLoop);
     };
     renderLoop();
   }, [COLORS]);
 
-  // Premium multi-light setup with dramatic neon lighting
+  // Clean studio lighting
   const setupPremiumLighting = (scene) => {
-    // Soft ambient - keep low for dramatic contrast
-    const ambient = new THREE.AmbientLight(0xffffff, 0.25);
-    scene.add(ambient);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+    scene.add(new THREE.HemisphereLight(0xb0d0ff, 0x404040, 0.25));
 
-    // Hemisphere for subtle sky/ground gradient
-    const hemisphere = new THREE.HemisphereLight(0x0066ff, 0xff0066, 0.3);
-    scene.add(hemisphere);
-
-    // Key light - main illumination with soft shadows
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.6);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.0);
     keyLight.position.set(3, 6, 4);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.width = 2048;
@@ -213,38 +222,9 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
     keyLight.shadow.radius = 3;
     scene.add(keyLight);
 
-    // Cyan accent light - left side
-    const cyanLight = new THREE.DirectionalLight(0x00ffff, 0.6);
-    cyanLight.position.set(-4, 2, 2);
-    scene.add(cyanLight);
-
-    // Magenta accent light - right side
-    const magentaLight = new THREE.DirectionalLight(0xff00ff, 0.5);
-    magentaLight.position.set(4, 2, -2);
-    scene.add(magentaLight);
-
-    // Bottom cyan uplighting
-    const bottomCyan = new THREE.DirectionalLight(0x00ffff, 0.25);
-    bottomCyan.position.set(0, -2, 0);
-    scene.add(bottomCyan);
-
-    // Point light at base - electric cyan glow
-    const baseGlow = new THREE.PointLight(0x00ffff, 0.8, 0.8);
-    baseGlow.position.set(0, 0.05, 0);
-    objectsRef.current.baseGlow = baseGlow;
-    scene.add(baseGlow);
-
-    // Dynamic point light that follows mass - energy reactive
-    const massLight = new THREE.PointLight(0xff8800, 0.6, 0.5);
-    massLight.position.set(0, 0.3, 0);
-    objectsRef.current.massLight = massLight;
-    scene.add(massLight);
-
-    // Secondary mass light for double glow effect
-    const massLight2 = new THREE.PointLight(0xff0066, 0.4, 0.3);
-    massLight2.position.set(0, 0.3, 0);
-    objectsRef.current.massLight2 = massLight2;
-    scene.add(massLight2);
+    const fill = new THREE.DirectionalLight(0xfff5e6, 0.3);
+    fill.position.set(-4, 2, 2);
+    scene.add(fill);
   };
 
   // Enhanced environment
@@ -346,9 +326,9 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
     // Base glow ring
     const baseRingGeometry = new THREE.TorusGeometry(0.05, 0.004, 16, 48);
     const baseRingMaterial = new THREE.MeshBasicMaterial({
-      color: 0x00ffff,
+      color: COLORS.gridMain,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.5,
     });
     const baseRing = new THREE.Mesh(baseRingGeometry, baseRingMaterial);
     baseRing.rotation.x = -Math.PI / 2;
@@ -393,7 +373,7 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
       roughness: 0.2,
       metalness: 0.6,
       emissive: COLORS.armEmissive,
-      emissiveIntensity: 0.6,
+      emissiveIntensity: 0.15,
     });
     const hub = new THREE.Mesh(hubGeometry, hubMaterial);
     hub.castShadow = true;
@@ -407,8 +387,6 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
       color: COLORS.arm,
       roughness: 0.15,
       metalness: 0.7,
-      emissive: COLORS.armEmissive,
-      emissiveIntensity: 0.5,
     });
     const arm = new THREE.Mesh(armGeometry, armMaterial);
     arm.rotation.z = Math.PI / 2;
@@ -434,9 +412,9 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
     // Decorative joint ring - cyan glow
     const jointRingGeometry = new THREE.TorusGeometry(0.016, 0.003, 12, 28);
     const jointRingMaterial = new THREE.MeshBasicMaterial({
-      color: 0x00ffff,
+      color: COLORS.gridMain,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.5,
     });
     const jointRing = new THREE.Mesh(jointRingGeometry, jointRingMaterial);
     jointRing.position.set(armLength, 0, 0);
@@ -457,8 +435,6 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
       color: COLORS.pendulum,
       roughness: 0.12,
       metalness: 0.6,
-      emissive: COLORS.pendulumEmissive,
-      emissiveIntensity: 0.65,
     });
     const pendulum = new THREE.Mesh(pendulumGeometry, pendulumMaterial);
     pendulum.position.y = pendulumLength / 2;
@@ -474,7 +450,7 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
       roughness: 0.08,
       metalness: 0.5,
       emissive: COLORS.massEmissive,
-      emissiveIntensity: 0.7,
+      emissiveIntensity: 0.2,
     });
     const mass = new THREE.Mesh(massGeometry, massMaterial);
     mass.position.y = pendulumLength;
@@ -483,38 +459,12 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
     objectsRef.current.massMaterial = massMaterial;
     pendulumGroup.add(mass);
 
-    // Inner glow sphere - larger, more visible
-    const glowGeometry = new THREE.SphereGeometry(0.032, 28, 28);
-    const glowMaterial = new THREE.MeshBasicMaterial({
-      color: COLORS.massGlow,
-      transparent: true,
-      opacity: 0.35,
-    });
-    const massGlow = new THREE.Mesh(glowGeometry, glowMaterial);
-    massGlow.position.y = pendulumLength;
-    objectsRef.current.massGlow = massGlow;
-    objectsRef.current.massGlowMaterial = glowMaterial;
-    pendulumGroup.add(massGlow);
-
-    // Outer glow sphere - even larger, subtle
-    const outerGlowGeometry = new THREE.SphereGeometry(0.042, 24, 24);
-    const outerGlowMaterial = new THREE.MeshBasicMaterial({
-      color: COLORS.massGlow,
-      transparent: true,
-      opacity: 0.15,
-    });
-    const outerMassGlow = new THREE.Mesh(outerGlowGeometry, outerGlowMaterial);
-    outerMassGlow.position.y = pendulumLength;
-    objectsRef.current.outerMassGlow = outerMassGlow;
-    objectsRef.current.outerMassGlowMaterial = outerGlowMaterial;
-    pendulumGroup.add(outerMassGlow);
-
-    // Status ring (inner) - more vibrant
+    // Status ring (inner)
     const statusRingGeometry = new THREE.TorusGeometry(0.032, 0.004, 16, 48);
     const statusRingMaterial = new THREE.MeshBasicMaterial({
       color: isStable ? COLORS.stable : COLORS.unstable,
       transparent: true,
-      opacity: 0.95,
+      opacity: 0.6,
     });
     const statusRing = new THREE.Mesh(statusRingGeometry, statusRingMaterial);
     statusRing.position.y = pendulumLength;
@@ -522,12 +472,12 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
     objectsRef.current.statusRing = statusRing;
     pendulumGroup.add(statusRing);
 
-    // Outer pulsing ring - more dramatic
+    // Outer pulsing ring
     const outerStatusGeometry = new THREE.TorusGeometry(0.042, 0.002, 12, 48);
     const outerStatusMaterial = new THREE.MeshBasicMaterial({
       color: isStable ? COLORS.stable : COLORS.unstable,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.25,
     });
     const outerStatusRing = new THREE.Mesh(outerStatusGeometry, outerStatusMaterial);
     outerStatusRing.position.y = pendulumLength;
@@ -535,9 +485,9 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
     objectsRef.current.outerStatusRing = outerStatusRing;
     pendulumGroup.add(outerStatusRing);
 
-    // Trajectory line (full path, dimmed cyan)
+    // Trajectory line (full path, dimmed)
     const trajectoryMaterial = new THREE.LineBasicMaterial({
-      color: 0x00ffff,
+      color: COLORS.trailStart,
       transparent: true,
       opacity: 0.15,
     });
@@ -548,7 +498,7 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
 
     // Played trajectory (bright, follows playback)
     const playedMaterial = new THREE.LineBasicMaterial({
-      color: 0x00ffff,
+      color: COLORS.trailStart,
       transparent: true,
       opacity: 0.85,
       linewidth: 2,
@@ -636,99 +586,43 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
     });
   };
 
-  // Animate glow effects with physics-reactive behavior
+  // Subtle glow effects with physics-reactive behavior
   const updateGlowEffects = (elapsed) => {
     glowPulseRef.current = elapsed;
     const physics = physicsStateRef.current;
-    const normalizedEnergy = physics.normalizedEnergy || 0;
     const speedRatio = physics.maxSpeed > 0 ? physics.currentSpeed / physics.maxSpeed : 0;
 
-    // Pulse the outer status ring - faster when high energy
+    // Pulse the outer status ring - subtle
     if (objectsRef.current.outerStatusRing) {
-      const pulseSpeed = 3 + speedRatio * 4;
-      const pulse = 0.4 + Math.sin(elapsed * pulseSpeed) * 0.25;
+      const pulseSpeed = 3 + speedRatio * 2;
+      const pulse = 0.15 + Math.sin(elapsed * pulseSpeed) * 0.05;
       objectsRef.current.outerStatusRing.material.opacity = pulse;
-      const scale = 1 + Math.sin(elapsed * 2.5) * 0.1 + speedRatio * 0.15;
+      const scale = 1 + Math.sin(elapsed * 2.5) * 0.05;
       objectsRef.current.outerStatusRing.scale.setScalar(scale);
-    }
-
-    // Pulse the mass glow - brighter when moving fast
-    if (objectsRef.current.massGlow) {
-      const baseGlow = 0.25 + speedRatio * 0.4;
-      const glowPulse = baseGlow + Math.sin(elapsed * 5) * 0.1;
-      objectsRef.current.massGlow.material.opacity = glowPulse;
-    }
-
-    // Outer mass glow - even more reactive
-    if (objectsRef.current.outerMassGlow) {
-      const outerGlow = 0.1 + speedRatio * 0.3;
-      objectsRef.current.outerMassGlow.material.opacity = outerGlow;
     }
 
     // Dynamic mass color based on energy/speed
     if (objectsRef.current.massMaterial) {
       const massColor = new THREE.Color(COLORS.mass);
       if (speedRatio > 0.5) {
-        // High speed - shift toward pink/red
         massColor.lerp(new THREE.Color(COLORS.massHighEnergy), (speedRatio - 0.5) * 2);
       } else if (isStable && speedRatio < 0.2) {
-        // Stable and slow - shift toward green
         massColor.lerp(new THREE.Color(COLORS.massLowEnergy), (0.2 - speedRatio) * 5 * 0.5);
       }
       objectsRef.current.massMaterial.color.copy(massColor);
-      objectsRef.current.massMaterial.emissiveIntensity = 0.5 + speedRatio * 0.5;
+      objectsRef.current.massMaterial.emissiveIntensity = 0.15 + Math.sin(elapsed * 3) * 0.05;
     }
 
-    // Mass glow color follows mass color
-    if (objectsRef.current.massGlowMaterial) {
-      const glowColor = new THREE.Color(COLORS.massGlow);
-      if (speedRatio > 0.5) {
-        glowColor.lerp(new THREE.Color(COLORS.massHighEnergy), (speedRatio - 0.5) * 2);
-      }
-      objectsRef.current.massGlowMaterial.color.copy(glowColor);
-    }
-
-    // Subtle base glow pulsing
-    if (objectsRef.current.baseGlow) {
-      objectsRef.current.baseGlow.intensity = 0.6 + Math.sin(elapsed * 2) * 0.2;
-    }
-
-    // Base ring pulse
+    // Base ring - subtle pulse
     if (objectsRef.current.baseRing) {
-      const ringPulse = 0.7 + Math.sin(elapsed * 3) * 0.15;
+      const ringPulse = 0.35 + Math.sin(elapsed * 3) * 0.05;
       objectsRef.current.baseRing.material.opacity = ringPulse;
     }
 
-    // Joint ring pulse
+    // Joint ring - subtle pulse
     if (objectsRef.current.jointRing) {
-      const jRingPulse = 0.8 + Math.sin(elapsed * 4) * 0.1;
+      const jRingPulse = 0.4 + Math.sin(elapsed * 4) * 0.05;
       objectsRef.current.jointRing.material.opacity = jRingPulse;
-    }
-
-    // Mass light follows mass position - intensity based on speed
-    if (objectsRef.current.massLight && objectsRef.current.mass) {
-      const massPos = new THREE.Vector3();
-      objectsRef.current.mass.getWorldPosition(massPos);
-      objectsRef.current.massLight.position.copy(massPos);
-      objectsRef.current.massLight.intensity = 0.4 + speedRatio * 0.6;
-    }
-
-    // Secondary mass light
-    if (objectsRef.current.massLight2 && objectsRef.current.mass) {
-      const massPos = new THREE.Vector3();
-      objectsRef.current.mass.getWorldPosition(massPos);
-      objectsRef.current.massLight2.position.copy(massPos);
-      objectsRef.current.massLight2.intensity = 0.2 + speedRatio * 0.4;
-    }
-
-    // Pendulum rod emissive intensity based on motion
-    if (objectsRef.current.pendulumMaterial) {
-      objectsRef.current.pendulumMaterial.emissiveIntensity = 0.5 + speedRatio * 0.3;
-    }
-
-    // Arm emissive intensity
-    if (objectsRef.current.armMaterial) {
-      objectsRef.current.armMaterial.emissiveIntensity = 0.4 + speedRatio * 0.3;
     }
   };
 
@@ -848,6 +742,9 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
       if (objectsRef.current.joint) {
         objectsRef.current.joint.position.x = arm_length;
       }
+      if (objectsRef.current.jointRing) {
+        objectsRef.current.jointRing.position.x = arm_length;
+      }
       objectsRef.current.pendulumGroup.position.x = arm_length;
     }
 
@@ -856,7 +753,6 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
       objectsRef.current.pendulum.scale.y = pendScale;
       objectsRef.current.pendulum.position.y = pendulum_length / 2;
       objectsRef.current.mass.position.y = pendulum_length;
-      objectsRef.current.massGlow.position.y = pendulum_length;
       objectsRef.current.statusRing.position.y = pendulum_length;
       objectsRef.current.outerStatusRing.position.y = pendulum_length;
     }
@@ -1025,6 +921,7 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
     cameraRef.current.aspect = width / height;
     cameraRef.current.updateProjectionMatrix();
     rendererRef.current.setSize(width, height);
+    if (composerRef.current) composerRef.current.setSize(width, height);
   }, []);
 
   // Update status ring colors whenever isStable changes
@@ -1052,6 +949,7 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (composerRef.current) composerRef.current.dispose();
       if (rendererRef.current && containerRef.current) {
         containerRef.current.removeChild(rendererRef.current.domElement);
         rendererRef.current.dispose();

@@ -128,7 +128,6 @@ function LandingPage() {
     return (
       <div className="landing-page">
         <div className="error-container">
-          <span className="error-icon">⚠️</span>
           <p>{error}</p>
         </div>
       </div>
@@ -139,15 +138,15 @@ function LandingPage() {
     <div className="landing-page">
       <section className="hero" onMouseMove={handleHeroMouse} onMouseLeave={handleHeroLeave}>
         <HeroCanvas mousePos={mousePos} />
-        <h2>SCOPE</h2>
-        <p>Interactive simulations for learning signal processing, control systems, and transforms.</p>
+        <h2>Control Systems Analysis & Design</h2>
+        <p>A complete design workflow — from transfer functions to 3D visualization — entirely in your browser.</p>
         <div className="hero-accent" />
       </section>
 
       <ScrollReveal>
         <section className="filters-section">
           <div className="search-bar">
-            <span className="search-icon">🔍</span>
+            <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <input
               type="text"
               placeholder="Search simulations..."
@@ -193,7 +192,6 @@ function LandingPage() {
         </section>
       ) : filteredSimulations.length === 0 ? (
         <div className="no-results">
-          <span>🔎</span>
           <p>No simulations found matching your criteria</p>
           <button onClick={() => { setSearchTerm(''); setSelectedSection(null); }}>
             Clear filters

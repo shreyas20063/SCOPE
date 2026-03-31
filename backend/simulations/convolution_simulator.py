@@ -270,7 +270,7 @@ class ConvolutionSimulator(BaseSimulator):
         "running": False,
     }
 
-    HUB_SLOTS = ['signal']
+    HUB_SLOTS = []
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)

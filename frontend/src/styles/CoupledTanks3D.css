@@ -157,6 +157,21 @@
   color: var(--error-color, #ef4444);
 }
 
+.ct3d-saturated {
+  color: var(--warning-color, #f59e0b);
+  animation: ct3d-flash 0.5s ease-in-out infinite alternate;
+}
+
+.ct3d-overflow {
+  color: var(--error-color, #ef4444);
+  animation: ct3d-flash 0.3s ease-in-out infinite alternate;
+}
+
+@keyframes ct3d-flash {
+  from { opacity: 1; }
+  to { opacity: 0.4; }
+}
+
 /* --- Controller Details --- */
 .ct3d-controller-details {
   background: var(--surface-color, #131b2e);

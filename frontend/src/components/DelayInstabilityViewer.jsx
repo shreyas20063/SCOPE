@@ -220,7 +220,7 @@ function TakeawayText({ visible }) {
 
   return (
     <div className="di-takeaway" role="alert" aria-live="polite">
-      <div className="di-takeaway-icon">💡</div>
+      <div className="di-takeaway-icon">Takeaway</div>
       <p className="di-takeaway-text">
         Adding one sample of sensor delay converted a perfect 1-step controller into a
         system that <strong>never settles</strong>. Adding two samples made it{' '}

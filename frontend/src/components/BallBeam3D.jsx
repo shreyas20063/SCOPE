@@ -2,8 +2,7 @@
  * BallBeam3D — Three.js 3D visualization of ball-and-beam system.
  *
  * Receives pre-computed trajectory arrays from the backend and animates them
- * at 60fps with frame interpolation. Matches the neon aesthetic of existing
- * 3D components (InvertedPendulum3D, FurutaPendulum3D).
+ * at 60fps with frame interpolation.
  *
  * Props:
  *   animation: { t, ball_r, beam_alpha, control_torque, dt, num_frames, beam_length, ball_radius, is_stable }
@@ -13,6 +12,10 @@
 import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass';
 
 const SPEED_OPTIONS = [0.5, 1, 2, 4];
 const TRAIL_LENGTH = 30;
@@ -20,6 +23,7 @@ const TRAIL_LENGTH = 30;
 function BallBeam3D({ animation, isStable }) {
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
+  const composerRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
@@ -41,23 +45,23 @@ function BallBeam3D({ animation, isStable }) {
   useEffect(() => { speedRef.current = speed; }, [speed]);
 
   const COLORS = useMemo(() => ({
-    beam: 0x22d3ee,
-    beamEmissive: 0x06b6d4,
-    ball: 0xff6600,
-    ballEmissive: 0xff4400,
+    beam: 0x3b82f6,
+    beamEmissive: 0x2563eb,
+    ball: 0xf97316,
+    ballEmissive: 0xea580c,
     ballStable: 0x10b981,
     ballUnstable: 0xef4444,
     pivot: 0xffffff,
-    torque: 0xf472b6,
+    torque: 0xa855f7,
     support: 0x64748b,
     supportEmissive: 0x475569,
     ground: 0x080e1a,
-    gridMain: 0x00ffff,
+    gridMain: 0x334155,
     gridSecondary: 0x1a2744,
     background: 0x060c18,
-    trailStart: 0x00ffff,
-    trailMid: 0xff00ff,
-    trailEnd: 0xff6600,
+    trailStart: 0x3b82f6,
+    trailMid: 0x8b5cf6,
+    trailEnd: 0xf97316,
   }), []);
 
   // Scale factors
@@ -70,7 +74,7 @@ function BallBeam3D({ animation, isStable }) {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(COLORS.background);
-    scene.fog = new THREE.Fog(COLORS.background, 5, 12);
+    scene.fog = new THREE.Fog(COLORS.background, 8, 20);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.01, 100);
@@ -90,6 +94,16 @@ function BallBeam3D({ animation, isStable }) {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
+
+    // Post-processing: bloom
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(width, height), 0.2, 0.3, 0.85
+    );
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
+    composerRef.current = composer;
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -115,6 +129,7 @@ function BallBeam3D({ animation, isStable }) {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      composer.setSize(w, h);
     };
     const resizeObs = new ResizeObserver(onResize);
     resizeObs.observe(containerRef.current);
@@ -124,7 +139,7 @@ function BallBeam3D({ animation, isStable }) {
     const renderLoop = () => {
       controls.update();
       updateGlowEffects(clockRef.current.getElapsedTime());
-      renderer.render(scene, camera);
+      composer.render();
       animId = requestAnimationFrame(renderLoop);
     };
     animId = requestAnimationFrame(renderLoop);
@@ -132,6 +147,11 @@ function BallBeam3D({ animation, isStable }) {
     return () => {
       cancelAnimationFrame(animId);
       resizeObs.disconnect();
+      if (controlsRef.current) {
+        controlsRef.current.dispose();
+        controlsRef.current = null;
+      }
+      composer.dispose();
       renderer.dispose();
       scene.traverse((obj) => {
         if (obj.geometry) obj.geometry.dispose();
@@ -147,10 +167,10 @@ function BallBeam3D({ animation, isStable }) {
   }, [COLORS]);
 
   const setupLighting = (scene) => {
-    scene.add(new THREE.AmbientLight(0xffffff, 0.15));
-    scene.add(new THREE.HemisphereLight(0x0066ff, 0xff0066, 0.2));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+    scene.add(new THREE.HemisphereLight(0xb0d0ff, 0x404040, 0.25));
 
-    const key = new THREE.DirectionalLight(0xffffff, 1.5);
+    const key = new THREE.DirectionalLight(0xffffff, 1.0);
     key.position.set(3, 6, 4);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
@@ -163,13 +183,9 @@ function BallBeam3D({ animation, isStable }) {
     key.shadow.bias = -0.0003;
     scene.add(key);
 
-    const cyan = new THREE.DirectionalLight(0x00ffff, 0.6);
-    cyan.position.set(-4, 2, 2);
-    scene.add(cyan);
-
-    const magenta = new THREE.DirectionalLight(0xff00ff, 0.35);
-    magenta.position.set(4, 2, -2);
-    scene.add(magenta);
+    const fill = new THREE.DirectionalLight(0xfff5e6, 0.3);
+    fill.position.set(-4, 2, 2);
+    scene.add(fill);
   };
 
   const setupEnvironment = (scene) => {
@@ -214,7 +230,7 @@ function BallBeam3D({ animation, isStable }) {
     // Pivot support (vertical pillar)
     const supportGeo = new THREE.CylinderGeometry(0.03, 0.04, BEAM_Y, 12);
     const supportMat = new THREE.MeshStandardMaterial({
-      color: COLORS.support, emissive: COLORS.supportEmissive, emissiveIntensity: 0.2,
+      color: COLORS.support, emissive: COLORS.supportEmissive, emissiveIntensity: 0.05,
       roughness: 0.2, metalness: 0.9,
     });
     const support = new THREE.Mesh(supportGeo, supportMat);
@@ -225,7 +241,7 @@ function BallBeam3D({ animation, isStable }) {
     // Pivot point (bright sphere at top of support)
     const pivotGeo = new THREE.SphereGeometry(0.025, 16, 16);
     const pivotMat = new THREE.MeshStandardMaterial({
-      color: COLORS.pivot, emissive: 0x00ffff, emissiveIntensity: 0.8,
+      color: COLORS.pivot, emissive: 0x3b82f6, emissiveIntensity: 0.25,
       roughness: 0.05, metalness: 1.0,
     });
     const pivot = new THREE.Mesh(pivotGeo, pivotMat);
@@ -241,7 +257,7 @@ function BallBeam3D({ animation, isStable }) {
     // Beam body (long rectangular bar)
     const beamGeo = new THREE.BoxGeometry(beamLen, 0.025, 0.08);
     const beamMat = new THREE.MeshStandardMaterial({
-      color: COLORS.beam, emissive: COLORS.beamEmissive, emissiveIntensity: 0.4,
+      color: COLORS.beam, emissive: COLORS.beamEmissive, emissiveIntensity: 0.1,
       roughness: 0.12, metalness: 0.6,
     });
     const beam = new THREE.Mesh(beamGeo, beamMat);
@@ -253,14 +269,14 @@ function BallBeam3D({ animation, isStable }) {
     // Beam wireframe
     const beamEdgeGeo = new THREE.EdgesGeometry(beamGeo);
     const beamEdgeMat = new THREE.LineBasicMaterial({
-      color: 0x67e8f9, transparent: true, opacity: 0.4,
+      color: 0x60a5fa, transparent: true, opacity: 0.3,
     });
     beam.add(new THREE.LineSegments(beamEdgeGeo, beamEdgeMat));
 
     // Beam end caps (glowing markers)
     const capGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.09, 12);
     const capMat = new THREE.MeshStandardMaterial({
-      color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.5,
+      color: 0x3b82f6, emissive: 0x3b82f6, emissiveIntensity: 0.15,
       roughness: 0.1, metalness: 0.8,
     });
     [-beamLen / 2, beamLen / 2].forEach(xPos => {
@@ -283,7 +299,7 @@ function BallBeam3D({ animation, isStable }) {
     const displayBallRad = Math.max(ballRad * 2, 0.03);  // scale up for visibility
     const ballGeo = new THREE.SphereGeometry(displayBallRad, 24, 24);
     const ballMat = new THREE.MeshStandardMaterial({
-      color: COLORS.ball, emissive: COLORS.ballEmissive, emissiveIntensity: 0.7,
+      color: COLORS.ball, emissive: COLORS.ballEmissive, emissiveIntensity: 0.2,
       roughness: 0.08, metalness: 0.5,
     });
     const ball = new THREE.Mesh(ballGeo, ballMat);
@@ -293,6 +309,8 @@ function BallBeam3D({ animation, isStable }) {
     obj.ball = ball;
     obj.ballMat = ballMat;
     obj.displayBallRad = displayBallRad;
+    obj.initialBeamLen = beamLen;
+    obj.initialBallRad = ballRad;
 
     // Ball glow
     const ballGlowGeo = new THREE.SphereGeometry(displayBallRad * 1.5, 16, 16);
@@ -304,7 +322,7 @@ function BallBeam3D({ animation, isStable }) {
     obj.ballGlowMat = ballGlowMat;
 
     // Dynamic point light following ball
-    const ballLight = new THREE.PointLight(0xff8800, 0.6, 1.5);
+    const ballLight = new THREE.PointLight(0xff8800, 0.15, 1.5);
     ball.add(ballLight);
     obj.ballLight = ballLight;
 
@@ -356,20 +374,20 @@ function BallBeam3D({ animation, isStable }) {
     const vel = physicsRef.current.velNorm || 0;
 
     if (obj.ballGlowMat) {
-      obj.ballGlowMat.opacity = 0.15 + vel * 0.3 + Math.sin(elapsed * 5) * 0.05;
+      obj.ballGlowMat.opacity = 0.08 + vel * 0.1 + Math.sin(elapsed * 5) * 0.02;
     }
     if (obj.ballMat) {
       const color = new THREE.Color(COLORS.ball);
-      if (vel > 0.5) color.lerp(new THREE.Color(0xff0066), (vel - 0.5) * 2);
+      if (vel > 0.5) color.lerp(new THREE.Color(0xef4444), (vel - 0.5) * 2);
       else if (vel < 0.1) color.lerp(new THREE.Color(0x10b981), (0.1 - vel) * 10);
       obj.ballMat.color.copy(color);
-      obj.ballMat.emissiveIntensity = 0.5 + vel * 0.5;
+      obj.ballMat.emissiveIntensity = 0.15 + vel * 0.1;
     }
     if (obj.ballLight) {
-      obj.ballLight.intensity = 0.3 + vel * 0.8;
+      obj.ballLight.intensity = 0.05 + vel * 0.1;
     }
     if (obj.beamMat) {
-      obj.beamMat.emissiveIntensity = 0.3 + vel * 0.3;
+      obj.beamMat.emissiveIntensity = 0.08 + vel * 0.07;
     }
   };
 
@@ -382,7 +400,18 @@ function BallBeam3D({ animation, isStable }) {
     const alpha = anim.beam_alpha[idx] || 0;
     const torque = anim.control_torque[idx] || 0;
     const beamLen = anim.beam_length || 1.0;
-    const displayBallRad = obj.displayBallRad || 0.03;
+    const ballRad = anim.ball_radius || 0.015;
+
+    // Dynamic geometry scaling when parameters change
+    if (obj.initialBeamLen && obj.beam) {
+      obj.beam.scale.x = beamLen / obj.initialBeamLen;
+    }
+    if (obj.initialBallRad && obj.ball) {
+      const radScale = Math.max(ballRad * 2, 0.03) / (obj.displayBallRad || 0.03);
+      obj.ball.scale.setScalar(radScale);
+    }
+
+    const displayBallRad = Math.max(ballRad * 2, 0.03);
 
     // Beam tilt: rotate around z-axis at pivot
     obj.beamGroup.rotation.z = -alpha;  // negative for visual consistency

@@ -270,9 +270,11 @@ Actions for execute: `init`, `update`, `run`, `reset`, `advance`, `step_forward`
 - **datarevision**: Use `${id}-${title}-${Date.now()}` to force Plotly to re-render
 - **Debounce**: Parameter updates debounced 150ms in useSimulation hook
 - **Three.js**: Excluded from Vite optimizeDeps, loaded lazily only for Furuta Pendulum
-- **CORS**: Dev origins in config.py: localhost:3000, 3001, 5173, 127.0.0.1 variants
+- **CORS**: Dev origins in config.py: localhost:3000, 3001, 5173, 127.0.0.1 variants. Production: `allow_origins=["*"]` in `backend/main.py`
 - **np.trapz**: Deprecated in NumPy 2.0+. Use `_trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz` compat helper instead. Already applied in signal_operations, convolution, impulse_construction, ivt_fvt_visualizer.
+- **scipy.signal.pade**: Removed in SciPy 1.17. Custom `_pade()` implementation in `backend/rl/es_policy.py`.
 - **Simulator init errors**: `get_or_create_simulator()` in main.py has try/except + threading lock. Always returns `None` on failure (never crashes endpoint).
+- **handle_action()**: Complex simulators catch ALL exceptions into `self._error` attribute. Always check error state after calling.
 
 ## Tracking Files & Auto-Logging Rules
 
@@ -334,7 +336,6 @@ All tracking files live in `.claude/`. **Read them before starting work. Update 
 - **Backend**: `backend/simulations/<sim_id>.py` (~N lines)
 - **Frontend**: `frontend/src/components/<Name>Viewer.jsx` (~N lines) [if custom viewer]
 - **Purpose**: One-line description
-- **Key features**: Bullet list of notable capabilities
 ```
 
 ### Auto-Log: Significant Changes to Existing Sims
@@ -348,154 +349,114 @@ All tracking files live in `.claude/`. **Read them before starting work. Update 
 ### Signal Flow Scope (simulation: `signal_flow_scope`)
 - **Backend**: `backend/simulations/signal_flow_scope.py` (~680 lines)
 - **Frontend**: `frontend/src/components/SignalFlowScopeViewer.jsx` (~520 lines)
-- **Purpose**: Import block diagrams from Block Diagram Builder via localStorage, apply input signals (impulse/step/sinusoid/ramp), and probe any node to visualize signal propagation
-- **Key features**: Click-to-probe interaction, Mason's Gain Formula for per-node TF computation, SVG signal flow graph + Plotly scope plots split layout
-- **Import mechanism**: localStorage bridge — Block Diagram Builder exports JSON to `localStorage['blockDiagram_export']`, Signal Flow Scope imports it
+- **Purpose**: Import block diagrams via localStorage, probe nodes to visualize signal propagation via Mason's Gain Formula
 
 ### SFG Toggle (in Block Diagram Builder)
 - **File**: `frontend/src/components/BlockDiagramViewer.jsx`
 - **Purpose**: Toggle between block diagram and textbook-correct Signal Flow Graph view
-- **Key implementation**: `convertToSFG()` converts blocks to SFG following Mason/Oppenheim/Nise conventions
-- **Rules**: Nodes = signals (circles), branches = transfer functions (directed edges with gain labels). ALL TF blocks become edge gains. Operator-domain labels: R (delay), A (integrator).
-- **Known constraints**: See `.claude/bugs.md` BUG-001 through BUG-007 for fixed issues and prevention rules
+- **Known constraints**: See `.claude/bugs.md` BUG-001 through BUG-007
 
 ### Root Locus Analyzer Major Overhaul
-- **Backend**: Inline TF expression parser (expanded + factored forms), Routh-Hurwitz table computation, stability K-ranges from jω crossings, locus data export for animation
-- **Frontend**: Full vertical layout (s-plane full-width 600px), inline KaTeX TF input, K-sweep animation with trail, Routh-Hurwitz table with sign-change highlighting, stability ranges bar visualization
-- **Key features**: Play/pause K animation, speed control (0.5x–4x), throttled step response sync, collapsible construction rules, responsive mobile tabs
+- **Purpose**: Inline TF expression parser, Routh-Hurwitz table, stability K-ranges, K-sweep animation with trail
 
 ### Block Diagram Builder Enhancements
-- Custom TF blocks with KaTeX expression rendering
-- Wire routing with A* pathfinding and crossing bridges
-- Auto-arrange after TF parsing
-- JSON export for Signal Flow Scope import
-- Block count limit (30), TF string length limit (500 chars)
-- Generalized Mason's Delta computation
+- **Purpose**: Custom TF blocks with KaTeX, A* wire routing, auto-arrange, JSON export, generalized Mason's Delta
 
 ### Routh-Hurwitz Stability Criterion Tool (simulation: `routh_hurwitz`)
 - **Backend**: `backend/simulations/routh_hurwitz.py` (~310 lines), shared utility `backend/core/routh_hurwitz.py` (~130 lines)
-- **Frontend**: `frontend/src/components/RouthHurwitzViewer.jsx` (~280 lines), `frontend/src/styles/RouthHurwitzViewer.css` (~350 lines)
-- **Purpose**: Standalone educational tool for building Routh arrays step-by-step with sign-change highlighting
-- **Key features**: KaTeX polynomial display, 8 educational presets (including special cases), parametric K analysis with stability ranges bar, pole-zero map, shared Routh utility extracted from root_locus.py
+- **Frontend**: `frontend/src/components/RouthHurwitzViewer.jsx` (~280 lines)
+- **Purpose**: Standalone Routh array builder with sign-change highlighting and parametric K analysis
 
 ### Controller Tuning Lab (simulation: `controller_tuning_lab`)
 - **Backend**: `backend/simulations/controller_tuning_lab.py` (~1520 lines)
 - **Frontend**: `frontend/src/components/ControllerTuningLabViewer.jsx` (~600 lines)
-- **CSS**: `frontend/src/styles/ControllerTuningLab.css` (~320 lines)
-- **Purpose**: Unified controller design and auto-tuning environment (classical + modern)
-- **Key features**:
-  - 7 plant presets (1st/2nd order, integrator, FOPDT, DC motor, unstable, custom TF)
-  - PID with derivative filter + Lead-Lag compensator
-  - 6 auto-tuning methods: ZN open/closed-loop, Cohen-Coon, Lambda, IMC, ITAE optimal
-  - 7 analysis plots: step response, Bode mag/phase, pole-zero map, control effort, error signal, Nyquist
-  - SVG feedback loop block diagram with KaTeX transfer function rendering
-  - Performance metrics strip (rise time, settling time, overshoot, margins, ISE/IAE/ITAE)
-  - Save up to 5 reference responses for comparison
-  - Fullscreen comparison overlay with overlaid traces and metrics table
-  - **Phase 2 — Modern controllers**: State Feedback (manual K), Pole Placement (`scipy.signal.place_poles`), LQR Optimal (`scipy.linalg.solve_continuous_are`)
-  - **Phase 3 — LQG (LQR + Kalman Filter)**: Dual Riccati equation solution, augmented 2n-order CL state-space, reference feedforward N_bar for unit tracking, custom SVG observer block diagram
-  - TF↔SS bridging: `tf2ss()` conversion, controllability matrix rank check, `StateSpace.to_tf()` for CL
-  - KaTeX-rendered state-space matrices (A, B, C, D) with `\dot{x} = Ax + Bu` equations
-  - State-feedback SVG block diagram variant (K on feedback path instead of C(s))
-  - LQG SVG block diagram variant (Kalman Filter + K blocks in observer-feedback structure)
-  - Controllability badge, plant order display, and Kalman gain L display in metrics strip
+- **Purpose**: Unified controller design — PID/Lead-Lag + State Feedback/Pole Placement/LQR/LQG with auto-tuning
 
 ### Lead-Lag Compensator Designer (simulation: `lead_lag_designer`)
 - **Backend**: `backend/simulations/lead_lag_designer.py` (~580 lines)
 - **Frontend**: `frontend/src/components/LeadLagDesignerViewer.jsx` (~360 lines)
-- **CSS**: `frontend/src/styles/LeadLagDesigner.css` (~280 lines)
-- **Purpose**: Dedicated frequency-domain lead-lag compensator design tool with textbook α/ωm parameterization
-- **Key features**:
-  - Independent lead (α, ωm) and lag (β, ωm) section controls with enable/disable
-  - 6 plant presets: 1st order, type 1, 2nd order, type 1+2P, DC motor, custom TF
-  - 6 analysis plots: Bode mag/phase, step response, pole-zero map, compensator phase breakdown, Nichols chart
-  - Phase contribution breakdown showing individual lead and lag phase curves with φ_max markers
-  - PM/GM target lines on Bode plots, stability-colored metrics strip
-  - Design info panel showing computed zero/pole locations, max phase, HF gain, LF boost
-  - SVG feedback loop block diagram with KaTeX transfer function rendering
-  - Nichols chart (unique to this tool — not available in Controller Tuning Lab)
+- **Purpose**: Frequency-domain lead-lag design with textbook α/ωm parameterization and Nichols chart
 
 ### Steady-State Error Analyzer (simulation: `steady_state_error`)
-- **Backend**: `backend/simulations/steady_state_error.py` (~1030 lines)
-- **Frontend**: `frontend/src/components/SteadyStateErrorViewer.jsx` (~443 lines)
-- **CSS**: `frontend/src/styles/SteadyStateError.css` (~370 lines)
-- **Purpose**: Systematic analysis of steady-state tracking error in unity-feedback control systems
-- **Key features**:
-  - 7 plant presets: Type 0 (2 variants), Type 1 (2 variants), Type 2 (2 variants), Type 3, plus custom G(s)
-  - System type detection (poles at origin), error constants (Kp, Kv, Ka) computation
-  - Color-coded error table showing ess for step/ramp/parabolic inputs (green=0, amber=finite, red=∞)
-  - Final Value Theorem step-by-step LaTeX derivation (collapsible)
-  - SVG unity feedback block diagram with KaTeX-rendered G(s)
-  - 4 plots: time response, error signal, ess-vs-K parametric curve (log-log), pole-zero map
-  - Gain K slider showing the fundamental gain-error-stability tradeoff
-  - ess-vs-K plot with stability boundary shading and all 3 input curves
-  - Unstable CL detection with FVT invalidity warning
+- **Backend**: `backend/simulations/steady_state_error.py` (~890 lines)
+- **Frontend**: `frontend/src/components/SteadyStateErrorViewer.jsx` (~580 lines)
+- **Purpose**: Full steady-state error analysis with non-unity H(s), sensitivity functions, and FVT derivation
 
 ### Nonlinear Phase Portrait Analyzer (simulation: `phase_portrait`)
 - **Backend**: `backend/simulations/phase_portrait.py` (~580 lines)
 - **Frontend**: `frontend/src/components/PhasePortraitViewer.jsx` (~310 lines)
-- **CSS**: `frontend/src/styles/PhasePortrait.css` (~340 lines)
-- **Purpose**: Interactive exploration of 2D autonomous nonlinear dynamical systems with vector fields, trajectories, and equilibrium classification
-- **Key features**:
-  - 5 presets: Simple Pendulum, Van der Pol, Lotka-Volterra, Duffing, Limit Cycle + custom equations
-  - Safe expression evaluator for f(x₁,x₂), g(x₁,x₂) with sandboxed numpy namespace
-  - Click-to-add initial conditions → solve_ivp forward+backward trajectories
-  - Grid-based fsolve equilibrium finding with deduplication
-  - 2×2 Jacobian via central finite differences → eigenvalue classification (node/spiral/saddle/center)
-  - Equilibrium detail panel: eigenvalues, eigenvectors, Jacobian matrix, tr/det
-  - Time series plot for latest trajectory (x₁(t), x₂(t))
-  - Preset-specific parameter sliders (μ for VdP, α/β/γ/δ for LV, δ for Duffing)
+- **Purpose**: 2D autonomous nonlinear system exploration with vector fields, trajectories, and equilibrium classification
 
 ### Nonlinear Control Lab (simulation: `nonlinear_control_lab`)
 - **Backend**: `backend/simulations/nonlinear_control_lab.py` (~2220 lines)
 - **Frontend**: `frontend/src/components/NonlinearControlLabViewer.jsx` (~920 lines)
-- **CSS**: `frontend/src/styles/NonlinearControlLab.css` (~400 lines)
-- **Purpose**: Linearize → Design → Validate workflow for nonlinear plants — the CDC paper's flagship simulation
-- **Key features**:
-  - 4 plant presets: inverted pendulum on cart (4×1), ball & beam (4×1), coupled tanks MIMO (2×2), Van der Pol (2×1) + custom ODE
-  - SymPy symbolic Jacobian for exact linearization (∂f/∂x, ∂f/∂u) at user-selected equilibria
-  - LQR (Riccati via `solve_continuous_are`) and pole placement (`place_poles`) controller design
-  - Side-by-side linear prediction (matrix exponential) vs nonlinear validation (`solve_ivp` RK45)
-  - HTML5 Canvas phase portrait with vector field arrows (magnitude-colored), streamlines, animated trajectories
-  - User-selectable 2D projection axes for higher-order systems (4-state → pick 2 axes)
-  - Click-to-set initial condition on Canvas
-  - Threaded region of attraction computation (25×25 IC grid, `ThreadPoolExecutor(8)`)
-  - KaTeX derivation chain: ODE → A,B → K → CL eigenvalues (collapsible)
-  - Metrics strip: stability, controllability rank, CL eigenvalues, convergence time, ‖K‖
-  - Full MIMO support (coupled tanks: 2-input 2-output LQR with diagonal Q,R)
+- **Purpose**: Linearize → Design → Validate workflow with SymPy Jacobian and region of attraction
 
 ### MIMO State-Space Design Studio (simulation: `mimo_design_studio`)
 - **Backend**: `backend/simulations/mimo_design_studio.py` (~1485 lines), `backend/core/mimo_utils.py` (~460 lines)
 - **Frontend**: `frontend/src/components/MIMODesignStudioViewer.jsx` (~1031 lines)
-- **CSS**: `frontend/src/styles/MIMODesignStudio.css` (~619 lines)
-- **Purpose**: Full MIMO state-space design and analysis for arbitrary N×M×P systems
-- **Key features**:
-  - 3 real-world presets: Aircraft Lateral Dynamics (4×2×2), Coupled Mass-Spring-Damper (4×2×2), DC Motor + Flexible Load (4×1×2 MISO)
-  - Custom N×M×P matrices via semicolon-delimited expressions (max N=8, M=4, P=4)
-  - Controllability/observability matrix computation and rank display with color-coded badges
-  - MIMO pole placement via scipy.signal.place_poles (m×n K matrix)
-  - MIMO LQR via continuous algebraic Riccati equation (arbitrary diagonal Q, R)
-  - MIMO LQG: dual Riccati (K + L gains), augmented 2n-order CL, separation principle
-  - p×m response grid: step and impulse response for every input→output pair
-  - Open-loop (dashed) + closed-loop (solid) response overlay when controller active
-  - Eigenvalue map with OL/CL/regulator/estimator marker groups
-  - 5-tab viewer: Response, Pole-Zero, Properties, Controller, Diagram
-  - SVG block diagrams: open-loop SS, state feedback, LQG observer structure
-  - KaTeX-rendered matrices (A, B, C, D, K, L, P, Q, R) throughout
-  - Metrics strip: dimensions, controllability/observability rank badges, OL/CL stability
-  - Reusable `core/mimo_utils.py` math module (controllability, observability, LQR, LQG, pole placement, MIMO simulation via solve_ivp)
+- **Purpose**: Full MIMO state-space design for arbitrary N×M×P systems with LQR/LQG and p×m response grids
 
 ### Coupled Tanks 3D (simulation: `coupled_tanks_3d`)
 - **Backend**: `backend/simulations/coupled_tanks_3d.py` (~490 lines)
 - **Frontend**: `frontend/src/components/CoupledTanks3D.jsx` (~460 lines), `frontend/src/components/CoupledTanks3DViewer.jsx` (~190 lines)
-- **CSS**: `frontend/src/styles/CoupledTanks3D.css` (~240 lines)
-- **Purpose**: 3D MIMO coupled-tank physics lab with swappable controllers
-- **Key features**:
-  - Two-tank nonlinear MIMO system: h1 drains into h2, both with independent pump inflows
-  - 5 controllers: None, Dual PID (2 independent loops), LQR, Pole Placement, LQG
-  - Three.js 3D visualization: transparent cylindrical tanks, animated water levels, flow particles, connecting pipe, droplet effects
-  - Equilibrium h1_ref=0.5m, h2_ref=1.0m (h2>=h1 ensures non-negative q2_eq)
-  - Clamped flow rates [0, 5.0] to enforce physical pump constraints
-  - 4 analysis plots: tank levels, pump flow rates, phase portrait (h1 vs h2), pole map
-  - Metrics strip: stability, SS errors, settling time, control energy, controllability rank
-  - Shared `core/controllers.py` module for LQR, pole placement, LQG design
+- **Purpose**: 3D MIMO coupled-tank physics lab with swappable controllers (PID/LQR/Pole Placement/LQG)
+
+### System Hub Overhaul (cross-cutting feature)
+- **Backend**: `backend/core/hub_validator.py`, `backend/main.py`, `backend/routes/hub.py`
+- **Frontend**: `frontend/src/contexts/HubContext.jsx`, `frontend/src/hooks/useHub.js`, `frontend/src/components/HubPanel.jsx`
+- **Purpose**: Fix non-functional System Hub — validator schema fix, toast system, push feedback, payload guards
+
+## Project
+
+**SCOPE — MIMO Block Diagram Builder Hardening**
+
+SCOPE is an interactive web platform for learning signals and systems through simulations. This milestone focuses on hardening the MIMO functionality in the Block Diagram Builder — auditing every line of vibe-coded implementation, fixing math and rendering errors, building validation tests from scratch, and adding educational content (theory sections, derivations) that maps directly to textbook conventions.
+
+**Core Value:** **Every MIMO computation must be mathematically correct and match textbook definitions from Ogata, Nise, and Oppenheim.** If the math is wrong, nothing else matters — students will learn incorrect concepts.
+
+### Constraints
+
+- **Tech stack**: Python 3.11/FastAPI backend, React 18/Vite frontend — no changes to stack
+- **Textbook fidelity**: All notation, conventions, and derivations must match Ogata/Nise/Oppenheim — no invented conventions
+- **Math first**: Every fix starts with verifying the math before touching UI code
+- **Existing architecture**: Must work within BaseSimulator pattern and existing viewer chain in SimulationViewer.jsx
+
+## Architecture Overview
+
+- Stateful backend: simulator instances live in-memory (`active_simulators` dict in `backend/main.py`)
+- Registry pattern: all simulators are registered by string ID in `backend/simulations/__init__.py`
+- Catalog-driven UI: the backend catalog (`backend/simulations/catalog.py`) defines controls, defaults, plots, and metadata; the frontend renders them generically
+- Viewer chain: `frontend/src/components/SimulationViewer.jsx` dispatches to ~55 custom viewer components based on `metadata.simulation_type`
+- Hub cross-simulation data transfer: a localStorage-backed context (`frontend/src/contexts/HubContext.jsx`) with backend validation (`backend/routes/hub.py`)
+
+## Conventions
+
+### Error Handling
+- FastAPI endpoints raise `HTTPException` for client errors (400, 404, 422)
+- `_validate_param()` in `BaseSimulator` silently clamps out-of-range values (no exceptions)
+- `ApiClient` in `frontend/src/services/api.js` returns `{success, error?, details?, status?}` — never throws
+- 30s timeout on all API calls, 5s timeout on hub validation calls
+- Refs (`mountedRef`, `isFlushingRef`) prevent state updates on unmounted components
+
+### Function & Module Design
+- Python: keyword arguments with type hints and defaults. Use `Optional[Dict[str, Any]] = None` pattern.
+- JavaScript: destructured props for components, named parameters for utility functions.
+- Backend always returns dicts with `success`, `data`, `error` keys from endpoints
+- Simulators return `{parameters, plots, metadata}` dicts from `get_state()`
+- Plots are always lists of `{id, title, data, layout}` Plotly dicts
+- `backend/simulations/__init__.py` maintains `SIMULATOR_REGISTRY` dict and `__all__` list
+- Every simulator class must be imported, registered, and added to `__all__`
+
+### Simulator Implementation Pattern
+- Define `HUB_SLOTS: List[str]` (e.g., `['control']`, `['signal']`)
+- Define `HUB_DOMAIN: str` (`"ct"` or `"dt"`)
+- Define `HUB_DIMENSIONS: Dict` (`{"n": None, "m": 1, "p": 1}` for SISO)
+- Override `to_hub_data()` and `from_hub_data()` if non-standard parameter names
+
+### React Component Pattern
+- Heavy components (Three.js viewers, complex Plotly viewers) use `React.lazy(() => import('./Component'))`
+- Wrapped in `<Suspense fallback={<div>Loading...</div>}>` in `SimulationViewer.jsx`
+- `SimulationViewer.jsx` (~2242 lines) dispatches to custom viewers based on `metadata?.simulation_type`
+- Custom viewers receive `{metadata, plots, ...}` props
+- If no custom viewer matches, falls back to generic `PlotDisplay.jsx`

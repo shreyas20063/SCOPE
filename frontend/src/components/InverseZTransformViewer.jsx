@@ -166,7 +166,7 @@ function SolutionStepper({ currentStep, maxStep, steps, allTitles, onNext, onPre
           ← Prev
         </button>
         <button className="izt-btn izt-btn-primary" onClick={onNext} disabled={isUpdating || currentStep >= maxStep}>
-          {currentStep >= maxStep ? 'Complete' : 'Next Step →'}
+          {currentStep >= maxStep ? 'Complete' : 'Next Step'}
         </button>
         <button className="izt-btn izt-btn-secondary" onClick={onShowAll} disabled={isUpdating || currentStep >= maxStep}>
           Show All

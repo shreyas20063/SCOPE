@@ -465,7 +465,7 @@ function WebsiteLaunchAnimation({ onComplete }) {
           SCOPE
         </h1>
         <p className={subClasses}>
-          Interactive Learning Platform
+          Control Systems Analysis & Design
         </p>
       </div>
 

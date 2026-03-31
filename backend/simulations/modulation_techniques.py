@@ -188,7 +188,7 @@ class ModulationTechniquesSimulator(BaseSimulator):
         "fdm_spacing": 10,
     }
 
-    HUB_SLOTS = ['signal']
+    HUB_SLOTS = []
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)

@@ -1118,6 +1118,31 @@ class NonlinearControlLabSimulator(BaseSimulator):
     HUB_SLOTS = ['control']
     HUB_DIMENSIONS = {'n': None, 'm': None, 'p': None}
 
+    def to_hub_data(self) -> Optional[Dict[str, Any]]:
+        """Export the linearized state-space system to the Hub.
+
+        Uses full-state observation (C = I, D = 0) since the nonlinear
+        ODE only defines state dynamics, not an explicit output equation.
+
+        Returns:
+            Hub-format dict with A, B, C, D matrices, or None if the
+            system has not been linearized yet.
+        """
+        if self._A is None or self._B is None:
+            return None
+        A = self._A.tolist() if hasattr(self._A, 'tolist') else self._A
+        B = self._B.tolist() if hasattr(self._B, 'tolist') else self._B
+        n = len(A)
+        m = len(B[0]) if B and B[0] else 1
+        C = np.eye(n).tolist()
+        D = np.zeros((n, m)).tolist()
+        return {
+            "source": "ss",
+            "domain": self.HUB_DOMAIN,
+            "dimensions": {"n": n, "m": m, "p": n},
+            "ss": {"A": A, "B": B, "C": C, "D": D},
+        }
+
     def __init__(self, simulation_id: str):
         """Initialize the Nonlinear Control Lab simulator.
 
@@ -1245,6 +1270,20 @@ class NonlinearControlLabSimulator(BaseSimulator):
             self._f_numeric = f_numeric
         except Exception as exc:
             return False, f"Lambdify error: {exc}"
+
+        # Verify equilibrium: f(x_eq, u_eq) should be near zero
+        try:
+            f_at_eq = self._f_numeric(self._x_eq, self._u_eq)
+            eq_residual = float(np.linalg.norm(f_at_eq))
+            if eq_residual > 0.01:
+                self._eq_warning = (
+                    f"f(x*, u*) has norm {eq_residual:.4f} "
+                    f"— may not be a true equilibrium"
+                )
+            else:
+                self._eq_warning = None
+        except Exception:
+            self._eq_warning = None
 
         return True, ""
 
@@ -2157,9 +2196,12 @@ class NonlinearControlLabSimulator(BaseSimulator):
             "state_names": x_names,
             "input_names": u_names,
 
-            # Equilibrium
+            # Equilibrium / operating point
             "x_eq": self._x_eq.tolist() if self._x_eq is not None else [],
             "u_eq": self._u_eq.tolist() if self._u_eq is not None else [],
+            "is_operating_point": bool(
+                self._u_eq is not None and np.linalg.norm(self._u_eq) > 1e-8
+            ),
             "equilibrium_options": eq_options,
 
             # Linearization

@@ -2,7 +2,10 @@ import React, { createContext, useContext, useState, useCallback, useRef, useEff
 import api from '../services/api';
 
 const STORAGE_KEY = 'systemHub';
-const EMPTY_HUB = { control: null, signal: null, circuit: null, optics: null };
+const EMPTY_HUB = { control: null };
+
+// Slots that get backend enrichment (math: poles, zeros, SS derivation)
+const ENRICHABLE_SLOTS = new Set(['control']);
 
 /**
  * Deep merge two objects. Arrays and null values are replaced, not merged.
@@ -55,9 +58,6 @@ export function HubProvider({ children }) {
   const [hubState, setHubState] = useState(loadFromStorage);
   const subscribersRef = useRef({
     control: new Set(),
-    signal: new Set(),
-    circuit: new Set(),
-    optics: new Set(),
   });
 
   // Cross-tab sync via storage events
@@ -66,7 +66,6 @@ export function HubProvider({ children }) {
       if (e.key === STORAGE_KEY) {
         const newState = e.newValue ? JSON.parse(e.newValue) : { ...EMPTY_HUB };
         setHubState({ ...EMPTY_HUB, ...newState });
-        // Notify all subscribers for all slots since we don't know which changed
         for (const slotName of Object.keys(subscribersRef.current)) {
           for (const cb of subscribersRef.current[slotName]) {
             try { cb(newState[slotName] || null); } catch { /* ignore */ }
@@ -91,24 +90,32 @@ export function HubProvider({ children }) {
   }, []);
 
   /**
-   * Push data into a hub slot. Validates via backend for the control slot.
+   * Push data into a hub slot. Returns { success, enriched, warning? }.
+   * Validates via backend for enrichable slots (control).
    * Deep-merges enriched data into the existing slot (not replace).
    */
   const pushToSlot = useCallback(async (slotName, data, simId) => {
     if (!EMPTY_HUB.hasOwnProperty(slotName)) {
-      console.warn(`[Hub] Unknown slot: ${slotName}`);
-      return;
+      return { success: false, error: `Unknown slot: ${slotName}` };
     }
 
     let enrichedData = data;
+    let warning = null;
+    let enriched = false;
 
-    // Validate via backend for the control slot
-    if (slotName === 'control') {
-      const result = await api.validateHubData(slotName, data);
-      if (result.success && result.data) {
-        enrichedData = result.data;
+    // Backend enrichment for control slot (derives poles, zeros, SS, stability, etc.)
+    if (ENRICHABLE_SLOTS.has(slotName)) {
+      try {
+        const result = await api.validateHubData(slotName, data);
+        if (result.success && result.data) {
+          enrichedData = result.data;
+          enriched = true;
+        } else {
+          warning = result.error || 'Enrichment failed — using raw data';
+        }
+      } catch {
+        warning = 'Backend unreachable — using raw data';
       }
-      // If validation fails, use raw data as fallback
     }
 
     // Add metadata
@@ -116,6 +123,9 @@ export function HubProvider({ children }) {
       ...enrichedData,
       _meta: { pushed_by: simId, timestamp: Date.now() },
     };
+    if (warning) {
+      enrichedData._validationWarning = warning;
+    }
 
     setHubState(prev => {
       const currentSlot = prev[slotName];
@@ -123,13 +133,12 @@ export function HubProvider({ children }) {
       // Stale controller detection: if plant TF changed and controller exists
       let merged = deepMerge(currentSlot, enrichedData);
       if (slotName === 'control' && currentSlot) {
-        const oldPlant = currentSlot.plant;
-        const newPlant = enrichedData.plant;
-        if (oldPlant && newPlant && currentSlot.controller) {
-          // Check if plant TF actually changed
+        const oldTf = currentSlot.tf;
+        const newTf = enrichedData.tf;
+        if (oldTf && newTf && currentSlot.controller) {
           const plantChanged =
-            JSON.stringify(oldPlant.numerator) !== JSON.stringify(newPlant.numerator) ||
-            JSON.stringify(oldPlant.denominator) !== JSON.stringify(newPlant.denominator);
+            JSON.stringify(oldTf.num) !== JSON.stringify(newTf.num) ||
+            JSON.stringify(oldTf.den) !== JSON.stringify(newTf.den);
           if (plantChanged) {
             merged = {
               ...merged,
@@ -144,6 +153,8 @@ export function HubProvider({ children }) {
       notifySubscribers(slotName, merged);
       return nextState;
     });
+
+    return { success: true, enriched, warning };
   }, [notifySubscribers]);
 
   /**

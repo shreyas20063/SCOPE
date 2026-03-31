@@ -144,7 +144,7 @@ const TextPanel = memo(function TextPanel({ plot }) {
             marginBottom: '16px',
             borderRadius: '4px',
           }}>
-            <strong>🎯 Guided Mode:</strong> {content.guidedMessage}
+            <strong>Guided Mode:</strong> {content.guidedMessage}
           </div>
         )}
 

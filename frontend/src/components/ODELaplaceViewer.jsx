@@ -116,7 +116,7 @@ function SolutionStepper({ currentStep, maxStep, steps, allTitles, onNext, onPre
           ← Prev
         </button>
         <button className="ode-btn ode-btn-primary" onClick={onNext} disabled={isUpdating || currentStep >= maxStep}>
-          {currentStep >= maxStep ? 'Complete ✓' : 'Next Step →'}
+          {currentStep >= maxStep ? 'Complete' : 'Next Step'}
         </button>
         <button className="ode-btn ode-btn-secondary" onClick={onShowAll} disabled={isUpdating || currentStep >= maxStep}>
           Show All

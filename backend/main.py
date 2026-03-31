@@ -394,6 +394,11 @@ async def execute_simulation(sim_id: str, request: ExecuteRequest):
 
         elif action == "to_hub_data":
             hub_data = simulator.to_hub_data()
+            if hub_data is None:
+                return JSONResponse(
+                    status_code=400,
+                    content={"success": False, "error": "This simulation has no hub-exportable data"}
+                )
             result = DataHandler.serialize_result({
                 "success": True,
                 "data": {"hub_data": hub_data, "parameters": simulator.parameters.copy()},
@@ -408,12 +413,12 @@ async def execute_simulation(sim_id: str, request: ExecuteRequest):
                     "success": True,
                     "data": simulator.get_state(),
                 })
+                return JSONResponse(content=result)
             else:
-                result = DataHandler.serialize_result({
-                    "success": False,
-                    "error": "Hub data not applicable to this simulation",
-                })
-            return JSONResponse(content=result)
+                return JSONResponse(
+                    status_code=422,
+                    content={"success": False, "error": "Hub data not compatible with this simulation"}
+                )
 
         else:
             # Delegate to simulator's custom action handler if available

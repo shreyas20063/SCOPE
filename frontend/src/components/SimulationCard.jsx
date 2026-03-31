@@ -12,7 +12,6 @@ function SimulationCard({ id, name, description, category, categoryColor, thumbn
     >
       <div className="card-accent-line" />
       <div className="card-header">
-        <span className="card-thumbnail">{thumbnail}</span>
         <span
           className="category-badge"
           style={{ backgroundColor: color }}

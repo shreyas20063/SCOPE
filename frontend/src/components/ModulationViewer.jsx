@@ -13,9 +13,9 @@ import './ModulationViewer.css';
  * Tab navigation bar
  */
 const TABS = [
-  { id: 'am', label: 'Amplitude Modulation', icon: '📻', color: '#2563EB' },
-  { id: 'fm_pm', label: 'Frequency & Phase', icon: '📡', color: '#16A34A' },
-  { id: 'fdm', label: 'Freq Division Mux', icon: '📶', color: '#CA8A04' },
+  { id: 'am', label: 'Amplitude Modulation', color: '#2563EB' },
+  { id: 'fm_pm', label: 'Frequency & Phase', color: '#16A34A' },
+  { id: 'fdm', label: 'Freq Division Mux', color: '#CA8A04' },
 ];
 
 const TabBar = memo(function TabBar({ activeTab, onTabChange }) {
@@ -28,7 +28,6 @@ const TabBar = memo(function TabBar({ activeTab, onTabChange }) {
           onClick={() => onTabChange(tab.id)}
           style={{ '--tab-color': tab.color }}
         >
-          <span className="tab-icon">{tab.icon}</span>
           <span className="tab-label">{tab.label}</span>
         </button>
       ))}

@@ -1,21 +1,22 @@
 /**
- * MassSpring3D Component - Ultra-Premium Three.js 3D Visualization
+ * MassSpring3D Component - Three.js 3D Visualization
  *
- * Neon-aesthetic mass-spring-damper system featuring:
- * - Electric cyan spring coil with emissive glow
- * - Hot magenta damper cylinder with pulsing rings
- * - Energy-reactive mass (orange → pink when fast, → green when slow)
- * - Multi-layered glow spheres on mass with pulsing
- * - Rainbow gradient motion trail (cyan → magenta → orange)
- * - Dynamic point lights following mass
- * - Premium PBR materials with high metalness
- * - Deep space background with neon grid
+ * Mass-spring-damper system featuring:
+ * - Spring coil with subtle emissive highlight
+ * - Damper cylinder with accent color
+ * - Energy-reactive mass with soft color shifts
+ * - Gradient motion trail
+ * - PBR materials with studio lighting
  * - All GPU-rendered — zero backend cost
  */
 
 import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const SPEED_OPTIONS = [0.5, 1, 2, 4];
@@ -24,6 +25,7 @@ const TRAIL_LENGTH = 25;
 function MassSpring3D({ visualization2D, systemInfo }) {
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
+  const composerRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
@@ -46,41 +48,41 @@ function MassSpring3D({ visualization2D, systemInfo }) {
   useEffect(() => { playingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { speedRef.current = speed; }, [speed]);
 
-  // Ultra-vibrant neon color palette (matching Furuta aesthetic)
+  // Subdued color palette
   const COLORS = useMemo(() => ({
-    // Spring - electric cyan
-    spring: 0x00ffff,
-    springEmissive: 0x00e5ff,
+    // Spring - blue
+    spring: 0x3b82f6,
+    springEmissive: 0x2563eb,
 
-    // Damper - hot magenta
-    damper: 0xff6fff,
-    damperEmissive: 0xff00ff,
+    // Damper - purple
+    damper: 0xa855f7,
+    damperEmissive: 0x7c3aed,
     damperPiston: 0xc0c0c0,
 
-    // Mass - energy reactive orange/gold
-    mass: 0xff8c00,
-    massEmissive: 0xff6600,
-    massGlow: 0xffaa00,
-    massHighEnergy: 0xff0066,
-    massLowEnergy: 0x00ff88,
+    // Mass - softer orange
+    mass: 0xf97316,
+    massEmissive: 0xea580c,
+    massGlow: 0xfb923c,
+    massHighEnergy: 0xef4444,
+    massLowEnergy: 0x10b981,
 
     // Ceiling - chrome metallic
     ceiling: 0xc0c0c0,
-    ceilingAccent: 0x00ffff,
+    ceilingAccent: 0x94a3b8,
 
     // Mounting - bright white/silver
     mount: 0xffffff,
     mountMetal: 0xe0e0e0,
 
-    // Trail - rainbow gradient
-    trailStart: 0x00ffff,
-    trailMid: 0xff00ff,
-    trailEnd: 0xff6600,
+    // Trail - gradient
+    trailStart: 0x3b82f6,
+    trailMid: 0x8b5cf6,
+    trailEnd: 0xf97316,
 
     // Environment
     ground: 0x080e1a,
     groundAccent: 0x1a2744,
-    gridMain: 0x00ffff,
+    gridMain: 0x334155,
     gridSecondary: 0x2a3f5f,
 
     // Background — deep dark
@@ -133,7 +135,7 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     // Scene with fog
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(COLORS.background);
-    scene.fog = new THREE.Fog(COLORS.background, 2.5, 5.5);
+    scene.fog = new THREE.Fog(COLORS.background, 5, 12);
     sceneRef.current = scene;
 
     // Camera — pulled back so the system looks compact
@@ -157,6 +159,16 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
+
+    // Post-processing: bloom
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(width, height), 0.2, 0.3, 0.85
+    );
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
+    composerRef.current = composer;
 
     // Smooth orbit controls
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -185,6 +197,7 @@ function MassSpring3D({ visualization2D, systemInfo }) {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      composer.setSize(w, h);
     };
     const resizeObs = new ResizeObserver(onResize);
     resizeObs.observe(containerRef.current);
@@ -196,7 +209,7 @@ function MassSpring3D({ visualization2D, systemInfo }) {
       const elapsed = clockRef.current.getElapsedTime();
       controls.update();
       updateGlowEffects(elapsed);
-      renderer.render(scene, camera);
+      composer.render();
       animId = requestAnimationFrame(renderLoop);
     };
     animId = requestAnimationFrame(renderLoop);
@@ -204,6 +217,11 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     return () => {
       cancelAnimationFrame(animId);
       resizeObs.disconnect();
+      if (controlsRef.current) {
+        controlsRef.current.dispose();
+        controlsRef.current = null;
+      }
+      composer.dispose();
       renderer.dispose();
       scene.traverse((obj) => {
         if (obj.geometry) obj.geometry.dispose();
@@ -218,18 +236,13 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     };
   }, [COLORS]);
 
-  // Premium multi-light setup with dramatic neon lighting
   const setupLighting = (scene) => {
     const obj = objectsRef.current;
 
-    // Low ambient — keeps it dark, neons do the work
-    scene.add(new THREE.AmbientLight(0xffffff, 0.18));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+    scene.add(new THREE.HemisphereLight(0xb0d0ff, 0x404040, 0.25));
 
-    // Hemisphere for sky/ground gradient
-    scene.add(new THREE.HemisphereLight(0x0066ff, 0xff0066, 0.2));
-
-    // Key light with shadows
-    const key = new THREE.DirectionalLight(0xffffff, 1.5);
+    const key = new THREE.DirectionalLight(0xffffff, 1.0);
     key.position.set(3, 6, 4);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
@@ -243,43 +256,9 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     key.shadow.radius = 3;
     scene.add(key);
 
-    // Subtle fill from opposite side
-    const fill = new THREE.DirectionalLight(0x88aacc, 0.15);
+    const fill = new THREE.DirectionalLight(0xfff5e6, 0.3);
     fill.position.set(-3, 3, -2);
     scene.add(fill);
-
-    // Cyan accent light - left side
-    const cyanLight = new THREE.DirectionalLight(0x00ffff, 0.7);
-    cyanLight.position.set(-4, 2, 2);
-    scene.add(cyanLight);
-
-    // Magenta accent light - right side
-    const magentaLight = new THREE.DirectionalLight(0xff00ff, 0.45);
-    magentaLight.position.set(4, 2, -2);
-    scene.add(magentaLight);
-
-    // Bottom cyan uplighting — illuminates floor
-    const bottomCyan = new THREE.DirectionalLight(0x00ffff, 0.3);
-    bottomCyan.position.set(0, -2, 0);
-    scene.add(bottomCyan);
-
-    // Ceiling glow light
-    const ceilGlow = new THREE.PointLight(0x00ffff, 0.7, 1.2);
-    ceilGlow.position.set(0, CEILING_REST_Y + 0.05, 0);
-    obj.ceilGlow = ceilGlow;
-    scene.add(ceilGlow);
-
-    // Dynamic mass light 1 - orange glow
-    const massLight1 = new THREE.PointLight(0xff8800, 0.7, 1.0);
-    massLight1.position.set(0, MASS_REST_Y, 0);
-    obj.massLight1 = massLight1;
-    scene.add(massLight1);
-
-    // Dynamic mass light 2 - pink glow
-    const massLight2 = new THREE.PointLight(0xff0066, 0.35, 0.6);
-    massLight2.position.set(0, MASS_REST_Y, 0);
-    obj.massLight2 = massLight2;
-    scene.add(massLight2);
   };
 
   // Ground plane well below mass's lowest possible position
@@ -301,7 +280,7 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // Radial neon grid lines
+    // Radial grid lines
     const gridGroup = new THREE.Group();
     gridGroup.position.y = FLOOR_Y + 0.001;
 
@@ -345,7 +324,7 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     const glowRingMat = new THREE.MeshBasicMaterial({
       color: COLORS.gridMain,
       transparent: true,
-      opacity: 0.2,
+      opacity: 0.05,
     });
     const glowRing = new THREE.Mesh(glowRingGeo, glowRingMat);
     glowRing.rotation.x = Math.PI / 2;
@@ -390,7 +369,7 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     const ceilRingMat = new THREE.MeshBasicMaterial({
       color: COLORS.ceilingAccent,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.3,
     });
     const ceilRing = new THREE.Mesh(ceilRingGeo, ceilRingMat);
     ceilRing.rotation.x = Math.PI / 2;
@@ -450,9 +429,9 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     // Mounting point glow rings
     const mountRingGeo = new THREE.TorusGeometry(0.01, 0.002, 8, 24);
     const mountRingMat = new THREE.MeshBasicMaterial({
-      color: 0x00ffff,
+      color: COLORS.ceilingAccent,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.3,
     });
     const springMountRing = new THREE.Mesh(mountRingGeo, mountRingMat);
     springMountRing.rotation.x = Math.PI / 2;
@@ -472,7 +451,7 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     const springMat = new THREE.MeshStandardMaterial({
       color: COLORS.spring,
       emissive: COLORS.springEmissive,
-      emissiveIntensity: 0.65,
+      emissiveIntensity: 0.2,
       roughness: 0.12,
       metalness: 0.6,
     });
@@ -542,7 +521,7 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     const cylMat = new THREE.MeshStandardMaterial({
       color: COLORS.damper,
       emissive: COLORS.damperEmissive,
-      emissiveIntensity: 0.5,
+      emissiveIntensity: 0.15,
       roughness: 0.2,
       metalness: 0.6,
       transparent: true,
@@ -560,7 +539,7 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     const cylRingMat = new THREE.MeshBasicMaterial({
       color: COLORS.damper,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.3,
     });
     const topRing = new THREE.Mesh(cylRingGeo, cylRingMat);
     topRing.rotation.x = Math.PI / 2;
@@ -589,7 +568,7 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     const massMat = new THREE.MeshStandardMaterial({
       color: COLORS.mass,
       emissive: COLORS.massEmissive,
-      emissiveIntensity: 0.7,
+      emissiveIntensity: 0.2,
       roughness: 0.08,
       metalness: 0.5,
     });
@@ -615,7 +594,7 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     const innerGlowMat = new THREE.MeshBasicMaterial({
       color: COLORS.massGlow,
       transparent: true,
-      opacity: 0.25,
+      opacity: 0.05,
     });
     const innerGlow = new THREE.Mesh(innerGlowGeo, innerGlowMat);
     obj.innerGlow = innerGlow;
@@ -627,7 +606,7 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     const outerGlowMat = new THREE.MeshBasicMaterial({
       color: COLORS.massGlow,
       transparent: true,
-      opacity: 0.1,
+      opacity: 0.03,
     });
     const outerGlow = new THREE.Mesh(outerGlowGeo, outerGlowMat);
     obj.outerGlow = outerGlow;
@@ -673,14 +652,14 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     // Connection point glow dots on mass top
     const dotGeo = new THREE.SphereGeometry(0.006, 12, 12);
     const dotMatCyan = new THREE.MeshBasicMaterial({
-      color: 0x00ffff,
+      color: COLORS.spring,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.5,
     });
     const dotMatMagenta = new THREE.MeshBasicMaterial({
-      color: 0xff00ff,
+      color: COLORS.damper,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.5,
     });
     const leftDot = new THREE.Mesh(dotGeo, dotMatCyan);
     leftDot.position.set(-0.07, 0.035, 0);
@@ -701,7 +680,7 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     ];
     const refGeo = new THREE.BufferGeometry().setFromPoints(refPts);
     const refMat = new THREE.LineDashedMaterial({
-      color: 0x00ffff,
+      color: 0x94a3b8,
       transparent: true,
       opacity: 0.15,
       dashSize: 0.02,
@@ -731,12 +710,12 @@ function MassSpring3D({ visualization2D, systemInfo }) {
       return sprite;
     };
 
-    const kLabel = makeLabel('k', '#00ffff');
+    const kLabel = makeLabel('k', '#3b82f6');
     kLabel.position.set(-0.16, (CEILING_REST_Y + MASS_REST_Y) / 2, 0);
     scene.add(kLabel);
     obj.kLabel = kLabel;
 
-    const bLabel = makeLabel('b', '#ff6fff');
+    const bLabel = makeLabel('b', '#a855f7');
     bLabel.position.set(0.16, (CEILING_REST_Y + MASS_REST_Y) / 2, 0);
     scene.add(bLabel);
     obj.bLabel = bLabel;
@@ -789,34 +768,27 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     const obj = objectsRef.current;
     const velNorm = physicsRef.current.velNorm || 0;
 
-    // Ceiling glow ring pulse
+    // Ceiling ring subtle pulse
     if (obj.ceilRing) {
-      const pulse = 0.6 + Math.sin(elapsed * 3) * 0.15;
-      obj.ceilRing.material.opacity = pulse;
+      obj.ceilRing.material.opacity = 0.25 + Math.sin(elapsed * 3) * 0.05;
     }
 
     // Mount point ring pulses
     if (obj.springMountRing) {
-      obj.springMountRing.material.opacity = 0.5 + Math.sin(elapsed * 4) * 0.15;
+      obj.springMountRing.material.opacity = 0.25 + Math.sin(elapsed * 4) * 0.05;
     }
     if (obj.damperMountRing) {
-      obj.damperMountRing.material.opacity = 0.5 + Math.sin(elapsed * 4 + 1) * 0.15;
+      obj.damperMountRing.material.opacity = 0.25 + Math.sin(elapsed * 4 + 1) * 0.05;
     }
 
-    // Ceiling glow light pulse
-    if (obj.ceilGlow) {
-      obj.ceilGlow.intensity = 0.4 + Math.sin(elapsed * 2) * 0.15;
-    }
-
-    // Inner mass glow - brighter when fast
+    // Inner mass glow - subtle brightness when fast
     if (obj.innerGlowMat) {
-      const baseGlow = 0.2 + velNorm * 0.35;
-      obj.innerGlowMat.opacity = baseGlow + Math.sin(elapsed * 5) * 0.08;
+      obj.innerGlowMat.opacity = 0.03 + velNorm * 0.02;
     }
 
     // Outer mass glow
     if (obj.outerGlowMat) {
-      obj.outerGlowMat.opacity = 0.08 + velNorm * 0.25;
+      obj.outerGlowMat.opacity = 0.02 + velNorm * 0.03;
     }
 
     // Dynamic mass color based on velocity
@@ -828,7 +800,7 @@ function MassSpring3D({ visualization2D, systemInfo }) {
         massColor.lerp(new THREE.Color(COLORS.massLowEnergy), (0.15 - velNorm) / 0.15 * 0.4);
       }
       obj.massMat.color.copy(massColor);
-      obj.massMat.emissiveIntensity = 0.5 + velNorm * 0.5;
+      obj.massMat.emissiveIntensity = 0.15 + velNorm * 0.05;
     }
 
     // Mass glow color follows mass
@@ -840,38 +812,28 @@ function MassSpring3D({ visualization2D, systemInfo }) {
       obj.innerGlowMat.color.copy(glowColor);
     }
 
-    // Mass lights intensity
-    if (obj.massLight1) {
-      obj.massLight1.intensity = 0.4 + velNorm * 0.8;
-    }
-    if (obj.massLight2) {
-      obj.massLight2.intensity = 0.2 + velNorm * 0.5;
-    }
-
     // Spring emissive intensity
     if (obj.springMat) {
-      obj.springMat.emissiveIntensity = 0.5 + velNorm * 0.3;
+      obj.springMat.emissiveIntensity = 0.15 + velNorm * 0.05;
     }
 
     // Damper emissive intensity + ring pulses
     if (obj.damperCylMat) {
-      obj.damperCylMat.emissiveIntensity = 0.4 + velNorm * 0.4;
+      obj.damperCylMat.emissiveIntensity = 0.1 + velNorm * 0.05;
     }
     if (obj.damperTopRing) {
-      const pulse = 0.7 + Math.sin(elapsed * 4) * 0.15;
-      obj.damperTopRing.material.opacity = pulse;
+      obj.damperTopRing.material.opacity = 0.3 + Math.sin(elapsed * 4) * 0.05;
     }
     if (obj.damperBotRing) {
-      const pulse = 0.7 + Math.sin(elapsed * 4 + Math.PI) * 0.15;
-      obj.damperBotRing.material.opacity = pulse;
+      obj.damperBotRing.material.opacity = 0.3 + Math.sin(elapsed * 4 + Math.PI) * 0.05;
     }
 
-    // Connection dots pulse
+    // Connection dots
     if (obj.leftDot) {
-      obj.leftDot.material.opacity = 0.7 + Math.sin(elapsed * 5) * 0.2;
+      obj.leftDot.material.opacity = 0.4 + Math.sin(elapsed * 5) * 0.05;
     }
     if (obj.rightDot) {
-      obj.rightDot.material.opacity = 0.7 + Math.sin(elapsed * 5 + 1.5) * 0.2;
+      obj.rightDot.material.opacity = 0.4 + Math.sin(elapsed * 5 + 1.5) * 0.05;
     }
 
   };
@@ -905,13 +867,6 @@ function MassSpring3D({ visualization2D, systemInfo }) {
     // Mass Y — same convention: positive displacement = downward
     const massY = MASS_REST_Y - massDisp * sharedScale;
     obj.mass.position.y = massY;
-
-    // Update ceiling glow light
-    if (obj.ceilGlow) obj.ceilGlow.position.y = ceilY + 0.05;
-
-    // Mass lights follow mass
-    if (obj.massLight1) obj.massLight1.position.y = massY;
-    if (obj.massLight2) obj.massLight2.position.y = massY;
 
     // --- Rebuild spring geometry ---
     const springTopY = ceilY - 0.04;

@@ -17,9 +17,9 @@ import '../styles/AliasingQuantizationViewer.css';
  */
 const TabBar = memo(function TabBar({ activeTab, onTabChange }) {
   const tabs = [
-    { id: 'aliasing', label: 'Audio Aliasing', icon: '🎵' },
-    { id: 'quantization', label: 'Audio Quantization', icon: '📊' },
-    { id: 'image', label: 'Image Quantization', icon: '🖼️' },
+    { id: 'aliasing', label: 'Audio Aliasing' },
+    { id: 'quantization', label: 'Audio Quantization' },
+    { id: 'image', label: 'Image Quantization' },
   ];
 
   return (
@@ -30,7 +30,6 @@ const TabBar = memo(function TabBar({ activeTab, onTabChange }) {
           className={`aq-tab-button ${activeTab === tab.id ? 'active' : ''}`}
           onClick={() => onTabChange(tab.id)}
         >
-          <span className="aq-tab-icon">{tab.icon}</span>
           <span className="aq-tab-label">{tab.label}</span>
         </button>
       ))}
@@ -173,7 +172,7 @@ const AliasingTab = memo(function AliasingTab({ metadata, plots }) {
           </span>
         </div>
         <div className={`aq-aliasing-badge ${aliasingRisk ? 'warning' : 'safe'}`}>
-          {aliasingRisk ? '⚠️ Aliasing Risk' : '✓ Safe'}
+          {aliasingRisk ? 'Aliasing Risk' : 'Safe'}
         </div>
       </div>
 

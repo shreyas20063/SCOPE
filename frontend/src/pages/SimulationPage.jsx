@@ -33,6 +33,7 @@ function SimulationPage() {
     stepBackward,
     setParamsFromUrl,
     setMetadata,
+    hubMismatch,
   } = useSimulation(id);
 
   const [animationComplete, setAnimationComplete] = useState(false);
@@ -110,6 +111,7 @@ function SimulationPage() {
           isLoading={isLoading}
           isUpdating={isUpdating}
           isRunning={isRunning}
+          hubMismatch={hubMismatch}
         />
       )}
     </div>

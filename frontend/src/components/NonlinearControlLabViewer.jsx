@@ -662,8 +662,10 @@ const DerivationChain = memo(function DerivationChain({ metadata, isDark }) {
 
   // 2. Linearized A matrix
   if (metadata.A_latex) {
+    const pointLabel = metadata.is_operating_point
+      ? 'at operating point' : 'at equilibrium';
     steps.push({
-      label: 'Linearized A Matrix',
+      label: 'Linearized A Matrix (' + pointLabel + ')',
       latex: metadata.A_latex,
       display: true,
     });
@@ -885,6 +887,28 @@ function NonlinearControlLabViewer({ metadata, plots, currentParams, onParamChan
       {/* Plant description */}
       {metadata.plant_description && (
         <div className="ncl-plant-desc">{metadata.plant_description}</div>
+      )}
+
+      {/* Equilibrium / operating point info */}
+      {metadata.x_eq?.length > 0 && (
+        <div className="ncl-eq-info">
+          <span className="ncl-eq-label">
+            {metadata.is_operating_point ? 'Operating Point' : 'Equilibrium'}:
+          </span>
+          <span className="ncl-eq-value">
+            x* = [{metadata.x_eq.map(v => v.toFixed(4)).join(', ')}]
+          </span>
+          {metadata.is_operating_point && metadata.u_eq?.length > 0 && (
+            <span className="ncl-eq-value">
+              u* = [{metadata.u_eq.map(v => v.toFixed(4)).join(', ')}]
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Equilibrium validation warning */}
+      {metadata.eq_warning && (
+        <div className="ncl-eq-warning">{metadata.eq_warning}</div>
       )}
 
       {/* Main layout: Phase Portrait (left) + Plots (right) */}

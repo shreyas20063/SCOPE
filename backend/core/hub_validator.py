@@ -11,6 +11,13 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 from scipy.signal import ss2tf, tf2ss
 
+from core.ss_utils import (
+    transmission_zeros as compute_transmission_zeros,
+    ss2tf_mimo,
+    controllability_gramian,
+    observability_gramian,
+)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -165,8 +172,23 @@ def validate_and_enrich_control(data: Dict[str, Any]) -> Dict[str, Any]:
     if domain not in ("ct", "dt"):
         return {"success": False, "error": f"Invalid domain: {domain!r}. Must be 'ct' or 'dt'"}
 
-    # Block diagram pass-through: no math to do.
+    # Block diagram: enrich based on available TF data.
     if source == "block_diagram":
+        try:
+            tm = data.get("transfer_matrix")
+            if tm and isinstance(tm.get("entries"), list) and len(tm["entries"]) > 0:
+                return _enrich_from_transfer_matrix(data, domain)
+            # SISO block diagram with flat tf — enrich as TF, preserve source.
+            if data.get("tf") or data.get("num"):
+                result = _enrich_from_tf(data, domain)
+                if result.get("success") and result.get("data"):
+                    result["data"]["source"] = "block_diagram"
+                    if data.get("block_diagram"):
+                        result["data"]["block_diagram"] = data["block_diagram"]
+                return result
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+        # No TF computed yet — pass-through.
         return {"success": True, "data": {**data, "domain": domain}}
 
     try:
@@ -176,6 +198,126 @@ def validate_and_enrich_control(data: Dict[str, Any]) -> Dict[str, Any]:
             return _enrich_from_ss(data, domain)
     except Exception as exc:
         return {"success": False, "error": str(exc)}
+
+
+def _enrich_from_transfer_matrix(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
+    """Enrich a hub slot from a MIMO transfer function matrix.
+
+    Computes poles, zeros, stability, and order for each G_ij entry.
+    Aggregates system-level properties across the full matrix.
+    For 1x1, also spreads flat tf/poles/zeros for backward compatibility.
+
+    Args:
+        data: Dict with 'transfer_matrix' containing 'entries' (p x m list
+              of dicts with 'numerator'/'denominator' coefficient lists),
+              'input_labels', 'output_labels', 'variable'.
+        domain: 'ct' or 'dt'.
+
+    Returns:
+        Enrichment result dict with 'success' and 'data'/'error'.
+    """
+    tm = data["transfer_matrix"]
+    raw_entries = tm["entries"]
+    variable = tm.get("variable", "s")
+    input_labels = tm.get("input_labels", [])
+    output_labels = tm.get("output_labels", [])
+
+    p = len(raw_entries)
+    if p == 0:
+        return {"success": False, "error": "Transfer matrix has no rows"}
+    m = len(raw_entries[0])
+    if m == 0:
+        return {"success": False, "error": "Transfer matrix has no columns"}
+
+    enriched_entries: List[List[Dict[str, Any]]] = []
+    all_poles: List[complex] = []
+    all_stable = True
+    max_order = 0
+
+    for i in range(p):
+        row: List[Dict[str, Any]] = []
+        for j in range(m):
+            entry = raw_entries[i][j]
+            raw_num = entry.get("numerator", [0.0])
+            raw_den = entry.get("denominator", [1.0])
+
+            num = np.asarray(raw_num, dtype=float).ravel()
+            den = np.asarray(raw_den, dtype=float).ravel()
+
+            # Sanitize
+            if np.any(np.isnan(num)) or np.any(np.isinf(num)):
+                num = np.array([0.0])
+            if np.any(np.isnan(den)) or np.any(np.isinf(den)):
+                den = np.array([1.0])
+
+            den_t = np.trim_zeros(den, "f")
+            if len(den_t) == 0:
+                den_t = np.array([1.0])
+            num_t = np.trim_zeros(num, "f")
+            if len(num_t) == 0:
+                num_t = np.array([0.0])
+
+            poles = np.roots(den_t) if len(den_t) > 1 else np.array([])
+            zeros = np.roots(num_t) if len(num_t) > 1 else np.array([])
+
+            entry_stable = _check_stability(poles, domain)
+            entry_order = len(poles)
+
+            all_poles.extend(poles.tolist())
+            if not entry_stable:
+                all_stable = False
+            max_order = max(max_order, entry_order)
+
+            row.append({
+                "num": _to_float_list(num_t),
+                "den": _to_float_list(den_t),
+                "poles": [_complex_to_dict(pp) for pp in poles],
+                "zeros": [_complex_to_dict(zz) for zz in zeros],
+                "stable": entry_stable,
+                "order": entry_order,
+            })
+        enriched_entries.append(row)
+
+    # System type from combined poles.
+    combined = np.array(all_poles) if all_poles else np.array([])
+    if domain == "dt":
+        sys_type = _count_unity_poles_dt(combined)
+    else:
+        sys_type = _count_origin_poles_ct(combined)
+
+    all_poles_display = [_complex_to_dict(complex(pp)) for pp in all_poles]
+
+    enriched: Dict[str, Any] = {
+        "source": "block_diagram",
+        "domain": domain,
+        "dimensions": {"n": max_order, "m": m, "p": p},
+        "transfer_matrix": {
+            "entries": enriched_entries,
+            "input_labels": input_labels,
+            "output_labels": output_labels,
+            "variable": variable,
+        },
+        "poles": all_poles_display,
+        "zeros": [],
+        "stable": all_stable,
+        "system_type": sys_type,
+        "order": max_order,
+    }
+
+    if data.get("block_diagram"):
+        enriched["block_diagram"] = data["block_diagram"]
+
+    # 1x1 backward compat: spread flat tf/poles/zeros.
+    if m == 1 and p == 1:
+        e = enriched_entries[0][0]
+        enriched["tf"] = {
+            "num": e["num"],
+            "den": e["den"],
+            "variable": variable,
+        }
+        enriched["zeros"] = e["zeros"]
+
+    return {"success": True, "data": enriched}
 
 
 def _enrich_from_tf(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
@@ -188,8 +330,11 @@ def _enrich_from_tf(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
     Returns:
         Enrichment result dict with 'success' and 'data'/'error'.
     """
-    raw_num = data.get("num")
-    raw_den = data.get("den")
+    # Accept both flat (num/den at top level) and nested (tf.num/tf.den) formats.
+    # base_simulator.to_hub_data() produces the nested format.
+    tf_block = data.get("tf", {})
+    raw_num = data.get("num") if data.get("num") is not None else tf_block.get("num")
+    raw_den = data.get("den") if data.get("den") is not None else tf_block.get("den")
 
     if raw_num is None or raw_den is None:
         return {"success": False, "error": "TF source requires 'num' and 'den' keys"}
@@ -201,6 +346,12 @@ def _enrich_from_tf(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
         return {"success": False, "error": "Denominator must not be empty"}
     if len(num) == 0:
         return {"success": False, "error": "Numerator must not be empty"}
+    if len(den) > 100 or len(num) > 100:
+        return {"success": False, "error": "Polynomial order too high (>100)"}
+    if np.any(np.isnan(num)) or np.any(np.isinf(num)):
+        return {"success": False, "error": "Numerator contains NaN or Inf"}
+    if np.any(np.isnan(den)) or np.any(np.isinf(den)):
+        return {"success": False, "error": "Denominator contains NaN or Inf"}
 
     # Strip leading zeros (BUG-002 prevention).
     den_trimmed = np.trim_zeros(den, "f")
@@ -265,6 +416,29 @@ def _enrich_from_tf(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
     if observable is not None:
         enriched["observable"] = observable
 
+    # Transmission zeros and Gramians (when SS is available)
+    if order > 0 and ss_data is not None:
+        try:
+            t_zeros = compute_transmission_zeros(A, B, C, D)
+            if len(t_zeros) > 0:
+                enriched["transmission_zeros"] = [_complex_to_dict(z) for z in t_zeros]
+        except Exception:
+            pass
+
+        # Gramians for stable systems
+        if stable:
+            try:
+                Wc = controllability_gramian(A, B)
+                Wo = observability_gramian(A, C)
+                WcWo = Wc @ Wo
+                eigs = np.linalg.eigvals(WcWo)
+                hsv = np.sqrt(np.maximum(eigs.real, 0.0))
+                enriched["hankel_singular_values"] = sorted(
+                    [float(v) for v in hsv], reverse=True
+                )
+            except Exception:
+                pass
+
     return {"success": True, "data": enriched}
 
 
@@ -278,14 +452,25 @@ def _enrich_from_ss(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
     Returns:
         Enrichment result dict with 'success' and 'data'/'error'.
     """
+    # Accept both flat (A/B/C/D at top level) and nested (ss.A/ss.B/ss.C/ss.D) formats.
+    ss_block = data.get("ss", {})
+    mat_src = {}
     for key in ("A", "B", "C", "D"):
-        if key not in data:
+        mat_src[key] = data.get(key) if data.get(key) is not None else ss_block.get(key)
+        if mat_src[key] is None:
             return {"success": False, "error": f"SS source requires '{key}' matrix"}
 
-    A = np.atleast_2d(np.asarray(data["A"], dtype=float))
-    B = np.atleast_2d(np.asarray(data["B"], dtype=float))
-    C = np.atleast_2d(np.asarray(data["C"], dtype=float))
-    D = np.atleast_2d(np.asarray(data["D"], dtype=float))
+    A = np.atleast_2d(np.asarray(mat_src["A"], dtype=float))
+    B = np.atleast_2d(np.asarray(mat_src["B"], dtype=float))
+    C = np.atleast_2d(np.asarray(mat_src["C"], dtype=float))
+    D = np.atleast_2d(np.asarray(mat_src["D"], dtype=float))
+
+    # Guard against NaN/Inf and excessively large matrices.
+    for mat, name in [(A, "A"), (B, "B"), (C, "C"), (D, "D")]:
+        if np.any(np.isnan(mat)) or np.any(np.isinf(mat)):
+            return {"success": False, "error": f"Matrix {name} contains NaN or Inf"}
+    if A.shape[0] > 100:
+        return {"success": False, "error": f"System order {A.shape[0]} too large (max 100)"}
 
     # Validate dimensions.
     if A.ndim != 2 or A.shape[0] != A.shape[1]:
@@ -340,7 +525,8 @@ def _enrich_from_ss(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
         "observable": observable,
     }
 
-    # Derive TF for SISO systems only.
+    # Derive TF
+    variable = "z" if domain == "dt" else "s"
     if is_siso:
         num, den = ss2tf(A, B, C, D)
         num = num.ravel()
@@ -352,7 +538,6 @@ def _enrich_from_ss(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
         if len(den_trimmed) == 0:
             den_trimmed = np.array([1.0])
 
-        variable = "z" if domain == "dt" else "s"
         zeros = np.roots(num_trimmed) if len(num_trimmed) > 1 else np.array([])
         enriched["tf"] = {
             "num": _to_float_list(num_trimmed),
@@ -360,83 +545,44 @@ def _enrich_from_ss(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
             "variable": variable,
         }
         enriched["zeros"] = [_complex_to_dict(z) for z in zeros]
+    else:
+        # MIMO: derive per-channel TF matrix
+        try:
+            num_matrix, den_matrix = ss2tf_mimo(A, B, C, D)
+            tf_entries = []
+            for i in range(p):
+                row = []
+                for j in range(m):
+                    row.append({
+                        "num": _to_float_list(num_matrix[i][j]),
+                        "den": _to_float_list(den_matrix[i][j]),
+                    })
+                tf_entries.append(row)
+            enriched["tf_matrix"] = {"entries": tf_entries, "variable": variable}
+        except Exception:
+            pass
+
+    # Transmission zeros
+    if n > 0:
+        try:
+            t_zeros = compute_transmission_zeros(A, B, C, D)
+            if len(t_zeros) > 0:
+                enriched["transmission_zeros"] = [_complex_to_dict(z) for z in t_zeros]
+        except Exception:
+            pass
+
+    # Gramians for stable systems
+    if stable and n > 0:
+        try:
+            Wc = controllability_gramian(A, B)
+            Wo = observability_gramian(A, C)
+            WcWo = Wc @ Wo
+            eigs = np.linalg.eigvals(WcWo)
+            hsv = np.sqrt(np.maximum(eigs.real, 0.0))
+            enriched["hankel_singular_values"] = sorted(
+                [float(v) for v in hsv], reverse=True
+            )
+        except Exception:
+            pass
 
     return {"success": True, "data": enriched}
-
-
-# ---------------------------------------------------------------------------
-# Signal slot validator
-# ---------------------------------------------------------------------------
-
-def validate_signal_slot(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Validate a signal hub slot.
-
-    Expected schema: {signals: {name: {x, y, type, label}}, sample_rate, duration}.
-    Lightweight validation — just checks top-level types.
-
-    Args:
-        data: Signal slot data dict.
-
-    Returns:
-        Dict with 'success', 'data', and optionally 'error'.
-    """
-    if not isinstance(data, dict):
-        return {"success": False, "error": "Data must be a dict"}
-
-    signals = data.get("signals", {})
-    if not isinstance(signals, dict):
-        return {"success": False, "error": "'signals' must be a dict"}
-
-    return {"success": True, "data": data}
-
-
-# ---------------------------------------------------------------------------
-# Circuit slot validator
-# ---------------------------------------------------------------------------
-
-def validate_circuit_slot(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Validate a circuit hub slot.
-
-    Expected schema: {components: {R: 1000, C: 1e-6}, topology: "rc_lowpass", tf: {...}}.
-    Lightweight validation — just checks top-level types.
-
-    Args:
-        data: Circuit slot data dict.
-
-    Returns:
-        Dict with 'success', 'data', and optionally 'error'.
-    """
-    if not isinstance(data, dict):
-        return {"success": False, "error": "Data must be a dict"}
-
-    components = data.get("components", {})
-    if not isinstance(components, dict):
-        return {"success": False, "error": "'components' must be a dict"}
-
-    return {"success": True, "data": data}
-
-
-# ---------------------------------------------------------------------------
-# Optics slot validator
-# ---------------------------------------------------------------------------
-
-def validate_optics_slot(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Validate an optics hub slot.
-
-    Expected schema: {elements: [{type, f, position}, ...], wavelength: 550}.
-    Lightweight validation — just checks top-level types.
-
-    Args:
-        data: Optics slot data dict.
-
-    Returns:
-        Dict with 'success', 'data', and optionally 'error'.
-    """
-    if not isinstance(data, dict):
-        return {"success": False, "error": "Data must be a dict"}
-
-    elements = data.get("elements", [])
-    if not isinstance(elements, list):
-        return {"success": False, "error": "'elements' must be a list"}
-
-    return {"success": True, "data": data}

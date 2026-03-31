@@ -182,6 +182,9 @@ class NyquistStabilitySimulator(BaseSimulator):
         """Update a single parameter and recompute."""
         if name in self.parameters:
             self.parameters[name] = self._validate_param(name, value)
+            # Manual edit of custom_num/custom_den switches preset to custom
+            if name in ("custom_num", "custom_den"):
+                self.parameters["preset"] = "custom"
             self._compute()
         return self.get_state()
 

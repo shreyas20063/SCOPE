@@ -79,7 +79,7 @@ class SamplingReconstructionSimulator(BaseSimulator):
         "show_error": False,
     }
 
-    HUB_SLOTS = ['signal']
+    HUB_SLOTS = []
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)

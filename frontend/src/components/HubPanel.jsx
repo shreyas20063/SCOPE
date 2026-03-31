@@ -2,25 +2,19 @@
  * HubPanel.jsx
  *
  * Floating side panel for the System Hub. Slides in from the right.
- * Displays 4 slot tabs (Control, Signal, Circuit, Optics) with
- * detailed views for each slot type.
+ * Displays the control slot with TF/SS data, poles, zeros, and properties.
  *
  * KaTeX rendering follows the same trusted pattern used in RootLocusViewer,
  * ControllerTuningLabViewer, BlockDiagramViewer, etc. KaTeX.renderToString
  * produces sanitized HTML output.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useHubContext } from '../contexts/HubContext';
 import katex from 'katex';
 import '../styles/Hub.css';
 
-const SLOT_TABS = [
-  { key: 'control', label: 'Control' },
-  { key: 'signal', label: 'Signal' },
-  { key: 'circuit', label: 'Circuit' },
-  { key: 'optics', label: 'Optics' },
-];
+// Single-slot hub — only control data flows through the Design Pipeline
 
 /**
  * Safely render a LaTeX string to HTML via KaTeX.
@@ -109,43 +103,88 @@ function matrixToLatex(mat) {
    ==================================================================== */
 
 function ControlSlotView({ data }) {
-  const { plant, state_space, properties, controller, _meta } = data;
+  // Enriched data uses flat keys: tf, ss, poles, zeros, stable, etc.
+  const { tf, ss, poles, zeros, domain, dimensions, order, system_type,
+          stable, controllable, observable, controller, transfer_matrix,
+          _meta, _validationWarning } = data;
 
-  // Transfer function LaTeX
+  // Transfer function LaTeX (SISO or 1x1 compat)
   const tfHtml = useMemo(() => {
-    if (!plant?.numerator && !plant?.denominator) return null;
-    const numLatex = polyToLatex(plant.numerator);
-    const denLatex = polyToLatex(plant.denominator);
-    const latex = `G(s) = \\frac{${numLatex}}{${denLatex}}`;
+    if (!tf?.num && !tf?.den) return null;
+    const variable = tf.variable || (domain === 'dt' ? 'z' : 's');
+    const numLatex = polyToLatex(tf.num, variable);
+    const denLatex = polyToLatex(tf.den, variable);
+    const fnName = domain === 'dt' ? 'H' : 'G';
+    const latex = `${fnName}(${variable}) = \\frac{${numLatex}}{${denLatex}}`;
     return renderKatex(latex, true);
-  }, [plant?.numerator, plant?.denominator]);
+  }, [tf, domain]);
+
+  // MIMO transfer matrix entries
+  const mimoEntries = useMemo(() => {
+    if (!transfer_matrix?.entries?.length) return null;
+    const { entries, input_labels, output_labels, variable: v } = transfer_matrix;
+    const varName = v || (domain === 'dt' ? 'z' : 's');
+    const items = [];
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = 0; j < entries[i].length; j++) {
+        const e = entries[i][j];
+        const numL = polyToLatex(e.num, varName);
+        const denL = polyToLatex(e.den, varName);
+        const sub = `${i + 1}${j + 1}`;
+        const latex = `G_{${sub}}(${varName}) = \\frac{${numL}}{${denL}}`;
+        items.push({
+          html: renderKatex(latex, true),
+          stable: e.stable,
+          outLabel: output_labels?.[i] || `y${i + 1}`,
+          inLabel: input_labels?.[j] || `u${j + 1}`,
+        });
+      }
+    }
+    return items;
+  }, [transfer_matrix, domain]);
 
   // State-space matrices LaTeX
   const ssHtml = useMemo(() => {
-    if (!state_space) return null;
+    if (!ss) return null;
     const parts = [];
-    if (state_space.A) parts.push(`\\mathbf{A} = ${matrixToLatex(state_space.A)}`);
-    if (state_space.B) parts.push(`\\mathbf{B} = ${matrixToLatex(state_space.B)}`);
-    if (state_space.C) parts.push(`\\mathbf{C} = ${matrixToLatex(state_space.C)}`);
-    if (state_space.D) parts.push(`\\mathbf{D} = ${matrixToLatex(state_space.D)}`);
+    if (ss.A) parts.push(`\\mathbf{A} = ${matrixToLatex(ss.A)}`);
+    if (ss.B) parts.push(`\\mathbf{B} = ${matrixToLatex(ss.B)}`);
+    if (ss.C) parts.push(`\\mathbf{C} = ${matrixToLatex(ss.C)}`);
+    if (ss.D) parts.push(`\\mathbf{D} = ${matrixToLatex(ss.D)}`);
     if (parts.length === 0) return null;
     return parts.map(p => renderKatex(p, true));
-  }, [state_space]);
+  }, [ss]);
+
+  // Format dimensions string
+  const dimsLabel = useMemo(() => {
+    if (!dimensions) return null;
+    const { n, m, p } = dimensions;
+    if (m === 1 && p === 1) return `SISO (order ${n || order || '?'})`;
+    return `${p}\u00d7${m} MIMO (n=${n || order || '?'})`;
+  }, [dimensions, order]);
 
   return (
     <div className="hub-slot__content">
+      {/* Validation warning */}
+      {_validationWarning && (
+        <div className="hub-slot__warning">
+          <span className="hub-slot__warning-icon">{'\u26A0'}</span>
+          <span>{_validationWarning}</span>
+        </div>
+      )}
+
       {/* Source info */}
       {_meta && (
         <div className="hub-slot__section">
           <div className="hub-slot__label">Source</div>
           <div className="hub-slot__value">{_meta.pushed_by || 'Unknown'}</div>
-          {(plant?.domain || plant?.dimensions) && (
+          {(domain || dimsLabel) && (
             <div className="hub-slot__meta-row">
-              {plant?.domain && (
-                <span className="hub-prop__badge--info">{plant.domain === 'CT' ? 'Continuous' : 'Discrete'}</span>
+              {domain && (
+                <span className="hub-prop__badge--info">{domain === 'ct' ? 'Continuous' : 'Discrete'}</span>
               )}
-              {plant?.dimensions && (
-                <span className="hub-prop__badge--info">{plant.dimensions}</span>
+              {dimsLabel && (
+                <span className="hub-prop__badge--info">{dimsLabel}</span>
               )}
             </div>
           )}
@@ -160,6 +199,29 @@ function ControlSlotView({ data }) {
             className="hub-slot__katex"
             dangerouslySetInnerHTML={{ __html: tfHtml }}
           />
+        </div>
+      )}
+
+      {/* MIMO Transfer Matrix */}
+      {mimoEntries && mimoEntries.length > 0 && !tfHtml && (
+        <div className="hub-slot__section">
+          <div className="hub-slot__label">Transfer Matrix</div>
+          <div className="hub-mimo-entries">
+            {mimoEntries.map((entry, i) => (
+              <div key={i} className="hub-mimo-entry">
+                <div className="hub-mimo-entry__header">
+                  <span className={`hub-mimo-dot hub-mimo-dot--${entry.stable ? 'stable' : 'unstable'}`} />
+                  <span className="hub-mimo-path">{entry.outLabel} {'\u2190'} {entry.inLabel}</span>
+                </div>
+                {entry.html && (
+                  <div
+                    className="hub-slot__katex hub-slot__katex--compact"
+                    dangerouslySetInnerHTML={{ __html: entry.html }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -179,43 +241,43 @@ function ControlSlotView({ data }) {
       )}
 
       {/* Properties Grid */}
-      {properties && (
+      {(order != null || system_type != null || stable != null || controllable != null || observable != null) && (
         <div className="hub-slot__section">
           <div className="hub-slot__label">Properties</div>
           <div className="hub-slot__props">
-            {properties.order != null && (
+            {order != null && (
               <div className="hub-prop">
                 <span className="hub-prop__key">Order</span>
-                <span className="hub-prop__val">{properties.order}</span>
+                <span className="hub-prop__val">{order}</span>
               </div>
             )}
-            {properties.system_type != null && (
+            {system_type != null && (
               <div className="hub-prop">
                 <span className="hub-prop__key">System Type</span>
-                <span className="hub-prop__val">{properties.system_type}</span>
+                <span className="hub-prop__val">{system_type}</span>
               </div>
             )}
-            {properties.stable != null && (
+            {stable != null && (
               <div className="hub-prop">
                 <span className="hub-prop__key">Stable</span>
-                <span className={`hub-prop__badge--${properties.stable ? 'success' : 'danger'}`}>
-                  {properties.stable ? 'Yes' : 'No'}
+                <span className={`hub-prop__badge--${stable ? 'success' : 'danger'}`}>
+                  {stable ? 'Yes' : 'No'}
                 </span>
               </div>
             )}
-            {properties.controllable != null && (
+            {controllable != null && (
               <div className="hub-prop">
                 <span className="hub-prop__key">Controllable</span>
-                <span className={`hub-prop__badge--${properties.controllable ? 'success' : 'danger'}`}>
-                  {properties.controllable ? 'Yes' : 'No'}
+                <span className={`hub-prop__badge--${controllable ? 'success' : 'danger'}`}>
+                  {controllable ? 'Yes' : 'No'}
                 </span>
               </div>
             )}
-            {properties.observable != null && (
+            {observable != null && (
               <div className="hub-prop">
                 <span className="hub-prop__key">Observable</span>
-                <span className={`hub-prop__badge--${properties.observable ? 'success' : 'danger'}`}>
-                  {properties.observable ? 'Yes' : 'No'}
+                <span className={`hub-prop__badge--${observable ? 'success' : 'danger'}`}>
+                  {observable ? 'Yes' : 'No'}
                 </span>
               </div>
             )}
@@ -224,13 +286,13 @@ function ControlSlotView({ data }) {
       )}
 
       {/* Poles & Zeros */}
-      {(plant?.poles?.length > 0 || plant?.zeros?.length > 0) && (
+      {(poles?.length > 0 || zeros?.length > 0) && (
         <div className="hub-slot__section">
-          {plant.poles?.length > 0 && (
+          {poles?.length > 0 && (
             <>
               <div className="hub-slot__label">Poles</div>
               <div className="hub-slot__chips">
-                {plant.poles.map((p, i) => (
+                {poles.map((p, i) => (
                   <span key={`pole-${i}`} className="hub-pole hub-pole--pole">
                     {formatComplex(p)}
                   </span>
@@ -238,11 +300,11 @@ function ControlSlotView({ data }) {
               </div>
             </>
           )}
-          {plant.zeros?.length > 0 && (
+          {zeros?.length > 0 && (
             <>
               <div className="hub-slot__label" style={{ marginTop: '8px' }}>Zeros</div>
               <div className="hub-slot__chips">
-                {plant.zeros.map((z, i) => (
+                {zeros.map((z, i) => (
                   <span key={`zero-${i}`} className="hub-pole hub-pole--zero">
                     {formatComplex(z)}
                   </span>
@@ -280,124 +342,24 @@ function ControlSlotView({ data }) {
   );
 }
 
-function SignalSlotView({ data }) {
-  const { signals, _meta } = data;
 
-  return (
-    <div className="hub-slot__content">
-      {_meta && (
-        <div className="hub-slot__section">
-          <div className="hub-slot__label">Source</div>
-          <div className="hub-slot__value">{_meta.pushed_by || 'Unknown'}</div>
-        </div>
-      )}
-      {signals && signals.length > 0 ? (
-        <div className="hub-slot__section">
-          <div className="hub-slot__label">Signals</div>
-          {signals.map((sig, i) => (
-            <div key={i} className="hub-prop">
-              <span className="hub-prop__key">{sig.name || `Signal ${i + 1}`}</span>
-              <span className="hub-prop__val">
-                {sig.samples ? `${sig.samples} samples` : ''}
-                {sig.sample_rate ? ` @ ${sig.sample_rate} Hz` : ''}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="hub-slot__section">
-          <div className="hub-slot__label">Signals</div>
-          <div className="hub-prop">
-            <span className="hub-prop__val">Signal data available</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CircuitSlotView({ data }) {
-  const { topology, components, _meta } = data;
-
-  return (
-    <div className="hub-slot__content">
-      {_meta && (
-        <div className="hub-slot__section">
-          <div className="hub-slot__label">Source</div>
-          <div className="hub-slot__value">{_meta.pushed_by || 'Unknown'}</div>
-        </div>
-      )}
-      {topology && (
-        <div className="hub-slot__section">
-          <div className="hub-slot__label">Topology</div>
-          <div className="hub-slot__value">{topology}</div>
-        </div>
-      )}
-      {components && Object.keys(components).length > 0 && (
-        <div className="hub-slot__section">
-          <div className="hub-slot__label">Components</div>
-          {Object.entries(components).map(([name, value]) => (
-            <div key={name} className="hub-prop">
-              <span className="hub-prop__key">{name}</span>
-              <span className="hub-prop__val" style={{ fontFamily: 'var(--font-mono)' }}>
-                {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function OpticsSlotView({ data }) {
-  const { elements, _meta } = data;
-
-  return (
-    <div className="hub-slot__content">
-      {_meta && (
-        <div className="hub-slot__section">
-          <div className="hub-slot__label">Source</div>
-          <div className="hub-slot__value">{_meta.pushed_by || 'Unknown'}</div>
-        </div>
-      )}
-      {elements && elements.length > 0 ? (
-        <div className="hub-slot__section">
-          <div className="hub-slot__label">Optical Elements</div>
-          {elements.map((el, i) => (
-            <div key={i} className="hub-prop">
-              <span className="hub-prop__key">{el.type || `Element ${i + 1}`}</span>
-              <span className="hub-prop__val">
-                {el.focal_length != null ? `f = ${el.focal_length}` : ''}
-                {el.position != null ? ` @ ${el.position}` : ''}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="hub-slot__section">
-          <div className="hub-slot__label">Elements</div>
-          <div className="hub-prop">
-            <span className="hub-prop__val">Optics data available</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function EmptySlot({ slotKey }) {
-  const hints = {
-    control: 'Push a transfer function or state-space model from any Control Systems simulation.',
-    signal: 'Push signal data from Signal Processing simulations.',
-    circuit: 'Push circuit topology from Circuit simulations.',
-    optics: 'Push optical elements from Optics simulations.',
-  };
-
+function EmptySlot() {
   return (
     <div className="hub-slot__empty">
-      <p>No data in this slot</p>
-      <p className="hub-slot__hint">{hints[slotKey] || 'Push data from a simulation to populate this slot.'}</p>
+      <div className="hub-slot__empty-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}>
+          <circle cx="12" cy="12" r="3"/>
+          <line x1="12" y1="2" x2="12" y2="9"/>
+          <line x1="12" y1="15" x2="12" y2="22"/>
+          <line x1="2" y1="12" x2="9" y2="12"/>
+          <line x1="15" y1="12" x2="22" y2="12"/>
+        </svg>
+      </div>
+      <p>No data in hub</p>
+      <p className="hub-slot__hint">Push a transfer function or state-space model from any Control Systems simulation.</p>
+      <p className="hub-slot__hint" style={{ marginTop: '8px' }}>
+        Try: Root Locus, Second Order System, Bode/Nyquist, Controller Tuning Lab
+      </p>
     </div>
   );
 }
@@ -409,49 +371,30 @@ function EmptySlot({ slotKey }) {
 
 function HubPanel({ isOpen, onClose }) {
   const { hubState, clearSlot } = useHubContext();
-  const [activeTab, setActiveTab] = useState('control');
 
-  const activeData = hubState[activeTab];
+  const controlData = hubState.control;
 
-  const handleClearSlot = useCallback(() => {
-    clearSlot(activeTab);
-  }, [clearSlot, activeTab]);
+  const handleClear = useCallback(() => {
+    clearSlot('control');
+  }, [clearSlot]);
 
   const handleExportJSON = useCallback(() => {
-    if (!activeData) return;
-    const json = JSON.stringify(activeData, null, 2);
+    if (!controlData) return;
+    const json = JSON.stringify(controlData, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `hub-${activeTab}-${Date.now()}.json`;
+    a.download = `hub-control-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [activeData, activeTab]);
+  }, [controlData]);
 
   const handleBackdropClick = useCallback((e) => {
     if (e.target === e.currentTarget) {
       onClose();
     }
   }, [onClose]);
-
-  // Render the appropriate slot view
-  const slotView = useMemo(() => {
-    if (!activeData) return <EmptySlot slotKey={activeTab} />;
-
-    switch (activeTab) {
-      case 'control':
-        return <ControlSlotView data={activeData} />;
-      case 'signal':
-        return <SignalSlotView data={activeData} />;
-      case 'circuit':
-        return <CircuitSlotView data={activeData} />;
-      case 'optics':
-        return <OpticsSlotView data={activeData} />;
-      default:
-        return <EmptySlot slotKey={activeTab} />;
-    }
-  }, [activeTab, activeData]);
 
   return (
     <>
@@ -481,38 +424,24 @@ function HubPanel({ isOpen, onClose }) {
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="hub-panel__tabs">
-          {SLOT_TABS.map(tab => (
-            <button
-              key={tab.key}
-              className={`hub-tab${activeTab === tab.key ? ' hub-tab--active' : ''}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-              {hubState[tab.key] && <span className="hub-tab__dot" />}
-            </button>
-          ))}
-        </div>
-
         {/* Slot Content */}
         <div className="hub-panel__body">
-          {slotView}
+          {controlData ? <ControlSlotView data={controlData} /> : <EmptySlot />}
         </div>
 
         {/* Footer */}
         <div className="hub-panel__footer">
           <button
             className="hub-action hub-action--danger"
-            onClick={handleClearSlot}
-            disabled={!activeData}
+            onClick={handleClear}
+            disabled={!controlData}
           >
-            Clear Slot
+            Clear
           </button>
           <button
             className="hub-action"
             onClick={handleExportJSON}
-            disabled={!activeData}
+            disabled={!controlData}
           >
             Export JSON
           </button>

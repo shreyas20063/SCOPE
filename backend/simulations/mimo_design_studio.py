@@ -229,6 +229,88 @@ class MIMODesignStudioSimulator(BaseSimulator):
     _N_TIME_POINTS = 500
 
     # ------------------------------------------------------------------ #
+    #  Hub import / export                                               #
+    # ------------------------------------------------------------------ #
+
+    def from_hub_data(self, hub_data: Dict[str, Any]) -> bool:
+        """Import state-space matrices from the Hub into this simulator.
+
+        Accepts hub data with ``source: "ss"`` and populates the matrix
+        expression parameters (matrix_a … matrix_d).  Falls back to the
+        base-class TF import for SISO transfer-function payloads.
+
+        Args:
+            hub_data: Enriched hub slot dict.
+
+        Returns:
+            True if the data was successfully applied.
+        """
+        if not hub_data:
+            return False
+        if hub_data.get("domain", "ct") != self.HUB_DOMAIN:
+            return False
+
+        ss = hub_data.get("ss")
+        if ss and all(k in ss for k in ("A", "B", "C", "D")):
+            A, B, C, D = ss["A"], ss["B"], ss["C"], ss["D"]
+            n = len(A)
+            if n == 0 or n > self._MAX_N:
+                return False
+            m = len(B[0]) if B and B[0] else 0
+            p = len(C) if C else 0
+            if m == 0 or m > self._MAX_M or p == 0 or p > self._MAX_P:
+                return False
+            self.parameters["preset"] = "custom"
+            self.parameters["matrix_a"] = self._matrix_to_expr(A)
+            self.parameters["matrix_b"] = self._matrix_to_expr(B)
+            self.parameters["matrix_c"] = self._matrix_to_expr(C)
+            self.parameters["matrix_d"] = self._matrix_to_expr(D)
+            return True
+
+        return super().from_hub_data(hub_data)
+
+    def to_hub_data(self) -> Optional[Dict[str, Any]]:
+        """Export current state-space system to the Hub.
+
+        Returns:
+            Hub-format dict with ``source: "ss"`` and A/B/C/D matrices,
+            or None if matrices cannot be parsed.
+        """
+        try:
+            A = self._parse_matrix(self.parameters.get("matrix_a", "0"), "A")
+            B = self._parse_matrix(self.parameters.get("matrix_b", "0"), "B")
+            C = self._parse_matrix(self.parameters.get("matrix_c", "0"), "C")
+            D = self._parse_matrix(self.parameters.get("matrix_d", "0"), "D")
+        except (ValueError, KeyError):
+            return None
+
+        n = len(A)
+        m = len(B[0]) if B and B[0] else 1
+        p = len(C) if C else 1
+
+        hub: Dict[str, Any] = {
+            "source": "ss",
+            "domain": self.HUB_DOMAIN,
+            "dimensions": {"n": n, "m": m, "p": p},
+            "ss": {"A": A, "B": B, "C": C, "D": D},
+        }
+
+        if m == 1 and p == 1:
+            try:
+                num, den = signal.ss2tf(
+                    np.array(A), np.array(B), np.array(C), np.array(D)
+                )
+                hub["tf"] = {
+                    "num": num[0].tolist(),
+                    "den": den.tolist(),
+                    "variable": "s",
+                }
+            except Exception:
+                pass
+
+        return hub
+
+    # ------------------------------------------------------------------ #
     #  Initialization & parameter handling                               #
     # ------------------------------------------------------------------ #
 

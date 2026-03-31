@@ -128,6 +128,26 @@ function CoupledTanks3DViewer({ metadata, plots }) {
             </span>
           </div>
         )}
+        {animation?.q2_eq != null && (
+          <div className="ct3d-metric">
+            <span className="ct3d-metric-label">q&#x2082; eq</span>
+            <span className={`ct3d-metric-value ${animation.q2_eq < 0 ? 'unstable' : ''}`}>
+              {animation.q2_eq.toFixed(3)}
+            </span>
+          </div>
+        )}
+        {animation?.any_saturated && (
+          <div className="ct3d-metric">
+            <span className="ct3d-metric-label">Pump</span>
+            <span className="ct3d-metric-value ct3d-saturated">SATURATED</span>
+          </div>
+        )}
+        {(animation?.overflow_1 || animation?.overflow_2) && (
+          <div className="ct3d-metric">
+            <span className="ct3d-metric-label">Tank</span>
+            <span className="ct3d-metric-value ct3d-overflow">OVERFLOW</span>
+          </div>
+        )}
       </div>
 
       {/* Controller Details (collapsible) */}

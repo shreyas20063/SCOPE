@@ -107,7 +107,7 @@ class AmplifierSimulator(BaseSimulator):
         "input_source": "pure_sine",
     }
 
-    HUB_SLOTS = ['circuit']
+    HUB_SLOTS = []
 
     # Fixed threshold voltage (matching PyQt5)
     VT = 0.7

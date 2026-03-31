@@ -54,6 +54,7 @@ export function useSimulation(simId) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState(null);
   const [isRunning, setIsRunning] = useState(false);  // Animation state
+  const [hubMismatch, setHubMismatch] = useState(null); // Hub incompatibility message
 
   // Refs for debouncing, animation, and request locking
   const pendingUpdates = useRef({});
@@ -587,21 +588,58 @@ export function useSimulation(simId) {
                   const hubState = JSON.parse(stored);
                   for (const slot of hubSlots) {
                     const hubData = hubState[slot];
-                    if (!hubData || !hubData.tf) continue;
+                    if (!hubData || (!hubData.tf && !hubData.ss)) continue;
                     // Domain check
-                    if (hubData.domain && hubData.domain !== hubDomain) continue;
+                    if (hubData.domain && hubData.domain !== hubDomain) {
+                      const domainLabels = { ct: 'continuous-time', dt: 'discrete-time' };
+                      setHubMismatch(
+                        `Hub contains a ${domainLabels[hubData.domain] || hubData.domain} system — this simulation works in ${domainLabels[hubDomain] || hubDomain}. Hub data was not applied.`
+                      );
+                      continue;
+                    }
                     // SISO/MIMO check
                     const hubDims = hubData.dimensions || {};
                     const simDims = stateResult.metadata?.hub_dimensions || { m: 1, p: 1 };
-                    if (simDims.m === 1 && simDims.p === 1 && (hubDims.m > 1 || hubDims.p > 1)) continue;
-                    // Map hub TF to sim parameter names
+                    if (simDims.m === 1 && simDims.p === 1 && (hubDims.m > 1 || hubDims.p > 1)) {
+                      setHubMismatch(
+                        `Hub contains a ${hubDims.m}×${hubDims.p} MIMO system — this simulation supports SISO only. Hub data was not applied.`
+                      );
+                      continue;
+                    }
+                    // Map hub data to sim parameter names
                     const hubParams = {};
                     const controls = simResult.data.controls || [];
-                    const numKeys = ['numerator', 'num_coeffs', 'custom_num', 'plant_num', 'tf_numerator'];
-                    const denKeys = ['denominator', 'den_coeffs', 'custom_den', 'plant_den', 'tf_denominator'];
+                    // TF coefficients (numerator / denominator)
+                    if (hubData.tf) {
+                      const numKeys = ['numerator', 'num_coeffs', 'custom_num', 'plant_num', 'tf_numerator'];
+                      const denKeys = ['denominator', 'den_coeffs', 'custom_den', 'plant_den', 'tf_denominator', 'poly_coeffs'];
+                      for (const ctrl of controls) {
+                        if (numKeys.includes(ctrl.name)) hubParams[ctrl.name] = hubData.tf.num.join(', ');
+                        if (denKeys.includes(ctrl.name)) hubParams[ctrl.name] = hubData.tf.den.join(', ');
+                      }
+                    }
+                    // SS matrices (matrix_a, matrix_b, matrix_c, matrix_d)
+                    if (hubData.ss) {
+                      const matrixKeys = { matrix_a: 'A', matrix_b: 'B', matrix_c: 'C', matrix_d: 'D' };
+                      for (const ctrl of controls) {
+                        const ssKey = matrixKeys[ctrl.name];
+                        if (ssKey && hubData.ss[ssKey]) {
+                          const mat = hubData.ss[ssKey];
+                          hubParams[ctrl.name] = mat.map(row =>
+                            (Array.isArray(row) ? row : [row]).join(', ')
+                          ).join('; ');
+                        }
+                      }
+                    }
+                    // Auto-switch preset to 'custom' so the injected TF is used
+                    const presetKeys = ['preset', 'plant_preset'];
                     for (const ctrl of controls) {
-                      if (numKeys.includes(ctrl.name)) hubParams[ctrl.name] = hubData.tf.num.join(', ');
-                      if (denKeys.includes(ctrl.name)) hubParams[ctrl.name] = hubData.tf.den.join(', ');
+                      if (presetKeys.includes(ctrl.name) && ctrl.options) {
+                        const hasCustom = ctrl.options.some(o => (o.value || o) === 'custom');
+                        if (hasCustom && Object.keys(hubParams).length > 0) {
+                          hubParams[ctrl.name] = 'custom';
+                        }
+                      }
                     }
                     if (Object.keys(hubParams).length > 0) {
                       const hubResult = await api.updateParameters(simId, hubParams);
@@ -674,6 +712,7 @@ export function useSimulation(simId) {
     // Hub
     hubSlots: metadata?.hub_slots || [],
     hubDomain: metadata?.hub_domain || 'ct',
+    hubMismatch,
   };
 }
 

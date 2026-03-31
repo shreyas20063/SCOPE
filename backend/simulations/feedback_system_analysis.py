@@ -106,7 +106,7 @@ class FeedbackAmplifierSimulator(BaseSimulator):
         "input_amp": 1.0,
     }
 
-    HUB_SLOTS = ['circuit']
+    HUB_SLOTS = []
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)

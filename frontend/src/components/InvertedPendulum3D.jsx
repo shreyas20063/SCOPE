@@ -2,8 +2,7 @@
  * InvertedPendulum3D — Three.js 3D visualization of cart-pendulum system.
  *
  * Receives pre-computed trajectory arrays from the backend and animates them
- * at 60fps with frame interpolation. Matches the neon aesthetic of existing
- * 3D components (FurutaPendulum3D, MassSpring3D).
+ * at 60fps with frame interpolation.
  *
  * Props:
  *   animation: { t, cart_x, theta, control_force, dt, num_frames, pend_length, is_stable }
@@ -13,6 +12,10 @@
 import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const SPEED_OPTIONS = [0.5, 1, 2, 4];
@@ -21,6 +24,7 @@ const TRAIL_LENGTH = 30;
 function InvertedPendulum3D({ animation, isStable }) {
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
+  const composerRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
@@ -46,21 +50,21 @@ function InvertedPendulum3D({ animation, isStable }) {
     cartEmissive: 0x2563eb,
     rail: 0x64748b,
     railEmissive: 0x475569,
-    pendulum: 0x22d3ee,
-    pendEmissive: 0x06b6d4,
-    bob: 0xff6600,
-    bobEmissive: 0xff4400,
+    pendulum: 0x3b82f6,
+    pendEmissive: 0x2563eb,
+    bob: 0xf97316,
+    bobEmissive: 0xea580c,
     bobStable: 0x10b981,
     bobUnstable: 0xef4444,
     pivot: 0xffffff,
-    force: 0xf472b6,
+    force: 0xa855f7,
     ground: 0x080e1a,
-    gridMain: 0x00ffff,
+    gridMain: 0x334155,
     gridSecondary: 0x1a2744,
     background: 0x060c18,
-    trailStart: 0x00ffff,
-    trailMid: 0xff00ff,
-    trailEnd: 0xff6600,
+    trailStart: 0x3b82f6,
+    trailMid: 0x8b5cf6,
+    trailEnd: 0xf97316,
   }), []);
 
   // Scale factors
@@ -75,7 +79,7 @@ function InvertedPendulum3D({ animation, isStable }) {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(COLORS.background);
-    scene.fog = new THREE.Fog(COLORS.background, 4, 10);
+    scene.fog = new THREE.Fog(COLORS.background, 8, 20);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.01, 100);
@@ -95,6 +99,16 @@ function InvertedPendulum3D({ animation, isStable }) {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
+
+    // Post-processing: bloom
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(width, height), 0.2, 0.3, 0.85
+    );
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
+    composerRef.current = composer;
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -120,6 +134,7 @@ function InvertedPendulum3D({ animation, isStable }) {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      composer.setSize(w, h);
     };
     const resizeObs = new ResizeObserver(onResize);
     resizeObs.observe(containerRef.current);
@@ -129,7 +144,7 @@ function InvertedPendulum3D({ animation, isStable }) {
     const renderLoop = () => {
       controls.update();
       updateGlowEffects(clockRef.current.getElapsedTime());
-      renderer.render(scene, camera);
+      composer.render();
       animId = requestAnimationFrame(renderLoop);
     };
     animId = requestAnimationFrame(renderLoop);
@@ -137,6 +152,11 @@ function InvertedPendulum3D({ animation, isStable }) {
     return () => {
       cancelAnimationFrame(animId);
       resizeObs.disconnect();
+      if (controlsRef.current) {
+        controlsRef.current.dispose();
+        controlsRef.current = null;
+      }
+      composer.dispose();
       renderer.dispose();
       scene.traverse((obj) => {
         if (obj.geometry) obj.geometry.dispose();
@@ -152,10 +172,10 @@ function InvertedPendulum3D({ animation, isStable }) {
   }, [COLORS]);
 
   const setupLighting = (scene) => {
-    scene.add(new THREE.AmbientLight(0xffffff, 0.15));
-    scene.add(new THREE.HemisphereLight(0x0066ff, 0xff0066, 0.2));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+    scene.add(new THREE.HemisphereLight(0xb0d0ff, 0x404040, 0.25));
 
-    const key = new THREE.DirectionalLight(0xffffff, 1.5);
+    const key = new THREE.DirectionalLight(0xffffff, 1.0);
     key.position.set(3, 6, 4);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
@@ -168,13 +188,9 @@ function InvertedPendulum3D({ animation, isStable }) {
     key.shadow.bias = -0.0003;
     scene.add(key);
 
-    const cyan = new THREE.DirectionalLight(0x00ffff, 0.6);
-    cyan.position.set(-4, 2, 2);
-    scene.add(cyan);
-
-    const magenta = new THREE.DirectionalLight(0xff00ff, 0.35);
-    magenta.position.set(4, 2, -2);
-    scene.add(magenta);
+    const fill = new THREE.DirectionalLight(0xfff5e6, 0.3);
+    fill.position.set(-4, 2, 2);
+    scene.add(fill);
   };
 
   const setupEnvironment = (scene) => {
@@ -217,7 +233,7 @@ function InvertedPendulum3D({ animation, isStable }) {
     // Rail
     const railGeo = new THREE.BoxGeometry(RAIL_HALF * 2, 0.02, 0.06);
     const railMat = new THREE.MeshStandardMaterial({
-      color: COLORS.rail, emissive: COLORS.railEmissive, emissiveIntensity: 0.2,
+      color: COLORS.rail, emissive: COLORS.railEmissive, emissiveIntensity: 0.05,
       roughness: 0.2, metalness: 0.9,
     });
     const rail = new THREE.Mesh(railGeo, railMat);
@@ -228,7 +244,7 @@ function InvertedPendulum3D({ animation, isStable }) {
     // Rail end caps
     const capGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.08, 12);
     const capMat = new THREE.MeshStandardMaterial({
-      color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.5,
+      color: 0x64748b, emissive: 0x475569, emissiveIntensity: 0.15,
       roughness: 0.1, metalness: 0.8,
     });
     [-RAIL_HALF, RAIL_HALF].forEach(xPos => {
@@ -247,7 +263,7 @@ function InvertedPendulum3D({ animation, isStable }) {
     // Cart body
     const cartGeo = new THREE.BoxGeometry(0.3, 0.12, 0.2);
     const cartMat = new THREE.MeshStandardMaterial({
-      color: COLORS.cart, emissive: COLORS.cartEmissive, emissiveIntensity: 0.4,
+      color: COLORS.cart, emissive: COLORS.cartEmissive, emissiveIntensity: 0.1,
       roughness: 0.1, metalness: 0.6,
     });
     const cart = new THREE.Mesh(cartGeo, cartMat);
@@ -277,7 +293,7 @@ function InvertedPendulum3D({ animation, isStable }) {
     // Pivot point (on top of cart)
     const pivotGeo = new THREE.SphereGeometry(0.02, 16, 16);
     const pivotMat = new THREE.MeshStandardMaterial({
-      color: COLORS.pivot, emissive: 0x00ffff, emissiveIntensity: 0.8,
+      color: COLORS.pivot, emissive: 0xffffff, emissiveIntensity: 0.25,
       roughness: 0.05, metalness: 1.0,
     });
     const pivot = new THREE.Mesh(pivotGeo, pivotMat);
@@ -294,7 +310,7 @@ function InvertedPendulum3D({ animation, isStable }) {
     const pendLength = animation?.pend_length || 0.5;
     const rodGeo = new THREE.CylinderGeometry(0.008, 0.008, pendLength, 12);
     const rodMat = new THREE.MeshStandardMaterial({
-      color: COLORS.pendulum, emissive: COLORS.pendEmissive, emissiveIntensity: 0.5,
+      color: COLORS.pendulum, emissive: COLORS.pendEmissive, emissiveIntensity: 0.15,
       roughness: 0.12, metalness: 0.6,
     });
     const rod = new THREE.Mesh(rodGeo, rodMat);
@@ -307,7 +323,7 @@ function InvertedPendulum3D({ animation, isStable }) {
     // Bob (mass at end)
     const bobGeo = new THREE.SphereGeometry(0.04, 24, 24);
     const bobMat = new THREE.MeshStandardMaterial({
-      color: COLORS.bob, emissive: COLORS.bobEmissive, emissiveIntensity: 0.7,
+      color: COLORS.bob, emissive: COLORS.bobEmissive, emissiveIntensity: 0.2,
       roughness: 0.08, metalness: 0.5,
     });
     const bob = new THREE.Mesh(bobGeo, bobMat);
@@ -327,7 +343,7 @@ function InvertedPendulum3D({ animation, isStable }) {
     obj.bobGlowMat = bobGlowMat;
 
     // Dynamic point light following bob
-    const bobLight = new THREE.PointLight(0xff8800, 0.6, 1.5);
+    const bobLight = new THREE.PointLight(0xff8800, 0.15, 1.5);
     pendGroup.add(bobLight);
     obj.bobLight = bobLight;
 
@@ -380,20 +396,20 @@ function InvertedPendulum3D({ animation, isStable }) {
     const vel = physicsRef.current.velNorm || 0;
 
     if (obj.bobGlowMat) {
-      obj.bobGlowMat.opacity = 0.15 + vel * 0.3 + Math.sin(elapsed * 5) * 0.05;
+      obj.bobGlowMat.opacity = 0.05 + vel * 0.08 + Math.sin(elapsed * 5) * 0.02;
     }
     if (obj.bobMat) {
       const color = new THREE.Color(COLORS.bob);
-      if (vel > 0.5) color.lerp(new THREE.Color(0xff0066), (vel - 0.5) * 2);
+      if (vel > 0.5) color.lerp(new THREE.Color(0xef4444), (vel - 0.5) * 2);
       else if (vel < 0.1) color.lerp(new THREE.Color(0x10b981), (0.1 - vel) * 10);
       obj.bobMat.color.copy(color);
-      obj.bobMat.emissiveIntensity = 0.5 + vel * 0.5;
+      obj.bobMat.emissiveIntensity = 0.15 + vel * 0.1;
     }
     if (obj.bobLight) {
-      obj.bobLight.intensity = 0.3 + vel * 0.8;
+      obj.bobLight.intensity = 0.05 + vel * 0.1;
     }
     if (obj.rodMat) {
-      obj.rodMat.emissiveIntensity = 0.3 + vel * 0.3;
+      obj.rodMat.emissiveIntensity = 0.1 + vel * 0.05;
     }
   };
 
