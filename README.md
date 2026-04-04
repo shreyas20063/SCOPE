@@ -3,7 +3,7 @@
 SCOPE is a browser-native open-source platform
 for system analysis and control design that does not require any
 installation or programming. It is aimed at providing complete
-analysis and design workflow – from plant specifications to con-
+analysis and design workflow – from plant specifications to con
 troller design including block-diagram, state-space and signal
 flow graph representation, time and frequency domain analysis,
 stability analysis, and controller design through various control
@@ -13,10 +13,10 @@ validation as well. A shared data hub is used to link all tools
 at the backend, which automatically derives and propagates
 system representations across all the modules, giving a seamless
 and user-friendly experience with no additional commands or
-data re-entry. SCOPE also provides interactive graphical visu-
+data re-entry. SCOPE also provides interactive graphical visu
 alizations and includes animated interfaces for five canonical
 plants including inverted pendulum, Furuta pendulum, and
-coupled two-tank system. The numerical accuracy is compara-
+coupled two-tank system. The numerical accuracy is compara
 ble with that of MATLAB (R2024b), when tested with multiple
 benchmark examples.
 
