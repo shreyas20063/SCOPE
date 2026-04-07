@@ -1143,6 +1143,17 @@ class NonlinearControlLabSimulator(BaseSimulator):
             "ss": {"A": A, "B": B, "C": C, "D": D},
         }
 
+    def from_hub_data(self, hub_data):
+        """Producer-only: NCL exports the linearized SS at an operating point.
+
+        Auto-pulling a TF or SS from the hub doesn't make sense here — the
+        user enters f/g symbolic expressions and chooses an equilibrium,
+        and there's no general way to back-derive nonlinear dynamics from
+        a linear plant. Returning False prevents the misleading
+        'Hub Synced ✓' badge.
+        """
+        return False
+
     def __init__(self, simulation_id: str):
         """Initialize the Nonlinear Control Lab simulator.
 

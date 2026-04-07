@@ -46,7 +46,6 @@ class CascadeParallelSimulator(BaseSimulator):
         "a2": -0.63,
     }
 
-    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)

@@ -98,7 +98,6 @@ class DifferenceEquationSimulator(BaseSimulator):
         "animation_speed": 1.0,
     }
 
-    HUB_SLOTS = ['control']
     HUB_DOMAIN = "dt"
 
     def __init__(self, simulation_id: str):

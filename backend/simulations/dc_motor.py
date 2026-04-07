@@ -103,7 +103,6 @@ class DCMotorSimulator(BaseSimulator):
         "model_type": "first_order",
     }
 
-    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)

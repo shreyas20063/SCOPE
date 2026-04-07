@@ -289,7 +289,6 @@ class PhasePortraitSimulator(BaseSimulator):
         "trajectory_time": 20,
     }
 
-    HUB_SLOTS = ["control"]
 
     # ------------------------------------------------------------------ #
     #  Lifecycle                                                          #

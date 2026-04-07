@@ -387,6 +387,56 @@ class SystemRepresentationSimulator(BaseSimulator):
 
     CHALLENGE_REPRESENTATIONS = ["diff_eq", "h_r", "h_z", "impulse_response", "block_diagram"]
 
+    def to_hub_data(self) -> Optional[Dict[str, Any]]:
+        """Export DT difference equation as a TF: H(z) = B(z)/A(z).
+
+        ``b_coefficients`` and ``a_coefficients`` are stored as comma-
+        separated strings in low-power-first form, which matches the
+        hub's TF convention. Numerator/denominator are flipped to
+        high-power-first via reverse() before publishing so downstream
+        consumers can feed them straight to numpy/scipy.
+        """
+        try:
+            b = self._parse_coeffs(str(self.parameters.get("b_coefficients", "1")))
+            a = self._parse_coeffs(str(self.parameters.get("a_coefficients", "1")))
+        except Exception:
+            return None
+        if not b or not a:
+            return None
+        return {
+            "source": "tf",
+            "domain": self.HUB_DOMAIN,
+            "dimensions": self.HUB_DIMENSIONS,
+            "tf": {
+                "num": list(reversed(list(b))),
+                "den": list(reversed(list(a))),
+                "variable": "z",
+            },
+        }
+
+    def from_hub_data(self, hub_data: Dict[str, Any]) -> bool:
+        """Inject a hub TF into b_coefficients / a_coefficients.
+
+        Hub TF coefficients are high-power-first; this sim stores them
+        low-power-first as comma-separated strings, so we reverse on the
+        way in.
+        """
+        if not isinstance(hub_data, dict):
+            return False
+        if hub_data.get("domain", "ct") != self.HUB_DOMAIN:
+            return False
+        dims = hub_data.get("dimensions") or {}
+        if (dims.get("m") or 1) > 1 or (dims.get("p") or 1) > 1:
+            return False
+        tf = hub_data.get("tf")
+        if not tf or not tf.get("num") or not tf.get("den"):
+            return False
+        num = list(reversed(list(tf["num"])))
+        den = list(reversed(list(tf["den"])))
+        self.parameters["b_coefficients"] = ", ".join(str(c) for c in num)
+        self.parameters["a_coefficients"] = ", ".join(str(c) for c in den)
+        return True
+
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
         for name, value in self.parameters.items():

@@ -129,6 +129,50 @@ class ODELaplaceSolverSimulator(BaseSimulator):
 
     HUB_SLOTS = ['control']
 
+    # ── Hub integration ───────────────────────────────────────────
+
+    def to_hub_data(self) -> Optional[Dict[str, Any]]:
+        """Export the ODE as a transfer function H(s) = input_coeffs / output_coeffs.
+
+        ``output_coeffs`` are the coefficients of the LHS polynomial
+        (acting on y) — these become the TF denominator. ``input_coeffs``
+        are the RHS polynomial (acting on u) — the TF numerator. Both
+        are stored high-power-first, matching the hub convention.
+        """
+        try:
+            num = self._parse_coeffs(str(self.parameters.get("input_coeffs", "1")))
+            den = self._parse_coeffs(str(self.parameters.get("output_coeffs", "1, 1")))
+        except Exception:
+            return None
+        if not num or not den:
+            return None
+        return {
+            "source": "tf",
+            "domain": self.HUB_DOMAIN,
+            "dimensions": self.HUB_DIMENSIONS,
+            "tf": {
+                "num": list(num),
+                "den": list(den),
+                "variable": "s",
+            },
+        }
+
+    def from_hub_data(self, hub_data: Dict[str, Any]) -> bool:
+        """Inject a hub TF as input_coeffs (numerator) and output_coeffs (denominator)."""
+        if not isinstance(hub_data, dict):
+            return False
+        if hub_data.get("domain", "ct") != self.HUB_DOMAIN:
+            return False
+        dims = hub_data.get("dimensions") or {}
+        if (dims.get("m") or 1) > 1 or (dims.get("p") or 1) > 1:
+            return False
+        tf = hub_data.get("tf")
+        if not tf or not tf.get("num") or not tf.get("den"):
+            return False
+        self.parameters["input_coeffs"] = ", ".join(str(c) for c in tf["num"])
+        self.parameters["output_coeffs"] = ", ".join(str(c) for c in tf["den"])
+        return True
+
     # ── Init ──────────────────────────────────────────────────────
 
     def __init__(self, simulation_id: str) -> None:
