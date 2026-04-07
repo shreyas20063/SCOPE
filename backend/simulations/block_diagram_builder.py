@@ -3298,9 +3298,14 @@ class BlockDiagramSimulator(BaseSimulator):
 
     def to_hub_data(self):
         """Export block diagram topology and computed TF(s)."""
+        # Use runtime system_type rather than class-level HUB_DOMAIN, since
+        # BDB toggles between CT and DT but HUB_DOMAIN is fixed at "ct".
+        # Consumers (e.g., Signal Scope) need the actual domain to interpret
+        # delay vs integrator blocks correctly.
+        runtime_domain = "dt" if self.system_type == "dt" else "ct"
         result = {
             "source": "block_diagram",
-            "domain": self.HUB_DOMAIN,
+            "domain": runtime_domain,
             "block_diagram": {
                 "blocks": self.blocks,
                 "connections": self.connections,

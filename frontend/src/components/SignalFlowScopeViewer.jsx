@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import Plot from 'react-plotly.js';
+import useHub from '../hooks/useHub';
 
 // ============================================================================
 // Constants
@@ -317,6 +318,10 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
   const dragRef = useRef(null);       // { startX, startY, panX, panY, dragging }
   const presetsRef = useRef(null);
   const autoImportDone = useRef(false);
+  const lastHubTimestampRef = useRef(0);
+
+  // Hub subscription — SFS pulls block_diagram payloads from the control slot.
+  const { slotData: hubSlotData, hubUpdated } = useHub('control');
 
   // Extract metadata
   const sfgNodes = metadata?.sfg_nodes || [];
@@ -419,28 +424,68 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
   // ========================================================================
   // Import & presets
   // ========================================================================
-  const handleImport = useCallback(() => {
-    const stored = localStorage.getItem('sfs_diagram');
-    if (!stored) { showToast('No diagram found — export from Block Diagram Builder first.', 3000); return; }
-    try {
-      const d = JSON.parse(stored);
-      if (!d.blocks || Object.keys(d.blocks).length === 0) { showToast('Exported diagram is empty.', 3000); return; }
-      callAction('import_diagram', d);
-      showToast('Diagram imported!');
-    } catch { showToast('Failed to parse diagram data', 3000); }
-  }, [callAction, showToast]);
 
-  // Auto-import once on mount
-  useEffect(() => {
-    if (autoImportDone.current || diagramLoaded) return;
-    autoImportDone.current = true;
+  // Extract a {blocks, connections, system_type} payload from hub slot data,
+  // or null if the slot has no usable block_diagram. Falls back to the legacy
+  // localStorage 'sfs_diagram' channel for diagrams exported via BDB's
+  // "Export to Signal Scope" button (kept for backward compatibility).
+  const readDiagramSource = useCallback(() => {
+    if (hubSlotData && hubSlotData.block_diagram) {
+      const bd = hubSlotData.block_diagram;
+      if (bd.blocks && Object.keys(bd.blocks).length > 0) {
+        return {
+          blocks: bd.blocks,
+          connections: bd.connections || [],
+          system_type: hubSlotData.domain === 'dt' ? 'dt' : 'ct',
+          source: 'hub',
+        };
+      }
+    }
     const stored = localStorage.getItem('sfs_diagram');
-    if (!stored) return;
+    if (!stored) return null;
     try {
       const d = JSON.parse(stored);
-      if (d.blocks && Object.keys(d.blocks).length > 0) callAction('import_diagram', d);
-    } catch { /* ignore */ }
-  }, [diagramLoaded, callAction]);
+      if (!d.blocks || Object.keys(d.blocks).length === 0) return null;
+      return { ...d, source: 'localStorage' };
+    } catch {
+      return null;
+    }
+  }, [hubSlotData]);
+
+  const handleImport = useCallback(() => {
+    const d = readDiagramSource();
+    if (!d) {
+      showToast('No diagram in hub or localStorage — push from Block Diagram Builder first.', 3000);
+      return;
+    }
+    callAction('import_diagram', { blocks: d.blocks, connections: d.connections, system_type: d.system_type });
+    showToast(d.source === 'hub' ? 'Imported from System Hub!' : 'Imported from local export!');
+  }, [readDiagramSource, callAction, showToast]);
+
+  // Auto-import on mount (prefer hub) and on subsequent hub updates
+  // (cross-tab pushes or in-app pushes from BDB while SFS stays mounted).
+  useEffect(() => {
+    // Re-import only when the hub timestamp actually advances. Without this
+    // guard the effect would re-run on every render that touches hubSlotData.
+    const ts = hubSlotData?._meta?.timestamp || 0;
+    const isHubFresh = ts > lastHubTimestampRef.current;
+
+    if (autoImportDone.current && !isHubFresh) return;
+    autoImportDone.current = true;
+
+    const d = readDiagramSource();
+    if (!d) return;
+
+    if (d.source === 'hub') {
+      lastHubTimestampRef.current = ts;
+    }
+
+    callAction('import_diagram', {
+      blocks: d.blocks,
+      connections: d.connections,
+      system_type: d.system_type,
+    });
+  }, [hubSlotData, hubUpdated, readDiagramSource, callAction]);
 
   const handleLoadPreset = useCallback((id) => {
     callAction('load_preset', { preset_id: id });
@@ -553,7 +598,12 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
     <div className="sfs-root">
       {/* ===== TOOLBAR ===== */}
       <div className="sfs-toolbar">
-        <button className="sfs-btn sfs-btn-accent" onClick={handleImport} disabled={isLoading}>Import</button>
+        <button
+          className="sfs-btn sfs-btn-accent"
+          onClick={handleImport}
+          disabled={isLoading}
+          title="Reimport diagram from System Hub (or fall back to local export)"
+        >Import</button>
 
         <div className="sfs-dropdown-wrap" ref={presetsRef}>
           <button className="sfs-btn" onClick={() => setShowPresets(!showPresets)}>Presets ▾</button>

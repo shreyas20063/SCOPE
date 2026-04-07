@@ -286,6 +286,66 @@ class SignalFlowScopeSimulator(BaseSimulator):
         return self.get_state()
 
     # =========================================================================
+    # Hub integration
+    # =========================================================================
+
+    def from_hub_data(self, hub_data: Dict[str, Any]) -> bool:
+        """Import a block diagram from System Hub control-slot data.
+
+        SFS consumes the ``block_diagram`` payload that BDB writes via its
+        own ``to_hub_data``. We do not consume the flat ``tf``/``ss`` forms
+        because SFS needs full diagram topology (blocks + connections) to
+        compute per-node transfer functions and render the SFG.
+
+        Domain compatibility is enforced loosely: SFS can switch
+        ``system_type`` to match the hub payload, since unlike most sims it
+        works in both CT and DT.
+
+        Args:
+            hub_data: A control-slot dict; expected to contain a
+                ``block_diagram`` key with ``blocks`` and ``connections``.
+
+        Returns:
+            True if a diagram was imported, False otherwise.
+        """
+        if not isinstance(hub_data, dict):
+            return False
+
+        bd = hub_data.get("block_diagram")
+        if not isinstance(bd, dict):
+            return False
+
+        blocks = bd.get("blocks")
+        connections = bd.get("connections", [])
+        if not isinstance(blocks, dict) or not blocks:
+            return False
+
+        # MIMO guard — SFS is SISO only, matching the BDB Export-to-Signal-Scope check.
+        dims = hub_data.get("dimensions") or {}
+        if (dims.get("m") or 1) > 1 or (dims.get("p") or 1) > 1:
+            return False
+
+        domain = hub_data.get("domain", "ct")
+        system_type = "dt" if domain == "dt" else "ct"
+
+        result = self._action_import_diagram({
+            "blocks": copy.deepcopy(blocks),
+            "connections": copy.deepcopy(connections),
+            "system_type": system_type,
+        })
+        # _action_import_diagram sets self._error on failure but still returns state.
+        return self._error is None
+
+    def to_hub_data(self) -> Optional[Dict[str, Any]]:
+        """SFS does not export to the hub — it is a pure consumer.
+
+        The simulator imports diagrams (via ``from_hub_data``) and probes
+        signals; it has no canonical TF/SS form of its own. Returning None
+        keeps the System Hub Push button hidden on the SFS page.
+        """
+        return None
+
+    # =========================================================================
     # Actions
     # =========================================================================
 
