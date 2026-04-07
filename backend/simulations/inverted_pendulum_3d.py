@@ -170,7 +170,6 @@ class InvertedPendulum3DSimulator(BaseSimulator):
         "lqg_process_noise": 0.01, "lqg_sensor_noise": 0.01,
     }
 
-    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)

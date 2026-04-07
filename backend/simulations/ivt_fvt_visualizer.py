@@ -55,7 +55,6 @@ class IVTFVTSimulator(BaseSimulator):
         "log_s": 0.0,
     }
 
-    HUB_SLOTS = ['control']
 
     # Maps each normal signal to its failure counterpart
     FAILURE_MAP = {

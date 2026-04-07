@@ -133,7 +133,6 @@ class LaplacePropertiesSimulator(BaseSimulator):
         "signal_2_omega0": 2.0,
     }
 
-    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)

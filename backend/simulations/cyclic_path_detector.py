@@ -79,7 +79,6 @@ class CyclicPathDetectorSimulator(BaseSimulator):
         "impulse_steps": 15,
     }
 
-    HUB_SLOTS = ['control']
 
     # ── Preset Definitions ──────────────────────────────────────
 

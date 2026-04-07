@@ -72,7 +72,6 @@ class DelayInstabilitySimulator(BaseSimulator):
         "playback_speed": "normal",
     }
 
-    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)

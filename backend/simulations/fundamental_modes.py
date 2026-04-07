@@ -192,7 +192,6 @@ class FundamentalModesSimulator(BaseSimulator):
         "show_answer": None,
     }
 
-    HUB_SLOTS = ['control']
 
     # Plot styling constants
     GRID_COLOR = "rgba(148, 163, 184, 0.2)"

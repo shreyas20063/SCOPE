@@ -64,7 +64,6 @@ class FeedbackConvergenceSimulator(BaseSimulator):
         "show_unit_circle": False,
     }
 
-    HUB_SLOTS = ['control']
 
     PRESETS = [
         {"label": "Slow Decay (p₀=0.5)", "params": {"p0": 0.5}},

@@ -77,7 +77,6 @@ class FurutaPendulumSimulator(BaseSimulator):
         "lqg_process_noise": 0.01, "lqg_sensor_noise": 0.01,
     }
 
-    HUB_SLOTS = ['control']
 
     PARAMETER_SCHEMA = {
         "mass": {

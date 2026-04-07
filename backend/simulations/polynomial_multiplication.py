@@ -78,7 +78,6 @@ class PolynomialMultiplicationSimulator(BaseSimulator):
         "view_mode": "tabular",
     }
 
-    HUB_SLOTS = ['control']
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}

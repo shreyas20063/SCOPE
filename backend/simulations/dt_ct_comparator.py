@@ -66,7 +66,6 @@ class DTCTComparatorSimulator(BaseSimulator):
         "mode": "explore",
     }
 
-    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)

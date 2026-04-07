@@ -68,7 +68,6 @@ class ResonanceAnatomySimulator(BaseSimulator):
         "time_window": 8.0,
     }
 
-    HUB_SLOTS = ["control"]
 
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)

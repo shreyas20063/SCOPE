@@ -119,7 +119,6 @@ class ZTransformPropertiesSimulator(BaseSimulator):
         "num_samples": 20,
     }
 
-    HUB_SLOTS = ['control']
     HUB_DOMAIN = "dt"
 
     def __init__(self, simulation_id: str) -> None:

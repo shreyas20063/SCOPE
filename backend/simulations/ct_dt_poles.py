@@ -157,7 +157,6 @@ class CTDTPolesSimulator(BaseSimulator):
         "guided_scenario": "none",
     }
 
-    HUB_SLOTS = ['control']
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)

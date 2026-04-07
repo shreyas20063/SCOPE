@@ -222,7 +222,6 @@ class CoupledTanks3DSimulator(BaseSimulator):
         "lqg_process_noise": 0.01, "lqg_sensor_noise": 0.01,
     }
 
-    HUB_SLOTS = ["control"]
     HUB_DIMENSIONS = {"n": None, "m": None, "p": None}
 
     def __init__(self, simulation_id: str):
