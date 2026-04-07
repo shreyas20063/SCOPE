@@ -250,6 +250,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
         if hub_data.get("domain", "ct") != self.HUB_DOMAIN:
             return False
 
+        # Branch 1: SS source — direct A/B/C/D injection
         ss = hub_data.get("ss")
         if ss and all(k in ss for k in ("A", "B", "C", "D")):
             A, B, C, D = ss["A"], ss["B"], ss["C"], ss["D"]
@@ -267,7 +268,113 @@ class MIMODesignStudioSimulator(BaseSimulator):
             self.parameters["matrix_d"] = self._matrix_to_expr(D)
             return True
 
-        return super().from_hub_data(hub_data)
+        # Branch 2: MIMO transfer_matrix payload (BDB MIMO push)
+        # Builds a block-diagonal (non-minimal) SS realization by
+        # converting each G_ij entry via signal.tf2ss and assembling.
+        tm = hub_data.get("transfer_matrix")
+        if tm and isinstance(tm.get("entries"), list) and tm["entries"]:
+            try:
+                A_full, B_full, C_full, D_full = self._assemble_tm_realization(tm)
+            except Exception:
+                return False
+            n = len(A_full)
+            m = len(B_full[0]) if B_full and B_full[0] else 0
+            p = len(C_full) if C_full else 0
+            if (n == 0 or n > self._MAX_N or
+                    m == 0 or m > self._MAX_M or
+                    p == 0 or p > self._MAX_P):
+                return False
+            self.parameters["preset"] = "custom"
+            self.parameters["matrix_a"] = self._matrix_to_expr(A_full)
+            self.parameters["matrix_b"] = self._matrix_to_expr(B_full)
+            self.parameters["matrix_c"] = self._matrix_to_expr(C_full)
+            self.parameters["matrix_d"] = self._matrix_to_expr(D_full)
+            return True
+
+        # Branch 3: SISO flat tf payload (Tier 1 sims, BDB SISO push)
+        tf = hub_data.get("tf")
+        if tf and tf.get("num") and tf.get("den"):
+            try:
+                num = np.atleast_1d(np.asarray(tf["num"], dtype=float))
+                den = np.atleast_1d(np.asarray(tf["den"], dtype=float))
+                A, B, C, D = signal.tf2ss(num, den)
+            except Exception:
+                return False
+            n = A.shape[0] if A.ndim == 2 else 0
+            if n == 0 or n > self._MAX_N:
+                return False
+            self.parameters["preset"] = "custom"
+            self.parameters["matrix_a"] = self._matrix_to_expr(A.tolist())
+            self.parameters["matrix_b"] = self._matrix_to_expr(B.tolist())
+            self.parameters["matrix_c"] = self._matrix_to_expr(C.tolist())
+            self.parameters["matrix_d"] = self._matrix_to_expr(D.tolist())
+            return True
+
+        return False
+
+    def _assemble_tm_realization(
+        self, tm: Dict[str, Any]
+    ) -> Tuple[List[List[float]], List[List[float]], List[List[float]], List[List[float]]]:
+        """Assemble a non-minimal block-diagonal SS realization from a
+        transfer matrix.
+
+        For a p x m transfer matrix G with entries G_ij, each entry is
+        converted to its own SS realization via signal.tf2ss. The full
+        system has state x = [x_11; x_12; ...; x_pm], A is block-diagonal
+        across all p*m blocks, and B/C are sparse matrices that route
+        input j into block (i, j) and read output i from block (i, j).
+        """
+        entries = tm["entries"]
+        p = len(entries)
+        m = len(entries[0])
+
+        # Per-entry SS realizations
+        per_entry: List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = []
+        for i in range(p):
+            for j in range(m):
+                e = entries[i][j]
+                num = np.atleast_1d(np.asarray(
+                    e.get("num") or e.get("numerator") or [0.0], dtype=float))
+                den = np.atleast_1d(np.asarray(
+                    e.get("den") or e.get("denominator") or [1.0], dtype=float))
+                A_ij, B_ij, C_ij, D_ij = signal.tf2ss(num, den)
+                per_entry.append((A_ij, B_ij, C_ij, D_ij))
+
+        # Block-diagonal A
+        A_blocks = [t[0] for t in per_entry]
+        n_total = sum(a.shape[0] for a in A_blocks)
+        A_full = np.zeros((n_total, n_total))
+        offset = 0
+        for a in A_blocks:
+            k = a.shape[0]
+            A_full[offset:offset + k, offset:offset + k] = a
+            offset += k
+
+        # B routes input j into the (i, j) block
+        B_full = np.zeros((n_total, m))
+        offset = 0
+        for idx, (_, B_ij, _, _) in enumerate(per_entry):
+            i, j = idx // m, idx % m
+            k = B_ij.shape[0]
+            B_full[offset:offset + k, j:j + 1] = B_ij
+            offset += k
+
+        # C reads output i from the (i, j) block
+        C_full = np.zeros((p, n_total))
+        offset = 0
+        for idx, (_, _, C_ij, _) in enumerate(per_entry):
+            i, j = idx // m, idx % m
+            k = C_ij.shape[1]
+            C_full[i:i + 1, offset:offset + k] = C_ij
+            offset += k
+
+        # D is the direct feedthrough matrix from each entry's D
+        D_full = np.zeros((p, m))
+        for idx, (_, _, _, D_ij) in enumerate(per_entry):
+            i, j = idx // m, idx % m
+            D_full[i, j] = float(D_ij[0, 0]) if D_ij.size else 0.0
+
+        return A_full.tolist(), B_full.tolist(), C_full.tolist(), D_full.tolist()
 
     def to_hub_data(self) -> Optional[Dict[str, Any]]:
         """Export current state-space system to the Hub.
