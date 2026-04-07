@@ -53,13 +53,69 @@ function SectionHeader({ section, count }) {
   )
 }
 
+function ViewToggle({ view, onChange }) {
+  return (
+    <div className="view-toggle">
+      <button
+        className={`view-toggle-btn ${view === 'grid' ? 'active' : ''}`}
+        onClick={() => onChange('grid')}
+        aria-label="Grid view"
+        title="Grid view"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="1" y="1" width="6" height="6" rx="1" />
+          <rect x="9" y="1" width="6" height="6" rx="1" />
+          <rect x="1" y="9" width="6" height="6" rx="1" />
+          <rect x="9" y="9" width="6" height="6" rx="1" />
+        </svg>
+      </button>
+      <button
+        className={`view-toggle-btn ${view === 'list' ? 'active' : ''}`}
+        onClick={() => onChange('list')}
+        aria-label="List view"
+        title="List view"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <line x1="1" y1="3" x2="15" y2="3" />
+          <line x1="1" y1="8" x2="15" y2="8" />
+          <line x1="1" y1="13" x2="15" y2="13" />
+        </svg>
+      </button>
+      <button
+        className={`view-toggle-btn ${view === 'compact' ? 'active' : ''}`}
+        onClick={() => onChange('compact')}
+        aria-label="Compact view"
+        title="Compact view"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="1" y="1" width="4" height="4" rx="0.5" />
+          <rect x="6" y="1" width="4" height="4" rx="0.5" />
+          <rect x="11" y="1" width="4" height="4" rx="0.5" />
+          <rect x="1" y="6" width="4" height="4" rx="0.5" />
+          <rect x="6" y="6" width="4" height="4" rx="0.5" />
+          <rect x="11" y="6" width="4" height="4" rx="0.5" />
+          <rect x="1" y="11" width="4" height="4" rx="0.5" />
+          <rect x="6" y="11" width="4" height="4" rx="0.5" />
+          <rect x="11" y="11" width="4" height="4" rx="0.5" />
+        </svg>
+      </button>
+    </div>
+  )
+}
+
 function LandingPage() {
   const [simulations, setSimulations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedSection, setSelectedSection] = useState(null)
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'grid')
   const [mousePos, setMousePos] = useState({ x: -1, y: -1 })
+
+  const handleViewChange = useCallback((mode) => {
+    setViewMode(mode)
+    localStorage.setItem('viewMode', mode)
+  }, [])
 
   const handleHeroMouse = useCallback((e) => {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -182,6 +238,7 @@ function LandingPage() {
 
       <section className="results-info">
         <p>Showing {filteredSimulations.length} of {simulations.length} simulations</p>
+        <ViewToggle view={viewMode} onChange={handleViewChange} />
       </section>
 
       {loading ? (
@@ -203,9 +260,9 @@ function LandingPage() {
             <ScrollReveal key={section.key}>
               <div className="section-group">
                 <SectionHeader section={section} count={section.sims.length} />
-                <div className="simulations-grid">
+                <div className={`simulations-grid ${viewMode === 'list' ? 'list-view' : viewMode === 'compact' ? 'compact-view' : ''}`}>
                   {section.sims.map((sim, index) => (
-                    <ScrollReveal key={sim.id} delay={(index % 6) * 60}>
+                    <ScrollReveal key={sim.id} delay={viewMode === 'compact' ? 0 : (index % 6) * 60}>
                       <SimulationCard
                         id={sim.id}
                         name={sim.name}
@@ -213,6 +270,7 @@ function LandingPage() {
                         category={sim.category}
                         categoryColor={sim.category_info?.color}
                         thumbnail={sim.thumbnail}
+                        viewMode={viewMode}
                       />
                     </ScrollReveal>
                   ))}

@@ -22,6 +22,13 @@ from typing import Any, Dict, List, Optional, Tuple
 from .base_simulator import BaseSimulator
 
 
+_SUPER_DIGITS = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
+
+def _superscript(n: int) -> str:
+    """Convert integer to Unicode superscript: 2 -> '²', 13 -> '¹³'."""
+    return str(n).translate(_SUPER_DIGITS)
+
+
 class SignalFlowScopeSimulator(BaseSimulator):
     """
     Signal Flow Scope — oscilloscope for block diagrams.
@@ -1153,11 +1160,13 @@ class SignalFlowScopeSimulator(BaseSimulator):
         btype = block.get("type", "")
         if btype == "gain":
             val = block.get("value", 1.0)
-            return str(int(val)) if val == int(val) else str(val)
+            if val == int(val):
+                return str(int(val))
+            return f"{val:.3g}"
         elif btype == "delay":
-            return "R"
+            return "z⁻¹" if self.system_type == "dt" else "e⁻ˢᵀ"
         elif btype == "integrator":
-            return "A"
+            return "z⁻¹" if self.system_type == "dt" else "s⁻¹"
         elif btype == "custom_tf":
             return block.get("label", block.get("expression", "H"))
         return "1"
@@ -1211,7 +1220,22 @@ class SignalFlowScopeSimulator(BaseSimulator):
                 return "1"
             if len(arr) == 1:
                 return arr[0]
-            return " · ".join(arr)
+            # Separate z⁻¹/1/s terms from numeric gains
+            from collections import Counter
+            counts = Counter(arr)
+            parts = []
+            for g, n in counts.items():
+                if g == "z⁻¹":
+                    parts.append(f"z⁻{_superscript(n)}" if n > 1 else "z⁻¹")
+                elif g == "s⁻¹":
+                    parts.append(f"s⁻{_superscript(n)}" if n > 1 else "s⁻¹")
+                elif n == 1:
+                    parts.append(g)
+                else:
+                    parts.append(f"{g}{_superscript(n)}")
+            # Put numeric gains first for readability: "0.05·s⁻²" not "s⁻²·0.05"
+            parts.sort(key=lambda p: 0 if p[0].isdigit() or p[0] == '-' else 1)
+            return "·".join(parts)
 
         edges: List[Dict[str, Any]] = []
         edge_idx = 0

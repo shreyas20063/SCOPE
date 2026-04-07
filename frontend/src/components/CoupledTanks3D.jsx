@@ -26,7 +26,7 @@ const TANK_RADIUS = 0.5;
 const TANK_GAP = 1.8;
 const NUM_DROPLETS = 20;
 
-function CoupledTanks3D({ animation, isStable }) {
+function CoupledTanks3D({ animation, isStable, isDark = true }) {
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
   const composerRef = useRef(null);
@@ -49,7 +49,7 @@ function CoupledTanks3D({ animation, isStable }) {
   useEffect(() => { playingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { speedRef.current = speed; }, [speed]);
 
-  const COLORS = useMemo(() => ({
+  const COLORS = useMemo(() => isDark ? {
     tank1Water: 0x3b82f6,
     tank2Water: 0x8b5cf6,
     tankGlass: 0x94a3b8,
@@ -66,7 +66,42 @@ function CoupledTanks3D({ animation, isStable }) {
     refLine: 0x34d399,
     overflow: 0xf59e0b,
     unstableRim: 0xef4444,
-  }), []);
+    ambientIntensity: 0.35,
+    hemiIntensity: 0.25,
+    keyIntensity: 1.0,
+    bloomStrength: 0.2,
+    fogNear: 10,
+    fogFar: 25,
+    glassOpacity: 0.08,
+    groundRoughness: 0.85,
+    toneExposure: 1.3,
+  } : {
+    tank1Water: 0x2563eb,
+    tank2Water: 0x7c3aed,
+    tankGlass: 0x94a3b8,
+    pipe: 0x78909c,
+    pipeEmissive: 0x607d8b,
+    inflow1: 0x2563eb,
+    inflow2: 0x7c3aed,
+    droplet1: 0x3b82f6,
+    droplet2: 0x8b5cf6,
+    ground: 0xe8ecf1,
+    gridMain: 0xb0bec5,
+    gridSecondary: 0xcfd8dc,
+    background: 0xf0f4f8,
+    refLine: 0x059669,
+    overflow: 0xd97706,
+    unstableRim: 0xdc2626,
+    ambientIntensity: 0.6,
+    hemiIntensity: 0.4,
+    keyIntensity: 1.4,
+    bloomStrength: 0.05,
+    fogNear: 14,
+    fogFar: 30,
+    glassOpacity: 0.12,
+    groundRoughness: 0.6,
+    toneExposure: 1.1,
+  }, [isDark]);
 
   const initScene = useCallback(() => {
     if (!containerRef.current) return;
@@ -76,7 +111,7 @@ function CoupledTanks3D({ animation, isStable }) {
     // Scene
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(COLORS.background);
-    scene.fog = new THREE.Fog(COLORS.background, 10, 25);
+    scene.fog = new THREE.Fog(COLORS.background, COLORS.fogNear, COLORS.fogFar);
     sceneRef.current = scene;
 
     // Camera
@@ -94,7 +129,7 @@ function CoupledTanks3D({ animation, isStable }) {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.3;
+    renderer.toneMappingExposure = COLORS.toneExposure;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
@@ -103,7 +138,7 @@ function CoupledTanks3D({ animation, isStable }) {
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
     const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(width, height), 0.2, 0.3, 0.85
+      new THREE.Vector2(width, height), COLORS.bloomStrength, 0.3, 0.85
     );
     composer.addPass(bloomPass);
     composer.addPass(new OutputPass());
@@ -185,14 +220,18 @@ function CoupledTanks3D({ animation, isStable }) {
         containerRef.current.removeChild(renderer.domElement);
       }
     };
-  }, [COLORS]);
+  }, [COLORS, isDark]);
 
   // ── Lighting ──────────────────────────────────────────────────────
   const setupLighting = (scene) => {
-    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
-    scene.add(new THREE.HemisphereLight(0xb0d0ff, 0x404040, 0.25));
+    scene.add(new THREE.AmbientLight(0xffffff, COLORS.ambientIntensity));
+    scene.add(new THREE.HemisphereLight(
+      isDark ? 0xb0d0ff : 0xf0f4ff,
+      isDark ? 0x404040 : 0xc8cdd3,
+      COLORS.hemiIntensity
+    ));
 
-    const key = new THREE.DirectionalLight(0xffffff, 1.0);
+    const key = new THREE.DirectionalLight(0xffffff, COLORS.keyIntensity);
     key.position.set(3, 6, 4);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
@@ -214,7 +253,7 @@ function CoupledTanks3D({ animation, isStable }) {
   const setupEnvironment = (scene) => {
     const groundGeo = new THREE.PlaneGeometry(10, 10);
     const groundMat = new THREE.MeshStandardMaterial({
-      color: COLORS.ground, roughness: 0.85, metalness: 0.15,
+      color: COLORS.ground, roughness: COLORS.groundRoughness, metalness: isDark ? 0.15 : 0.02,
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
@@ -230,7 +269,7 @@ function CoupledTanks3D({ animation, isStable }) {
       const geo = new THREE.BufferGeometry().setFromPoints(pts);
       const mat = new THREE.LineBasicMaterial({
         color: i === 0 ? COLORS.gridMain : COLORS.gridSecondary,
-        transparent: true, opacity: i === 0 ? 0.25 : 0.08,
+        transparent: true, opacity: i === 0 ? (isDark ? 0.25 : 0.35) : (isDark ? 0.08 : 0.15),
       });
       gridGroup.add(new THREE.Line(geo, mat));
     }
@@ -238,7 +277,7 @@ function CoupledTanks3D({ animation, isStable }) {
       const pts = [new THREE.Vector3(-5, 0, i * 0.5), new THREE.Vector3(5, 0, i * 0.5)];
       const geo = new THREE.BufferGeometry().setFromPoints(pts);
       const mat = new THREE.LineBasicMaterial({
-        color: COLORS.gridSecondary, transparent: true, opacity: 0.06,
+        color: COLORS.gridSecondary, transparent: true, opacity: isDark ? 0.06 : 0.12,
       });
       gridGroup.add(new THREE.Line(geo, mat));
     }
@@ -256,9 +295,9 @@ function CoupledTanks3D({ animation, isStable }) {
     const tankGeo = new THREE.CylinderGeometry(TANK_RADIUS, TANK_RADIUS, MAX_TANK_HEIGHT, 32, 1, true);
 
     const glassMat1 = new THREE.MeshPhysicalMaterial({
-      color: 0xddeeff,
+      color: isDark ? 0xddeeff : 0xc8ddf0,
       transparent: true,
-      opacity: 0.08,
+      opacity: COLORS.glassOpacity,
       roughness: 0.05,
       metalness: 0.05,
       side: THREE.FrontSide,
@@ -279,8 +318,8 @@ function CoupledTanks3D({ animation, isStable }) {
     const ringGeo = new THREE.TorusGeometry(TANK_RADIUS, 0.025, 12, 32);
 
     const rimMat1 = new THREE.MeshStandardMaterial({
-      color: 0x3b82f6, emissive: 0x3b82f6, emissiveIntensity: 0.3,
-      roughness: 0.2, metalness: 0.6,
+      color: 0x3b82f6, emissive: 0x3b82f6, emissiveIntensity: isDark ? 0.3 : 0.1,
+      roughness: 0.2, metalness: isDark ? 0.6 : 0.4,
     });
     const topRing1 = new THREE.Mesh(ringGeo, rimMat1);
     topRing1.rotation.x = Math.PI / 2;
@@ -296,8 +335,8 @@ function CoupledTanks3D({ animation, isStable }) {
     obj.botRing1 = botRing1;
 
     const rimMat2 = new THREE.MeshStandardMaterial({
-      color: 0x8b5cf6, emissive: 0x8b5cf6, emissiveIntensity: 0.3,
-      roughness: 0.2, metalness: 0.6,
+      color: 0x8b5cf6, emissive: 0x8b5cf6, emissiveIntensity: isDark ? 0.3 : 0.1,
+      roughness: 0.2, metalness: isDark ? 0.6 : 0.4,
     });
     const topRing2 = new THREE.Mesh(ringGeo.clone(), rimMat2);
     topRing2.rotation.x = Math.PI / 2;
@@ -394,8 +433,8 @@ function CoupledTanks3D({ animation, isStable }) {
 
     const pipeY = 0.15;
     const pipeMat = new THREE.MeshStandardMaterial({
-      color: COLORS.pipe, emissive: COLORS.pipeEmissive, emissiveIntensity: 0.3,
-      roughness: 0.2, metalness: 0.8,
+      color: COLORS.pipe, emissive: COLORS.pipeEmissive, emissiveIntensity: isDark ? 0.3 : 0.05,
+      roughness: isDark ? 0.2 : 0.35, metalness: isDark ? 0.8 : 0.5,
     });
     obj.pipeMat = pipeMat;
 
@@ -410,8 +449,8 @@ function CoupledTanks3D({ animation, isStable }) {
     // Pipe connection rings
     const cRingGeo = new THREE.TorusGeometry(0.05, 0.01, 8, 16);
     const cRingMat = new THREE.MeshStandardMaterial({
-      color: 0x94a3b8, emissive: 0x94a3b8, emissiveIntensity: 0.15,
-      roughness: 0.3, metalness: 0.7,
+      color: 0x94a3b8, emissive: 0x94a3b8, emissiveIntensity: isDark ? 0.15 : 0.03,
+      roughness: 0.3, metalness: isDark ? 0.7 : 0.4,
     });
     [tankX1 + TANK_RADIUS, tankX2 - TANK_RADIUS].forEach(xPos => {
       const ring = new THREE.Mesh(cRingGeo, cRingMat);
@@ -439,8 +478,8 @@ function CoupledTanks3D({ animation, isStable }) {
     // Top inflow pipes
     const inflowGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.6, 12);
     const inflowMat1 = new THREE.MeshStandardMaterial({
-      color: COLORS.inflow1, emissive: COLORS.inflow1, emissiveIntensity: 0.15,
-      roughness: 0.3, metalness: 0.6,
+      color: COLORS.inflow1, emissive: COLORS.inflow1, emissiveIntensity: isDark ? 0.15 : 0.03,
+      roughness: 0.3, metalness: isDark ? 0.6 : 0.3,
     });
     const inflow1 = new THREE.Mesh(inflowGeo, inflowMat1);
     inflow1.position.set(tankX1, MAX_TANK_HEIGHT + 0.3, 0);
@@ -448,8 +487,8 @@ function CoupledTanks3D({ animation, isStable }) {
     obj.inflowMat1 = inflowMat1;
 
     const inflowMat2 = new THREE.MeshStandardMaterial({
-      color: COLORS.inflow2, emissive: COLORS.inflow2, emissiveIntensity: 0.15,
-      roughness: 0.3, metalness: 0.6,
+      color: COLORS.inflow2, emissive: COLORS.inflow2, emissiveIntensity: isDark ? 0.15 : 0.03,
+      roughness: 0.3, metalness: isDark ? 0.6 : 0.3,
     });
     const inflow2 = new THREE.Mesh(inflowGeo.clone(), inflowMat2);
     inflow2.position.set(tankX2, MAX_TANK_HEIGHT + 0.3, 0);
@@ -459,8 +498,8 @@ function CoupledTanks3D({ animation, isStable }) {
     // Drain pipe from tank 2
     const drainGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.3, 12);
     const drainMat = new THREE.MeshStandardMaterial({
-      color: COLORS.pipe, emissive: COLORS.pipeEmissive, emissiveIntensity: 0.2,
-      roughness: 0.3, metalness: 0.7,
+      color: COLORS.pipe, emissive: COLORS.pipeEmissive, emissiveIntensity: isDark ? 0.2 : 0.03,
+      roughness: 0.3, metalness: isDark ? 0.7 : 0.4,
     });
     const drain = new THREE.Mesh(drainGeo, drainMat);
     drain.position.set(tankX2, -0.15, 0);
@@ -588,8 +627,9 @@ function CoupledTanks3D({ animation, isStable }) {
 
     // Unstable — rim rings turn red with faster pulse
     if (obj.rimMat1) {
+      const baseEmissive = isDark ? 0.3 : 0.1;
       if (!isSystemStable) {
-        const flash = 0.25 + Math.sin(elapsed * 2) * 0.1;
+        const flash = (isDark ? 0.25 : 0.12) + Math.sin(elapsed * 2) * (isDark ? 0.1 : 0.05);
         obj.rimMat1.color.setHex(COLORS.unstableRim);
         obj.rimMat1.emissive.setHex(COLORS.unstableRim);
         obj.rimMat1.emissiveIntensity = flash;
@@ -599,10 +639,10 @@ function CoupledTanks3D({ animation, isStable }) {
       } else {
         obj.rimMat1.color.setHex(0x3b82f6);
         obj.rimMat1.emissive.setHex(0x3b82f6);
-        obj.rimMat1.emissiveIntensity = 0.3;
+        obj.rimMat1.emissiveIntensity = baseEmissive;
         obj.rimMat2.color.setHex(0x8b5cf6);
         obj.rimMat2.emissive.setHex(0x8b5cf6);
-        obj.rimMat2.emissiveIntensity = 0.3;
+        obj.rimMat2.emissiveIntensity = baseEmissive;
       }
     }
 
@@ -625,10 +665,10 @@ function CoupledTanks3D({ animation, isStable }) {
     if (obj.pipeMat) {
       if (!isSystemStable) {
         obj.pipeMat.emissive.setHex(COLORS.overflow);
-        obj.pipeMat.emissiveIntensity = 0.4;
+        obj.pipeMat.emissiveIntensity = isDark ? 0.4 : 0.15;
       } else {
         obj.pipeMat.emissive.setHex(COLORS.pipeEmissive);
-        obj.pipeMat.emissiveIntensity = 0.3;
+        obj.pipeMat.emissiveIntensity = isDark ? 0.3 : 0.05;
       }
     }
 
@@ -680,7 +720,7 @@ function CoupledTanks3D({ animation, isStable }) {
         }
       });
     }
-  }, [COLORS]);
+  }, [COLORS, isDark]);
 
   // ── Lifecycle ─────────────────────────────────────────────────────
   useEffect(() => {

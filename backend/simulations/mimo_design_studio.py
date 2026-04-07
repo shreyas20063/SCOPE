@@ -965,22 +965,27 @@ class MIMODesignStudioSimulator(BaseSimulator):
         annotations: List[Dict] = []
 
         # Subplot grid positioning
-        h_gap = 0.06
-        v_gap = 0.06
-        plot_w = (1.0 - h_gap * (m - 1)) / m if m > 1 else 1.0
+        left_gutter = 0.06  # space for row labels left of first column
+        h_gap = 0.08
+        v_gap = 0.12
+        usable_w = 1.0 - left_gutter
+        plot_w = (usable_w - h_gap * (m - 1)) / m if m > 1 else usable_w
         plot_h = (1.0 - v_gap * (p - 1)) / p if p > 1 else 1.0
 
         layout: Dict[str, Any] = {
             "paper_bgcolor": "#0a0e27",
             "plot_bgcolor": "#131b2e",
             "font": {"family": "Inter, sans-serif", "size": 11, "color": "#f1f5f9"},
-            "margin": {"t": 50, "r": 25, "b": 55, "l": 60},
+            "margin": {"t": 60, "r": 25, "b": 55, "l": 60},
             "showlegend": has_cl,
             "legend": {
-                "x": 0.01,
-                "y": 0.99,
-                "bgcolor": "rgba(19,27,46,0.8)",
-                "font": {"size": 10, "color": "#94a3b8"},
+                "orientation": "h",
+                "x": 0.5,
+                "xanchor": "center",
+                "y": 1.08,
+                "yanchor": "bottom",
+                "bgcolor": "rgba(0,0,0,0)",
+                "font": {"size": 11, "color": "#94a3b8"},
             },
         }
 
@@ -988,7 +993,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
         for i in range(p):  # rows = outputs
             for j in range(m):  # cols = inputs
                 # Domain for this subplot
-                x0 = j * (plot_w + h_gap)
+                x0 = left_gutter + j * (plot_w + h_gap)
                 x1 = x0 + plot_w
                 # Top-to-bottom: output 0 at top
                 y1 = 1.0 - i * (plot_h + v_gap)
@@ -1022,7 +1027,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
                         "xref": "paper",
                         "yref": "paper",
                         "x": (x0 + x1) / 2,
-                        "y": y1 + 0.02,
+                        "y": y1 + 0.04,
                         "showarrow": False,
                         "font": {"size": 11, "color": "#94a3b8"},
                     })
@@ -1033,10 +1038,10 @@ class MIMODesignStudioSimulator(BaseSimulator):
                         "text": f"<b>{output_names[i] if i < len(output_names) else f'y{i+1}'}</b>",
                         "xref": "paper",
                         "yref": "paper",
-                        "x": x0 - 0.03,
+                        "x": left_gutter / 2,
                         "y": (y0 + y1) / 2,
                         "showarrow": False,
-                        "font": {"size": 11, "color": "#94a3b8"},
+                        "font": {"size": 12, "color": "#94a3b8"},
                         "textangle": -90,
                     })
 
@@ -1128,29 +1133,34 @@ class MIMODesignStudioSimulator(BaseSimulator):
         traces: List[Dict] = []
         annotations: List[Dict] = []
 
-        h_gap = 0.06
-        v_gap = 0.06
-        plot_w = (1.0 - h_gap * (m - 1)) / m if m > 1 else 1.0
+        left_gutter = 0.06  # space for row labels left of first column
+        h_gap = 0.08
+        v_gap = 0.12
+        usable_w = 1.0 - left_gutter
+        plot_w = (usable_w - h_gap * (m - 1)) / m if m > 1 else usable_w
         plot_h = (1.0 - v_gap * (p - 1)) / p if p > 1 else 1.0
 
         layout: Dict[str, Any] = {
             "paper_bgcolor": "#0a0e27",
             "plot_bgcolor": "#131b2e",
             "font": {"family": "Inter, sans-serif", "size": 11, "color": "#f1f5f9"},
-            "margin": {"t": 50, "r": 25, "b": 55, "l": 60},
+            "margin": {"t": 60, "r": 25, "b": 55, "l": 60},
             "showlegend": has_cl,
             "legend": {
-                "x": 0.01,
-                "y": 0.99,
-                "bgcolor": "rgba(19,27,46,0.8)",
-                "font": {"size": 10, "color": "#94a3b8"},
+                "orientation": "h",
+                "x": 0.5,
+                "xanchor": "center",
+                "y": 1.08,
+                "yanchor": "bottom",
+                "bgcolor": "rgba(0,0,0,0)",
+                "font": {"size": 11, "color": "#94a3b8"},
             },
         }
 
         axis_idx = 1
         for i in range(p):
             for j in range(m):
-                x0 = j * (plot_w + h_gap)
+                x0 = left_gutter + j * (plot_w + h_gap)
                 x1 = x0 + plot_w
                 y1 = 1.0 - i * (plot_h + v_gap)
                 y0 = y1 - plot_h
@@ -1182,7 +1192,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
                         "xref": "paper",
                         "yref": "paper",
                         "x": (x0 + x1) / 2,
-                        "y": y1 + 0.02,
+                        "y": y1 + 0.04,
                         "showarrow": False,
                         "font": {"size": 11, "color": "#94a3b8"},
                     })
@@ -1192,10 +1202,10 @@ class MIMODesignStudioSimulator(BaseSimulator):
                         "text": f"<b>{output_names[i] if i < len(output_names) else f'y{i+1}'}</b>",
                         "xref": "paper",
                         "yref": "paper",
-                        "x": x0 - 0.03,
+                        "x": left_gutter / 2,
                         "y": (y0 + y1) / 2,
                         "showarrow": False,
-                        "font": {"size": 11, "color": "#94a3b8"},
+                        "font": {"size": 12, "color": "#94a3b8"},
                         "textangle": -90,
                     })
 
@@ -1439,7 +1449,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
             "paper_bgcolor": "#0a0e27",
             "plot_bgcolor": "#131b2e",
             "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
-            "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
+            "margin": {"t": 60, "r": 25, "b": 55, "l": 60},
             "xaxis": {
                 "title": {"text": "Real", "font": {"size": 12}},
                 "range": [-span, span],
@@ -1454,10 +1464,13 @@ class MIMODesignStudioSimulator(BaseSimulator):
             },
             "showlegend": True,
             "legend": {
-                "x": 0.01,
-                "y": 0.99,
-                "bgcolor": "rgba(19,27,46,0.8)",
-                "font": {"size": 10, "color": "#94a3b8"},
+                "orientation": "h",
+                "x": 0.5,
+                "xanchor": "center",
+                "y": 1.05,
+                "yanchor": "bottom",
+                "bgcolor": "rgba(0,0,0,0)",
+                "font": {"size": 11, "color": "#94a3b8"},
             },
             "datarevision": f"eigenvalues-{ts}",
             "uirevision": "eigenvalues",

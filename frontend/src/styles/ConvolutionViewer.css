@@ -205,3 +205,48 @@
 .conv-plot-row .plotly .modebar {
   display: none !important;
 }
+
+/* ========================================
+   LIGHT MODE OVERRIDES
+   ======================================== */
+[data-theme="light"] .convolution-viewer {
+  background: linear-gradient(135deg, var(--surface-color) 0%, var(--background-color) 100%);
+}
+
+[data-theme="light"] .conv-viewer-empty {
+  color: #475569;
+}
+
+[data-theme="light"] .conv-signal-info {
+  background: rgba(241, 245, 249, 0.8);
+}
+
+[data-theme="light"] .conv-info-label {
+  color: #475569;
+}
+
+[data-theme="light"] .conv-info-value {
+  color: #1e293b;
+}
+
+[data-theme="light"] .conv-plot-row {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="light"] .conv-formula-footer {
+  background: rgba(241, 245, 249, 0.9);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="light"] .conv-formula {
+  color: #1e293b;
+}
+
+[data-theme="light"] .conv-credit {
+  color: #475569;
+}
+
+[data-theme="light"] .conv-loading {
+  color: #475569;
+}

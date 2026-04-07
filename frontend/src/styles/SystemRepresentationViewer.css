@@ -574,3 +574,20 @@
   background: rgba(245, 158, 11, 0.04);
   border-color: rgba(245, 158, 11, 0.2);
 }
+
+[data-theme="light"] .sr-conversion-panel {
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme="light"] .sr-edge-path.sr-edge-active {
+  filter: drop-shadow(0 0 3px rgba(37, 99, 235, 0.4));
+}
+
+[data-theme="light"] .sr-tab.active {
+  background: rgba(37, 99, 235, 0.08);
+}
+
+[data-theme="light"] .sr-tab:hover:not(.active) {
+  background: rgba(100, 116, 139, 0.06);
+}

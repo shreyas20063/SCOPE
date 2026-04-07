@@ -49,17 +49,45 @@ function CoupledTanks3DViewer({ metadata, plots }) {
     return arr.map(formatEig).join(', ');
   };
 
-  // Enrich plots with dark theme
+  // Enrich plots with theme-aware colors
   const enrichedPlots = useMemo(() => {
     if (!plots) return [];
-    return plots.map(plot => ({
-      ...plot,
-      layout: {
-        ...plot.layout,
-        paper_bgcolor: isDark ? '#0a0e27' : 'rgba(255,255,255,0.98)',
-        plot_bgcolor: isDark ? '#131b2e' : '#f8fafc',
-      },
-    }));
+    const gridColor = isDark ? 'rgba(148,163,184,0.1)' : 'rgba(100,116,139,0.12)';
+    const zerolineColor = isDark ? 'rgba(148,163,184,0.3)' : 'rgba(100,116,139,0.25)';
+    const fontColor = isDark ? '#f1f5f9' : '#1e293b';
+    const axisFontColor = isDark ? '#94a3b8' : '#64748b';
+
+    return plots.map(plot => {
+      const layout = plot.layout || {};
+      const patchAxis = (axis) => ({
+        ...axis,
+        gridcolor: gridColor,
+        zerolinecolor: zerolineColor,
+        title: axis?.title ? {
+          ...( typeof axis.title === 'string' ? { text: axis.title } : axis.title ),
+          font: { color: axisFontColor },
+        } : axis?.title,
+        tickfont: { ...axis?.tickfont, color: axisFontColor },
+      });
+
+      return {
+        ...plot,
+        layout: {
+          ...layout,
+          paper_bgcolor: isDark ? '#0a0e27' : 'rgba(255,255,255,0.98)',
+          plot_bgcolor: isDark ? '#131b2e' : '#f8fafc',
+          font: { ...layout.font, color: fontColor },
+          xaxis: patchAxis(layout.xaxis),
+          yaxis: patchAxis(layout.yaxis),
+          legend: {
+            ...layout.legend,
+            bgcolor: isDark ? 'rgba(15,23,42,0.8)' : 'rgba(255,255,255,0.9)',
+            bordercolor: isDark ? 'rgba(148,163,184,0.2)' : 'rgba(100,116,139,0.15)',
+            font: { color: fontColor },
+          },
+        },
+      };
+    });
   }, [plots, isDark]);
 
   return (
@@ -71,6 +99,7 @@ function CoupledTanks3DViewer({ metadata, plots }) {
             <CoupledTanks3D
               animation={animation}
               isStable={isStable}
+              isDark={isDark}
             />
           ) : (
             <div className="ct3d-loading">Waiting for simulation data...</div>

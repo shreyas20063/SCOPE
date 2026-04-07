@@ -423,3 +423,60 @@
     gap: 8px;
   }
 }
+
+/* ========================================
+   LIGHT MODE OVERRIDES
+   ======================================== */
+[data-theme="light"] .aliasing-quantization-viewer {
+  background: linear-gradient(135deg, var(--surface-color) 0%, var(--background-color) 100%);
+}
+
+[data-theme="light"] .aq-tab-bar {
+  background: rgba(241, 245, 249, 0.95);
+  border-bottom-color: var(--border-color);
+}
+
+[data-theme="light"] .aq-tab-button {
+  color: #475569;
+}
+
+[data-theme="light"] .aq-tab-button:hover {
+  background: rgba(100, 116, 139, 0.1);
+  color: #1e293b;
+}
+
+[data-theme="light"] .aq-tab-button.active {
+  background: rgba(6, 182, 212, 0.1);
+  border-color: rgba(6, 182, 212, 0.25);
+  color: #0891b2;
+}
+
+[data-theme="light"] .aq-viewer-empty,
+[data-theme="light"] .aq-loading {
+  color: #475569;
+}
+
+[data-theme="light"] .aq-status-banner,
+[data-theme="light"] .aq-nyquist-info {
+  background: rgba(241, 245, 249, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="light"] .aq-status-label,
+[data-theme="light"] .aq-nyquist-label {
+  color: #475569;
+}
+
+[data-theme="light"] .aq-status-value {
+  color: #1e293b;
+}
+
+[data-theme="light"] .aq-plot-panel,
+[data-theme="light"] .aq-image-panel {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="light"] .aq-image-title {
+  color: #475569;
+}

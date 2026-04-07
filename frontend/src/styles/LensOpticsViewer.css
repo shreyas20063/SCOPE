@@ -552,3 +552,88 @@
     gap: 12px;
   }
 }
+
+/* ========================================
+   LIGHT MODE OVERRIDES
+   ======================================== */
+[data-theme="light"] .lens-optics-viewer {
+  background: linear-gradient(135deg, var(--surface-color) 0%, var(--background-color) 100%);
+}
+
+[data-theme="light"] .lens-tab-bar {
+  background: rgba(241, 245, 249, 0.95);
+  border-bottom-color: var(--border-color);
+}
+
+[data-theme="light"] .lens-tab-button {
+  color: #475569;
+}
+
+[data-theme="light"] .lens-tab-button:hover {
+  background: rgba(100, 116, 139, 0.1);
+  color: #1e293b;
+}
+
+[data-theme="light"] .lens-tab-button.active {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: #2563eb;
+}
+
+[data-theme="light"] .lens-viewer-empty {
+  color: #475569;
+}
+
+[data-theme="light"] .lens-status-banner,
+[data-theme="light"] .lens-quick-metrics,
+[data-theme="light"] .lens-assessment-banner {
+  background: rgba(241, 245, 249, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="light"] .lens-status-label,
+[data-theme="light"] .lens-quick-label,
+[data-theme="light"] .lens-arrow-icon,
+[data-theme="light"] .lens-arrow-label,
+[data-theme="light"] .lens-metric-label,
+[data-theme="light"] .lens-metric-unit,
+[data-theme="light"] .lens-image-sublabel,
+[data-theme="light"] .lens-image-placeholder,
+[data-theme="light"] .lens-mtf-description,
+[data-theme="light"] .lens-plot-title,
+[data-theme="light"] .lens-credit {
+  color: #475569;
+}
+
+[data-theme="light"] .lens-status-value,
+[data-theme="light"] .lens-image-title,
+[data-theme="light"] .lens-metric-card-title,
+[data-theme="light"] .lens-psf-metric-value,
+[data-theme="light"] .lens-metric-value,
+[data-theme="light"] .lens-mtf-title,
+[data-theme="light"] .lens-assessment-text,
+[data-theme="light"] .lens-formula {
+  color: #1e293b;
+}
+
+[data-theme="light"] .lens-image-panel,
+[data-theme="light"] .lens-psf-plot-panel,
+[data-theme="light"] .lens-metric-card,
+[data-theme="light"] .lens-mtf-section,
+[data-theme="light"] .lens-image-card {
+  background: rgba(248, 250, 252, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="light"] .lens-psf-banner {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.06) 0%, rgba(59, 130, 246, 0.06) 100%);
+  border-color: rgba(168, 85, 247, 0.15);
+}
+
+[data-theme="light"] .lens-psf-metric-label {
+  color: #7c3aed;
+}
+
+[data-theme="light"] .lens-quick-value {
+  color: #0891b2;
+}

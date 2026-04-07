@@ -9,6 +9,20 @@ import React, { useState, useCallback, useRef, useEffect, memo } from 'react';
 import Plot from 'react-plotly.js';
 import './ModulationViewer.css';
 
+function useTheme() {
+  const [theme, setTheme] = useState(() =>
+    document.documentElement.getAttribute('data-theme') || 'dark'
+  );
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setTheme(document.documentElement.getAttribute('data-theme') || 'dark')
+    );
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => obs.disconnect();
+  }, []);
+  return theme;
+}
+
 /**
  * Tab navigation bar
  */
@@ -174,13 +188,13 @@ const WaveformPlots = memo(function WaveformPlots({ plots }) {
                 ...plot.layout,
                 title: {
                   text: plot.title,
-                  font: { size: 14, color: '#e2e8f0', family: 'system-ui, sans-serif' },
+                  font: { size: 14, color: isDark ? '#e2e8f0' : '#1e293b', family: 'system-ui, sans-serif' },
                   x: 0.5,
                   xanchor: 'center',
                 },
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(15, 23, 42, 0.6)',
-                font: { color: '#e2e8f0', size: 12 },
+                paper_bgcolor: isDark ? 'rgba(0,0,0,0)' : 'rgba(255,255,255,0.98)',
+                plot_bgcolor: isDark ? 'rgba(15, 23, 42, 0.6)' : '#f8fafc',
+                font: { color: isDark ? '#e2e8f0' : '#1e293b', size: 12 },
                 margin: { l: 60, r: 25, t: 40, b: 50 },
                 height: 180,
                 xaxis: {
@@ -285,6 +299,8 @@ const FDMDemoContent = memo(function FDMDemoContent({ plots, audioData }) {
  * Main ModulationViewer Component
  */
 function ModulationViewer({ metadata, plots, currentParams, onParamChange }) {
+  const theme = useTheme();
+  const isDark = theme === 'dark';
   // Prioritize currentParams since it's updated immediately on user interaction,
   // while metadata only updates after API response (fixes glitch when adjusting sliders)
   const demoMode = currentParams?.demo_mode || metadata?.demo_mode || 'am';

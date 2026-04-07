@@ -26,7 +26,32 @@ const SIGNAL_OPTIONS = [
 
 const FREQ_SIGNALS = new Set(['sinusoid', 'square', 'sawtooth', 'triangle', 'chirp']);
 
-// Plotly-friendly colors (no CSS vars)
+// Theme-aware plot colors
+function usePlotTheme() {
+  const [isDark, setIsDark] = React.useState(
+    () => document.documentElement.getAttribute('data-theme') !== 'light'
+  );
+  React.useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(document.documentElement.getAttribute('data-theme') !== 'light')
+    );
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => obs.disconnect();
+  }, []);
+  return isDark ? {
+    PLOT_BG: '#131b2e', PLOT_PAPER: '#0a0e27',
+    PLOT_GRID: 'rgba(148,163,184,0.08)', PLOT_ZERO: 'rgba(148,163,184,0.2)',
+    PLOT_TEXT: '#94a3b8', BORDER: '#1e293b', SHADOW: 'rgba(0,0,0,0.5)',
+    TEXT_PRIMARY: '#e2e8f0', TEXT_MUTED: '#475569',
+  } : {
+    PLOT_BG: '#eaf0f8', PLOT_PAPER: '#f0f4fa',
+    PLOT_GRID: 'rgba(37,99,235,0.08)', PLOT_ZERO: 'rgba(37,99,235,0.15)',
+    PLOT_TEXT: '#3b4963', BORDER: '#bec9db', SHADOW: 'rgba(15,23,42,0.12)',
+    TEXT_PRIMARY: '#0c1425', TEXT_MUTED: '#4a5d78',
+  };
+}
+
+// Legacy constants (used by sub-components that don't have theme access)
 const PLOT_BG = '#131b2e';
 const PLOT_PAPER = '#0a0e27';
 const PLOT_GRID = 'rgba(148,163,184,0.08)';
@@ -36,7 +61,7 @@ const PLOT_TEXT = '#94a3b8';
 // ============================================================================
 // SFG Node Component
 // ============================================================================
-function SFGNode({ node, onToggleProbe, isProbed, probeColor }) {
+function SFGNode({ node, onToggleProbe, isProbed, probeColor, theme }) {
   const { id, type, label, position, probeable } = node;
   const x = position?.x || 0;
   const y = position?.y || 0;
@@ -81,12 +106,12 @@ function SFGNode({ node, onToggleProbe, isProbed, probeColor }) {
         <text textAnchor="middle" dominantBaseline="central" fill="#f59e0b" fontSize="16" fontWeight="bold">+</text>
       )}
       {type !== 'branch' && (
-        <text y={radius + 15} textAnchor="middle" fill="#94a3b8" fontSize="10" fontFamily="Inter, sans-serif" fontWeight="500">
+        <text y={radius + 15} textAnchor="middle" fill={theme?.TEXT_PRIMARY || '#94a3b8'} fontSize="10" fontFamily="Inter, sans-serif" fontWeight="500">
           {label?.length > 14 ? label.slice(0, 12) + '…' : label}
         </text>
       )}
       {probeable && !isProbed && (
-        <circle r={3} cx={radius - 2} cy={-radius + 2} fill="#00d9ff" opacity={0.7} />
+        <circle r={3} cx={radius - 2} cy={-radius + 2} fill={theme?.PLOT_TEXT || '#00d9ff'} opacity={0.7} />
       )}
     </g>
   );
@@ -95,13 +120,53 @@ function SFGNode({ node, onToggleProbe, isProbed, probeColor }) {
 // ============================================================================
 // SFG Edge Component
 // ============================================================================
-function SFGEdge({ edge, nodes }) {
+function SFGEdge({ edge, nodes, theme }) {
   const fromNode = nodes.find(n => n.id === edge.from);
   const toNode = nodes.find(n => n.id === edge.to);
   if (!fromNode || !toNode) return null;
 
   const x1 = fromNode.position?.x || 0, y1 = fromNode.position?.y || 0;
   const x2 = toNode.position?.x || 0, y2 = toNode.position?.y || 0;
+  const isSelfLoop = edge.from === edge.to;
+
+  const edgeColor = edge.is_feedback ? '#f59e0b' : (theme?.PLOT_TEXT === '#3b4963' ? '#0284c7' : '#00d9ff');
+  const isUnity = edge.gain_label === '1';
+  const isNegative = edge.gain_label?.startsWith('-');
+  const labelBg = theme?.PLOT_PAPER || PLOT_BG;
+  const labelBorder = theme?.BORDER || '#1e293b';
+  const displayLabel = edge.gain_label || '1';
+  const labelLen = displayLabel.length;
+  const boxW = Math.max(44, labelLen * 7 + 16);
+
+  // Self-loop: draw a circle above the node
+  if (isSelfLoop) {
+    const r = fromNode.type === 'branch' ? BRANCH_RADIUS : NODE_RADIUS;
+    const loopR = 30;
+    const loopCy = y1 - r - loopR - 5;
+    // Cubic bezier that forms a loop above the node
+    const path = `M ${x1 - r} ${y1 - 2} C ${x1 - r - loopR} ${loopCy - loopR}, ${x1 + r + loopR} ${loopCy - loopR}, ${x1 + r} ${y1 - 2}`;
+    const labelY = loopCy - loopR + 5;
+
+    return (
+      <g>
+        <path d={path} fill="none" stroke={edgeColor} strokeWidth={2} strokeLinecap="round"
+          opacity={0.8} markerEnd="url(#sfs-arrow)" />
+        {!isUnity && (
+          <g transform={`translate(${x1}, ${labelY})`}>
+            <rect x={-boxW / 2} y={-12} width={boxW} height={24} rx={6}
+              fill={labelBg} stroke={labelBorder} strokeWidth={1} opacity={0.95} />
+            <text textAnchor="middle" dominantBaseline="central"
+              fill={isNegative ? '#ef4444' : edgeColor}
+              fontSize="11" fontFamily="'Fira Code', monospace" fontWeight="600">
+              {displayLabel}
+            </text>
+          </g>
+        )}
+      </g>
+    );
+  }
+
+  // Normal edge
   const dx = x2 - x1, dy = y2 - y1;
   const dist = Math.sqrt(dx * dx + dy * dy);
 
@@ -123,24 +188,21 @@ function SFGEdge({ edge, nodes }) {
   const ex = x2 + Math.cos(angle2) * toR, ey = y2 + Math.sin(angle2) * toR;
 
   const path = `M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`;
-  const edgeColor = edge.is_feedback ? '#f59e0b' : '#00d9ff';
-  const isUnity = edge.gain_label === '1';
-  const isNegative = edge.gain_label?.startsWith('-');
   const lx = 0.25 * sx + 0.5 * cx + 0.25 * ex;
   const ly = 0.25 * sy + 0.5 * cy + 0.25 * ey;
 
   return (
     <g>
       <path d={path} fill="none" stroke={edgeColor} strokeWidth={2} strokeLinecap="round"
-        opacity={isUnity ? 0.25 : 0.65} markerEnd="url(#sfs-arrow)" />
+        opacity={isUnity ? 0.3 : 0.8} markerEnd="url(#sfs-arrow)" />
       {!isUnity && (
         <g transform={`translate(${lx}, ${ly})`}>
-          <rect x={-22} y={-11} width={44} height={22} rx={6}
-            fill={PLOT_BG} stroke="#1e293b" strokeWidth={1} opacity={0.92} />
+          <rect x={-boxW / 2} y={-12} width={boxW} height={24} rx={6}
+            fill={labelBg} stroke={labelBorder} strokeWidth={1} opacity={0.95} />
           <text textAnchor="middle" dominantBaseline="central"
             fill={isNegative ? '#ef4444' : edgeColor}
             fontSize="11" fontFamily="'Fira Code', monospace" fontWeight="600">
-            {edge.gain_label?.length > 8 ? edge.gain_label.slice(0, 6) + '…' : edge.gain_label}
+            {displayLabel}
           </text>
         </g>
       )}
@@ -151,8 +213,9 @@ function SFGEdge({ edge, nodes }) {
 // ============================================================================
 // Signal Plot Card — uses raw hex colors for Plotly
 // ============================================================================
-function SignalPlotCard({ title, color, time, values, stats, systemType, xLabel }) {
+function SignalPlotCard({ title, color, time, values, stats, systemType, xLabel, theme }) {
   if (!time || !values || values.length === 0) return null;
+  const P = theme || { PLOT_BG, PLOT_PAPER, PLOT_GRID, PLOT_ZERO, PLOT_TEXT };
 
   const mode = systemType === 'dt' ? 'markers+lines' : 'lines';
   const data = useMemo(() => [{
@@ -162,17 +225,17 @@ function SignalPlotCard({ title, color, time, values, stats, systemType, xLabel 
   }], [time, values, mode, title, color, systemType]);
 
   const layout = useMemo(() => ({
-    paper_bgcolor: PLOT_PAPER,
-    plot_bgcolor: PLOT_BG,
-    font: { family: 'Inter, sans-serif', size: 11, color: PLOT_TEXT },
+    paper_bgcolor: P.PLOT_PAPER,
+    plot_bgcolor: P.PLOT_BG,
+    font: { family: 'Inter, sans-serif', size: 11, color: P.PLOT_TEXT },
     margin: { t: 6, r: 10, b: 32, l: 44 },
-    xaxis: { title: { text: xLabel, font: { size: 10 }, standoff: 4 }, gridcolor: PLOT_GRID, zerolinecolor: PLOT_ZERO, color: PLOT_TEXT },
-    yaxis: { gridcolor: PLOT_GRID, zerolinecolor: PLOT_ZERO, color: PLOT_TEXT, autorange: true },
+    xaxis: { title: { text: xLabel, font: { size: 10 }, standoff: 4 }, gridcolor: P.PLOT_GRID, zerolinecolor: P.PLOT_ZERO, color: P.PLOT_TEXT },
+    yaxis: { gridcolor: P.PLOT_GRID, zerolinecolor: P.PLOT_ZERO, color: P.PLOT_TEXT, autorange: true },
     showlegend: false,
     autosize: true,
-    datarevision: `${title}-${values.length > 0 ? values[0] : 0}-${values.length}`,
+    datarevision: `${title}-${values.length}-${values[0]?.toFixed?.(6) ?? 0}-${values[Math.floor(values.length / 2)]?.toFixed?.(6) ?? 0}-${values[values.length - 1]?.toFixed?.(6) ?? 0}`,
     uirevision: title,
-  }), [title, xLabel, values]);
+  }), [title, xLabel, values, P]);
 
   return (
     <div className="sfs-plot-card">
@@ -197,10 +260,11 @@ function SignalPlotCard({ title, color, time, values, stats, systemType, xLabel 
 // ============================================================================
 // Overlay Plot
 // ============================================================================
-function OverlayPlot({ signals, systemType, xLabel }) {
+function OverlayPlot({ signals, systemType, xLabel, theme }) {
   if (!signals || signals.length === 0) return null;
   const time = signals[0]?.time;
   if (!time) return null;
+  const P = theme || { PLOT_BG, PLOT_PAPER, PLOT_GRID, PLOT_ZERO, PLOT_TEXT, TEXT_PRIMARY: '#e2e8f0' };
 
   const data = useMemo(() => signals.map(s => ({
     x: time, y: s.values, type: 'scatter',
@@ -210,16 +274,16 @@ function OverlayPlot({ signals, systemType, xLabel }) {
   })), [signals, time, systemType]);
 
   const layout = useMemo(() => ({
-    paper_bgcolor: PLOT_PAPER, plot_bgcolor: PLOT_BG,
-    font: { family: 'Inter, sans-serif', size: 11, color: PLOT_TEXT },
+    paper_bgcolor: P.PLOT_PAPER, plot_bgcolor: P.PLOT_BG,
+    font: { family: 'Inter, sans-serif', size: 11, color: P.PLOT_TEXT },
     margin: { t: 6, r: 10, b: 32, l: 44 },
-    xaxis: { title: { text: xLabel, font: { size: 10 } }, gridcolor: PLOT_GRID, zerolinecolor: PLOT_ZERO, color: PLOT_TEXT },
-    yaxis: { gridcolor: PLOT_GRID, zerolinecolor: PLOT_ZERO, color: PLOT_TEXT, autorange: true },
-    legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(0,0,0,0.5)', font: { size: 10, color: '#e2e8f0' } },
+    xaxis: { title: { text: xLabel, font: { size: 10 } }, gridcolor: P.PLOT_GRID, zerolinecolor: P.PLOT_ZERO, color: P.PLOT_TEXT },
+    yaxis: { gridcolor: P.PLOT_GRID, zerolinecolor: P.PLOT_ZERO, color: P.PLOT_TEXT, autorange: true },
+    legend: { x: 0.01, y: 0.99, bgcolor: P.PLOT_BG, font: { size: 10, color: P.TEXT_PRIMARY } },
     showlegend: true, autosize: true,
-    datarevision: `overlay-${signals.length}-${signals.map(s => s.values?.[0] ?? 0).join(',')}`,
+    datarevision: `overlay-${signals.length}-${signals.map(s => `${s.values?.[0]?.toFixed?.(6) ?? 0}_${s.values?.[Math.floor((s.values?.length || 0) / 2)]?.toFixed?.(6) ?? 0}`).join(',')}`,
     uirevision: 'overlay',
-  }), [signals, xLabel]);
+  }), [signals, xLabel, P]);
 
   return (
     <div className="sfs-plot-card sfs-plot-overlay">
@@ -239,6 +303,7 @@ function OverlayPlot({ signals, systemType, xLabel }) {
 // Main Component
 // ============================================================================
 function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, onMetadataChange, simId }) {
+  const T = usePlotTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
@@ -272,6 +337,39 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
   const dutyCycle = currentParams?.duty_cycle ?? 0.5;
   const chirpEndFreq = currentParams?.chirp_end_freq ?? 20.0;
   const xLabel = systemType === 'dt' ? 'n (samples)' : 'Time (s)';
+
+  // Stagger nodes vertically when layout is nearly flat (all same y)
+  // Also add horizontal breathing room between nodes that are too close
+  const layoutNodes = useMemo(() => {
+    if (sfgNodes.length < 2) return sfgNodes;
+    const ys = sfgNodes.map(n => n.position?.y || 0);
+    const yRange = Math.max(...ys) - Math.min(...ys);
+
+    if (yRange >= 60) return sfgNodes;
+
+    const centerY = (Math.max(...ys) + Math.min(...ys)) / 2;
+    // Sort by x to get left-to-right order
+    const sorted = [...sfgNodes].sort((a, b) => (a.position?.x || 0) - (b.position?.x || 0));
+
+    // Ensure minimum horizontal spacing between consecutive nodes
+    const minGap = 160;
+    const stagger = 80;
+    const adjusted = [];
+    for (let i = 0; i < sorted.length; i++) {
+      const n = sorted[i];
+      const prevX = i > 0 ? adjusted[i - 1].position.x : -Infinity;
+      const rawX = n.position?.x || 0;
+      adjusted.push({
+        ...n,
+        position: {
+          x: Math.max(rawX, prevX + minGap),
+          y: centerY + (i % 2 === 0 ? -stagger : stagger),
+        },
+      });
+    }
+
+    return adjusted;
+  }, [sfgNodes]);
 
   // Probe lookup
   const probedNodeIds = useMemo(() => new Set(probes.map(p => p.node_id)), [probes]);
@@ -400,9 +498,9 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
 
   // Auto-fit viewport when diagram changes
   useEffect(() => {
-    if (sfgNodes.length === 0) return;
-    const xs = sfgNodes.map(n => n.position?.x || 0);
-    const ys = sfgNodes.map(n => n.position?.y || 0);
+    if (layoutNodes.length === 0) return;
+    const xs = layoutNodes.map(n => n.position?.x || 0);
+    const ys = layoutNodes.map(n => n.position?.y || 0);
     const pad = 80;
     const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad;
     const minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad;
@@ -410,15 +508,17 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
     if (!el) return;
     const rect = el.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
+    // Use a minimum span for Y to avoid squishing nearly-collinear layouts
+    const ySpan = Math.max(maxY - minY, 250);
     const sx = rect.width / (maxX - minX);
-    const sy = rect.height / (maxY - minY);
-    const z = Math.min(sx, sy, 1.8) * 0.8;
+    const sy = rect.height / ySpan;
+    const z = Math.min(sx, sy, 1.8) * 0.85;
     setZoom(z);
     setPan({
       x: rect.width / 2 - ((minX + maxX) / 2) * z,
       y: rect.height / 2 - ((minY + maxY) / 2) * z,
     });
-  }, [sfgNodes.length]);
+  }, [layoutNodes]);
 
   // Close presets dropdown on outside click
   useEffect(() => {
@@ -579,14 +679,14 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
                     fill="#00d9ff" opacity="0.7" />
                 </marker>
               </defs>
-              <rect width="100%" height="100%" fill={PLOT_BG} />
+              <rect width="100%" height="100%" fill={T.PLOT_BG} />
               <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
-                {sfgEdges.map(e => <SFGEdge key={e.id} edge={e} nodes={sfgNodes} />)}
-                {sfgNodes.map(n => (
+                {sfgEdges.map(e => <SFGEdge key={e.id} edge={e} nodes={layoutNodes} theme={T} />)}
+                {layoutNodes.map(n => (
                   <SFGNode key={n.id} node={n}
                     onToggleProbe={handleToggleProbe}
                     isProbed={probedNodeIds.has(n.id)}
-                    probeColor={probeColorMap[n.id]} />
+                    probeColor={probeColorMap[n.id]} theme={T} />
                 ))}
               </g>
             </svg>
@@ -632,18 +732,18 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
 
             <div className="sfs-plots-grid">
               {overlayMode ? (
-                <OverlayPlot signals={allSignals.filter(s => visiblePlots[s.key])} systemType={systemType} xLabel={xLabel} />
+                <OverlayPlot signals={allSignals.filter(s => visiblePlots[s.key])} systemType={systemType} xLabel={xLabel} theme={T} />
               ) : (
                 <>
                   {visiblePlots.input && signals.input && (
                     <SignalPlotCard title={signals.input.label || 'Input'} color={signals.input.color || '#14b8a6'}
                       time={signals.time} values={signals.input.values} stats={signals.input.stats}
-                      systemType={systemType} xLabel={xLabel} />
+                      systemType={systemType} xLabel={xLabel} theme={T} />
                   )}
                   {visiblePlots.output && signals.output && (
                     <SignalPlotCard title={signals.output.label || 'Output'} color={signals.output.color || '#f59e0b'}
                       time={signals.time} values={signals.output.values} stats={signals.output.stats}
-                      systemType={systemType} xLabel={xLabel} />
+                      systemType={systemType} xLabel={xLabel} theme={T} />
                   )}
                   {probes.map(p => {
                     const ps = signals.probes?.[p.id];
@@ -651,7 +751,7 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
                     return (
                       <SignalPlotCard key={p.id} title={ps.label} color={ps.color}
                         time={signals.time} values={ps.values} stats={ps.stats}
-                        systemType={systemType} xLabel={xLabel} />
+                        systemType={systemType} xLabel={xLabel} theme={T} />
                     );
                   })}
                   {!signals.time && (
@@ -673,7 +773,7 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
   display: flex; flex-direction: column;
   height: 100%; min-height: 550px;
   position: relative;
-  background: ${PLOT_PAPER};
+  background: ${T.PLOT_PAPER};
   border-radius: 12px;
   overflow: hidden;
 }
@@ -682,17 +782,17 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
 .sfs-toolbar {
   display: flex; align-items: center; gap: 7px;
   padding: 5px 10px; flex-shrink: 0; flex-wrap: wrap;
-  background: ${PLOT_BG}; border-bottom: 1px solid #1e293b;
+  background: ${T.PLOT_BG}; border-bottom: 1px solid ${T.BORDER};
 }
-.sfs-sep { width: 1px; height: 18px; background: #1e293b; flex-shrink: 0; }
-.sfs-lbl { font-size: 11px; color: #94a3b8; font-weight: 600; white-space: nowrap; }
-.sfs-lbl-dim { font-weight: 400; color: #64748b; }
-.sfs-val { font-size: 11px; color: #00d9ff; font-family: 'Fira Code', monospace; min-width: 32px; text-align: right; }
+.sfs-sep { width: 1px; height: 18px; background: ${T.BORDER}; flex-shrink: 0; }
+.sfs-lbl { font-size: 11px; color: ${T.PLOT_TEXT}; font-weight: 600; white-space: nowrap; }
+.sfs-lbl-dim { font-weight: 400; color: ${T.TEXT_MUTED}; }
+.sfs-val { font-size: 11px; color: var(--accent-color); font-family: 'Fira Code', monospace; min-width: 32px; text-align: right; }
 
 /* Buttons */
 .sfs-btn {
-  padding: 4px 10px; border: 1px solid #1e293b; background: transparent;
-  color: #94a3b8; border-radius: 6px; font-size: 11px; font-weight: 500;
+  padding: 4px 10px; border: 1px solid ${T.BORDER}; background: transparent;
+  color: ${T.PLOT_TEXT}; border-radius: 6px; font-size: 11px; font-weight: 500;
   cursor: pointer; transition: all 150ms; white-space: nowrap;
 }
 .sfs-btn:hover { border-color: #14b8a6; color: #14b8a6; background: rgba(20,184,166,0.08); }
@@ -705,8 +805,8 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
 
 /* Select / slider */
 .sfs-sel {
-  padding: 3px 6px; border: 1px solid #1e293b; background: #111827;
-  color: #f1f5f9; border-radius: 5px; font-size: 11px; outline: none; cursor: pointer;
+  padding: 3px 6px; border: 1px solid ${T.BORDER}; background: ${T.PLOT_BG};
+  color: ${T.TEXT_PRIMARY}; border-radius: 5px; font-size: 11px; outline: none; cursor: pointer;
 }
 .sfs-sel:focus { border-color: #14b8a6; }
 .sfs-slider { width: 70px; height: 3px; accent-color: #14b8a6; cursor: pointer; }
@@ -731,17 +831,17 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
 .sfs-dropdown {
   position: absolute; top: calc(100% + 4px); left: 0; z-index: 50;
   min-width: 260px; padding: 4px;
-  background: ${PLOT_BG}; border: 1px solid #1e293b; border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  background: ${T.PLOT_BG}; border: 1px solid ${T.BORDER}; border-radius: 8px;
+  box-shadow: 0 8px 32px ${T.SHADOW};
 }
 .sfs-dropdown-item {
   display: flex; flex-direction: column; width: 100%; padding: 8px 12px;
-  border: none; background: transparent; color: #f1f5f9; cursor: pointer;
+  border: none; background: transparent; color: ${T.TEXT_PRIMARY}; cursor: pointer;
   border-radius: 5px; text-align: left;
 }
 .sfs-dropdown-item:hover { background: rgba(20,184,166,0.1); }
 .sfs-dropdown-item strong { font-size: 12px; }
-.sfs-dropdown-item small { font-size: 10px; color: #64748b; margin-top: 2px; }
+.sfs-dropdown-item small { font-size: 10px; color: ${T.TEXT_MUTED}; margin-top: 2px; }
 
 /* Error */
 .sfs-err {
@@ -754,10 +854,10 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
 .sfs-empty {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  padding: 32px; text-align: center; color: #94a3b8;
+  padding: 32px; text-align: center; color: ${T.PLOT_TEXT};
 }
-.sfs-empty h3 { font-size: 22px; color: #f1f5f9; margin: 0 0 6px; }
-.sfs-empty p { font-size: 14px; color: #64748b; margin: 0 0 20px; }
+.sfs-empty h3 { font-size: 22px; color: ${T.TEXT_PRIMARY}; margin: 0 0 6px; }
+.sfs-empty p { font-size: 14px; color: ${T.TEXT_MUTED}; margin: 0 0 20px; }
 .sfs-empty-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 
 /* --- Main body --- */
@@ -767,16 +867,16 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
 .sfs-canvas-wrap {
   flex: 1 1 0; min-height: 250px;
   display: flex; flex-direction: column;
-  position: relative; border-bottom: 1px solid #1e293b;
+  position: relative; border-bottom: 1px solid ${T.BORDER};
 }
 .sfs-canvas-hdr {
   display: flex; align-items: center; gap: 10px;
-  padding: 3px 10px; background: rgba(19,27,46,0.85);
-  border-bottom: 1px solid #1e293b; flex-shrink: 0;
+  padding: 3px 10px; background: ${T.PLOT_BG};
+  border-bottom: 1px solid ${T.BORDER}; flex-shrink: 0;
 }
-.sfs-canvas-label { font-size: 11px; font-weight: 600; color: #f1f5f9; }
-.sfs-canvas-hint { font-size: 10px; color: #475569; }
-.sfs-canvas-probes { margin-left: auto; font-size: 10px; color: #64748b; }
+.sfs-canvas-label { font-size: 11px; font-weight: 600; color: ${T.TEXT_PRIMARY}; }
+.sfs-canvas-hint { font-size: 10px; color: ${T.TEXT_MUTED}; }
+.sfs-canvas-probes { margin-left: auto; font-size: 10px; color: ${T.TEXT_MUTED}; }
 .sfs-svg { flex: 1; cursor: grab; display: block; }
 .sfs-svg:active { cursor: grabbing; }
 
@@ -791,16 +891,16 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
 }
 .sfs-chip {
   display: flex; align-items: center; gap: 4px;
-  padding: 3px 8px; background: rgba(10,14,39,0.92);
-  border: 1px solid #1e293b; border-radius: 999px;
+  padding: 3px 8px; background: ${T.PLOT_PAPER};
+  border: 1px solid ${T.BORDER}; border-radius: 999px;
   cursor: pointer; pointer-events: all; backdrop-filter: blur(6px);
   transition: border-color 150ms;
 }
 .sfs-chip:hover { border-color: #ef4444; }
 .sfs-chip-dot { width: 7px; height: 7px; border-radius: 50%; }
-.sfs-chip-name { font-size: 10px; font-weight: 500; color: #e2e8f0; }
-.sfs-chip-tf { font-size: 9px; font-family: 'Fira Code', monospace; color: #64748b; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sfs-chip-x { font-size: 11px; color: #64748b; margin-left: 2px; }
+.sfs-chip-name { font-size: 10px; font-weight: 500; color: ${T.TEXT_PRIMARY}; }
+.sfs-chip-tf { font-size: 9px; font-family: 'Fira Code', monospace; color: ${T.TEXT_MUTED}; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sfs-chip-x { font-size: 11px; color: ${T.TEXT_MUTED}; margin-left: 2px; }
 
 /* --- Plots section --- */
 .sfs-plots-wrap {
@@ -811,51 +911,51 @@ function SignalFlowScopeViewer({ metadata, plots, currentParams, onParamChange, 
 /* Plot toggle bar */
 .sfs-plots-bar {
   display: flex; align-items: center; gap: 5px;
-  padding: 4px 10px; background: ${PLOT_BG};
-  border-bottom: 1px solid #1e293b; flex-shrink: 0; flex-wrap: wrap;
+  padding: 4px 10px; background: ${T.PLOT_BG};
+  border-bottom: 1px solid ${T.BORDER}; flex-shrink: 0; flex-wrap: wrap;
 }
-.sfs-plots-lbl { font-size: 11px; font-weight: 600; color: #f1f5f9; margin-right: 2px; }
+.sfs-plots-lbl { font-size: 11px; font-weight: 600; color: ${T.TEXT_PRIMARY}; margin-right: 2px; }
 .sfs-pill {
   display: inline-flex; align-items: center; gap: 3px;
-  padding: 2px 8px; border: 1px solid #1e293b; background: transparent;
-  color: #64748b; border-radius: 999px; font-size: 10px;
+  padding: 2px 8px; border: 1px solid ${T.BORDER}; background: transparent;
+  color: ${T.TEXT_MUTED}; border-radius: 999px; font-size: 10px;
   cursor: pointer; transition: all 150ms;
 }
 .sfs-pill i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
 .sfs-pill:hover { border-color: #14b8a6; }
-.sfs-pill.on { border-color: #14b8a680; color: #e2e8f0; background: rgba(20,184,166,0.08); }
+.sfs-pill.on { border-color: #14b8a680; color: ${T.TEXT_PRIMARY}; background: rgba(20,184,166,0.08); }
 .sfs-pill-ov { font-weight: 600; }
 
 /* Plot grid */
 .sfs-plots-grid {
   display: grid; grid-template-columns: 1fr 1fr;
-  gap: 1px; background: #1e293b;
+  gap: 1px; background: ${T.BORDER};
   overflow-y: auto; flex: 1;
 }
 
-.sfs-plot-card { background: ${PLOT_PAPER}; display: flex; flex-direction: column; }
+.sfs-plot-card { background: ${T.PLOT_PAPER}; display: flex; flex-direction: column; }
 .sfs-plot-overlay { grid-column: 1 / -1; }
 .sfs-plot-card-hdr {
   display: flex; align-items: center; gap: 5px;
   padding: 3px 8px; flex-shrink: 0;
 }
 .sfs-plot-dot { width: 7px; height: 7px; border-radius: 50%; }
-.sfs-plot-title { font-size: 11px; font-weight: 600; color: #e2e8f0; }
-.sfs-plot-stats { font-size: 9px; font-family: 'Fira Code', monospace; color: #475569; margin-left: auto; }
-.sfs-plot-body { height: 170px; }  /* explicit height for Plotly */
+.sfs-plot-title { font-size: 11px; font-weight: 600; color: ${T.TEXT_PRIMARY}; }
+.sfs-plot-stats { font-size: 9px; font-family: 'Fira Code', monospace; color: ${T.TEXT_MUTED}; margin-left: auto; }
+.sfs-plot-body { height: 170px; }
 .sfs-plot-body-tall { height: 240px; }
 .sfs-plots-empty {
   grid-column: 1 / -1; display: flex; align-items: center;
   justify-content: center; padding: 24px;
-  color: #475569; font-size: 13px; background: ${PLOT_PAPER};
+  color: ${T.TEXT_MUTED}; font-size: 13px; background: ${T.PLOT_PAPER};
 }
 
 /* Toast */
 .sfs-toast {
   position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
-  background: ${PLOT_BG}; border: 1px solid #14b8a6; border-radius: 8px;
-  padding: 7px 16px; color: #e2e8f0; font-size: 12px;
-  z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.5); pointer-events: none;
+  background: ${T.PLOT_BG}; border: 1px solid #14b8a6; border-radius: 8px;
+  padding: 7px 16px; color: ${T.TEXT_PRIMARY}; font-size: 12px;
+  z-index: 100; box-shadow: 0 4px 16px ${T.SHADOW}; pointer-events: none;
 }
 
 /* Responsive */

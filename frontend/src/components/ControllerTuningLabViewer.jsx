@@ -469,15 +469,15 @@ const TuningPlot = memo(function TuningPlot({ plot, height = 300, compact = fals
     const plotXaxis = plot.layout?.xaxis || {};
     const plotYaxis = plot.layout?.yaxis || {};
     const margins = compact
-      ? { t: 36, r: 16, b: 44, l: 52 }
-      : { t: 40, r: 20, b: 50, l: 56 };
+      ? { t: 56, r: 16, b: 44, l: 52 }
+      : { t: 62, r: 20, b: 50, l: 56 };
 
     return {
       ...(plot.layout || {}),
       title: {
         text: plot.title,
         font: { size: compact ? 13 : 14, color: isDark ? '#f1f5f9' : '#1e293b' },
-        y: 0.98, yanchor: 'top',
+        y: 0.99, yanchor: 'top', yref: 'paper',
       },
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: isDark ? 'rgba(19,27,46,0.6)' : 'rgba(248,250,252,0.8)',
@@ -504,8 +504,11 @@ const TuningPlot = memo(function TuningPlot({ plot, height = 300, compact = fals
       legend: {
         font: { size: compact ? 10 : 11 },
         bgcolor: 'rgba(0,0,0,0)',
-        orientation: compact ? 'h' : 'v',
-        ...(compact ? { y: -0.18, x: 0.5, xanchor: 'center' } : {}),
+        orientation: 'h',
+        y: 1.02,
+        yanchor: 'bottom',
+        x: 0.5,
+        xanchor: 'center',
       },
       annotations: plot.layout?.annotations || [],
     };

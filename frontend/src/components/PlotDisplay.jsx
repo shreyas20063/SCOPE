@@ -42,8 +42,8 @@ function getDefaultLayout(theme) {
   const isDark = theme === 'dark';
 
   return {
-    paper_bgcolor: isDark ? '#0f172a' : 'rgba(255, 255, 255, 0.98)',
-    plot_bgcolor: isDark ? '#1e293b' : '#f8fafc',
+    paper_bgcolor: isDark ? '#0f172a' : '#f3f6fb',
+    plot_bgcolor: isDark ? '#1e293b' : '#eaf0f8',
     font: {
       color: isDark ? '#e2e8f0' : '#1e293b',
       family: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -239,6 +239,9 @@ function PlotCard({ plot, index }) {
   const layout = {
     ...defaultLayout,
     ...plotLayout,
+    // Theme-aware colors MUST override backend hardcodes
+    paper_bgcolor: defaultLayout.paper_bgcolor,
+    plot_bgcolor: defaultLayout.plot_bgcolor,
     // Title: Use plot.title directly (dynamic from backend)
     title: {
       text: plotTitle || `Plot ${index + 1}`,

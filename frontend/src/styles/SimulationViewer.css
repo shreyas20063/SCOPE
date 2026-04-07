@@ -662,7 +662,9 @@
 [data-theme="light"] .simulation-header,
 [data-theme="light"] .mobile-tabs,
 [data-theme="light"] .info-panel {
-  background: var(--surface-color, #ffffff);
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(37, 99, 235, 0.03);
 }
 
 [data-theme="light"] .share-tooltip {
@@ -670,6 +672,50 @@
 }
 
 [data-theme="light"] .equation {
+  background: rgba(241, 245, 249, 0.8);
+}
+
+[data-theme="light"] .block-diagram-section,
+[data-theme="light"] .system-info-section {
+  background: linear-gradient(135deg, var(--surface-color), var(--background-color));
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme="light"] .info-section-title {
+  color: #1e293b;
+}
+
+[data-theme="light"] .info-card {
+  background: rgba(241, 245, 249, 0.6);
+  border-color: rgba(148, 163, 184, 0.15);
+}
+
+[data-theme="light"] .info-card:hover {
+  background: rgba(241, 245, 249, 0.9);
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+[data-theme="light"] .info-card-value {
+  color: #1e293b;
+}
+
+[data-theme="light"] .current-params-display,
+[data-theme="light"] .pid-gains-display {
+  background: rgba(241, 245, 249, 0.6);
+}
+
+[data-theme="light"] .speed-select {
+  background: rgba(255, 255, 255, 0.8);
+  color: #1e293b;
+}
+
+[data-theme="light"] .time-display {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-theme="light"] .animation-controls {
   background: rgba(241, 245, 249, 0.8);
 }
 

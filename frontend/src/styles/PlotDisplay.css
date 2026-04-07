@@ -278,7 +278,14 @@
 [data-theme="light"] .plot-card,
 [data-theme="light"] .plots-empty,
 [data-theme="light"] .plot-skeleton {
-  background: var(--surface-color, #ffffff);
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(37, 99, 235, 0.03);
+}
+
+[data-theme="light"] .plot-card:hover {
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(37, 99, 235, 0.06);
+  border-color: rgba(37, 99, 235, 0.2);
 }
 
 [data-theme="light"] .text-panel-header h3 {
