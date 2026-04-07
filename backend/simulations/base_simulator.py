@@ -180,20 +180,25 @@ class BaseSimulator(ABC):
     def to_hub_data(self) -> Optional[Dict[str, Any]]:
         """Serialize this sim's state for pushing to the hub.
 
-        Default: export TF from common parameter name patterns.
+        Default: export TF from common parameter name patterns. Discovers
+        TF-relevant keys via PARAMETER_SCHEMA (so subclasses don't need to
+        put them in DEFAULT_PARAMS just to be hub-exportable), then reads
+        the runtime value from self.parameters with the schema default as
+        fallback.
+
         Override for sims with non-standard parameter names.
         """
-        num = den = None
-        for key in ('numerator', 'num_coeffs', 'custom_num', 'plant_num', 'tf_numerator'):
-            if key in self.parameters:
-                val = self.parameters[key]
-                num = self._parse_coeffs(val) if isinstance(val, str) else val
-                break
-        for key in ('denominator', 'den_coeffs', 'custom_den', 'plant_den', 'tf_denominator'):
-            if key in self.parameters:
-                val = self.parameters[key]
-                den = self._parse_coeffs(val) if isinstance(val, str) else val
-                break
+        def _read(keys):
+            for key in keys:
+                if key in self.PARAMETER_SCHEMA:
+                    val = self.parameters.get(key, self.PARAMETER_SCHEMA[key].get("default"))
+                    if val is None:
+                        return None
+                    return self._parse_coeffs(val) if isinstance(val, str) else val
+            return None
+
+        num = _read(('numerator', 'num_coeffs', 'custom_num', 'plant_num', 'tf_numerator'))
+        den = _read(('denominator', 'den_coeffs', 'custom_den', 'plant_den', 'tf_denominator'))
 
         if num is not None and den is not None:
             return {
@@ -232,15 +237,21 @@ class BaseSimulator(ABC):
         if tf and tf.get("num") and tf.get("den"):
             num_str = ", ".join(str(c) for c in tf["num"])
             den_str = ", ".join(str(c) for c in tf["den"])
+            num_injected = False
+            den_injected = False
             for key in ('numerator', 'num_coeffs', 'custom_num', 'plant_num', 'tf_numerator'):
                 if key in self.PARAMETER_SCHEMA:
                     self.parameters[key] = num_str
+                    num_injected = True
                     break
             for key in ('denominator', 'den_coeffs', 'custom_den', 'plant_den', 'tf_denominator'):
                 if key in self.PARAMETER_SCHEMA:
                     self.parameters[key] = den_str
+                    den_injected = True
                     break
-            return True
+            # Both must succeed — partial injection would leave the sim in
+            # an inconsistent state with stale defaults for the missing side.
+            return num_injected and den_injected
 
         return False
 
