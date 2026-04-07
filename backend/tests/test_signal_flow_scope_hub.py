@@ -203,10 +203,30 @@ class TestSingleCustomTfSFG:
     def test_output_node_has_a_tf(self):
         # The output node must end up with a non-trivial TF entry — this is the
         # smoke test that SFS actually walked the diagram and computed something
-        # for the output. We deliberately do NOT assert on the polynomial form
-        # here, because that depends on SFS's operator-algebra representation,
-        # which is a separate code path from the hub-import fix.
+        # for the output.
         assert "b_out" in self.sfs._node_tfs
+
+    def test_output_node_domain_expression_matches_user_tf(self):
+        """The user-facing s-domain expression for b_out must equal the TF
+        the user actually entered: 1/(s^2 + s).
+
+        SFS stores TFs internally in operator-A form (A = 1/s, low-power-first),
+        so the raw _node_tfs entry for b_out is num=[0,0,1], den=[1,1] which
+        represents (A^2)/(1+A) = 1/(s^2+s) after substitution. Users never see
+        the raw operator-A form — get_state() converts to s-domain via
+        _operator_to_s and exposes it as metadata.node_tfs[bid].expression.domain.
+
+        This test pins the s-domain string the frontend renders, so any
+        regression in the operator→s conversion or the polynomial formatter
+        is caught immediately.
+        """
+        node_tfs_display = self.metadata["node_tfs"]
+        assert "b_out" in node_tfs_display
+        domain_expr = node_tfs_display["b_out"]["expression"]["domain"]
+        # The exact format produced by _format_tf_expression for 1/(s^2+s)
+        assert domain_expr == "(1) / (s^2 + s)", (
+            f"Expected '(1) / (s^2 + s)' but got {domain_expr!r}"
+        )
 
 
 # ---------------------------------------------------------------------------
