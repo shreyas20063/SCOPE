@@ -1,13 +1,9 @@
-"""
-Tests for polynomial arithmetic helpers in BlockDiagramSimulator.
+"""Polynomial arithmetic helper tests for BlockDiagramSimulator.
 
-All polynomial operations use LOW-POWER-FIRST convention:
-  coeffs[i] = coefficient of x^i
-  e.g., [1, -0.5] represents 1 - 0.5x
+All operations use LOW-POWER-FIRST convention: coeffs[i] is the
+coefficient of x^i, so [1, -0.5] represents 1 - 0.5x.
 
-Covers: _pmul, _padd, _psub, _pscale (static methods), _clean_poly (instance method).
-
-Requirements: TEST-01 (edge cases), TEST-06 (tolerance tiers from conftest).
+Covers: _pmul, _padd, _psub, _pscale (static), _clean_poly (instance).
 """
 
 import numpy as np
@@ -160,59 +156,43 @@ class TestPscale:
 # _clean_poly tests
 # ---------------------------------------------------------------------------
 class TestCleanPoly:
-    """Trailing coefficient cleanup (instance method, low-power-first).
-
-    _clean_poly strips trailing coefficients whose absolute value is below
-    a relative threshold of 1e-10 * max(|coeffs|).
-    """
+    """_clean_poly strips trailing coefficients whose magnitude is below
+    a relative threshold of 1e-10 * max(|coeffs|)."""
 
     def test_already_clean(self, bdb_simulator):
-        """No trailing zeros -- returns unchanged."""
         result = bdb_simulator._clean_poly(np.array([1.0, 2.0, 3.0]))
         assert_poly_equal(result, [1.0, 2.0, 3.0])
 
     def test_trailing_zeros(self, bdb_simulator):
-        """Trailing exact zeros stripped."""
         result = bdb_simulator._clean_poly(np.array([1.0, 2.0, 0.0, 0.0]))
         assert_poly_equal(result, [1.0, 2.0])
 
     def test_trailing_near_zeros(self, bdb_simulator):
-        """Trailing near-zero (1e-15) stripped at relative threshold."""
+        """Trailing 1e-15 is below the relative threshold and gets stripped."""
         result = bdb_simulator._clean_poly(np.array([1.0, 2.0, 1e-15]))
         assert_poly_equal(result, [1.0, 2.0])
 
     def test_all_zeros(self, bdb_simulator):
-        """All-zero array returns [0.0]."""
         result = bdb_simulator._clean_poly(np.array([0.0, 0.0, 0.0]))
         assert_poly_equal(result, [0.0])
 
     def test_empty_array(self, bdb_simulator):
-        """Empty array returns [0.0]."""
         result = bdb_simulator._clean_poly(np.array([]))
         assert_poly_equal(result, [0.0])
 
     def test_single_element(self, bdb_simulator):
-        """Single non-zero element preserved."""
         result = bdb_simulator._clean_poly(np.array([5.0]))
         assert_poly_equal(result, [5.0])
 
-    def test_relative_threshold_pitfall(self, bdb_simulator):
-        """PITFALL-02: Large dynamic range causes meaningful small coefficients
-        to be dropped.
-
-        For [1e6, 1e-5]:
-          threshold = 1e-10 * 1e6 = 1e-4
-          |1e-5| = 1e-5 < 1e-4 (threshold)
-        So the second coefficient gets STRIPPED even though it may be meaningful.
-        This is a known limitation of the relative threshold approach.
-        """
+    def test_relative_threshold_drops_small_in_large_dynamic_range(self, bdb_simulator):
+        """Large dynamic range pitfall: for [1e6, 1e-5] the relative
+        threshold is 1e-10 * 1e6 = 1e-4, so the 1e-5 coefficient is
+        dropped even though it may be physically meaningful."""
         result = bdb_simulator._clean_poly(np.array([1e6, 1e-5]))
-        # The 1e-5 coefficient IS stripped due to relative threshold
         assert_poly_equal(result, [1e6])
 
     def test_small_but_above_threshold(self, bdb_simulator):
-        """Coefficient just above relative threshold is preserved."""
-        # threshold = 1e-10 * 10.0 = 1e-9
-        # 1e-8 > 1e-9, so it survives
+        """1e-8 sits just above the 1e-9 threshold for max=10, so it
+        survives."""
         result = bdb_simulator._clean_poly(np.array([10.0, 1e-8]))
         assert_poly_equal(result, [10.0, 1e-8])

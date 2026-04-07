@@ -26,7 +26,7 @@ sys.path.insert(0, str(VALIDATION_DIR))
 
 
 # ---------------------------------------------------------------------------
-# Tolerance tiers (TEST-06)
+# Tolerance tiers
 # ---------------------------------------------------------------------------
 class ToleranceTier:
     """Tolerance presets for validation contexts.

@@ -1,20 +1,13 @@
-"""
-Tests for shared Delta denominator (MATH-01) and DFS forward-path enumeration (MATH-05).
+"""Shared-Delta denominator and DFS path/loop enumeration tests.
 
-MATH-01: All G_ij entries in the MIMO transfer matrix must share the same
-graph determinant Delta as their denominator polynomial. Mason's Gain Formula
-computes Delta once from the full graph; each entry's numerator differs but
-the denominator is always Delta.
+All G_ij entries in a MIMO transfer matrix must share the same graph
+determinant Delta as their denominator polynomial — Mason's Gain Formula
+computes Delta once from the full graph and varies only the numerator
+per entry.
 
-MATH-05: DFS forward-path enumeration must produce the correct number of
-forward paths and loops, and the target node must never appear as an
-intermediate node in a forward path.
-
-These are test-first tests -- they define EXPECTED behavior. Some tests may
-fail against the current implementation because the fix hasn't been applied
-yet (that's plan 02-02). This is expected.
-
-Requirements: MATH-01, MATH-05
+The DFS path enumerator must produce the correct number of forward
+paths and loops, and the target node must never appear as an
+intermediate node inside a forward path.
 """
 
 import numpy as np
@@ -65,25 +58,18 @@ def _compute_and_get_result(sim):
 
 
 # =========================================================================
-# MATH-01: Shared Delta denominator across all G_ij entries
+# Shared Delta denominator across all G_ij entries
 # =========================================================================
 
 class TestSharedDelta:
-    """All entries in the MIMO transfer matrix must share the same denominator
-    polynomial (the graph determinant Delta).
-
-    Requirement: MATH-01
-    """
+    """All entries in the MIMO transfer matrix must share the same
+    denominator polynomial (the graph determinant Delta)."""
 
     def test_2x1_shared_denominator(self, bdb_simulator):
-        """2-input, 1-output: both denominators must be identical.
-
-        Topology:
-            in1 -> gain(G1=2.0) -> adder(port 0) -> gain(G3=3.0) -> out1
-            in2 -> gain(G2=4.0) -> adder(port 1)
-
-        No feedback loops, so Delta = [1.0] for both entries.
-        """
+        """2-input, 1-output, no loops:
+            in1 -> G1(2) -> adder(0) -> G3(3) -> out1
+            in2 -> G2(4) -> adder(1)
+        Both entries share Delta = [1.0]."""
         sim = bdb_simulator
 
         # Add blocks -- we need to track IDs. The simulator auto-generates IDs.
@@ -127,26 +113,17 @@ class TestSharedDelta:
         den_00 = result["transfer_matrix"][0][0]["denominator"]
         den_01 = result["transfer_matrix"][0][1]["denominator"]
 
-        # MATH-01: Both denominators must be identical (shared Delta)
-        assert_poly_equal(den_00, den_01, "MATH-01: 2x1 denominators must be shared Delta")
+        assert_poly_equal(den_00, den_01, "2x1 denominators must be shared Delta")
         # No loops -> Delta = [1.0]
         assert_poly_equal(den_00, [1.0], "No loops -> Delta should be [1.0]")
 
     def test_2x2_feedback_shared_denominator(self, bdb_simulator):
-        """2-input, 2-output with feedback: all 4 denominators must be identical.
-
-        Topology (two independent SISO loops):
-            in1 -> adder1(port 0) -> custom_tf(integrator: num=[0,1], den=[1,0]) -> junction1 -> out1
-            junction1 -> gain(H=0.5) -> adder1(port 1, sign "-")
-
-            in2 -> adder2(port 0) -> gain(G2=2.0) -> junction2 -> out2
-            junction2 -> gain(H2=0.3) -> adder2(port 1, sign "-")
-
-        Delta is computed from the FULL graph, so all 4 entries G_ij must share
-        the same denominator polynomial.
-
-        MATH-01: expected to fail until Plan 02 refactors Delta computation
-        """
+        """2-input, 2-output, two independent SISO feedback loops:
+            in1 -> adder1(0) -> integrator -> j1 -> out1
+            j1   -> H1(0.5) -> adder1(1, "-")
+            in2 -> adder2(0) -> G2(2.0) -> j2 -> out2
+            j2   -> H2(0.3) -> adder2(1, "-")
+        All 4 G_ij entries must share the same denominator (graph Delta)."""
         sim = bdb_simulator
 
         # Add blocks
@@ -216,24 +193,17 @@ class TestSharedDelta:
             for j in range(2):
                 denoms.append(result["transfer_matrix"][i][j]["denominator"])
 
-        # MATH-01: ALL 4 denominators must be identical (shared graph Delta)
         for idx in range(1, 4):
             assert_poly_equal(
                 denoms[idx], denoms[0],
-                f"MATH-01: denominator [{idx // 2}][{idx % 2}] must equal [0][0]"
+                f"denominator [{idx // 2}][{idx % 2}] must equal [0][0]"
             )
 
     def test_1x2_shared_denominator(self, bdb_simulator):
-        """1-input, 2-output: both denominators must be identical.
-
-        Topology:
-            in1 -> junction1 -> gain(G1=3.0) -> out1
-            junction1 -> gain(G2=5.0) -> out2
-
-        No loops, Delta = [1.0] for both entries.
-
-        Requirement: MATH-01
-        """
+        """1-input, 2-output, no loops:
+            in1 -> j1 -> G1(3) -> out1
+            j1  -> G2(5) -> out2
+        Both branches share Delta = [1.0]."""
         sim = bdb_simulator
 
         sim.handle_action("add_block", {"block_type": "input"})
@@ -270,24 +240,14 @@ class TestSharedDelta:
         den_00 = result["transfer_matrix"][0][0]["denominator"]
         den_10 = result["transfer_matrix"][1][0]["denominator"]
 
-        # MATH-01: Both denominators must be identical
-        assert_poly_equal(den_00, den_10, "MATH-01: 1x2 denominators must be shared Delta")
-        # No loops -> Delta = [1.0]
+        assert_poly_equal(den_00, den_10, "1x2 denominators must be shared Delta")
         assert_poly_equal(den_00, [1.0], "No loops -> Delta should be [1.0]")
 
     def test_siso_still_works_after_refactor(self, bdb_simulator):
-        """Regression: simple SISO negative feedback must produce correct TF.
-
-        Topology:
-            in1 -> adder(port 0) -> gain(G=2.0) -> junction -> out1
-            junction -> gain(H=0.5) -> adder(port 1, sign "-")
-
-        Mason's: forward path P1 = G = 2, loop L1 = -G*H = -1 (sign from adder).
-        Delta = 1 - (-1) = 2. Cofactor Delta1 = 1.
-        TF = P1*Delta1 / Delta = 2/2 = 1.
-
-        Requirement: MATH-01 (regression safety net)
-        """
+        """SISO negative feedback regression:
+            in1 -> adder(0) -> G(2) -> j -> out1
+            j   -> H(0.5) -> adder(1, "-")
+        P1 = G = 2, L1 = -GH = -1, Delta = 2, Delta1 = 1, TF = P1/Delta = 1."""
         sim = bdb_simulator
 
         sim.handle_action("add_block", {"block_type": "input"})
@@ -319,48 +279,28 @@ class TestSharedDelta:
 
         result = _compute_and_get_result(sim)
 
-        # SISO: 1x1 -> legacy flat format
         assert result["mimo"] is False
-
-        # TF = G/(1+GH) = 2/(1+1) = 1.0
-        # In polynomial form: num=[1.0], den=[1.0] after normalization
-        assert_poly_equal(
-            result["numerator"], [1.0],
-            "MATH-01 regression: SISO numerator should be [1.0]"
-        )
-        assert_poly_equal(
-            result["denominator"], [1.0],
-            "MATH-01 regression: SISO denominator should be [1.0]"
-        )
+        # TF = G/(1+GH) = 2/(1+1) = 1.0  ==>  num=[1.0], den=[1.0]
+        assert_poly_equal(result["numerator"], [1.0])
+        assert_poly_equal(result["denominator"], [1.0])
         assert result["num_forward_paths"] == 1
         assert result["num_loops"] == 1
 
 
 # =========================================================================
-# MATH-05: DFS forward-path and loop enumeration correctness
+# DFS path/loop enumeration
 # =========================================================================
 
 class TestDFSForwardPaths:
-    """DFS-based forward path enumeration must:
-    - Produce the correct number of forward paths for known topologies
-    - Never include the target node as an intermediate node
-    - Count loops correctly
-
-    Requirement: MATH-05
-    """
+    """The DFS path enumerator must produce correct path/loop counts and
+    must never put the target node in an intermediate position."""
 
     def test_no_target_as_intermediate(self, bdb_simulator):
-        """Target node must not appear as intermediate node in forward paths.
-
-        Topology:
-            in1 -> gain(G1=1.0) -> adder(port 0) -> gain(G2=3.0) -> junction -> out1
-            junction -> gain(H=0.5) -> adder(port 1, sign "-")
-
-        Forward paths from in1 to out1: exactly 1 (in1 -> G1 -> adder -> G2 -> junction -> out1).
-        The junction participates in a loop but is NOT the target.
-
-        Requirement: MATH-05
-        """
+        """One forward path, one loop:
+            in1 -> G1(1) -> adder(0) -> G2(3) -> j -> out1
+            j   -> H(0.5) -> adder(1, "-")
+        Exactly 1 forward path; the junction is in the loop but is not
+        the target."""
         sim = bdb_simulator
 
         sim.handle_action("add_block", {"block_type": "input"})
@@ -395,24 +335,14 @@ class TestDFSForwardPaths:
 
         result = _compute_and_get_result(sim)
 
-        # MATH-05: exactly 1 forward path
-        assert result["num_forward_paths"] == 1, \
-            "MATH-05: should have exactly 1 forward path"
-        # Exactly 1 loop (junction -> H -> adder -> G2 -> junction)
-        assert result["num_loops"] == 1, \
-            "MATH-05: should have exactly 1 loop"
+        assert result["num_forward_paths"] == 1
+        assert result["num_loops"] == 1
 
     def test_known_topology_path_count(self, bdb_simulator):
-        """Two parallel forward paths, zero loops.
-
-        Topology:
-            in1 -> junction_in -> gain(G1=2.0) -> adder(port 0) -> out1
-            junction_in -> gain(G2=3.0) -> adder(port 1)
-
-        2 forward paths, 0 loops.
-
-        Requirement: MATH-05
-        """
+        """Two parallel paths, no loops:
+            in1 -> j_in -> G1(2) -> adder(0) -> out1
+            j_in -> G2(3) -> adder(1)
+        2 forward paths, 0 loops."""
         sim = bdb_simulator
 
         sim.handle_action("add_block", {"block_type": "input"})
@@ -444,25 +374,15 @@ class TestDFSForwardPaths:
 
         result = _compute_and_get_result(sim)
 
-        # MATH-05: 2 forward paths, 0 loops
-        assert result["num_forward_paths"] == 2, \
-            "MATH-05: two parallel paths should give num_forward_paths == 2"
-        assert result["num_loops"] == 0, \
-            "MATH-05: no feedback -> num_loops == 0"
+        assert result["num_forward_paths"] == 2
+        assert result["num_loops"] == 0
 
     def test_known_topology_loop_count(self, bdb_simulator):
-        """Two independent feedback loops in series, 1 forward path.
-
-        Topology:
-            in1 -> adder1(port 0) -> gain(G1=2.0) -> junction1 ->
-                   adder2(port 0) -> gain(G2=3.0) -> junction2 -> out1
-            junction1 -> gain(H1=0.4) -> adder1(port 1, sign "-")
-            junction2 -> gain(H2=0.6) -> adder2(port 1, sign "-")
-
-        1 forward path, 2 loops.
-
-        Requirement: MATH-05
-        """
+        """Two cascaded feedback loops:
+            in1 -> adder1(0) -> G1(2) -> j1 -> adder2(0) -> G2(3) -> j2 -> out1
+            j1   -> H1(0.4) -> adder1(1, "-")
+            j2   -> H2(0.6) -> adder2(1, "-")
+        1 forward path, 2 loops."""
         sim = bdb_simulator
 
         sim.handle_action("add_block", {"block_type": "input"})
@@ -507,8 +427,5 @@ class TestDFSForwardPaths:
 
         result = _compute_and_get_result(sim)
 
-        # MATH-05: 1 forward path, 2 loops
-        assert result["num_forward_paths"] == 1, \
-            "MATH-05: cascaded system should have exactly 1 forward path"
-        assert result["num_loops"] == 2, \
-            "MATH-05: two independent feedback loops should give num_loops == 2"
+        assert result["num_forward_paths"] == 1
+        assert result["num_loops"] == 2
