@@ -266,6 +266,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
             self.parameters["matrix_b"] = self._matrix_to_expr(B)
             self.parameters["matrix_c"] = self._matrix_to_expr(C)
             self.parameters["matrix_d"] = self._matrix_to_expr(D)
+            self._resize_design_params(n, m, p)
             return True
 
         # Branch 2: MIMO transfer_matrix payload (BDB MIMO push)
@@ -289,6 +290,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
             self.parameters["matrix_b"] = self._matrix_to_expr(B_full)
             self.parameters["matrix_c"] = self._matrix_to_expr(C_full)
             self.parameters["matrix_d"] = self._matrix_to_expr(D_full)
+            self._resize_design_params(n, m, p)
             return True
 
         # Branch 3: SISO flat tf payload (Tier 1 sims, BDB SISO push)
@@ -308,9 +310,33 @@ class MIMODesignStudioSimulator(BaseSimulator):
             self.parameters["matrix_b"] = self._matrix_to_expr(B.tolist())
             self.parameters["matrix_c"] = self._matrix_to_expr(C.tolist())
             self.parameters["matrix_d"] = self._matrix_to_expr(D.tolist())
+            self._resize_design_params(n, 1, 1)
             return True
 
         return False
+
+    def _resize_design_params(self, n: int, m: int, p: int) -> None:
+        """Resize dimension-dependent controller-design parameters.
+
+        After importing a plant whose dimensions differ from the previous
+        one, the Q/R/Qw/Rv diagonals and desired-pole list are still sized
+        for the old plant. Subsequent LQR/LQG/pole-placement designs then
+        fail with "X diagonal has K entries, expected N". Reset all four
+        weight vectors and the desired-pole list to safe defaults that
+        match the new (n, m, p).
+
+        Args:
+            n: Number of states.
+            m: Number of inputs.
+            p: Number of outputs.
+        """
+        self.parameters["q_diag"] = ", ".join(["1"] * n)
+        self.parameters["r_diag"] = ", ".join(["1"] * m)
+        self.parameters["qw_diag"] = ", ".join(["0.1"] * n)
+        self.parameters["rv_diag"] = ", ".join(["1"] * p)
+        self.parameters["desired_poles"] = ", ".join(
+            f"-{i + 1}" for i in range(n)
+        )
 
     def _assemble_tm_realization(
         self, tm: Dict[str, Any]

@@ -597,16 +597,51 @@ export function useSimulation(simId) {
                       );
                       continue;
                     }
-                    // SISO/MIMO check
+                    // SISO/MIMO check (skip for sims with custom from_hub_data —
+                    // their backend method does its own dimension validation, and
+                    // some of them — e.g. mimo_design_studio — legitimately accept
+                    // MIMO payloads).
+                    const hasCustomFromHub = !!stateResult.metadata?.has_custom_from_hub_data;
                     const hubDims = hubData.dimensions || {};
                     const simDims = stateResult.metadata?.hub_dimensions || { m: 1, p: 1 };
-                    if (simDims.m === 1 && simDims.p === 1 && (hubDims.m > 1 || hubDims.p > 1)) {
+                    if (!hasCustomFromHub && simDims.m === 1 && simDims.p === 1 &&
+                        (hubDims.m > 1 || hubDims.p > 1)) {
                       setHubMismatch(
                         `Hub contains a ${hubDims.m}×${hubDims.p} MIMO system — this simulation supports SISO only. Hub data was not applied.`
                       );
                       continue;
                     }
-                    // Map hub data to sim parameter names
+
+                    // --- Path A: backend from_hub_data (single source of truth) ---
+                    // Sims with non-standard parameter schemas (mimo_design_studio's
+                    // matrix_a..d, ode_laplace_solver's input_coeffs/output_coeffs,
+                    // dt_system_representations' b/a_coefficients, signal_flow_scope's
+                    // block_diagram payload) and producer-only sims that should
+                    // reject hub pulls (block_diagram_builder, routh_hurwitz,
+                    // second_order_system, laplace_roc, z_transform_roc,
+                    // nonlinear_control_lab) all override BaseSimulator.from_hub_data.
+                    // The backend reports this via metadata.has_custom_from_hub_data,
+                    // and we delegate the entire injection to the backend so the
+                    // frontend never has to know about per-sim parameter quirks.
+                    if (hasCustomFromHub) {
+                      const hubResult = await api.executeSimulation(simId, 'from_hub_data', { hub_data: hubData });
+                      if (hubResult.success && mountedRef.current) {
+                        const data = hubResult.data || hubResult;
+                        if (data.plots) setPlots(data.plots);
+                        if (data.parameters) setCurrentParams(data.parameters);
+                        if (data.metadata) {
+                          setMetadata(prev => ({ ...prev, ...data.metadata, _hubSynced: true }));
+                        }
+                      }
+                      // 422 (incompatible) is silently ignored — that's the
+                      // correct behavior for a producer-only sim being asked to
+                      // consume something it can't handle.
+                      break;
+                    }
+
+                    // --- Path B: standard frontend mapping (Tier 1 sims) ---
+                    // Build the param patch from the hub TF/SS using hardcoded key
+                    // lists. Only sims with standard schemas hit this path.
                     const hubParams = {};
                     const controls = simResult.data.controls || [];
                     // TF coefficients (numerator / denominator)
@@ -631,8 +666,10 @@ export function useSimulation(simId) {
                         }
                       }
                     }
-                    // Auto-switch preset to 'custom' so the injected TF is used
-                    const presetKeys = ['preset', 'plant_preset'];
+                    // Auto-switch preset to 'custom' so the injected TF is used.
+                    // system_preset is included for eigenfunction_tester which
+                    // uses that name instead of the more common preset/plant_preset.
+                    const presetKeys = ['preset', 'plant_preset', 'system_preset'];
                     for (const ctrl of controls) {
                       if (presetKeys.includes(ctrl.name) && ctrl.options) {
                         const hasCustom = ctrl.options.some(o => (o.value || o) === 'custom');

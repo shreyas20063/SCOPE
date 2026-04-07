@@ -328,6 +328,24 @@ async def get_simulation_state(sim_id: str):
     result = get_cached_or_compute(sim_id, current_params, simulator)
 
     if result["success"]:
+        # Inject has_custom_from_hub_data flag so the frontend's hub auto-pull
+        # knows to call from_hub_data on the backend instead of doing its own
+        # hardcoded NUM_KEYS/DEN_KEYS injection. Sims with non-standard parameter
+        # names (mimo_design_studio, ode_laplace_solver, dt_system_representations)
+        # or producer-only sims that should reject hub data go through the
+        # backend's from_hub_data method as the single source of truth.
+        # Computed at request time (not cached) so it's always accurate.
+        try:
+            from simulations.base_simulator import BaseSimulator
+            has_custom = (
+                type(simulator).from_hub_data is not BaseSimulator.from_hub_data
+            )
+            if isinstance(result["data"], dict):
+                metadata = result["data"].setdefault("metadata", {})
+                if isinstance(metadata, dict):
+                    metadata["has_custom_from_hub_data"] = has_custom
+        except Exception:
+            pass  # defensive — never fail the state request over a flag
         return {
             "success": True,
             "data": result["data"],
