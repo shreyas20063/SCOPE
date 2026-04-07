@@ -113,6 +113,11 @@ logs/
 
 # Claude Code
 .claude/
+CLAUDE.md
+
+# MCP tooling workspaces
+.serena/
+.playwright-mcp/
 
 # GSD Planning
 .planning/
