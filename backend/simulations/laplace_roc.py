@@ -1033,6 +1033,16 @@ class LaplaceROCSimulator(BaseSimulator):
             }
         return None
 
+    def from_hub_data(self, hub_data):
+        """Producer-only: laplace_roc is an interactive ROC visualizer.
+
+        The user enters a TF and explores its region of convergence.
+        Auto-pulling a TF from the hub would replace the user's current
+        input mid-exploration, which is the wrong UX. Users who want to
+        load a TF from elsewhere should use the sim's own input controls.
+        """
+        return False
+
     # =========================================================================
     # State
     # =========================================================================

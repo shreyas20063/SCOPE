@@ -222,6 +222,16 @@ class SecondOrderSystemSimulator(BaseSimulator):
             },
         }
 
+    def from_hub_data(self, hub_data):
+        """Producer-only: parameterized by omega_0 and Q.
+
+        An arbitrary input TF cannot be reduced to these two parameters
+        unless it is exactly second-order with zero numerator dynamics,
+        and even then there are sign ambiguities. Producer only — returns
+        False so the frontend doesn't show a misleading hub-sync badge.
+        """
+        return False
+
     def get_state(self) -> Dict[str, Any]:
         """Return current simulation state with system info metadata."""
         base_state = super().get_state()

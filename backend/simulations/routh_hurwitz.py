@@ -421,6 +421,16 @@ class RouthHurwitzSimulator(BaseSimulator):
             }
         return None
 
+    def from_hub_data(self, hub_data):
+        """Producer-only: Routh-Hurwitz analyzes a polynomial chosen by the user.
+
+        There is no meaningful way to reverse-derive ``poly_coeffs`` from
+        an arbitrary plant TF — the user's intent is to inspect a specific
+        polynomial, not adopt one from another sim. Returning False keeps
+        the frontend from showing a misleading 'Hub Synced ✓' badge.
+        """
+        return False
+
     def get_state(self) -> Dict[str, Any]:
         """Return full simulation state."""
         if not self._initialized:

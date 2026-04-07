@@ -983,6 +983,16 @@ class ZTransformROCSimulator(BaseSimulator):
             }
         return None
 
+    def from_hub_data(self, hub_data):
+        """Producer-only: z_transform_roc is an interactive ROC visualizer.
+
+        The user enters a DT TF and explores its region of convergence.
+        Auto-pulling a TF from the hub would replace the user's current
+        input mid-exploration. Users who want to load a TF from elsewhere
+        should use the sim's own input controls.
+        """
+        return False
+
     # =========================================================================
     # State
     # =========================================================================
