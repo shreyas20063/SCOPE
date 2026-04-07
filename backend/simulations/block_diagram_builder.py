@@ -3357,6 +3357,24 @@ class BlockDiagramSimulator(BaseSimulator):
 
         return result
 
+    def from_hub_data(self, hub_data: Dict[str, Any]) -> bool:
+        """BDB is a visual editor, not a TF importer.
+
+        Block Diagram Builder is producer-only with respect to the hub: it
+        pushes constructed diagrams (and their computed transfer functions)
+        to the hub for downstream consumers, but it does not auto-import
+        TFs from the hub. Auto-import would require either replacing the
+        current canvas (destroying user work) or auto-generating a
+        canonical-form realization with debatable layout — both are
+        opinionated UX choices that the user should make explicitly via
+        the canvas controls (e.g., drag a custom_tf block and paste the
+        coefficients manually).
+
+        Returns False so the hub auto-pull treats BDB as 'incompatible' and
+        no misleading 'Hub Synced ✓' badge appears on the BDB page.
+        """
+        return False
+
     # =========================================================================
     # State
     # =========================================================================
