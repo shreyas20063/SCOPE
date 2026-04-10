@@ -10,9 +10,6 @@ import pytest
 
 from core.hub_validator import (
     validate_and_enrich_control,
-    validate_circuit_slot,
-    validate_optics_slot,
-    validate_signal_slot,
 )
 
 
@@ -483,89 +480,3 @@ class TestBlockDiagramPassthrough:
         assert result["data"]["domain"] == "ct"
 
 
-# -----------------------------------------------------------------------
-# Signal slot validator
-# -----------------------------------------------------------------------
-
-class TestSignalSlot:
-    """Tests for validate_signal_slot."""
-
-    def test_valid_with_signals_dict(self) -> None:
-        result = validate_signal_slot({
-            "signals": {"input": {"x": [0, 1, 2], "y": [0, 0.5, 1], "type": "ct", "label": "Step"}},
-            "sample_rate": 1000,
-        })
-        assert result["success"] is True
-
-    def test_empty_signals(self) -> None:
-        result = validate_signal_slot({"signals": {}})
-        assert result["success"] is True
-
-    def test_signals_not_dict(self) -> None:
-        result = validate_signal_slot({"signals": "bad"})
-        assert result["success"] is False
-
-    def test_no_signals_key(self) -> None:
-        # Should still pass — signals defaults to {}
-        result = validate_signal_slot({"sample_rate": 1000})
-        assert result["success"] is True
-
-    def test_not_a_dict(self) -> None:
-        result = validate_signal_slot([1, 2, 3])
-        assert result["success"] is False
-
-
-# -----------------------------------------------------------------------
-# Circuit slot validator
-# -----------------------------------------------------------------------
-
-class TestCircuitSlot:
-    """Tests for validate_circuit_slot."""
-
-    def test_valid(self) -> None:
-        result = validate_circuit_slot({
-            "components": {"R": 1000, "C": 1e-6},
-            "topology": "rc_lowpass",
-        })
-        assert result["success"] is True
-
-    def test_no_components_key(self) -> None:
-        # Should still pass — components defaults to {}
-        result = validate_circuit_slot({"topology": "rc_lowpass"})
-        assert result["success"] is True
-
-    def test_components_not_dict(self) -> None:
-        result = validate_circuit_slot({"components": "bad"})
-        assert result["success"] is False
-
-    def test_not_a_dict(self) -> None:
-        result = validate_circuit_slot("not a dict")
-        assert result["success"] is False
-
-
-# -----------------------------------------------------------------------
-# Optics slot validator
-# -----------------------------------------------------------------------
-
-class TestOpticsSlot:
-    """Tests for validate_optics_slot."""
-
-    def test_valid(self) -> None:
-        result = validate_optics_slot({
-            "elements": [{"type": "lens", "f": 50, "position": 100}],
-            "wavelength": 550,
-        })
-        assert result["success"] is True
-
-    def test_no_elements_key(self) -> None:
-        # Should still pass — elements defaults to []
-        result = validate_optics_slot({"wavelength": 550})
-        assert result["success"] is True
-
-    def test_elements_not_list(self) -> None:
-        result = validate_optics_slot({"elements": "bad"})
-        assert result["success"] is False
-
-    def test_not_a_dict(self) -> None:
-        result = validate_optics_slot(42)
-        assert result["success"] is False

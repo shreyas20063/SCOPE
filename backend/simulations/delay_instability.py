@@ -425,7 +425,6 @@ class DelayInstabilitySimulator(BaseSimulator):
                     "zerolinewidth": 1,
                     "color": "#94a3b8",
                     "range": [-2, 2],
-                    "scaleanchor": "x",
                     "constrain": "domain",
                 },
                 "paper_bgcolor": "rgba(0,0,0,0)",

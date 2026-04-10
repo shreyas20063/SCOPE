@@ -122,18 +122,19 @@ class DataHandler:
     @classmethod
     def array_to_list(cls, arr: Any) -> List:
         """
-        Convert a numpy array to a Python list.
+        Convert a numpy array to a Python list, sanitizing NaN/Inf values.
 
         Args:
             arr: numpy array or array-like object
 
         Returns:
-            Python list
+            Python list with NaN/Inf replaced by None
         """
         if cls.is_numpy_available():
             import numpy as np
             if isinstance(arr, np.ndarray):
-                return arr.tolist()
+                result = arr.tolist()
+                return cls._sanitize_list(result)
 
         # Handle other iterables
         if hasattr(arr, 'tolist'):
@@ -143,6 +144,15 @@ class DataHandler:
             return list(arr)
 
         return [arr]
+
+    @classmethod
+    def _sanitize_list(cls, data: Any) -> Any:
+        """Recursively replace float NaN/Inf with None in nested lists."""
+        if isinstance(data, list):
+            return [cls._sanitize_list(item) for item in data]
+        if isinstance(data, float) and (math.isnan(data) or math.isinf(data)):
+            return None
+        return data
 
     @classmethod
     def convert_numeric(cls, value: Any) -> Union[int, float, Any]:

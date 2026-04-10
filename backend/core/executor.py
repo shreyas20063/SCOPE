@@ -7,6 +7,7 @@ import traceback
 from typing import Any, Dict, Optional, Callable
 from functools import wraps
 import threading
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 
 class ExecutionTimeout(Exception):
@@ -46,12 +47,23 @@ class SimulationExecutor:
             timeout: Maximum execution time in seconds (default: 30)
         """
         self.timeout = min(timeout, 60)  # Cap at 60 seconds max
-        self._lock = threading.Lock()
+        self._sim_locks: Dict[str, threading.Lock] = {}
+        self._locks_lock = threading.Lock()  # Protects _sim_locks dict
+        self._pool = ThreadPoolExecutor(max_workers=4)
+
+    def _get_lock(self, sim_id: Optional[str] = None) -> threading.Lock:
+        """Get a per-simulator lock, or a default lock for unkeyed calls."""
+        key = sim_id or "__default__"
+        with self._locks_lock:
+            if key not in self._sim_locks:
+                self._sim_locks[key] = threading.Lock()
+            return self._sim_locks[key]
 
     def execute(
         self,
         func: Callable,
         *args,
+        sim_id: Optional[str] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -60,6 +72,8 @@ class SimulationExecutor:
         Args:
             func: The function to execute
             *args: Positional arguments for the function
+            sim_id: Optional simulator ID for per-sim locking (prevents
+                    global serialization while still protecting individual sims)
             **kwargs: Keyword arguments for the function
 
         Returns:
@@ -76,33 +90,17 @@ class SimulationExecutor:
             "details": None
         }
 
-        with self._lock:
+        lock = self._get_lock(sim_id)
+        with lock:
             try:
-                # Set up timeout using threading (cross-platform)
-                execution_result = [None]
-                execution_error = [None]
-
-                def target():
-                    try:
-                        execution_result[0] = func(*args, **kwargs)
-                    except Exception as e:
-                        execution_error[0] = e
-
-                thread = threading.Thread(target=target, daemon=True)
-                thread.start()
-                thread.join(timeout=self.timeout)
-
-                if thread.is_alive():
-                    # Timeout occurred
+                future = self._pool.submit(func, *args, **kwargs)
+                try:
+                    result["data"] = future.result(timeout=self.timeout)
+                    result["success"] = True
+                except FuturesTimeoutError:
+                    future.cancel()
                     result["error"] = f"Execution timed out after {self.timeout} seconds"
                     result["details"] = "The simulation took too long to complete. Try with simpler parameters."
-                    return result
-
-                if execution_error[0] is not None:
-                    raise execution_error[0]
-
-                result["success"] = True
-                result["data"] = execution_result[0]
 
             except ExecutionTimeout as e:
                 result["error"] = str(e)

@@ -174,19 +174,13 @@ def compute_lqg(
     Raises:
         ValueError: If C is not symmetric (not supported by this formulation).
     """
-    if not np.allclose(C, C.T):
-        raise ValueError(
-            "compute_lqg only supports symmetric C matrices (typically C=I). "
-            "For general C, the estimator CARE formulation must be adjusted."
-        )
-
     K, P_ctrl, _ = compute_lqr(A, B, Q_lqr, R_lqr)
 
     # Dual problem: estimator Riccati
     # solve_continuous_are(A', C', Q, R) solves: A·P + P·A' − P·C·R⁻¹·C'·P + Q = 0
-    # This equals the standard estimator CARE only when C = C' (symmetric).
+    # This IS the standard estimator CARE for any C (not just symmetric).
     P_est = solve_continuous_are(A.T, C.T, Q_kalman, R_kalman)
-    L = P_est @ C.T @ np.linalg.inv(R_kalman)
+    L = np.linalg.solve(R_kalman.T, C @ P_est).T
 
     return K, L, P_ctrl, P_est
 

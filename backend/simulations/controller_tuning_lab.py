@@ -652,7 +652,7 @@ class ControllerTuningLabSimulator(BaseSimulator):
             # Reference feedforward for unit step tracking:
             # N_bar = -1/(C * (A-BK)^{-1} * B) so CL DC gain = 1
             A_sf = self._A - self._B @ K_vec.reshape(1, -1)
-            dc_sf = float(self._C @ np.linalg.solve(A_sf, self._B))
+            dc_sf = float((self._C @ np.linalg.solve(A_sf, self._B)).item())
             N_bar = -1.0 / dc_sf if abs(dc_sf) > 1e-6 else 1.0
             # Guard: N_bar must be positive and bounded for physical tracking.
             # Non-minimum-phase plants (Padé RHP zeros) can produce negative

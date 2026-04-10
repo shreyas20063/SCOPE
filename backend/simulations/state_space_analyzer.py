@@ -2414,7 +2414,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                     B_ss = np.array(data["B"], dtype=float)
                     C_ss = np.array(data["C"], dtype=float)
                     D_ss = np.array(data["D"], dtype=float)
-                    ss = float(C_ss @ np.linalg.solve(-A_ss, B_ss) + D_ss)
+                    ss = float((C_ss @ np.linalg.solve(-A_ss, B_ss) + D_ss).item())
                 except Exception:
                     ss = float(y_clipped[-20:].mean()) if len(y_clipped) > 0 else 0.0
                 traces.append({

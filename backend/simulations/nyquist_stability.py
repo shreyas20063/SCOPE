@@ -388,8 +388,11 @@ class NyquistStabilitySimulator(BaseSimulator):
         self._H = num_val / den_val
 
     def _compute_closed_loop_poles(self) -> None:
-        """Compute closed-loop poles: roots of den(s) + K*num(s) = 0."""
-        K = float(self.parameters["gain_K"])
+        """Compute closed-loop poles: roots of den(s) + num(s) = 0.
+
+        Note: self._num_coeffs already includes K from _build_transfer_function(),
+        so the characteristic equation is den(s) + num(s) = 0 (NOT den + K*num).
+        """
         # Pad shorter array to match lengths
         n_num = len(self._num_coeffs)
         n_den = len(self._den_coeffs)
@@ -400,7 +403,7 @@ class NyquistStabilitySimulator(BaseSimulator):
         num_padded[max_len - n_num:] = self._num_coeffs
         den_padded[max_len - n_den:] = self._den_coeffs
 
-        char_poly = den_padded + K * num_padded
+        char_poly = den_padded + num_padded
 
         if len(char_poly) > 1:
             self._cl_poles = np.roots(char_poly)
