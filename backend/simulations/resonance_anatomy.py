@@ -39,6 +39,17 @@ class ResonanceAnatomySimulator(BaseSimulator):
     LEGEND_BG = "rgba(15,23,42,0.8)"
 
     PARAMETER_SCHEMA: Dict[str, Dict] = {
+        "preset": {
+            "type": "select", "label": "Preset",
+            "options": [
+                {"value": "custom", "label": "Custom Parameters"},
+                {"value": "sharp_resonance", "label": "Sharp Resonance (high Q, low damping)"},
+                {"value": "broad_resonance", "label": "Broad Resonance (low Q, high damping)"},
+                {"value": "critical_damping", "label": "Critical Damping (ζ = 1)"},
+                {"value": "no_resonance", "label": "No Resonance Peak (overdamped)"},
+            ],
+            "default": "custom",
+        },
         "K": {
             "type": "slider", "label": "Spring Constant (K)",
             "min": 1.0, "max": 100.0, "step": 0.5, "default": 25.0,
@@ -62,6 +73,7 @@ class ResonanceAnatomySimulator(BaseSimulator):
     }
 
     DEFAULT_PARAMS: Dict[str, Any] = {
+        "preset": "custom",
         "K": 25.0,
         "M": 1.0,
         "B": 2.0,
@@ -93,8 +105,37 @@ class ResonanceAnatomySimulator(BaseSimulator):
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
         if name in self.parameters:
             self.parameters[name] = self._validate_param(name, value)
+        if name == "preset" and value != "custom":
+            self._apply_preset(value)
         self._compute_system()
         return self.get_state()
+
+    def _apply_preset(self, preset: str) -> None:
+        """Set K, M, B for textbook resonance cases.
+
+        All presets use K=25, M=1 (omega_0=5 rad/s).
+        Critical damping: B = 2*sqrt(M*K) = 10.
+        """
+        if preset == "sharp_resonance":
+            # Q ~ 12.5, zeta ~ 0.04
+            self.parameters["K"] = 25.0
+            self.parameters["M"] = 1.0
+            self.parameters["B"] = 0.4
+        elif preset == "broad_resonance":
+            # Q ~ 0.83, zeta ~ 0.6 — peak barely visible
+            self.parameters["K"] = 25.0
+            self.parameters["M"] = 1.0
+            self.parameters["B"] = 6.0
+        elif preset == "critical_damping":
+            # zeta = 1.0 exactly
+            self.parameters["K"] = 25.0
+            self.parameters["M"] = 1.0
+            self.parameters["B"] = 10.0
+        elif preset == "no_resonance":
+            # zeta ~ 1.5, overdamped
+            self.parameters["K"] = 25.0
+            self.parameters["M"] = 1.0
+            self.parameters["B"] = 15.0
 
     def reset(self) -> Dict[str, Any]:
         self.parameters = {**self.DEFAULT_PARAMS}
@@ -173,7 +214,16 @@ class ResonanceAnatomySimulator(BaseSimulator):
     # ------------------------------------------------------------------
 
     def _compute_system(self) -> None:
-        """Compute all derived quantities from current parameters."""
+        """Compute three characteristic frequencies and impulse response.
+
+        Implements H(s) = K / (Ms^2 + Bs + K) for a mass-spring-damper:
+            omega_0    = sqrt(K/M)                 (undamped natural frequency)
+            omega_d    = sqrt(omega_0^2 - sigma^2)  (damped oscillation frequency, exists when zeta < 1)
+            omega_peak = sqrt(omega_0^2 - 2*sigma^2) (magnitude peak frequency, exists when zeta < 1/sqrt(2))
+        where sigma = B/(2M) and zeta = B/(2*sqrt(MK)).
+
+        Reference: Ogata, Modern Control Engineering, Sec. 3.6 (resonance characteristics).
+        """
         K = float(self.parameters["K"])
         M = float(self.parameters["M"])
         B = float(self.parameters["B"])

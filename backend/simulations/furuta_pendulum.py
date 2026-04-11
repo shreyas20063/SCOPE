@@ -77,6 +77,9 @@ class FurutaPendulumSimulator(BaseSimulator):
         "lqg_process_noise": 0.01, "lqg_sensor_noise": 0.01,
     }
 
+    HUB_SLOTS = ['control']
+    HUB_DOMAIN = "ct"
+    HUB_DIMENSIONS = {"n": None, "m": 1, "p": 1}
 
     PARAMETER_SCHEMA = {
         "mass": {
@@ -829,6 +832,36 @@ class FurutaPendulumSimulator(BaseSimulator):
                 "uirevision": "arm_position",
             },
         }
+
+    def to_hub_data(self):
+        """Export linearized state-space model at upright equilibrium."""
+        ctrl_info = getattr(self, '_controller_info', {})
+        A = ctrl_info.get("A")
+        B = ctrl_info.get("B")
+        if A is None or B is None:
+            # Linearize on-the-fly (PID path doesn't store A, B)
+            try:
+                from core.controllers import numerical_jacobian
+                x_eq = np.array([0.0, 0.0, 0.0, 0.0])
+                u_eq = np.array([0.0])
+                A_np, B_np = numerical_jacobian(self._dynamics_wrapper, x_eq, u_eq)
+                A = A_np.tolist()
+                B = B_np.tolist()
+            except Exception:
+                return None
+        n = len(A)
+        C = np.eye(n).tolist()
+        D = np.zeros((n, 1)).tolist()
+        return {
+            "source": "ss",
+            "domain": self.HUB_DOMAIN,
+            "dimensions": {"n": n, "m": 1, "p": n},
+            "ss": {"A": A, "B": B, "C": C, "D": D},
+        }
+
+    def from_hub_data(self, hub_data):
+        """Producer-only — Furuta pendulum defines its own plant."""
+        return False
 
     def get_state(self) -> Dict[str, Any]:
         """Return current simulation state with 3D visualization data."""

@@ -76,6 +76,11 @@ class NyquistStabilitySimulator(BaseSimulator):
             "description": "Delay-induced instability via Padé approximation",
             "build": "time_delay",
         },
+        "non_minimum_phase": {
+            "name": "NMP: K(s−2)/((s+1)(s+3))",
+            "description": "Non-minimum phase zero causes initial undershoot",
+            "build": "non_minimum_phase",
+        },
         "custom": {
             "name": "Custom Coefficients",
             "description": "Enter your own numerator/denominator",
@@ -196,7 +201,16 @@ class NyquistStabilitySimulator(BaseSimulator):
         return self.get_state()
 
     def _compute(self) -> None:
-        """Main computation pipeline."""
+        """Compute Nyquist plot data, D-contour, encirclements, and stability.
+
+        Implements the Nyquist Stability Criterion:
+            N = Z - P
+        where N = number of CW encirclements of (-1, 0) by L(jw),
+        P = number of open-loop RHP poles, Z = number of CL RHP poles.
+        System is CL stable iff Z = 0.
+
+        Reference: Ogata, Modern Control Engineering, Sec. 7.3-7.4 (Nyquist criterion).
+        """
         self._num_coeffs, self._den_coeffs = self._build_transfer_function()
         self._tf_expression = self._format_tf_expression()
         self._compute_poles_zeros()
@@ -261,6 +275,13 @@ class NyquistStabilitySimulator(BaseSimulator):
             pade_num, pade_den = self._build_pade(T, order=3)
             num = np.array(pade_num) * K
             den = np.convolve(pade_den, [1.0, a])
+            return num, den
+
+        elif build == "non_minimum_phase":
+            b = float(self.parameters["pole_b"])
+            # K(s - 2) / ((s + 1)(s + b))  — RHP zero at s=+2
+            num = np.array([K, -2.0 * K])
+            den = np.convolve([1.0, 1.0], [1.0, b])
             return num, den
 
         elif build == "custom":
@@ -343,6 +364,9 @@ class NyquistStabilitySimulator(BaseSimulator):
             a = float(self.parameters["pole_a"])
             T = float(self.parameters["delay_T"])
             return f"L(s) = {K:.2g} \u00b7 e^({{-{T:.2g}s}}) / (s + {a:.2g})  [Pad\u00e9 order 3]"
+        elif build == "non_minimum_phase":
+            b = float(self.parameters["pole_b"])
+            return f"L(s) = {K:.2g}(s \u2212 2) / ((s + 1)(s + {b:.2g}))"
         elif build == "custom":
             num_str = self._poly_to_str(self._num_coeffs)
             den_str = self._poly_to_str(self._den_coeffs)

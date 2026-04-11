@@ -662,11 +662,8 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
 
     def _parse_tf_coefficients(self, expr_str: str) -> List[float]:
         """Parse '1, 2, 3' or '1 2 3' into [1.0, 2.0, 3.0]."""
-        expr_str = expr_str.replace(";", ",")
-        parts = [p.strip() for p in expr_str.replace(",", " ").split()]
-        if not parts:
-            raise ValueError("Empty coefficient string")
-        return [float(p) for p in parts if p]
+        from core.tf_parser import parse_coeff_string
+        return parse_coeff_string(expr_str)
 
     def _parse_matrix(self, expr_str: str, name: str) -> List[List[float]]:
         """Parse matrix string.  Rows separated by ';', values by ','.

@@ -170,6 +170,9 @@ class InvertedPendulum3DSimulator(BaseSimulator):
         "lqg_process_noise": 0.01, "lqg_sensor_noise": 0.01,
     }
 
+    HUB_SLOTS = ['control']
+    HUB_DOMAIN = "ct"
+    HUB_DIMENSIONS = {"n": None, "m": 1, "p": 1}
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
@@ -576,6 +579,29 @@ class InvertedPendulum3DSimulator(BaseSimulator):
         plots.append(pz_plot)
 
         return plots
+
+    def to_hub_data(self):
+        """Export linearized state-space model at upright equilibrium."""
+        if not self._result:
+            return None
+        ctrl_info = self._result.get("controller_info", {})
+        A = ctrl_info.get("A")
+        B = ctrl_info.get("B")
+        if A is None or B is None:
+            return None
+        n = len(A)
+        C = np.eye(n).tolist()
+        D = np.zeros((n, 1)).tolist()
+        return {
+            "source": "ss",
+            "domain": self.HUB_DOMAIN,
+            "dimensions": {"n": n, "m": 1, "p": n},
+            "ss": {"A": A, "B": B, "C": C, "D": D},
+        }
+
+    def from_hub_data(self, hub_data):
+        """Producer-only — inverted pendulum defines its own plant."""
+        return False
 
     def get_state(self) -> Dict[str, Any]:
         if not self._initialized:

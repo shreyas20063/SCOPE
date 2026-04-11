@@ -20,11 +20,11 @@ class DCMotorSimulator(BaseSimulator):
     """
     DC Motor Feedback Control simulation.
 
-    Parameters (matching PyQt5 exactly):
-    - alpha: Amplifier gain (1-500, default 10, scaled by 100)
-    - beta: Feedback gain (0.01-1.0, default 0.5, scaled by 100)
-    - gamma: Motor constant (0.1-5.0, default 1.0, scaled by 10)
-    - p: Lag pole location (0.5-30, default 10, scaled by 10) - only for Second-Order
+    Parameters:
+    - alpha: Amplifier gain (0.1-50.0, default 10.0)
+    - beta: Feedback gain (0.01-1.0, default 0.5)
+    - gamma: Motor constant (0.1-5.0, default 1.0)
+    - p: Lag pole location (1.0-30.0, default 10.0) - only for Second-Order
     - model_type: "first_order" or "second_order"
     """
 
@@ -103,6 +103,10 @@ class DCMotorSimulator(BaseSimulator):
         "model_type": "first_order",
     }
 
+    HUB_SLOTS = ['control']
+    HUB_DOMAIN = "ct"
+    HUB_DIMENSIONS = {"n": None, "m": 1, "p": 1}
+
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
@@ -137,7 +141,16 @@ class DCMotorSimulator(BaseSimulator):
         return self.get_state()
 
     def _compute(self) -> None:
-        """Calculate system transfer function and step response."""
+        """Compute closed-loop transfer function and unit step response.
+
+        Implements the Ogata DC motor feedback model:
+            First-Order:  H(s) = alpha*gamma / (s + alpha*beta*gamma)
+            Second-Order: H(s) = alpha*gamma*p / (s^2 + p*s + alpha*beta*gamma*p)
+
+        Steady-state value is 1/beta for both models.
+
+        Reference: Ogata, Modern Control Engineering, Sec. 3.3-3.4 (DC motor models).
+        """
         # Extract parameters
         alpha = self.parameters["alpha"]
         beta = self.parameters["beta"]
@@ -214,6 +227,36 @@ class DCMotorSimulator(BaseSimulator):
             self._create_step_response_plot(),
         ]
         return plots
+
+    def to_hub_data(self):
+        """Export closed-loop DC motor TF to the hub."""
+        alpha = float(self.parameters.get("alpha", 10.0))
+        beta = float(self.parameters.get("beta", 0.5))
+        gamma = float(self.parameters.get("gamma", 1.0))
+        p = float(self.parameters.get("p", 10.0))
+        model_type = self.parameters.get("model_type", "first_order")
+
+        if model_type == "first_order":
+            num = [alpha * gamma]
+            den = [1.0, alpha * beta * gamma]
+        else:
+            num = [alpha * gamma * p]
+            den = [1.0, p, alpha * beta * gamma * p]
+
+        return {
+            "source": "tf",
+            "domain": self.HUB_DOMAIN,
+            "dimensions": self.HUB_DIMENSIONS,
+            "tf": {
+                "num": num,
+                "den": den,
+                "variable": "s",
+            },
+        }
+
+    def from_hub_data(self, hub_data):
+        """Producer-only — DC motor defines its own plant, does not import."""
+        return False
 
     def get_state(self) -> Dict[str, Any]:
         """Return current simulation state with extra info."""

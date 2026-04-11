@@ -157,6 +157,10 @@ class MassSpringSimulator(BaseSimulator):
         "lqg_process_noise": 0.01, "lqg_sensor_noise": 0.01,
     }
 
+    HUB_SLOTS = ['control']
+    HUB_DOMAIN = "ct"
+    HUB_DIMENSIONS = {"n": None, "m": 1, "p": 1}
+
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
@@ -186,6 +190,26 @@ class MassSpringSimulator(BaseSimulator):
             self.parameters[name] = self._validate_param(name, value)
             self._compute()
         return self.get_state()
+
+    def to_hub_data(self):
+        """Export mass-spring-damper plant TF: 1/(ms^2 + bs + k)."""
+        m = float(self.parameters.get("mass", 1.0))
+        b = float(self.parameters.get("damping", 0.5))
+        k = float(self.parameters.get("spring_constant", 10.0))
+        return {
+            "source": "tf",
+            "domain": self.HUB_DOMAIN,
+            "dimensions": self.HUB_DIMENSIONS,
+            "tf": {
+                "num": [1.0],
+                "den": [m, b, k],
+                "variable": "s",
+            },
+        }
+
+    def from_hub_data(self, hub_data):
+        """Producer-only — mass-spring defines its own plant, does not import."""
+        return False
 
     # ------------------------------------------------------------------
     # Input signal builders
@@ -252,7 +276,18 @@ class MassSpringSimulator(BaseSimulator):
         return np.array([yd, ydd])
 
     def _compute(self) -> None:
-        """Simulate system with selected controller."""
+        """Simulate mass-spring-damper system with optional active controller.
+
+        Implements the base-excitation equation of motion:
+            m*y'' + b*y' + k*y = b*x' + k*x   (passive mode)
+            m*y'' + b*y' + k*y = F              (active force-control mode)
+        where y is mass displacement, x is base input, F is control force.
+
+        Natural frequency: omega_n = sqrt(k/m)
+        Damping ratio:     zeta = b / (2*sqrt(k*m))
+
+        Reference: Ogata, Modern Control Engineering, Sec. 3.2 (mass-spring-damper EOM).
+        """
         m = float(self.parameters["mass"])
         k = float(self.parameters["spring_constant"])
         b = float(self.parameters["damping"])

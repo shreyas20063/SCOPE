@@ -34,37 +34,18 @@ except ImportError:
 
 
 # ------------------------------------------------------------------ #
-#  Safe expression validation (reused from phase_portrait.py)         #
+#  Safe expression validation (delegated to core.expr_validator)      #
 # ------------------------------------------------------------------ #
 
-_DANGEROUS_PATTERNS = [
-    "import", "exec", "eval", "__", "open", "file",
-    "os.", "sys.", "subprocess", "compile", "globals",
-    "locals", "getattr", "setattr", "delattr", "lambda",
-    "class", "def ", "yield", "async", "await",
-]
+from core.expr_validator import validate_expr as _validate_expr, DANGEROUS_PATTERNS as _DANGEROUS_PATTERNS
 
+# ------------------------------------------------------------------ #
+#  Extracted core utilities                                           #
+# ------------------------------------------------------------------ #
 
-def _validate_expr(expr: str) -> Tuple[bool, str]:
-    """Validate expression string for security.
-
-    Args:
-        expr: Raw user expression string.
-
-    Returns:
-        (is_valid, error_message) tuple.
-    """
-    if not expr or not expr.strip():
-        return False, "Expression cannot be empty"
-    expr_lower = expr.lower()
-    for pat in _DANGEROUS_PATTERNS:
-        if pat in expr_lower:
-            return False, f"Unsafe pattern: '{pat}'"
-    if expr.count("(") != expr.count(")"):
-        return False, "Unbalanced parentheses"
-    if len(expr) > 500:
-        return False, "Expression too long (max 500 chars)"
-    return True, ""
+from core.linearization import compute_jacobian as _compute_jacobian_core
+from core.linearization import check_controllability as _check_controllability_core
+from core.roa import estimate_roa as _estimate_roa_core
 
 
 # ------------------------------------------------------------------ #
@@ -295,72 +276,12 @@ def _build_custom_symbolic(f_exprs: List[str],
 
 
 # ------------------------------------------------------------------ #
-#  Jacobian linearization                                             #
+#  Jacobian linearization (delegated to core.linearization)           #
 # ------------------------------------------------------------------ #
 
-def _compute_jacobians(f_vector: sp.Matrix,
-                       x_syms: List,
-                       u_syms: List,
-                       x_eq: List[float],
-                       u_eq: List[float]
-                       ) -> Tuple[np.ndarray, np.ndarray]:
-    """Compute A = ∂f/∂x and B = ∂f/∂u evaluated at equilibrium.
-
-    Args:
-        f_vector: SymPy Matrix of state equations.
-        x_syms: SymPy state symbols.
-        u_syms: SymPy input symbols.
-        x_eq: Equilibrium state values.
-        u_eq: Equilibrium input values.
-
-    Returns:
-        (A, B) as numpy arrays.
-    """
-    n = len(x_syms)
-    m = len(u_syms)
-
-    # Symbolic Jacobians
-    A_sym = f_vector.jacobian(sp.Matrix(x_syms))
-    B_sym = f_vector.jacobian(sp.Matrix(u_syms))
-
-    # Substitution dict
-    subs = {}
-    for i, s in enumerate(x_syms):
-        subs[s] = x_eq[i]
-    for i, s in enumerate(u_syms):
-        subs[s] = u_eq[i]
-
-    # Evaluate numerically
-    A_num = np.array(A_sym.subs(subs).tolist(), dtype=float)
-    B_num = np.array(B_sym.subs(subs).tolist(), dtype=float)
-
-    if not np.all(np.isfinite(A_num)) or not np.all(np.isfinite(B_num)):
-        raise ValueError("Jacobian contains inf/nan — equilibrium may be at a singularity")
-
-    return A_num, B_num
-
-
-def _check_controllability(A: np.ndarray, B: np.ndarray) -> Tuple[bool, int]:
-    """Check controllability via rank of [B, AB, A²B, ..., A^(n-1)B].
-
-    Args:
-        A: n x n system matrix.
-        B: n x m input matrix.
-
-    Returns:
-        (is_controllable, rank) tuple.
-    """
-    n = A.shape[0]
-    if B.ndim == 1:
-        B = B.reshape(-1, 1)
-    ctrb_matrix = B.copy()
-    AiB = B.copy()
-    for i in range(1, n):
-        AiB = A @ AiB
-        ctrb_matrix = np.hstack([ctrb_matrix, AiB])
-
-    rank = np.linalg.matrix_rank(ctrb_matrix)
-    return bool(rank == n), int(rank)
+# Preserve module-level API for backwards compatibility
+_compute_jacobians = _compute_jacobian_core
+_check_controllability = _check_controllability_core
 
 
 # ------------------------------------------------------------------ #
@@ -785,126 +706,10 @@ def _compute_streamlines(f_numeric: callable,
 
 
 # ------------------------------------------------------------------ #
-#  Region of Attraction                                               #
+#  Region of Attraction (delegated to core.roa)                       #
 # ------------------------------------------------------------------ #
 
-def _simulate_single_ic(args: Tuple) -> int:
-    """Simulate a single IC and classify convergence.
-
-    Designed for use with ThreadPoolExecutor.
-
-    Args:
-        args: (f_numeric, K, x_eq, u_eq, x0, t_end, n_states, eps)
-
-    Returns:
-        0 = converged, 1 = diverged, 2 = marginal
-    """
-    f_numeric, K, x_eq, u_eq, x0, t_end, n_states, eps = args
-
-    if K.ndim == 1:
-        K = K.reshape(1, -1)
-
-    def rhs(t: float, x: np.ndarray) -> np.ndarray:
-        dx = x - x_eq
-        u = (-K @ dx + u_eq.reshape(-1)).flatten()
-        u = np.clip(u, -1000, 1000)
-        try:
-            dxdt = np.array(f_numeric(x, u)).flatten()
-            if np.any(np.isnan(dxdt)) or np.any(np.isinf(dxdt)):
-                return np.zeros(n_states)
-            return dxdt
-        except Exception:
-            return np.zeros(n_states)
-
-    def div_event(t: float, x: np.ndarray) -> float:
-        return 1000.0 - np.linalg.norm(x)
-    div_event.terminal = True
-    div_event.direction = -1
-
-    try:
-        sol = solve_ivp(rhs, (0, t_end), x0, method='RK45',
-                        max_step=0.1, events=div_event,
-                        rtol=1e-6, atol=1e-8)
-
-        if sol.t_events and len(sol.t_events[0]) > 0:
-            return 1  # diverged
-
-        final_state = sol.y[:, -1]
-        error = np.linalg.norm(final_state - x_eq)
-
-        if error < eps:
-            return 0  # converged
-        elif error < eps * 10:
-            return 2  # marginal
-        else:
-            return 1  # diverged
-
-    except Exception:
-        return 1  # diverged
-
-
-def _compute_roa(f_numeric: callable,
-                 K: np.ndarray,
-                 x_eq: np.ndarray,
-                 u_eq: np.ndarray,
-                 n_states: int,
-                 proj_x: int,
-                 proj_y: int,
-                 grid_size: int = 25,
-                 extent: float = 3.0,
-                 t_end: float = 10.0,
-                 eps: float = 0.1
-                 ) -> Dict[str, Any]:
-    """Compute region of attraction via grid-based simulation.
-
-    Uses ThreadPoolExecutor for parallelism.
-
-    Args:
-        f_numeric: Callable f(x, u) -> dxdt.
-        K: Gain matrix.
-        x_eq: Equilibrium state.
-        u_eq: Equilibrium input.
-        n_states: Number of states.
-        proj_x: x-axis state index.
-        proj_y: y-axis state index.
-        grid_size: Grid resolution per axis.
-        extent: Range around equilibrium.
-        t_end: Simulation time for each IC.
-        eps: Convergence threshold.
-
-    Returns:
-        Dict with x_vals, y_vals, result (2D grid of 0/1/2).
-    """
-    cx = x_eq[proj_x]
-    cy = x_eq[proj_y]
-    x_vals = np.linspace(cx - extent, cx + extent, grid_size)
-    y_vals = np.linspace(cy - extent, cy + extent, grid_size)
-
-    # Build IC list
-    tasks = []
-    for i in range(grid_size):
-        for j in range(grid_size):
-            x0 = x_eq.copy()
-            x0[proj_x] = x_vals[j]
-            x0[proj_y] = y_vals[i]
-            tasks.append((f_numeric, K, x_eq, u_eq, x0, t_end, n_states, eps))
-
-    # Parallel execution
-    results_flat = []
-    try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            results_flat = list(executor.map(_simulate_single_ic, tasks))
-    except Exception:
-        results_flat = [1] * len(tasks)
-
-    # Reshape to grid
-    result_grid = np.array(results_flat).reshape(grid_size, grid_size)
-
-    return {
-        "x_vals": x_vals.tolist(),
-        "y_vals": y_vals.tolist(),
-        "result": result_grid.tolist(),
-    }
+_compute_roa = _estimate_roa_core
 
 
 # ------------------------------------------------------------------ #

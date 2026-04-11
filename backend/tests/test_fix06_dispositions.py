@@ -22,9 +22,7 @@ from simulations import SIMULATOR_REGISTRY
 
 VESTIGIAL_SIMS = [
     "cascade_parallel",
-    "dc_motor",
     "dt_difference_equation",
-    "mass_spring_system",
     "operator_algebra",
     "phase_portrait",
 ]

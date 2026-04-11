@@ -31,6 +31,8 @@ class DelayInstabilitySimulator(BaseSimulator):
             "max": -0.1,
             "step": 0.05,
             "default": -1.0,
+            "label": "KT Gain Product",
+            "description": "Product of sensor gain K and feedback constant T. KT = -1 gives dead-beat convergence.",
         },
         "initial_distance": {
             "type": "slider",
@@ -38,6 +40,9 @@ class DelayInstabilitySimulator(BaseSimulator):
             "max": 5.0,
             "step": 0.1,
             "default": 2.0,
+            "label": "Initial Distance",
+            "unit": "m",
+            "description": "Starting distance of the robot from the wall.",
         },
         "target_distance": {
             "type": "slider",
@@ -45,6 +50,9 @@ class DelayInstabilitySimulator(BaseSimulator):
             "max": 3.0,
             "step": 0.1,
             "default": 1.0,
+            "label": "Target Distance",
+            "unit": "m",
+            "description": "Desired stopping distance from the wall.",
         },
         "num_steps": {
             "type": "slider",
@@ -52,6 +60,8 @@ class DelayInstabilitySimulator(BaseSimulator):
             "max": 40,
             "step": 1,
             "default": 25,
+            "label": "Number of Steps",
+            "description": "Number of discrete time steps to simulate.",
         },
         "playback_speed": {
             "type": "select",
@@ -61,6 +71,7 @@ class DelayInstabilitySimulator(BaseSimulator):
                 {"value": "fast", "label": "Fast"},
             ],
             "default": "normal",
+            "label": "Playback Speed",
         },
     }
 
@@ -137,7 +148,20 @@ class DelayInstabilitySimulator(BaseSimulator):
         return self.get_state()
 
     def _compute(self) -> None:
-        """Compute step responses for all three delay cases."""
+        """Compute step responses for all three delay cases.
+
+        Implements discrete-time feedback with sensor delay:
+            d_s[n] = d_o[n - delay]    (delayed measurement)
+            v[n]   = K * (d_target - d_s[n])  (proportional controller)
+            d_o[n+1] = d_o[n] - T * v[n]      (position update)
+
+        Characteristic equations by delay:
+            No delay:    z - (1 + KT) = 0
+            1-step:      z^2 - z - KT = 0
+            2-step:      z^3 - z^2 - KT = 0
+
+        Reference: Discrete-time delay feedback model (Franklin et al., Ch. 4).
+        """
         KT = float(self.parameters["kt_product"])
         d_initial = float(self.parameters["initial_distance"])
         d_target = float(self.parameters["target_distance"])

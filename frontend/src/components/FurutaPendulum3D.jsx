@@ -949,6 +949,15 @@ function FurutaPendulum3D({ visualization3D, isStable, onFrameChange }) {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (sceneRef.current) {
+        sceneRef.current.traverse((obj) => {
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) {
+            if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+            else obj.material.dispose();
+          }
+        });
+      }
       if (composerRef.current) composerRef.current.dispose();
       if (rendererRef.current && containerRef.current) {
         containerRef.current.removeChild(rendererRef.current.domElement);

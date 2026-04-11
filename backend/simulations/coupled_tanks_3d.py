@@ -222,6 +222,8 @@ class CoupledTanks3DSimulator(BaseSimulator):
         "lqg_process_noise": 0.01, "lqg_sensor_noise": 0.01,
     }
 
+    HUB_SLOTS = ['control']
+    HUB_DOMAIN = "ct"
     HUB_DIMENSIONS = {"n": None, "m": None, "p": None}
 
     def __init__(self, simulation_id: str):
@@ -835,6 +837,30 @@ class CoupledTanks3DSimulator(BaseSimulator):
         plots.append(pz_plot)
 
         return plots
+
+    def to_hub_data(self):
+        """Export linearized MIMO state-space model at equilibrium."""
+        if not self._result:
+            return None
+        ctrl_info = self._result.get("controller_info", {})
+        A = ctrl_info.get("A")
+        B = ctrl_info.get("B")
+        if A is None or B is None:
+            return None
+        n = len(A)
+        m = len(B[0]) if B and B[0] else 2
+        C = np.eye(n).tolist()
+        D = np.zeros((n, m)).tolist()
+        return {
+            "source": "ss",
+            "domain": self.HUB_DOMAIN,
+            "dimensions": {"n": n, "m": m, "p": n},
+            "ss": {"A": A, "B": B, "C": C, "D": D},
+        }
+
+    def from_hub_data(self, hub_data):
+        """Producer-only — coupled tanks defines its own plant."""
+        return False
 
     def get_state(self) -> Dict[str, Any]:
         if not self._initialized:

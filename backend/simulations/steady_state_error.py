@@ -1090,7 +1090,19 @@ class SteadyStateErrorSimulator(BaseSimulator):
                 "plots": plots, "metadata": metadata}
 
     def _compute_all(self) -> Tuple[Dict, List[Dict], Dict]:
-        """Central computation engine."""
+        """Compute system type, error constants, steady-state errors, and time response.
+
+        Implements the Final Value Theorem approach:
+            ess = lim(s->0) s * E(s) = lim(s->0) s * R(s) / (1 + G(s)H(s))
+        Error constants from L(s) = G(s)H(s):
+            Kp = lim(s->0) L(s)        (position error constant)
+            Kv = lim(s->0) s*L(s)       (velocity error constant)
+            Ka = lim(s->0) s^2*L(s)     (acceleration error constant)
+        System type n = number of free-s factors in L(s).
+
+        Reference: Ogata, Modern Control Engineering, Sec. 5.4-5.5 (error constants);
+                   Nise, Control Systems Engineering, Table 7.2 (steady-state errors).
+        """
         # Extract parameters
         g_num, g_den = self._get_plant_tf()
         h_num, h_den = self._get_feedback_tf()

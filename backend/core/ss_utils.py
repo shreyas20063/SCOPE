@@ -760,3 +760,75 @@ def convert_canonical(
 
     else:
         raise ValueError(f"Unknown target form: {to_form!r}")
+
+
+# ---------------------------------------------------------------------------
+# Stability checks
+# ---------------------------------------------------------------------------
+
+def check_ct_stability(
+    poles: np.ndarray,
+    tol: float = 1e-10,
+) -> Tuple[bool, bool]:
+    """Check continuous-time stability from pole locations.
+
+    A CT system is stable iff all poles have strictly negative real parts.
+    Marginal stability: at least one pole on the jω-axis (Re ≈ 0) with
+    no poles in the open RHP.
+
+    Args:
+        poles: Array of complex pole values.
+        tol: Threshold for "on the jω-axis" detection.
+
+    Returns:
+        (is_stable, is_marginal) where:
+        - is_stable: True if all poles in open LHP (Re < -tol)
+        - is_marginal: True if not stable but no pole in open RHP (Re > tol)
+
+    Reference: Ogata §5-4, Nise §6.1
+    """
+    poles = np.atleast_1d(np.asarray(poles, dtype=complex))
+    if len(poles) == 0:
+        return True, False
+
+    real_parts = np.real(poles)
+    is_stable = bool(np.all(real_parts < -tol))
+    if is_stable:
+        return True, False
+
+    is_marginal = bool(np.all(real_parts <= tol))
+    return False, is_marginal
+
+
+def check_dt_stability(
+    poles: np.ndarray,
+    tol: float = 1e-9,
+) -> Tuple[bool, bool]:
+    """Check discrete-time stability from pole locations.
+
+    A DT system is stable iff all poles are strictly inside the unit circle.
+    Marginal stability: at least one pole on the unit circle (|z| ≈ 1)
+    with no poles outside.
+
+    Args:
+        poles: Array of complex pole values.
+        tol: Threshold for "on the unit circle" detection.
+
+    Returns:
+        (is_stable, is_marginal) where:
+        - is_stable: True if all poles strictly inside unit circle (|z| < 1-tol)
+        - is_marginal: True if not stable but no pole outside (|z| > 1+tol)
+
+    Reference: Ogata §4-3 (discrete)
+    """
+    poles = np.atleast_1d(np.asarray(poles, dtype=complex))
+    if len(poles) == 0:
+        return True, False
+
+    magnitudes = np.abs(poles)
+    is_stable = bool(np.all(magnitudes < 1.0 - tol))
+    if is_stable:
+        return True, False
+
+    is_marginal = bool(np.all(magnitudes <= 1.0 + tol))
+    return False, is_marginal

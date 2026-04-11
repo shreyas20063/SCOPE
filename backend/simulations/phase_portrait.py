@@ -50,25 +50,12 @@ _SAFE_NAMESPACE = {
     "__builtins__": {},
 }
 
-_DANGEROUS_PATTERNS = [
-    "import", "exec", "eval", "__", "open", "file",
-    "os.", "sys.", "subprocess", "compile", "globals",
-    "locals", "getattr", "setattr", "delattr", "lambda",
-    "class", "def ", "yield", "async", "await",
-]
+from core.expr_validator import validate_expr as _validate_expr_core, DANGEROUS_PATTERNS as _DANGEROUS_PATTERNS
 
 
 def _validate_expr(expr: str) -> Tuple[bool, str]:
-    """Validate expression for security."""
-    if not expr or not expr.strip():
-        return False, "Expression cannot be empty"
-    expr_lower = expr.lower()
-    for pat in _DANGEROUS_PATTERNS:
-        if pat in expr_lower:
-            return False, f"Unsafe pattern: '{pat}'"
-    if expr.count("(") != expr.count(")"):
-        return False, "Unbalanced parentheses"
-    return True, ""
+    """Validate expression for security. Delegates to core."""
+    return _validate_expr_core(expr, max_length=0)
 
 
 def _parse_expr(expr: str) -> str:

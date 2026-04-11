@@ -55,6 +55,17 @@ class ComplexPolesModesSimulator(BaseSimulator):
     FILL_STABLE = "rgba(52, 211, 153, 0.08)"
 
     PARAMETER_SCHEMA = {
+        "preset": {
+            "type": "select", "label": "Preset",
+            "options": [
+                {"value": "custom", "label": "Custom Parameters"},
+                {"value": "overdamped", "label": "Overdamped (two distinct real poles)"},
+                {"value": "critically_damped", "label": "Critically Damped (repeated real pole)"},
+                {"value": "underdamped", "label": "Underdamped (complex conjugate pair)"},
+                {"value": "undamped", "label": "Undamped (pure imaginary pair)"},
+            ],
+            "default": "custom",
+        },
         "K": {
             "type": "slider", "label": "Spring Constant (K)",
             "min": 1.0, "max": 100.0, "step": 1.0, "default": 10.0,
@@ -82,12 +93,17 @@ class ComplexPolesModesSimulator(BaseSimulator):
     }
 
     DEFAULT_PARAMS = {
+        "preset": "custom",
         "K": 10.0,
         "M": 1.0,
         "b": 0.0,
         "num_taylor_terms": 5,
         "time_window": 5.0,
     }
+
+    HUB_SLOTS = ['control']
+    HUB_DOMAIN = "ct"
+    HUB_DIMENSIONS = {"n": None, "m": 1, "p": 1}
 
 
     def __init__(self, simulation_id: str):
@@ -112,8 +128,31 @@ class ComplexPolesModesSimulator(BaseSimulator):
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
         if name in self.parameters:
             self.parameters[name] = self._validate_param(name, value)
+        if name == "preset" and value != "custom":
+            self._apply_preset(value)
         self._compute_system()
         return self.get_state()
+
+    def _apply_preset(self, preset: str) -> None:
+        """Set K, M, b for textbook damping cases."""
+        # All use M=1, K=10 (omega_0 = sqrt(10) ~ 3.16 rad/s)
+        # Critical damping: b = 2*sqrt(M*K) = 2*sqrt(10) ~ 6.32
+        if preset == "overdamped":
+            self.parameters["K"] = 10.0
+            self.parameters["M"] = 1.0
+            self.parameters["b"] = 8.0  # zeta ~ 1.26
+        elif preset == "critically_damped":
+            self.parameters["K"] = 4.0
+            self.parameters["M"] = 1.0
+            self.parameters["b"] = 4.0  # zeta = 1.0 exactly (b = 2*sqrt(MK) = 4)
+        elif preset == "underdamped":
+            self.parameters["K"] = 10.0
+            self.parameters["M"] = 1.0
+            self.parameters["b"] = 2.0  # zeta ~ 0.316
+        elif preset == "undamped":
+            self.parameters["K"] = 10.0
+            self.parameters["M"] = 1.0
+            self.parameters["b"] = 0.0  # zeta = 0
 
     def reset(self) -> Dict[str, Any]:
         """Reset to default parameters and recompute system."""
@@ -128,7 +167,16 @@ class ComplexPolesModesSimulator(BaseSimulator):
     # =========================================================================
 
     def _compute_system(self) -> None:
-        """Compute system parameters from K, M, b."""
+        """Compute poles and modal decomposition from K, M, b.
+
+        Implements the mass-spring-damper impulse response:
+            M*y'' + b*y' + K*y = delta(t)
+            Poles: s = -sigma +/- j*omega_d
+            where sigma = b/(2M), omega_0 = sqrt(K/M), omega_d = sqrt(omega_0^2 - sigma^2)
+            h(t) = (1/(M*omega_d)) * e^(-sigma*t) * sin(omega_d*t) * u(t)
+
+        Reference: Ogata, Modern Control Engineering, Sec. 3.5 (modal decomposition).
+        """
         K = float(self.parameters["K"])
         M = float(self.parameters["M"])
         b = float(self.parameters["b"])
@@ -159,6 +207,73 @@ class ComplexPolesModesSimulator(BaseSimulator):
         T = float(self.parameters["time_window"])
         self._t = np.linspace(0, T, self.NUM_SAMPLES)
         self._revision += 1
+
+    # =========================================================================
+    # Hub integration
+    # =========================================================================
+
+    def to_hub_data(self):
+        """Export second-order TF: 1/(Ms^2 + bs + K)."""
+        M = float(self.parameters.get("M", 1.0))
+        b = float(self.parameters.get("b", 0.0))
+        K = float(self.parameters.get("K", 10.0))
+        return {
+            "source": "tf",
+            "domain": self.HUB_DOMAIN,
+            "dimensions": self.HUB_DIMENSIONS,
+            "tf": {
+                "num": [1.0],
+                "den": [M, b, K],
+                "variable": "s",
+            },
+        }
+
+    def from_hub_data(self, hub_data):
+        """Import a 2nd-order TF from the hub and map to M, b, K parameters.
+
+        Accepts TFs with exactly 3 denominator coefficients (2nd order).
+        Normalizes so that M = den[0], b = den[1], K = den[2].
+        """
+        if not hub_data:
+            return False
+
+        # Domain check
+        if hub_data.get("domain", "ct") != self.HUB_DOMAIN:
+            return False
+
+        # SISO check
+        dims = hub_data.get("dimensions", {})
+        if dims.get("m", 1) != 1 or dims.get("p", 1) != 1:
+            return False
+
+        tf = hub_data.get("tf")
+        if not tf or not tf.get("den"):
+            return False
+
+        den = tf["den"]
+        if len(den) != 3:
+            return False
+
+        # den = [M, b, K] in high-to-low power order
+        M_val = float(den[0])
+        b_val = float(den[1])
+        K_val = float(den[2])
+
+        if M_val <= 0:
+            return False
+
+        # Clamp to parameter schema bounds
+        schema = self.PARAMETER_SCHEMA
+        M_val = max(schema["M"]["min"], min(schema["M"]["max"], M_val))
+        b_val = max(schema["b"]["min"], min(schema["b"]["max"], b_val))
+        K_val = max(schema["K"]["min"], min(schema["K"]["max"], K_val))
+
+        self.parameters["M"] = M_val
+        self.parameters["b"] = b_val
+        self.parameters["K"] = K_val
+        self.parameters["preset"] = "custom"
+        self._compute_system()
+        return True
 
     # =========================================================================
     # Plot generation

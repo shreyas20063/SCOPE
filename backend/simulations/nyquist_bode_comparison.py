@@ -43,6 +43,8 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
                 {"value": "lead_lag", "label": "Lead/Lag: K(s+z)/(s+p)"},
                 {"value": "two_real_poles", "label": "Two Poles: K/((s+a)(s+b))"},
                 {"value": "integrator_pole", "label": "Integrator: K/(s(s+a))"},
+                {"value": "marginally_stable", "label": "Marginally Stable: K/(s(s+1)(s+2))"},
+                {"value": "high_gm_low_pm", "label": "High GM, Low PM: K(s+0.5)/((s+1)(s+5)(s+10))"},
                 {"value": "custom", "label": "Custom Coefficients"},
             ],
             "default": "second_order",
@@ -149,7 +151,14 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
         return self.get_state()
 
     def _compute(self) -> None:
-        """Compute all data from current parameters."""
+        """Compute Bode magnitude/phase, Nyquist plot, poles/zeros, and stability margins.
+
+        Evaluates H(jw) = num(jw)/den(jw) over the frequency range, then extracts:
+            Gain margin:  GM = -20*log10(|H(jw_pc)|) at phase crossover w_pc
+            Phase margin: PM = 180 + angle(H(jw_gc)) at gain crossover w_gc
+
+        Reference: Ogata, Modern Control Engineering, Sec. 7.1-7.2 (Bode diagrams and margins).
+        """
         self._num_coeffs, self._den_coeffs = self._build_transfer_function()
         self._tf_expression = self._format_tf_expression()
         self._compute_poles_zeros()
@@ -187,6 +196,20 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
         elif preset == "integrator_pole":
             a = float(self.parameters["pole_a"])
             return np.array([K]), np.array([1.0, a, 0.0])
+
+        elif preset == "marginally_stable":
+            # K / (s(s+1)(s+2)) — marginally stable at K=6
+            a = float(self.parameters["pole_a"])
+            b = float(self.parameters["pole_b"])
+            den = np.convolve([1.0, 0.0], np.convolve([1.0, a], [1.0, b]))
+            return np.array([K]), den
+
+        elif preset == "high_gm_low_pm":
+            # K(s+0.5) / ((s+1)(s+5)(s+10)) — large gain margin, tight phase margin
+            zz = float(self.parameters["zero_z"])
+            num = np.array([K, K * zz])
+            den = np.convolve([1.0, 1.0], np.convolve([1.0, 5.0], [1.0, 10.0]))
+            return num, den
 
         elif preset == "custom":
             num = self._parse_coefficients(
@@ -234,6 +257,13 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
         elif preset == "integrator_pole":
             a = float(self.parameters["pole_a"])
             return f"H(s) = {K:.2g} / (s(s + {a:.2g}))"
+        elif preset == "marginally_stable":
+            a = float(self.parameters["pole_a"])
+            b = float(self.parameters["pole_b"])
+            return f"H(s) = {K:.2g} / (s(s + {a:.2g})(s + {b:.2g}))"
+        elif preset == "high_gm_low_pm":
+            zz = float(self.parameters["zero_z"])
+            return f"H(s) = {K:.2g}(s + {zz:.2g}) / ((s + 1)(s + 5)(s + 10))"
         elif preset == "custom":
             num_str = self._poly_to_str(self._num_coeffs)
             den_str = self._poly_to_str(self._den_coeffs)

@@ -60,7 +60,7 @@ class SecondOrderSystemSimulator(BaseSimulator):
             "max": 100,
             "step": 1,
             "default": 50,
-            "label": "Quality Factor Q",
+            "label": "Quality Factor Q (log: 0→0.1, 50→1, 100→10)",
             "display_transform": "q_log",
         },
     }
@@ -123,7 +123,15 @@ class SecondOrderSystemSimulator(BaseSimulator):
         return self.get_state()
 
     def _compute(self) -> None:
-        """Compute all signals based on current parameters."""
+        """Compute poles, damping classification, and Bode frequency response.
+
+        Implements the standard second-order transfer function:
+            H(s) = omega_0^2 / (s^2 + (omega_0/Q)*s + omega_0^2)
+
+        Damping ratio zeta = 1/(2Q). Resonant peak exists when Q > 1/sqrt(2).
+
+        Reference: Ogata, Modern Control Engineering, Sec. 3.6 (2nd-order systems).
+        """
         omega_0 = self.parameters["omega_0"]
         Q = self._slider_to_Q(self.parameters["Q_slider"])
 

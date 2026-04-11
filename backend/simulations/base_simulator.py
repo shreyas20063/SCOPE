@@ -40,6 +40,7 @@ class BaseSimulator(ABC):
         self.simulation_id = simulation_id
         self.parameters: Dict[str, Any] = {}
         self._initialized = False
+        self._dirty = True
 
     @abstractmethod
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
@@ -88,10 +89,12 @@ class BaseSimulator(ABC):
             - parameters: current parameter values
             - plots: list of Plotly plot dicts
         """
-        return {
+        result = {
             "parameters": self.parameters.copy(),
             "plots": self.get_plots(),
         }
+        self._dirty = False
+        return result
 
     def reset(self) -> Dict[str, Any]:
         """
@@ -119,6 +122,7 @@ class BaseSimulator(ABC):
             for name, value in params.items():
                 if name in self.parameters:
                     self.parameters[name] = self._validate_param(name, value)
+            self._dirty = True
 
         return self.get_state()
 

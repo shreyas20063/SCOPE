@@ -12,6 +12,7 @@ import numpy as np
 from typing import Any, Dict, List, Optional, Tuple
 
 from .base_simulator import BaseSimulator
+from core.palette import RED, BLUE, TEAL, GREEN, VIOLET
 
 
 class VectorFreqResponseSimulator(BaseSimulator):
@@ -30,14 +31,14 @@ class VectorFreqResponseSimulator(BaseSimulator):
     - Presets with pedagogical defaults
     """
 
-    # Colors
-    POLE_COLOR = "#ef4444"
-    ZERO_COLOR = "#3b82f6"
-    JW_AXIS_COLOR = "#a855f7"
-    PHASE_COLOR = "#ef4444"
-    MAG_COLOR = "#3b82f6"
-    TEAL_COLOR = "#14b8a6"
-    GREEN_COLOR = "#10b981"
+    # Colors (from core.palette)
+    POLE_COLOR = RED
+    ZERO_COLOR = BLUE
+    JW_AXIS_COLOR = VIOLET
+    PHASE_COLOR = RED
+    MAG_COLOR = BLUE
+    TEAL_COLOR = TEAL
+    GREEN_COLOR = GREEN
     GRID_COLOR = "rgba(148, 163, 184, 0.15)"
     ZEROLINE_COLOR = "rgba(148, 163, 184, 0.3)"
     LEGEND_BG = "rgba(15, 23, 42, 0.8)"
@@ -213,7 +214,7 @@ class VectorFreqResponseSimulator(BaseSimulator):
         self.parameters["gain"] = config["gain"]
 
     # =========================================================================
-    # TF Expression Parser (adapted from root locus)
+    # TF Expression Parser (delegated to core.tf_parser)
     # =========================================================================
 
     def _action_parse_expression(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -224,7 +225,8 @@ class VectorFreqResponseSimulator(BaseSimulator):
             return self.get_state()
 
         try:
-            num_str, den_str = self._parse_tf_expression(expr)
+            from core.tf_parser import parse_tf_expression
+            num_str, den_str = parse_tf_expression(expr)
             self.parameters["num_coeffs"] = num_str
             self.parameters["den_coeffs"] = den_str
             self.parameters["preset"] = "custom"
@@ -235,231 +237,6 @@ class VectorFreqResponseSimulator(BaseSimulator):
             self._error = f"Parse error: {str(e)}"
 
         return self.get_state()
-
-    def _parse_tf_expression(self, expr: str) -> Tuple[str, str]:
-        """Parse a TF expression into coefficient strings.
-
-        Returns (num_coeffs_str, den_coeffs_str) as comma-separated strings
-        in descending power order.
-        """
-        expr = expr.strip()
-        # Remove H(s) = or G(s) = prefix
-        expr = re.sub(r'[GH]\s*\(\s*s\s*\)\s*=\s*', '', expr).strip()
-
-        # Find the division point — '/' not inside parentheses
-        split_idx = -1
-        depth = 0
-        for i, ch in enumerate(expr):
-            if ch == '(':
-                depth += 1
-            elif ch == ')':
-                depth -= 1
-            elif ch == '/' and depth == 0:
-                split_idx = i
-                break
-
-        if split_idx >= 0:
-            num_str = self._strip_outer_parens(expr[:split_idx])
-            den_str = self._strip_outer_parens(expr[split_idx + 1:])
-        else:
-            num_str = self._strip_outer_parens(expr)
-            den_str = "1"
-
-        num_coeffs = self._parse_polynomial_expr(num_str)
-        den_coeffs = self._parse_polynomial_expr(den_str)
-
-        return (
-            ", ".join(f"{c:.6g}" for c in num_coeffs),
-            ", ".join(f"{c:.6g}" for c in den_coeffs),
-        )
-
-    @staticmethod
-    def _strip_outer_parens(s: str) -> str:
-        """Strip matched outer parentheses: '((s+1))' -> 's+1'."""
-        s = s.strip()
-        while len(s) >= 2 and s[0] == '(' and s[-1] == ')':
-            depth = 0
-            matched = True
-            for i, ch in enumerate(s):
-                if ch == '(':
-                    depth += 1
-                elif ch == ')':
-                    depth -= 1
-                if depth == 0 and i < len(s) - 1:
-                    matched = False
-                    break
-            if matched:
-                s = s[1:-1].strip()
-            else:
-                break
-        return s
-
-    def _parse_polynomial_expr(self, poly_str: str) -> List[float]:
-        """Parse polynomial expression like 's^2 + 3s + 1' or '(s+1)(s+3)'.
-
-        Returns coefficients in descending power order.
-        """
-        poly_str = poly_str.strip()
-        if not poly_str or poly_str == "0":
-            return [0.0]
-
-        # Pure number
-        try:
-            val = float(poly_str)
-            return [val]
-        except ValueError:
-            pass
-
-        # Check for factored form
-        factored = self._try_parse_factored(poly_str)
-        if factored is not None:
-            return factored
-
-        # Polynomial form: s^2 + 3s + 1
-        return self._parse_expanded_poly(poly_str)
-
-    def _try_parse_factored(self, expr: str) -> Optional[List[float]]:
-        """Try to parse as product of factors like (s+1)(s-2) or s(s+1).
-
-        Returns coefficients (high-power-first) or None if not factored form.
-        """
-        expr = expr.strip()
-        factors: List[List[float]] = []
-        leading_coeff = 1.0
-        i = 0
-
-        # Try to extract leading coefficient
-        coeff_match = re.match(r'^(-?\d*\.?\d+)\s*\*?\s*(?=[\(s])', expr)
-        if coeff_match:
-            leading_coeff = float(coeff_match.group(1))
-            i = coeff_match.end()
-
-        while i < len(expr):
-            ch = expr[i]
-            if ch in (' ', '*'):
-                i += 1
-                continue
-
-            if ch == '(':
-                depth = 1
-                j = i + 1
-                while j < len(expr) and depth > 0:
-                    if expr[j] == '(':
-                        depth += 1
-                    elif expr[j] == ')':
-                        depth -= 1
-                    j += 1
-                factor_str = expr[i + 1:j - 1].strip()
-                factor_coeffs = self._parse_expanded_poly(factor_str)
-                factors.append(factor_coeffs)
-                i = j
-            elif expr[i:i + 1].lower() == 's':
-                power_match = re.match(r's\s*\^\s*(\d+)', expr[i:])
-                if power_match:
-                    power = int(power_match.group(1))
-                    factor = [1.0] + [0.0] * power
-                    factors.append(factor)
-                    i += power_match.end()
-                else:
-                    factors.append([1.0, 0.0])
-                    i += 1
-            else:
-                return None
-
-        if not factors:
-            return None
-
-        result = np.array([leading_coeff])
-        for f in factors:
-            result = np.polymul(result, np.array(f))
-        return [float(c) for c in result]
-
-    def _parse_expanded_poly(self, poly_str: str) -> List[float]:
-        """Parse expanded polynomial like 's^2 + 3s + 1'."""
-        poly_str = poly_str.strip()
-        if not poly_str or poly_str == "0":
-            return [0.0]
-
-        try:
-            val = float(poly_str)
-            return [val]
-        except ValueError:
-            pass
-
-        terms = self._tokenize_poly_terms(poly_str)
-        coeffs: Dict[int, float] = {}
-
-        for term in terms:
-            term = term.strip()
-            if not term:
-                continue
-
-            has_s = bool(re.search(r's', term, re.IGNORECASE))
-
-            if not has_s:
-                try:
-                    coeffs[0] = coeffs.get(0, 0) + float(term.replace(" ", ""))
-                except ValueError:
-                    pass
-                continue
-
-            power_match = re.search(r's\s*\^\s*(-?\d+)', term, re.IGNORECASE)
-            if power_match:
-                power = int(power_match.group(1))
-            else:
-                power = 1
-
-            coeff_str = re.sub(r'\s*\*?\s*s(\s*\^\s*-?\d+)?', '', term, flags=re.IGNORECASE).strip()
-            coeff_str = coeff_str.rstrip("*").strip().replace(" ", "")
-
-            if coeff_str in ("", "+"):
-                coeff = 1.0
-            elif coeff_str == "-":
-                coeff = -1.0
-            else:
-                try:
-                    coeff = float(coeff_str)
-                except ValueError:
-                    coeff = 1.0
-
-            coeffs[power] = coeffs.get(power, 0) + coeff
-
-        if not coeffs:
-            return [1.0]
-
-        max_power = max(coeffs.keys())
-        return [coeffs.get(i, 0.0) for i in range(max_power, -1, -1)]
-
-    @staticmethod
-    def _tokenize_poly_terms(poly_str: str) -> List[str]:
-        """Split polynomial string into signed terms."""
-        terms: List[str] = []
-        current = ""
-        s = poly_str.strip()
-        i = 0
-
-        while i < len(s):
-            ch = s[i]
-            if ch in ('+', '-') and i > 0:
-                j = i - 1
-                while j >= 0 and s[j] == ' ':
-                    j -= 1
-                if j >= 0 and s[j] == '^':
-                    current += ch
-                    i += 1
-                    continue
-                if current.strip():
-                    terms.append(current.strip())
-                current = ch if ch == '-' else ""
-                i += 1
-                continue
-            current += ch
-            i += 1
-
-        if current.strip():
-            terms.append(current.strip())
-
-        return terms
 
     # =========================================================================
     # Coefficient parsing and pole/zero extraction

@@ -285,7 +285,16 @@ class LeadLagDesignerSimulator(BaseSimulator):
     # =========================================================================
 
     def _compute_with_info(self) -> tuple:
-        """Core computation. Returns (plots_list, design_info_dict)."""
+        """Compute open/closed-loop response, margins, and design equations.
+
+        Implements lead-lag compensator design:
+            Lead:  C_lead(s) = (s + wm*sqrt(alpha)) / (s + wm/sqrt(alpha))
+            Lag:   C_lag(s)  = (s + wm/sqrt(beta))  / (s + wm*sqrt(beta))
+            Open-loop: L(s) = Kc * C_lead(s) * C_lag(s) * G(s)
+            Closed-loop: T(s) = L(s) / (1 + L(s))
+
+        Reference: Ogata, Modern Control Engineering, Sec. 7.9 (lead-lag design).
+        """
         p = self.parameters
 
         # Build transfer functions
