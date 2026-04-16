@@ -352,6 +352,14 @@ class ControllerTuningLabSimulator(PIDTuningMixin, ModernControlMixin, BaseSimul
         "lqr_r": 1.0,
         "lqg_qw1": 1.0, "lqg_qw2": 1.0, "lqg_qw3": 1.0, "lqg_qw4": 1.0,
         "lqg_rv": 0.1,
+        # RL/ES training hyperparameters — surfaced as sliders in catalog.py
+        # (ES Generations, A2C Episodes). Without these in DEFAULT_PARAMS,
+        # BaseSimulator.update_parameter() silently discards slider moves
+        # because it only accepts keys already in self.parameters — making
+        # the sliders dead UI. Defaults match the Pydantic models in
+        # main.py's /es/start and /ppo/start endpoints.
+        "es_generations": 200,
+        "rl_timesteps": 5000,
     }
 
     HUB_SLOTS = ['control']

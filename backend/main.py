@@ -514,8 +514,16 @@ async def execute_simulation(sim_id: str, request: ExecuteRequest, x_session_id:
                 })
                 return JSONResponse(content=result)
             else:
+                # HTTP 200 with {success: false} — the request was well-formed
+                # and the backend processed it; the outcome is semantic
+                # rejection. Returning 422 here caused browser DevTools to log
+                # "Failed to load resource" on every sim page that attempts an
+                # auto-hub-import on mount against a producer-only or
+                # incompatible consumer (BDB, z_transform_roc, etc.). The
+                # frontend already handles {success: false} on 200 responses
+                # via ApiClient; the 422 status was pure UX noise.
                 return JSONResponse(
-                    status_code=422,
+                    status_code=200,
                     content={"success": False, "error": "Hub data not compatible with this simulation"}
                 )
 

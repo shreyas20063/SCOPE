@@ -953,6 +953,13 @@ a {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
+/* Light mode: white-on-pale-teal background is near-invisible. Switch
+   the text to the brand primary color, which composites legibly on both
+   the pale-teal card badge bg (rgba(20,184,166,0.15)) and the header pill. */
+[data-theme="light"] .category-badge {
+  color: var(--primary-color);
+}
+
 
 .card-content {
   flex: 1;
