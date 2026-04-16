@@ -17,6 +17,19 @@
   transition: opacity 300ms ease-out, transform 300ms ease-out;
 }
 
+/* Light mode: overlay backdrop follows theme so the launch transition doesn't
+   jolt from light page → pitch-black → light page. Device chrome below stays
+   dark by design (a physical oscilloscope has a dark CRT). */
+[data-theme="light"] .launch-overlay {
+  background: var(--background-color);
+}
+
+[data-theme="light"] .launch-overlay::before {
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(13, 148, 136, 0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 30% 25% at 40% 55%, rgba(37, 99, 235, 0.03) 0%, transparent 60%);
+}
+
 .launch-overlay.fade-out {
   opacity: 0;
   transform: scale(1.06);

@@ -1471,6 +1471,10 @@ a {
   z-index: 1000;
 }
 
+[data-theme="light"] .spinner-fullscreen {
+  background: rgba(225, 233, 244, 0.9);
+}
+
 .spinner {
   position: relative;
   display: flex;
