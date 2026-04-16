@@ -11,7 +11,7 @@ the validator and into every hub-aware consumer sim, verifying that:
      - Path B (standard): frontend maps NUM_KEYS/DEN_KEYS into update_parameter
 4. Math spot-checks: where consumers expose poles, they match the expected
    locations -1 ± 3j of the test TF.
-5. Producer-only sims correctly return 422 on the from_hub_data path.
+5. Producer-only sims correctly return 200 with {success:false} on from_hub_data.
 
 This test simulates the exact flow from useSimulation.js and is the only
 test that validates the full chain end-to-end. If any future change breaks
@@ -227,7 +227,14 @@ class TestPathACustomFromHubData:
             "/api/simulations/dt_system_representations/execute",
             json={"action": "from_hub_data", "params": {"hub_data": enriched_hub}},
         )
-        assert resp.status_code == 422
+        # BUG-083 (2026-04-17): changed from 422 to 200 + {success:False} so
+        # the browser console doesn't log "Failed to load resource" on every
+        # sim page that tries auto-hub-import on mount against a producer-only
+        # or incompatible consumer. The rejection is semantic, not protocol.
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body.get("success") is False
+        assert "not compatible" in (body.get("error") or "").lower()
 
     @pytest.mark.parametrize("sim_id", [
         "block_diagram_builder",
@@ -236,16 +243,26 @@ class TestPathACustomFromHubData:
         "laplace_roc",
         "nonlinear_control_lab",
     ])
-    def test_producer_only_sims_reject_with_422(self, client, enriched_hub, sim_id):
-        """Producer-only sims must reject hub TF pulls with 422 — that's the
-        whole point of overriding from_hub_data to return False instead of
-        inheriting the base method."""
+    def test_producer_only_sims_reject_with_success_false(self, client, enriched_hub, sim_id):
+        """Producer-only sims must reject hub TF pulls with {success: False} —
+        that's the whole point of overriding from_hub_data to return False
+        instead of inheriting the base method. Post-BUG-083 we return HTTP
+        200 + {success: false} (was HTTP 422) to keep the browser console
+        clean on auto-import-on-mount."""
         resp = client.post(
             f"/api/simulations/{sim_id}/execute",
             json={"action": "from_hub_data", "params": {"hub_data": enriched_hub}},
         )
-        assert resp.status_code == 422, (
-            f"{sim_id} should reject CT TF with 422 but got {resp.status_code}"
+        # BUG-083 (2026-04-17): changed from 422 to 200 + {success:False} so
+        # the browser console doesn't log "Failed to load resource" on every
+        # sim page that tries auto-hub-import on mount against a producer-only
+        # or incompatible consumer. The rejection is semantic, not protocol.
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body.get("success") is False
+        assert "not compatible" in (body.get("error") or "").lower(), (
+            f"{sim_id} should reject CT TF with success=False "
+            f"but got error={body.get('error')!r}"
         )
 
     def test_z_transform_roc_dt_producer_rejects_ct(self, client, enriched_hub):
@@ -254,7 +271,14 @@ class TestPathACustomFromHubData:
             "/api/simulations/z_transform_roc/execute",
             json={"action": "from_hub_data", "params": {"hub_data": enriched_hub}},
         )
-        assert resp.status_code == 422
+        # BUG-083 (2026-04-17): changed from 422 to 200 + {success:False} so
+        # the browser console doesn't log "Failed to load resource" on every
+        # sim page that tries auto-hub-import on mount against a producer-only
+        # or incompatible consumer. The rejection is semantic, not protocol.
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body.get("success") is False
+        assert "not compatible" in (body.get("error") or "").lower()
 
     def test_signal_flow_scope_rejects_flat_tf(self, client, enriched_hub):
         """SFS only accepts block_diagram payloads, not flat tf — this is
@@ -263,7 +287,14 @@ class TestPathACustomFromHubData:
             "/api/simulations/signal_flow_scope/execute",
             json={"action": "from_hub_data", "params": {"hub_data": enriched_hub}},
         )
-        assert resp.status_code == 422
+        # BUG-083 (2026-04-17): changed from 422 to 200 + {success:False} so
+        # the browser console doesn't log "Failed to load resource" on every
+        # sim page that tries auto-hub-import on mount against a producer-only
+        # or incompatible consumer. The rejection is semantic, not protocol.
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body.get("success") is False
+        assert "not compatible" in (body.get("error") or "").lower()
 
 
 # ---------------------------------------------------------------------------
