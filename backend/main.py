@@ -14,8 +14,10 @@ import asyncio
 import logging
 import threading
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
@@ -83,11 +85,24 @@ async def lifespan(app: FastAPI):
 
 
 async def periodic_cleanup():
-    """Background task for periodic cleanup."""
+    """Background task for periodic cleanup of cache and idle sessions."""
     while True:
         try:
             await asyncio.sleep(300)  # Every 5 minutes
             simulation_cache.cleanup_expired()
+
+            # Evict simulator sessions idle for > SESSION_IDLE_TIMEOUT
+            now = time.time()
+            with _simulator_lock:
+                stale_keys = [
+                    key for key, (_, last_accessed) in active_simulators.items()
+                    if now - last_accessed > SESSION_IDLE_TIMEOUT
+                ]
+                for key in stale_keys:
+                    del active_simulators[key]
+                if stale_keys:
+                    logger.info(f"Evicted {len(stale_keys)} idle session simulators")
+
             logger.debug("Periodic cleanup completed")
         except asyncio.CancelledError:
             break
@@ -103,11 +118,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS (public access)
+# Configure CORS (public access).
+# allow_credentials=False is REQUIRED with allow_origins=["*"] — the browser
+# rejects the combination `allow_origins=*` + `allow_credentials=true` because
+# it violates the same-origin invariant for cookie-bearing requests. We don't
+# use cookies or credentials anywhere (session identity is in X-Session-ID
+# header, not credentials), so this is correct. If auth is ever added,
+# swap "*" for an explicit origin list AND re-enable credentials together.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -166,50 +187,88 @@ async def add_security_headers(request: Request, call_next):
 
 
 # Initialize executor
-executor = SimulationExecutor(timeout=30)
+executor = SimulationExecutor(timeout=30, max_workers=16)
 
-# Active simulator instances
-active_simulators: Dict[str, Any] = {}
+# Active simulator instances — keyed by (sim_id, session_id) for per-tab isolation.
+# Value: (simulator_instance, last_accessed_timestamp)
+active_simulators: Dict[tuple, tuple] = {}
 _simulator_lock = threading.Lock()
 
+SESSION_IDLE_TIMEOUT = 1800  # 30 minutes
+DEFAULT_SESSION = "__default__"
 
-def get_or_create_simulator(sim_id: str):
-    """Get existing simulator instance or create a new one."""
+
+def get_or_create_simulator(sim_id: str, session_id: str = DEFAULT_SESSION):
+    """Get existing simulator instance or create a new one, scoped to session."""
     simulator_class = get_simulator_class(sim_id)
     if simulator_class is None:
         return None
 
-    with _simulator_lock:
-        # Recreate if class changed (e.g. after --reload)
-        if sim_id in active_simulators:
-            if type(active_simulators[sim_id]) is not simulator_class:
-                del active_simulators[sim_id]
+    key = (sim_id, session_id)
 
-        if sim_id not in active_simulators:
+    with _simulator_lock:
+        if key in active_simulators:
+            sim, _ = active_simulators[key]
+            # Recreate if class changed (e.g. after --reload)
+            if type(sim) is not simulator_class:
+                del active_simulators[key]
+
+        if key not in active_simulators:
             try:
                 simulator = simulator_class(sim_id)
                 simulator.initialize()
-                active_simulators[sim_id] = simulator
+                active_simulators[key] = (simulator, time.time())
             except Exception as e:
                 logger.error(f"Failed to initialize simulator '{sim_id}': {e}", exc_info=True)
                 return None
 
-    return active_simulators[sim_id]
+        # Update last-accessed timestamp
+        sim, _ = active_simulators[key]
+        active_simulators[key] = (sim, time.time())
+
+    return active_simulators[key][0]
 
 
-def get_cached_or_compute(sim_id: str, params: Dict[str, Any], simulator) -> Dict:
-    """Get cached result or compute new one."""
-    cached = get_cached_result(sim_id, params)
+def _cache_ns(sim_id: str, session_id: str) -> str:
+    """Namespace the cache key by session.
+
+    The LRU cache is keyed by (sim_id, params). For STATEFUL simulators
+    (e.g. block_diagram_builder, where self.blocks accumulates across
+    actions), the output of get_state() depends on the session's internal
+    history — NOT just the current params dict. Without a session
+    namespace, two sessions calling /state with the same params collide
+    on the same cache entry, and whichever session writes last leaks
+    their state to everyone else reading.
+
+    By prefixing session_id into the sim_id we pass to the cache module,
+    each session gets its own cache namespace. Cross-session collisions
+    can no longer happen. This costs some cache hit rate (same sim on
+    same params is no longer shared across users), but that's the price
+    of correctness for stateful simulators. The LRU is 10k entries with
+    5-minute TTL, so memory remains bounded.
+    """
+    return f"{sim_id}::{session_id}"
+
+
+def get_cached_or_compute(
+    sim_id: str,
+    params: Dict[str, Any],
+    simulator,
+    session_id: str = DEFAULT_SESSION,
+) -> Dict:
+    """Get cached result or compute new one (session-scoped cache)."""
+    ns = _cache_ns(sim_id, session_id)
+    cached = get_cached_result(ns, params)
     if cached is not None:
         monitor.cache_hits += 1
         return {"success": True, "data": cached, "cache_hit": True}
 
     monitor.cache_misses += 1
-    result = executor.execute(simulator.get_state)
+    result = executor.execute(simulator.get_state, sim_id=sim_id)
 
     if result["success"]:
         serialized = DataHandler.serialize_result(result["data"])
-        cache_result(sim_id, params, serialized)
+        cache_result(ns, params, serialized)
         return {"success": True, "data": serialized, "cache_hit": False}
 
     return {"success": False, "error": result.get("error"), "cache_hit": False}
@@ -244,7 +303,8 @@ async def readiness_check():
         "cache_size": simulation_cache.size,
         "cache_hit_rate": f"{simulation_cache.hit_rate * 100:.1f}%",
         "ws_connections": websocket_manager.connection_count,
-        "active_simulators": len(active_simulators),
+        "active_simulator_instances": len(active_simulators),
+        "unique_sessions": len(set(sid for _, sid in active_simulators.keys())),
     }
 
 
@@ -307,9 +367,9 @@ async def list_categories():
 # ============================================================================
 
 @app.get(f"{API_PREFIX}/simulations/{{sim_id}}/state")
-async def get_simulation_state(sim_id: str):
+async def get_simulation_state(sim_id: str, x_session_id: str = Header(default=DEFAULT_SESSION)):
     """Get simulation state (with caching)."""
-    simulator = get_or_create_simulator(sim_id)
+    simulator = get_or_create_simulator(sim_id, x_session_id)
 
     if simulator is None:
         simulation = get_simulation_by_id(sim_id)
@@ -325,7 +385,7 @@ async def get_simulation_state(sim_id: str):
         }
 
     current_params = getattr(simulator, 'parameters', {})
-    result = get_cached_or_compute(sim_id, current_params, simulator)
+    result = get_cached_or_compute(sim_id, current_params, simulator, x_session_id)
 
     if result["success"]:
         # Inject has_custom_from_hub_data flag so the frontend's hub auto-pull
@@ -359,9 +419,9 @@ async def get_simulation_state(sim_id: str):
 
 
 @app.post(f"{API_PREFIX}/simulations/{{sim_id}}/execute")
-async def execute_simulation(sim_id: str, request: ExecuteRequest):
+async def execute_simulation(sim_id: str, request: ExecuteRequest, x_session_id: str = Header(default=DEFAULT_SESSION)):
     """Execute simulation action."""
-    simulator = get_or_create_simulator(sim_id)
+    simulator = get_or_create_simulator(sim_id, x_session_id)
 
     if simulator is None:
         return JSONResponse(
@@ -374,44 +434,53 @@ async def execute_simulation(sim_id: str, request: ExecuteRequest):
 
     try:
         if action == "init":
-            result = executor.execute(simulator.initialize, params)
+            result = executor.execute(simulator.initialize, params, sim_id=sim_id)
             if result["success"]:
-                result = executor.execute(simulator.get_state)
+                result = executor.execute(simulator.get_state, sim_id=sim_id)
 
         elif action == "update":
             for key, value in params.items():
-                result = executor.execute(simulator.update_parameter, key, value)
+                result = executor.execute(simulator.update_parameter, key, value, sim_id=sim_id)
                 if not result["success"]:
                     break
             if not params:
-                result = executor.execute(simulator.get_state)
+                result = executor.execute(simulator.get_state, sim_id=sim_id)
 
         elif action == "run":
-            result = executor.execute(simulator.run, params)
+            result = executor.execute(simulator.run, params, sim_id=sim_id)
 
         elif action == "reset":
-            result = executor.execute(simulator.reset)
+            result = executor.execute(simulator.reset, sim_id=sim_id)
 
         elif action == "advance":
             if hasattr(simulator, 'advance_frame'):
-                result = executor.execute(simulator.advance_frame)
+                result = executor.execute(simulator.advance_frame, sim_id=sim_id)
             else:
-                result = executor.execute(simulator.get_state)
+                result = executor.execute(simulator.get_state, sim_id=sim_id)
 
         elif action == "step_forward":
             if hasattr(simulator, 'step_forward'):
-                result = executor.execute(simulator.step_forward)
+                result = executor.execute(simulator.step_forward, sim_id=sim_id)
             else:
-                result = executor.execute(simulator.get_state)
+                result = executor.execute(simulator.get_state, sim_id=sim_id)
 
         elif action == "step_backward":
             if hasattr(simulator, 'step_backward'):
-                result = executor.execute(simulator.step_backward)
+                result = executor.execute(simulator.step_backward, sim_id=sim_id)
             else:
-                result = executor.execute(simulator.get_state)
+                result = executor.execute(simulator.get_state, sim_id=sim_id)
 
         elif action == "to_hub_data":
-            hub_data = simulator.to_hub_data()
+            # Wrap in executor: a buggy sim could hang to_hub_data indefinitely
+            # (infinite loop, slow SciPy call, etc.) and without the executor
+            # there's no timeout or lock protection.
+            hub_result = executor.execute(simulator.to_hub_data, sim_id=sim_id)
+            if not hub_result["success"]:
+                return JSONResponse(
+                    status_code=500,
+                    content={"success": False, "error": hub_result.get("error", "to_hub_data failed")}
+                )
+            hub_data = hub_result["data"]
             if hub_data is None:
                 return JSONResponse(
                     status_code=400,
@@ -425,11 +494,23 @@ async def execute_simulation(sim_id: str, request: ExecuteRequest):
 
         elif action == "from_hub_data":
             hub_data = params.get("hub_data", {})
-            applied = simulator.from_hub_data(hub_data)
+            apply_result = executor.execute(simulator.from_hub_data, hub_data, sim_id=sim_id)
+            if not apply_result["success"]:
+                return JSONResponse(
+                    status_code=500,
+                    content={"success": False, "error": apply_result.get("error", "from_hub_data failed")}
+                )
+            applied = apply_result["data"]
             if applied:
+                state_result = executor.execute(simulator.get_state, sim_id=sim_id)
+                if not state_result["success"]:
+                    return JSONResponse(
+                        status_code=500,
+                        content={"success": False, "error": state_result.get("error", "get_state failed after hub import")}
+                    )
                 result = DataHandler.serialize_result({
                     "success": True,
-                    "data": simulator.get_state(),
+                    "data": state_result["data"],
                 })
                 return JSONResponse(content=result)
             else:
@@ -439,9 +520,18 @@ async def execute_simulation(sim_id: str, request: ExecuteRequest):
                 )
 
         else:
-            # Delegate to simulator's custom action handler if available
+            # Delegate to simulator's custom action handler if available.
+            # Note: handle_action swallows exceptions into `self._error` (CLAUDE.md
+            # MISTAKE-002). We do NOT reject on `_error` alone because BDB uses
+            # it for BOTH hard failures ("integrator not available in DT mode" →
+            # action rejected, no state change) AND soft warnings ("No input
+            # block found" → action succeeded, just a UX hint). Treating all
+            # `_error` as HTTP 400 regressed valid actions. The error IS
+            # forwarded to the client in `data.metadata.error` for display.
+            # Post-beta todo: split `_error` into `_error` (hard) + `_warning`
+            # (soft) in BDB and have the backend reject only hard failures.
             if hasattr(simulator, 'handle_action'):
-                result = executor.execute(simulator.handle_action, action, params)
+                result = executor.execute(simulator.handle_action, action, params, sim_id=sim_id)
             else:
                 return JSONResponse(
                     status_code=400,
@@ -451,7 +541,7 @@ async def execute_simulation(sim_id: str, request: ExecuteRequest):
         if result["success"]:
             serialized = DataHandler.serialize_result(result["data"])
             current_params = getattr(simulator, 'parameters', {})
-            cache_result(sim_id, current_params, serialized)
+            cache_result(_cache_ns(sim_id, x_session_id), current_params, serialized)
 
             return {"success": True, "data": serialized}
         else:
@@ -469,9 +559,9 @@ async def execute_simulation(sim_id: str, request: ExecuteRequest):
 
 
 @app.post(f"{API_PREFIX}/simulations/{{sim_id}}/update")
-async def update_simulation(sim_id: str, request: UpdateRequest):
+async def update_simulation(sim_id: str, request: UpdateRequest, x_session_id: str = Header(default=DEFAULT_SESSION)):
     """Update simulation parameters."""
-    simulator = get_or_create_simulator(sim_id)
+    simulator = get_or_create_simulator(sim_id, x_session_id)
 
     if simulator is None:
         return JSONResponse(
@@ -481,19 +571,19 @@ async def update_simulation(sim_id: str, request: UpdateRequest):
 
     try:
         for key, value in request.params.items():
-            result = executor.execute(simulator.update_parameter, key, value)
+            result = executor.execute(simulator.update_parameter, key, value, sim_id=sim_id)
             if not result["success"]:
                 return JSONResponse(
                     status_code=500,
                     content={"success": False, "error": result.get("error")}
                 )
 
-        result = executor.execute(simulator.get_state)
+        result = executor.execute(simulator.get_state, sim_id=sim_id)
 
         if result["success"]:
             serialized = DataHandler.serialize_result(result["data"])
             current_params = getattr(simulator, 'parameters', {})
-            cache_result(sim_id, current_params, serialized)
+            cache_result(_cache_ns(sim_id, x_session_id), current_params, serialized)
 
             return {"success": True, "data": serialized}
         else:
@@ -515,9 +605,9 @@ async def update_simulation(sim_id: str, request: UpdateRequest):
 # ============================================================================
 
 @app.get(f"{API_PREFIX}/simulations/{{sim_id}}/export/csv")
-async def export_csv(sim_id: str):
+async def export_csv(sim_id: str, x_session_id: str = Header(default=DEFAULT_SESSION)):
     """Export simulation data as CSV."""
-    simulator = get_or_create_simulator(sim_id)
+    simulator = get_or_create_simulator(sim_id, x_session_id)
 
     if simulator is None:
         raise HTTPException(status_code=404, detail="Simulation not found")
@@ -528,7 +618,7 @@ async def export_csv(sim_id: str):
             export_data = simulator.get_export_data()
         else:
             # Fallback: get current state and extract plot data
-            result = executor.execute(simulator.get_state)
+            result = executor.execute(simulator.get_state, sim_id=sim_id)
             if not result["success"]:
                 raise HTTPException(status_code=500, detail="Failed to get simulation state")
 
@@ -596,10 +686,13 @@ async def export_csv(sim_id: str):
 @app.websocket(f"{API_PREFIX}/simulations/{{sim_id}}/ws")
 async def websocket_simulation(websocket: WebSocket, sim_id: str):
     """WebSocket for real-time updates."""
+    # Extract session_id from query params (WebSocket API doesn't support custom headers)
+    session_id = websocket.query_params.get("session_id", DEFAULT_SESSION)
+
     conn_info = await websocket_manager.connect(sim_id, websocket)
     monitor.ws_connections = websocket_manager.connection_count
 
-    simulator = get_or_create_simulator(sim_id)
+    simulator = get_or_create_simulator(sim_id, session_id)
 
     if simulator is None:
         await websocket.send_json({
@@ -612,7 +705,7 @@ async def websocket_simulation(websocket: WebSocket, sim_id: str):
 
     # Send initial state
     try:
-        result = executor.execute(simulator.get_state)
+        result = executor.execute(simulator.get_state, sim_id=sim_id)
         if result["success"]:
             data = DataHandler.serialize_result(result["data"])
             await websocket.send_json({
@@ -648,7 +741,7 @@ async def websocket_simulation(websocket: WebSocket, sim_id: str):
             try:
                 if action == "update":
                     for key, value in params.items():
-                        result = executor.execute(simulator.update_parameter, key, value)
+                        result = executor.execute(simulator.update_parameter, key, value, sim_id=sim_id)
                         if not result["success"]:
                             await websocket.send_json({
                                 "success": False,
@@ -657,11 +750,11 @@ async def websocket_simulation(websocket: WebSocket, sim_id: str):
                             })
                             continue
 
-                    result = executor.execute(simulator.get_state)
+                    result = executor.execute(simulator.get_state, sim_id=sim_id)
                     if result["success"]:
                         state = DataHandler.serialize_result(result["data"])
                         current_params = getattr(simulator, 'parameters', {})
-                        cache_result(sim_id, current_params, state)
+                        cache_result(_cache_ns(sim_id, session_id), current_params, state)
 
                         await websocket.send_json({
                             "success": True,
@@ -677,7 +770,7 @@ async def websocket_simulation(websocket: WebSocket, sim_id: str):
                         })
 
                 elif action == "reset":
-                    result = executor.execute(simulator.reset)
+                    result = executor.execute(simulator.reset, sim_id=sim_id)
                     if result["success"]:
                         state = DataHandler.serialize_result(result["data"])
                         await websocket.send_json({
@@ -877,30 +970,58 @@ async def cancel_ppo_training():
 
 
 # ============================================================================
-# ROOT ENDPOINT
+# FRONTEND STATIC FILES (must be mounted LAST — after all /api and WS routes)
 # ============================================================================
+# Serves the built React frontend from frontend/dist/. Starlette's `html=True`
+# only serves index.html for directory paths; it does NOT fall back to
+# index.html for arbitrary paths like /simulation/rc_lowpass (React Router
+# routes). The SPAStaticFiles subclass below catches 404s from within the
+# mount and retries with index.html, so React Router receives the request
+# on direct load / refresh / shared links.
+#
+# API paths (/api/*, /health, /docs) are unaffected — FastAPI's routing
+# handles their 404s before requests reach the static mount.
 
-@app.get("/")
-async def root():
-    """API information."""
-    return {
-        "name": "SCOPE Platform API",
-        "version": "2.0.0",
-        "docs": "/docs",
-        "features": [
-            "Real-time WebSocket updates",
-            "In-memory caching (LRU)",
-            "Rate limiting",
-            "Performance monitoring",
-        ],
-        "endpoints": {
-            "health": "/health",
-            "ready": "/health/ready",
-            "analytics": f"{API_PREFIX}/analytics",
-            "simulations": f"{API_PREFIX}/simulations",
-            "websocket": f"ws://host{API_PREFIX}/simulations/{{sim_id}}/ws",
-        },
-    }
+
+class SPAStaticFiles(StaticFiles):
+    """StaticFiles with SPA fallback: serves index.html for unknown paths.
+
+    Key gotchas encoded in this implementation:
+
+    1. Catches StarletteHTTPException (NOT fastapi.HTTPException) because
+       Starlette's StaticFiles raises its own HTTPException class — FastAPI's
+       is a subclass, so catching the base catches both. Using
+       `except HTTPException` with FastAPI's import silently fails to catch
+       the 404 and the fallback never fires.
+
+    2. Excludes /api/* and /health from SPA fallback. FastAPI routes that
+       don't match fall THROUGH to this mount (not caught by FastAPI's own
+       404 handler), so without the path guard, a typo'd API endpoint would
+       return HTML 200 instead of JSON 404 — confusing for API clients and
+       hiding genuine bugs.
+    """
+
+    # Path prefixes (relative to mount root, no leading slash) that should
+    # NEVER get the SPA fallback — they must return real 404s.
+    _API_PREFIXES = ("api/", "health", "docs", "openapi.json", "redoc")
+
+    async def get_response(self, path, scope):
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404 and not path.startswith(self._API_PREFIXES):
+                return await super().get_response("index.html", scope)
+            raise
+
+
+_FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+if _FRONTEND_DIST.exists():
+    app.mount("/", SPAStaticFiles(directory=str(_FRONTEND_DIST), html=True), name="frontend")
+else:
+    logger.warning(
+        f"Frontend dist not found at {_FRONTEND_DIST}. "
+        "Run 'npm run build' in frontend/ before starting the server for LAN deployment."
+    )
 
 
 if __name__ == "__main__":

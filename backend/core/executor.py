@@ -39,21 +39,45 @@ class SimulationExecutor:
 
     DEFAULT_TIMEOUT = 30  # seconds
 
-    def __init__(self, timeout: int = DEFAULT_TIMEOUT):
+    def __init__(self, timeout: int = DEFAULT_TIMEOUT, max_workers: int = 4):
         """
         Initialize the executor.
 
         Args:
             timeout: Maximum execution time in seconds (default: 30)
+            max_workers: Thread pool size (default: 4)
         """
         self.timeout = min(timeout, 60)  # Cap at 60 seconds max
         self._sim_locks: Dict[str, threading.Lock] = {}
         self._locks_lock = threading.Lock()  # Protects _sim_locks dict
-        self._pool = ThreadPoolExecutor(max_workers=4)
+        self._pool = ThreadPoolExecutor(max_workers=max_workers)
 
-    def _get_lock(self, sim_id: Optional[str] = None) -> threading.Lock:
-        """Get a per-simulator lock, or a default lock for unkeyed calls."""
-        key = sim_id or "__default__"
+    def _get_lock(self, sim_id: Optional[str] = None, func: Optional[Callable] = None) -> threading.Lock:
+        """Get a per-(sim, simulator-instance) lock.
+
+        When `func` is a bound method (e.g. `simulator.get_state`), we key the
+        lock by `(sim_id, id(func.__self__))` — i.e. the Python id of the
+        simulator INSTANCE. Since main.py keeps one simulator instance per
+        (sim_id, session_id) in its `active_simulators` dict, this gives each
+        session its own lock automatically — without the caller having to
+        thread session_id through 21 call sites.
+
+        Two sessions on the same sim_id get different instances → different
+        locks → can compute in parallel. Same session calling repeatedly gets
+        the same instance → same lock → still serialized (which is correct,
+        since the simulator's internal state isn't thread-safe).
+
+        Memory note: `id()` values can be reused after GC, but main.py's
+        idle-cleanup only drops active_simulators entries after 30 min — by
+        which time any stale lock under that id is irrelevant. Lock dict
+        growth is bounded by live simulator instances in practice.
+        """
+        if func is not None and hasattr(func, '__self__'):
+            key = f"{sim_id or ''}::{id(func.__self__)}"
+        elif sim_id:
+            key = sim_id
+        else:
+            key = "__default__"
         with self._locks_lock:
             if key not in self._sim_locks:
                 self._sim_locks[key] = threading.Lock()
@@ -70,10 +94,11 @@ class SimulationExecutor:
         Execute a function with timeout protection and error handling.
 
         Args:
-            func: The function to execute
+            func: The function to execute. If it's a bound method, the lock
+                  is automatically keyed by `(sim_id, id(func.__self__))` so
+                  two sessions on the same simulation don't serialize.
             *args: Positional arguments for the function
-            sim_id: Optional simulator ID for per-sim locking (prevents
-                    global serialization while still protecting individual sims)
+            sim_id: Optional simulator ID. Used as the lock key prefix.
             **kwargs: Keyword arguments for the function
 
         Returns:
@@ -90,7 +115,7 @@ class SimulationExecutor:
             "details": None
         }
 
-        lock = self._get_lock(sim_id)
+        lock = self._get_lock(sim_id, func)
         with lock:
             try:
                 future = self._pool.submit(func, *args, **kwargs)
@@ -219,5 +244,3 @@ class SimulationExecutor:
         return validated
 
 
-# Global executor instance with default timeout
-default_executor = SimulationExecutor()

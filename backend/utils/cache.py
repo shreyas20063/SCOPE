@@ -22,6 +22,7 @@ class CacheEntry:
     """A cached entry with expiration."""
     data: Any
     created_at: float
+    sim_id: str = ""  # raw sim_id (or "{sim_id}::{session_id}" from _cache_ns), kept for real invalidation
     access_count: int = 0
 
 
@@ -104,21 +105,32 @@ class LRUCache:
                 del self._cache[oldest_key]
                 self.evictions += 1
 
-            # Add new entry
+            # Add new entry. Store sim_id alongside the hashed key so
+            # invalidate() can actually find entries for a given simulation.
             self._cache[key] = CacheEntry(
                 data=data,
-                created_at=time.time()
+                created_at=time.time(),
+                sim_id=sim_id,
             )
 
     def invalidate(self, sim_id: str):
-        """Invalidate all cached entries for a simulation."""
+        """Invalidate all cached entries for a simulation.
+
+        Matches entries whose stored sim_id equals `sim_id` OR starts with
+        f"{sim_id}::" (session-namespaced entries from main.py's `_cache_ns`).
+        Entries store their original sim_id in CacheEntry.sim_id since the
+        dict key is an md5 hash.
+        """
+        prefix = f"{sim_id}::"
         with self._lock:
             keys_to_remove = [
-                key for key in self._cache
-                if key.startswith(sim_id)  # This won't work perfectly with hashed keys
+                key for key, entry in self._cache.items()
+                if entry.sim_id == sim_id or entry.sim_id.startswith(prefix)
             ]
             for key in keys_to_remove:
                 del self._cache[key]
+            if keys_to_remove:
+                logger.debug(f"Invalidated {len(keys_to_remove)} cache entries for sim_id={sim_id}")
 
     def clear(self):
         """Clear all cached entries."""

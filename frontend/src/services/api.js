@@ -18,12 +18,50 @@ const API_BASE_URL = import.meta.env.VITE_API_URL
   : '/api';
 const API_TIMEOUT = 30000; // 30 seconds
 
+// Session ID — per-tab isolation so concurrent users don't share simulator state.
+// sessionStorage is scoped to each browser tab, so two tabs = two sessions.
+//
+// Note: `crypto.randomUUID()` requires a secure context (HTTPS or localhost).
+// On plain HTTP over a LAN IP (e.g. http://10.200.240.13:8000), `crypto.randomUUID`
+// is undefined and throws. The fallback below uses `crypto.getRandomValues` —
+// available on every origin, secure or not — to generate a UUID v4 manually.
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // UUID v4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // RFC 4122 variant
+    const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+  // Last-resort (Math.random — low entropy, fine for session keys on trusted WiFi).
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+function getSessionId() {
+  let sid = sessionStorage.getItem('scope_session_id');
+  if (!sid) {
+    sid = generateUUID();
+    sessionStorage.setItem('scope_session_id', sid);
+  }
+  return sid;
+}
+
+const SESSION_ID = getSessionId();
+
 // Create axios instance with default config
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: API_TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
+    'X-Session-ID': SESSION_ID,
   },
 });
 
@@ -295,3 +333,6 @@ export default api;
 
 // Also export the class for testing
 export { ApiClient };
+
+// Export session ID for WebSocket connections (can't use custom headers with WebSocket API)
+export { SESSION_ID };

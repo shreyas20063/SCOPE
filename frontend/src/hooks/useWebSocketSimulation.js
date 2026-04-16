@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import api from '../services/api';
+import api, { SESSION_ID } from '../services/api';
 
 // Derive WebSocket URL from API URL
 // In production: https://backend.onrender.com -> wss://backend.onrender.com/api
@@ -17,9 +17,9 @@ function getWebSocketBaseUrl() {
     // Convert http(s) to ws(s)
     return apiUrl.replace(/^http/, 'ws') + '/api';
   }
-  // Development fallback
+  // Derive from current page — works for localhost, LAN IP, Cloudflare Tunnel, or cloud deploy.
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//localhost:8000/api`;
+  return `${protocol}//${window.location.host}/api`;
 }
 
 const WS_BASE_URL = getWebSocketBaseUrl();
@@ -48,7 +48,7 @@ export function useWebSocketSimulation(simId) {
   const connect = useCallback(() => {
     if (!simId) return;
 
-    const wsUrl = `${WS_BASE_URL}/simulations/${simId}/ws`;
+    const wsUrl = `${WS_BASE_URL}/simulations/${simId}/ws?session_id=${SESSION_ID}`;
 
     try {
       const ws = new WebSocket(wsUrl);

@@ -114,17 +114,26 @@ class WebSocketManager:
             return False
 
     async def broadcast(self, sim_id: str, data: dict):
-        """Broadcast data to all connections watching a simulation."""
-        if sim_id not in self.active_connections:
-            return
+        """Broadcast data to all connections watching a simulation.
+
+        Snapshots the connection list under `_lock` before iterating so a
+        concurrent disconnect can't mutate the list mid-broadcast. We still
+        call `send_json` OUTSIDE the lock to avoid blocking the lock on slow
+        clients.
+        """
+        async with self._lock:
+            if sim_id not in self.active_connections:
+                return
+            # Snapshot — iterating this copy is safe even if the real list mutates
+            conns_snapshot = list(self.active_connections[sim_id])
 
         disconnected = []
-        for conn_info in self.active_connections[sim_id]:
+        for conn_info in conns_snapshot:
             success = await self.send_json(conn_info, data)
             if not success:
                 disconnected.append(conn_info)
 
-        # Clean up disconnected
+        # Clean up disconnected (disconnect acquires _lock itself)
         for conn_info in disconnected:
             await self.disconnect(sim_id, conn_info)
 
