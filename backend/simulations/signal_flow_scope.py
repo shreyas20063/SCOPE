@@ -1636,7 +1636,13 @@ class SignalFlowScopeSimulator(BaseSimulator):
         state["metadata"] = {
             "simulation_type": "signal_flow_scope",
             "hub_slots": self.HUB_SLOTS,
-            "hub_domain": self.HUB_DOMAIN,
+            # SFS works in BOTH CT and DT — it auto-switches system_type in
+            # from_hub_data based on the incoming payload's domain. Expose the
+            # current runtime domain (not the class-level HUB_DOMAIN="ct")
+            # AND mark the sim as domain-flexible so the frontend's Hub
+            # compatibility check doesn't reject a domain mismatch.
+            "hub_domain": self.system_type,
+            "hub_domain_flexible": True,
             "hub_dimensions": self.HUB_DIMENSIONS,
             "system_type": self.system_type,
             "blocks": self.blocks,

@@ -3385,7 +3385,11 @@ class BlockDiagramSimulator(BaseSimulator):
         state["metadata"] = {
             "simulation_type": "block_diagram_builder",
             "hub_slots": self.HUB_SLOTS,
-            "hub_domain": self.HUB_DOMAIN,
+            # BDB toggles CT/DT at runtime; expose the active domain (not
+            # the class-level HUB_DOMAIN="ct") so consumers reading this
+            # metadata see what mode BDB is actually in. to_hub_data()
+            # already gets this right; we keep parity here.
+            "hub_domain": self.system_type,
             "hub_dimensions": self.HUB_DIMENSIONS,
             "mode": self.mode,
             "system_type": self.system_type,

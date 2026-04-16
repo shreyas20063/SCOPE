@@ -581,6 +581,12 @@ export function useSimulation(simId) {
             // --- Hub auto-read ---
             const hubSlots = stateResult.metadata?.hub_slots;
             const hubDomain = stateResult.metadata?.hub_domain || 'ct';
+            // Domain-flexible sims (e.g. signal_flow_scope) accept payloads
+            // in either CT or DT and auto-switch their runtime mode via their
+            // backend from_hub_data. Skip the frontend's domain mismatch
+            // banner for them — the backend will validate and either accept
+            // the import or return false to surface a real error.
+            const hubDomainFlexible = !!stateResult.metadata?.hub_domain_flexible;
             if (hubSlots && hubSlots.length > 0) {
               try {
                 const stored = localStorage.getItem('systemHub');
@@ -589,8 +595,8 @@ export function useSimulation(simId) {
                   for (const slot of hubSlots) {
                     const hubData = hubState[slot];
                     if (!hubData || (!hubData.tf && !hubData.ss)) continue;
-                    // Domain check
-                    if (hubData.domain && hubData.domain !== hubDomain) {
+                    // Domain check (skip for domain-flexible sims)
+                    if (!hubDomainFlexible && hubData.domain && hubData.domain !== hubDomain) {
                       const domainLabels = { ct: 'continuous-time', dt: 'discrete-time' };
                       setHubMismatch(
                         `Hub contains a ${domainLabels[hubData.domain] || hubData.domain} system — this simulation works in ${domainLabels[hubDomain] || hubDomain}. Hub data was not applied.`
