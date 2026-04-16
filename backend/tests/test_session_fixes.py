@@ -456,6 +456,82 @@ class TestFromHubDataRejectionEnvelope:
 # ===========================================================================
 
 
+# ===========================================================================
+# BUG-086 — ode_laplace_solver preset overwrote user input_signal every compute
+# ===========================================================================
+
+
+class TestOdeLaplacePresetOverride:
+    """Before this was fixed, _load_coefficients ran on every _compute() and
+    unconditionally re-applied the preset's default input_signal (plus alpha
+    and omega). So after the user picked a preset and then tried to change
+    the input_signal dropdown, their choice was silently reverted on the
+    next state fetch. Fix: apply preset scalar defaults only on preset
+    TRANSITION (tracked via _last_loaded_preset)."""
+
+    def test_user_input_signal_override_sticks_within_preset(self, client):
+        sid = _sid("ode-override")
+        # Pick a preset whose default input_signal is delta
+        client.post(
+            "/api/simulations/ode_laplace_solver/update",
+            headers={"X-Session-ID": sid},
+            json={"params": {"preset": "underdamped"}},
+        )
+        # Override input_signal to cosine — must STICK
+        client.post(
+            "/api/simulations/ode_laplace_solver/update",
+            headers={"X-Session-ID": sid},
+            json={"params": {"input_signal": "cosine"}},
+        )
+        resp = client.get(
+            "/api/simulations/ode_laplace_solver/state",
+            headers={"X-Session-ID": sid},
+        )
+        params = resp.json()["data"]["parameters"]
+        assert params["preset"] == "underdamped"
+        assert params["input_signal"] == "cosine", (
+            f"input_signal override was silently reverted to "
+            f"{params['input_signal']!r}. BUG-086 regression: preset "
+            f"overwriting user choice on every _compute()."
+        )
+
+    def test_preset_transition_resets_input_signal(self, client):
+        """Switching to a different preset SHOULD reset input_signal to that
+        preset's default — the fix is 'apply on transition only', not
+        'never apply'."""
+        sid = _sid("ode-transition")
+        # Get into cosine override first
+        client.post(
+            "/api/simulations/ode_laplace_solver/update",
+            headers={"X-Session-ID": sid},
+            json={"params": {"preset": "underdamped"}},
+        )
+        client.post(
+            "/api/simulations/ode_laplace_solver/update",
+            headers={"X-Session-ID": sid},
+            json={"params": {"input_signal": "cosine"}},
+        )
+        # Now switch preset — input_signal must go back to the new preset's default
+        client.post(
+            "/api/simulations/ode_laplace_solver/update",
+            headers={"X-Session-ID": sid},
+            json={"params": {"preset": "third_order"}},
+        )
+        resp = client.get(
+            "/api/simulations/ode_laplace_solver/state",
+            headers={"X-Session-ID": sid},
+        )
+        params = resp.json()["data"]["parameters"]
+        assert params["preset"] == "third_order"
+        # third_order's default input_signal is "delta" per PRESETS dict
+        assert params["input_signal"] == "delta", (
+            f"After preset transition, input_signal should reset to the "
+            f"new preset's default (delta for third_order), got "
+            f"{params['input_signal']!r}. Over-eager 'apply on transition' "
+            f"logic may be broken."
+        )
+
+
 class TestControllerTuningRLParams:
     """The catalog exposed es_generations and rl_timesteps as sliders but
     controller_tuning_lab's DEFAULT_PARAMS did not include them, so slider

@@ -256,19 +256,32 @@ class ODELaplaceSolverSimulator(BaseSimulator):
             return [1.0]
 
     def _load_coefficients(self) -> None:
-        """Load output/input polynomials from preset or custom input."""
+        """Load output/input polynomials from preset or custom input.
+
+        Preset-owned scalar fields (`input_signal`, `alpha`, `omega`) are
+        applied only on preset TRANSITION — not on every compute. Without
+        this guard, any later user update to one of those fields is silently
+        reverted on the next _compute() call: user picks preset=underdamped,
+        then tries input_signal=cosine, which would otherwise be overwritten
+        back to the preset's default on the very next state fetch. Tracked
+        via _last_loaded_preset.
+        """
         preset = self.parameters.get("preset", "first_order_impulse")
+        preset_changed = (preset != getattr(self, "_last_loaded_preset", None))
 
         if preset != "custom" and preset in self.PRESETS:
             p = self.PRESETS[preset]
+            # ODE coefficients ARE reloaded every compute — they're derived
+            # from the preset, not user-editable while a preset is active.
             self._output_poly = list(p["output_coeffs"])
             self._input_poly = list(p["input_coeffs"])
-            # Presets override input signal
-            self.parameters["input_signal"] = p.get("input_signal", "delta")
-            if "alpha" in p:
-                self.parameters["alpha"] = p["alpha"]
-            if "omega" in p:
-                self.parameters["omega"] = p["omega"]
+            # Scalar fields only apply on transition so user overrides stick.
+            if preset_changed:
+                self.parameters["input_signal"] = p.get("input_signal", "delta")
+                if "alpha" in p:
+                    self.parameters["alpha"] = p["alpha"]
+                if "omega" in p:
+                    self.parameters["omega"] = p["omega"]
         else:
             self._output_poly = self._parse_coeffs(
                 str(self.parameters.get("output_coeffs", "1, 1"))
@@ -276,6 +289,10 @@ class ODELaplaceSolverSimulator(BaseSimulator):
             self._input_poly = self._parse_coeffs(
                 str(self.parameters.get("input_coeffs", "1"))
             )
+
+        # Record what preset we just loaded, so the next _load_coefficients
+        # call can detect a transition vs. a re-compute of the same preset.
+        self._last_loaded_preset = preset
 
         # Validate: need at least first-order ODE
         if len(self._output_poly) < 2:
