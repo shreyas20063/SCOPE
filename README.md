@@ -1,6 +1,12 @@
 # SCOPE
 
-A browser-native platform for control systems analysis and design. No installation, no programming, no license — open a browser and go.
+> **📄 Part of an IEEE CDC submission — currently under review.**
+> This work is submitted to the IEEE Conference on Decision and Control (CDC)
+> and is undergoing peer review. **All rights reserved to the authors.**
+> Please do not redistribute or publish derivative work based on this repository
+> while review is in progress. Citations and academic discussion welcome.
+
+A browser-native platform for control systems analysis and design. No installation, no programming, no license key — open a browser and go.
 
 SCOPE covers the complete control workflow — plant specification, system analysis, controller design, and closed-loop validation — for SISO and MIMO, linear and nonlinear systems. It includes 54 interactive tools and simulations, a drag-and-drop block diagram editor, real-time 3D animations of five canonical plants, and a shared data hub that propagates plant data between tools automatically so you never re-enter it.
 
@@ -113,6 +119,15 @@ frontend/
 3. Add a catalog entry in `backend/simulations/catalog.py` — name, description, category, controls, default params, plots.
 4. Optionally add a custom viewer in `frontend/src/components/<Name>Viewer.jsx` and wire it into the viewer chain in `SimulationViewer.jsx`.
 
-## License
+## Status & License
 
-Released under the [MIT License](LICENSE).
+**Submission status.** This repository accompanies a manuscript submitted to
+the IEEE Conference on Decision and Control (CDC) and is currently under peer
+review. All rights reserved to the authors during the review period; please
+contact the authors before reuse in published work.
+
+**Code license.** The source is released under the [MIT License](LICENSE) to
+permit reviewer evaluation, classroom use, and academic experimentation. The
+MIT grant applies to the *code*; the *manuscript, figures, and experimental
+results* associated with the CDC submission remain the authors' intellectual
+property until the review outcome is finalized.
