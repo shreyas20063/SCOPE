@@ -1,6 +1,5 @@
 # SCOPE
 
-> **📄 Part of an IEEE CDC submission — currently under review.**
 > This work is submitted to the IEEE Conference on Decision and Control (CDC)
 > and is undergoing peer review. Citations and academic discussion welcome.
 
