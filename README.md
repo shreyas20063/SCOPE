@@ -2,9 +2,7 @@
 
 > **📄 Part of an IEEE CDC submission — currently under review.**
 > This work is submitted to the IEEE Conference on Decision and Control (CDC)
-> and is undergoing peer review. **All rights reserved to the authors.**
-> Please do not redistribute or publish derivative work based on this repository
-> while review is in progress. Citations and academic discussion welcome.
+> and is undergoing peer review. Citations and academic discussion welcome.
 
 A browser-native platform for control systems analysis and design. No installation, no programming, no license key — open a browser and go.
 
@@ -122,12 +120,8 @@ frontend/
 ## Status & License
 
 **Submission status.** This repository accompanies a manuscript submitted to
-the IEEE Conference on Decision and Control (CDC) and is currently under peer
-review. All rights reserved to the authors during the review period; please
-contact the authors before reuse in published work.
+the IEEE Conference on Decision and Control (CDC) and is currently under
+peer review. If you use the code or ideas in published work, please cite
+the paper once it is out.
 
-**Code license.** The source is released under the [MIT License](LICENSE) to
-permit reviewer evaluation, classroom use, and academic experimentation. The
-MIT grant applies to the *code*; the *manuscript, figures, and experimental
-results* associated with the CDC submission remain the authors' intellectual
-property until the review outcome is finalized.
+**License.** Released under the [MIT License](LICENSE).
