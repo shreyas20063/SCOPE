@@ -594,7 +594,15 @@ export function useSimulation(simId) {
                   const hubState = JSON.parse(stored);
                   for (const slot of hubSlots) {
                     const hubData = hubState[slot];
-                    if (!hubData || (!hubData.tf && !hubData.ss)) continue;
+                    if (!hubData) continue;
+                    // Custom-from-hub sims (Path A) delegate to the backend which
+                    // handles any payload shape — tf, ss, transfer_matrix, block_diagram.
+                    // Only Path B (standard frontend mapping) actually needs tf or ss.
+                    // hasCustomFromHub MUST be resolved before the tf/ss guard so MIMO
+                    // payloads (no tf, only transfer_matrix) and block_diagram pass-throughs
+                    // (no tf, no ss) are not silently dropped for Path A sims.
+                    const hasCustomFromHub = !!stateResult.metadata?.has_custom_from_hub_data;
+                    if (!hasCustomFromHub && !hubData.tf && !hubData.ss) continue;
                     // Domain check (skip for domain-flexible sims)
                     if (!hubDomainFlexible && hubData.domain && hubData.domain !== hubDomain) {
                       const domainLabels = { ct: 'continuous-time', dt: 'discrete-time' };
@@ -607,7 +615,6 @@ export function useSimulation(simId) {
                     // their backend method does its own dimension validation, and
                     // some of them — e.g. mimo_design_studio — legitimately accept
                     // MIMO payloads).
-                    const hasCustomFromHub = !!stateResult.metadata?.has_custom_from_hub_data;
                     const hubDims = hubData.dimensions || {};
                     const simDims = stateResult.metadata?.hub_dimensions || { m: 1, p: 1 };
                     if (!hasCustomFromHub && simDims.m === 1 && simDims.p === 1 &&
