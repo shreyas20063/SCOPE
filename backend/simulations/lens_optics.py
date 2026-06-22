@@ -32,6 +32,23 @@ class LensOpticsSimulator(BaseSimulator):
     COLOR_MTF = "#3b82f6"
     COLOR_CROSS_SECTION = "#22c55e"
 
+    # Parameter schema mirrors the catalog controls so inputs are
+    # validated (clamped/coerced) before computation, like every other tool.
+    PARAMETER_SCHEMA = {
+        "diameter": {"type": "slider", "min": 50, "max": 200, "step": 1, "default": 100.0},
+        "focal_length": {"type": "slider", "min": 200, "max": 1000, "step": 10, "default": 500.0},
+        "wavelength": {"type": "slider", "min": 400, "max": 700, "step": 10, "default": 550.0},
+        "pixel_size": {"type": "slider", "min": 0.5, "max": 10.0, "step": 0.1, "default": 1.0},
+        "psf_size": {"type": "slider", "min": 64, "max": 512, "step": 64, "default": 256},
+        "enable_atmosphere": {"type": "checkbox", "default": False},
+        "atmospheric_seeing": {"type": "slider", "min": 0.5, "max": 5.0, "step": 0.1, "default": 1.5},
+        "test_pattern": {
+            "type": "select",
+            "options": ["edge_target", "resolution_chart", "point_sources", "star_field"],
+            "default": "edge_target",
+        },
+    }
+
     # Parameter defaults (matching PyQt5 exactly)
     DEFAULT_PARAMS = {
         "diameter": 100.0,        # mm (PyQt5: 100mm default)
@@ -43,6 +60,13 @@ class LensOpticsSimulator(BaseSimulator):
         "atmospheric_seeing": 1.5,  # arcsec (PyQt5: 1.5 default)
         "test_pattern": "edge_target",
     }
+
+    def _validate_and_coerce(self, name: str, value: Any) -> Any:
+        """Validate against PARAMETER_SCHEMA; psf_size is a grid dimension and must stay int."""
+        value = self._validate_param(name, value)
+        if name == "psf_size":
+            value = int(round(float(value)))
+        return value
 
     HUB_SLOTS = []
 
@@ -63,14 +87,14 @@ class LensOpticsSimulator(BaseSimulator):
         if params:
             for name, value in params.items():
                 if name in self.parameters:
-                    self.parameters[name] = value
+                    self.parameters[name] = self._validate_and_coerce(name, value)
         self._initialized = True
         self._compute()
 
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
         """Update a single parameter and recompute."""
         if name in self.parameters:
-            self.parameters[name] = value
+            self.parameters[name] = self._validate_and_coerce(name, value)
             self._compute()
         return self.get_state()
 

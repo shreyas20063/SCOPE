@@ -404,6 +404,15 @@
   font-weight: 500;
 }
 
+.hub-prop__badge--warning {
+  background: var(--warning-color);
+  color: white;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
 
 /* --- Poles & Zeros Chips --- */
 .hub-slot__chips {

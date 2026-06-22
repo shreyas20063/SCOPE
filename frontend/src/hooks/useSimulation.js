@@ -645,10 +645,18 @@ export function useSimulation(simId) {
                         if (data.metadata) {
                           setMetadata(prev => ({ ...prev, ...data.metadata, _hubSynced: true }));
                         }
+                      } else if (!hubResult.success && mountedRef.current &&
+                                 !stateResult.metadata?.hub_producer_only) {
+                        // A genuine consumer rejected this payload (dimension/
+                        // shape mismatch its backend couldn't absorb) — tell the
+                        // user instead of failing silently. Producer-only sims
+                        // (hub_producer_only) reject every pull by design and
+                        // stay silent.
+                        setHubMismatch(
+                          hubResult.error ||
+                          'Hub data is not compatible with this simulation. Hub data was not applied.'
+                        );
                       }
-                      // 422 (incompatible) is silently ignored — that's the
-                      // correct behavior for a producer-only sim being asked to
-                      // consume something it can't handle.
                       break;
                     }
 

@@ -43,6 +43,29 @@ class AliasingQuantizationSimulator(BaseSimulator):
     AUDIO_DURATION = 3.0  # seconds
     ORIGINAL_SAMPLE_RATE = 44100  # Hz
 
+    # Parameter schema mirrors the catalog controls so inputs are
+    # validated (clamped/coerced) before computation, like every other tool.
+    PARAMETER_SCHEMA = {
+        "demo_mode": {
+            "type": "select",
+            "options": ["aliasing", "quantization", "image"],
+            "default": "aliasing",
+        },
+        "downsample_factor": {"type": "slider", "min": 1, "max": 20, "step": 1, "default": 4},
+        "anti_aliasing": {"type": "checkbox", "default": False},
+        "bit_depth": {"type": "slider", "min": 1, "max": 16, "step": 1, "default": 4},
+        "quant_method": {
+            "type": "select",
+            "options": ["standard", "dither", "roberts"],
+            "default": "standard",
+        },
+        "image_bits": {"type": "slider", "min": 1, "max": 8, "step": 1, "default": 3},
+    }
+
+    # Integer-valued sliders: _validate_param coerces sliders to float, but these
+    # are used as slice strides / bit counts and must stay ints.
+    _INT_PARAMS = ("downsample_factor", "bit_depth", "image_bits")
+
     # Default parameters matching PyQt5
     DEFAULT_PARAMS = {
         "demo_mode": "aliasing",
@@ -55,6 +78,13 @@ class AliasingQuantizationSimulator(BaseSimulator):
         # Image demo
         "image_bits": 3,
     }
+
+    def _validate_and_coerce(self, name: str, value: Any) -> Any:
+        """Validate against PARAMETER_SCHEMA, then restore int type where needed."""
+        value = self._validate_param(name, value)
+        if name in self._INT_PARAMS:
+            value = int(round(float(value)))
+        return value
 
     HUB_SLOTS = []
 
@@ -85,7 +115,7 @@ class AliasingQuantizationSimulator(BaseSimulator):
         if params:
             for name, value in params.items():
                 if name in self.parameters:
-                    self.parameters[name] = value
+                    self.parameters[name] = self._validate_and_coerce(name, value)
 
         # Load real audio file from assets (matching PyQt5)
         self._load_audio()
@@ -99,7 +129,7 @@ class AliasingQuantizationSimulator(BaseSimulator):
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
         """Update parameter and recompute."""
         if name in self.parameters:
-            self.parameters[name] = value
+            self.parameters[name] = self._validate_and_coerce(name, value)
             self._compute()
         return self.get_state()
 

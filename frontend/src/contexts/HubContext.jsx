@@ -135,7 +135,15 @@ export function HubProvider({ children }) {
       if (slotName === 'control' && currentSlot) {
         const oldTf = currentSlot.tf;
         const newTf = enrichedData.tf;
-        if (oldTf && newTf && currentSlot.controller) {
+        const pushIncludesController = enrichedData.controller != null;
+        if (pushIncludesController && merged.controller) {
+          // A freshly pushed controller is current by construction — clear any
+          // stale flag deepMerge carried over from the previous design.
+          merged = {
+            ...merged,
+            controller: { ...merged.controller, stale: !!enrichedData.controller.stale },
+          };
+        } else if (oldTf && newTf && currentSlot.controller) {
           const plantChanged =
             JSON.stringify(oldTf.num) !== JSON.stringify(newTf.num) ||
             JSON.stringify(oldTf.den) !== JSON.stringify(newTf.den);

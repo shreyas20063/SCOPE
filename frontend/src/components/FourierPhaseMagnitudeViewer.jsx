@@ -514,6 +514,7 @@ const AudioWaveformPlots = memo(function AudioWaveformPlots({ plots }) {
               data={plot.data}
               layout={{
                 ...plot.layout,
+                uirevision: plot.layout?.uirevision || plot.id || `fourier-pm-${index}`,
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: 'rgba(15, 23, 42, 0.5)',
                 font: { color: '#e2e8f0', size: 11 },

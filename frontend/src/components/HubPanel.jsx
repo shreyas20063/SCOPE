@@ -105,8 +105,21 @@ function matrixToLatex(mat) {
 function ControlSlotView({ data }) {
   // Enriched data uses flat keys: tf, ss, poles, zeros, stable, etc.
   const { tf, ss, poles, zeros, domain, dimensions, order, system_type,
-          stable, controllable, observable, controller, transfer_matrix,
+          stable, stability, controllable, observable,
+          controllability_rank, observability_rank, controller, transfer_matrix,
           _meta, _validationWarning } = data;
+
+  // Three-way stability classification (Ogata Sec. 5-4). Older hub payloads
+  // (pushed before enrichment emitted `stability`) only carry the boolean.
+  const stabilityDisplay = useMemo(() => {
+    if (stability === 'marginally_stable') return { label: 'Marginally Stable', tone: 'warning' };
+    if (stability === 'stable') return { label: 'Stable', tone: 'success' };
+    if (stability === 'unstable') return { label: 'Unstable', tone: 'danger' };
+    if (stable != null) return { label: stable ? 'Stable' : 'Unstable', tone: stable ? 'success' : 'danger' };
+    return null;
+  }, [stability, stable]);
+
+  const stateDim = dimensions?.n ?? order;
 
   // Transfer function LaTeX (SISO or 1x1 compat)
   const tfHtml = useMemo(() => {
@@ -257,11 +270,11 @@ function ControlSlotView({ data }) {
                 <span className="hub-prop__val">{system_type}</span>
               </div>
             )}
-            {stable != null && (
+            {stabilityDisplay != null && (
               <div className="hub-prop">
-                <span className="hub-prop__key">Stable</span>
-                <span className={`hub-prop__badge--${stable ? 'success' : 'danger'}`}>
-                  {stable ? 'Yes' : 'No'}
+                <span className="hub-prop__key">Stability</span>
+                <span className={`hub-prop__badge--${stabilityDisplay.tone}`}>
+                  {stabilityDisplay.label}
                 </span>
               </div>
             )}
@@ -270,6 +283,8 @@ function ControlSlotView({ data }) {
                 <span className="hub-prop__key">Controllable</span>
                 <span className={`hub-prop__badge--${controllable ? 'success' : 'danger'}`}>
                   {controllable ? 'Yes' : 'No'}
+                  {controllability_rank != null && stateDim != null
+                    ? ` (rank ${controllability_rank}/${stateDim})` : ''}
                 </span>
               </div>
             )}
@@ -278,6 +293,8 @@ function ControlSlotView({ data }) {
                 <span className="hub-prop__key">Observable</span>
                 <span className={`hub-prop__badge--${observable ? 'success' : 'danger'}`}>
                   {observable ? 'Yes' : 'No'}
+                  {observability_rank != null && stateDim != null
+                    ? ` (rank ${observability_rank}/${stateDim})` : ''}
                 </span>
               </div>
             )}

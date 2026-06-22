@@ -20,7 +20,8 @@ const FRAME_INTERVAL_BASE = 40; // ~25fps
    ────────────────────────────────────────────── */
 function StabilityBanner({ stabilityInfo }) {
   if (!stabilityInfo) return null;
-  const { gain_margin_db, phase_margin_deg, gain_crossover_freq, phase_crossover_freq, stability_status } = stabilityInfo;
+  const { gain_margin_db, phase_margin_deg, gain_crossover_freq, phase_crossover_freq, stability_status,
+          cl_bandwidth, cl_resonance_peak_db, cl_resonance_freq } = stabilityInfo;
 
   const cls = stability_status === 'Stable' ? 'stable'
     : stability_status === 'Unstable' ? 'unstable' : 'marginal';
@@ -49,6 +50,21 @@ function StabilityBanner({ stabilityInfo }) {
           <span className="nbc-margin-item">
             <span className="nbc-margin-label">ω_pc:</span>
             <span className="nbc-margin-value">{phase_crossover_freq.toFixed(2)} rad/s</span>
+          </span>
+        )}
+        {cl_bandwidth != null && (
+          <span className="nbc-margin-item">
+            <span className="nbc-margin-label">BW:</span>
+            <span className="nbc-margin-value">{cl_bandwidth.toFixed(2)} rad/s</span>
+          </span>
+        )}
+        {cl_resonance_peak_db != null && (
+          <span className="nbc-margin-item">
+            <span className="nbc-margin-label">M_r:</span>
+            <span className="nbc-margin-value">
+              {cl_resonance_peak_db.toFixed(2)} dB
+              {cl_resonance_freq != null ? ` @ ${cl_resonance_freq.toFixed(2)} rad/s` : ''}
+            </span>
           </span>
         )}
       </div>

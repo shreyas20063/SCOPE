@@ -320,10 +320,14 @@ const ErrorTable = memo(function ErrorTable({ metadata, onSelectInput }) {
   const clStable = metadata.cl_stable;
   const inputType = metadata.input_type || 'step';
 
+  // Infinite ess arrives as the string 'Infinity' (lossless emission from
+  // the backend); null is the legacy lossy form kept for old payloads.
+  const isInfiniteEss = (raw) => raw === null || raw === 'Infinity' || raw === Infinity;
+
   const getRowClass = (input) => {
     if (!clStable) return 'unstable-row';
     const raw = se[input];
-    if (raw === null) return 'infinite-error';
+    if (isInfiniteEss(raw)) return 'infinite-error';
     if (raw === 0) return 'zero-error';
     return 'finite-error';
   };
@@ -375,7 +379,7 @@ const ErrorTable = memo(function ErrorTable({ metadata, onSelectInput }) {
                   {!clStable ? (
                     <span className="sse-na-text">N/A (unstable)</span>
                   ) : (
-                    <span className={`sse-ess-value ${se[row.input] === null ? 'infinite' : se[row.input] === 0 ? 'zero' : 'finite'}`}>
+                    <span className={`sse-ess-value ${isInfiniteEss(se[row.input]) ? 'infinite' : se[row.input] === 0 ? 'zero' : 'finite'}`}>
                       {seDisplay[row.input] ?? '\u2014'}
                     </span>
                   )}

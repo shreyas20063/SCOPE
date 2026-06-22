@@ -29,6 +29,10 @@ class BaseSimulator(ABC):
     HUB_SLOTS: List[str] = []
     HUB_DOMAIN: str = "ct"  # "ct" or "dt"
     HUB_DIMENSIONS: Dict[str, Any] = {"n": None, "m": 1, "p": 1}  # SISO default
+    # Producer-only sims export to the hub but never consume from it (their
+    # from_hub_data always returns False). The frontend uses this to stay
+    # silent on auto-pull rejection instead of showing a mismatch notification.
+    HUB_PRODUCER_ONLY: bool = False
 
     def __init__(self, simulation_id: str):
         """

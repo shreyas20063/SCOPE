@@ -1373,6 +1373,60 @@ class ControllerTuningLabSimulator(PIDTuningMixin, ModernControlMixin, BaseSimul
             },
         }
 
+    def to_hub_data(self) -> dict | None:
+        """Export the plant TF plus the current controller design.
+
+        Including a 'controller' key lets the System Hub flag the design as
+        stale when a different plant is pushed later (HubContext stale
+        detection compares the slot's plant TF against subsequent pushes).
+        """
+        self._build_plant_tf()
+        self._build_controller_tf()
+        p = self.parameters
+        ctype = p.get("controller_type", "PID")
+
+        controller: dict = {
+            "type": ctype,
+            "designed_by": "controller_tuning_lab",
+            "stale": False,
+        }
+        if ctype in ("P", "PI", "PD", "PID"):
+            gains: dict = {"Kp": float(p.get("Kp", 1.0))}
+            if ctype in ("PI", "PID"):
+                gains["Ki"] = float(p.get("Ki", 0.0))
+            if ctype in ("PD", "PID"):
+                gains["Kd"] = float(p.get("Kd", 0.0))
+                gains["N"] = float(p.get("deriv_filter_N", 20.0))
+            controller["gains"] = gains
+        elif ctype == "lead_lag":
+            controller["gains"] = {
+                "Kc": float(p.get("lead_lag_Kc", 1.0)),
+                "zero": float(p.get("lead_lag_zero", 1.0)),
+                "pole": float(p.get("lead_lag_pole", 10.0)),
+            }
+        elif getattr(self, "_state_feedback_K", None) is not None:
+            controller["gains"] = {"K": np.asarray(self._state_feedback_K).ravel().tolist()}
+        ctrl_num = getattr(self, "_ctrl_num", None)
+        ctrl_den = getattr(self, "_ctrl_den", None)
+        if ctrl_num is not None and ctrl_den is not None:
+            controller["tf"] = {
+                "num": np.asarray(ctrl_num, dtype=float).ravel().tolist(),
+                "den": np.asarray(ctrl_den, dtype=float).ravel().tolist(),
+                "variable": "s",
+            }
+
+        return {
+            "source": "tf",
+            "domain": self.HUB_DOMAIN,
+            "dimensions": {"n": max(len(self._plant_den) - 1, 0), "m": 1, "p": 1},
+            "tf": {
+                "num": np.asarray(self._plant_num, dtype=float).ravel().tolist(),
+                "den": np.asarray(self._plant_den, dtype=float).ravel().tolist(),
+                "variable": "s",
+            },
+            "controller": controller,
+        }
+
     def handle_action(self, action: str, params: dict | None = None) -> dict:
         """Handle button press actions."""
         if action == "apply_tuning":

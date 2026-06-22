@@ -186,6 +186,7 @@ const WaveformPlots = memo(function WaveformPlots({ plots }) {
               data={plot.data}
               layout={{
                 ...plot.layout,
+                uirevision: plot.layout?.uirevision || plot.id || `modulation-${index}`,
                 title: {
                   text: plot.title,
                   font: { size: 14, color: isDark ? '#e2e8f0' : '#1e293b', family: 'system-ui, sans-serif' },

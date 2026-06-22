@@ -921,6 +921,8 @@ class NonlinearControlLabSimulator(BaseSimulator):
     }
 
     HUB_SLOTS = ['control']
+
+    HUB_PRODUCER_ONLY = True  # exports only; from_hub_data always returns False
     HUB_DIMENSIONS = {'n': None, 'm': None, 'p': None}
 
     def to_hub_data(self) -> Optional[Dict[str, Any]]:

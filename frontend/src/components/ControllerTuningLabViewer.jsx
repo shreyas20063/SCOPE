@@ -689,9 +689,28 @@ const TrainingPanel = memo(function TrainingPanel({ currentParams }) {
     } catch { /* ignore */ }
   }, [isPG]);
 
-  // Poll status during training
+  // Live training updates over WebSocket (the backend broadcasts ES/PPO
+  // progress on the sim's WS channel), with REST polling as fallback so
+  // training status still works if the WS upgrade is unavailable.
   useEffect(() => {
     if (status !== 'training') return;
+    let ws = null;
+    try {
+      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${window.location.host}/api/simulations/controller_tuning_lab/ws`);
+      ws.onmessage = (evt) => {
+        try {
+          const msg = JSON.parse(evt.data);
+          if (msg.type === 'es_training_complete') {
+            setProgress(prev => ({ ...prev, ...msg, state: 'complete' }));
+            setStatus(msg.success === false ? 'error' : 'complete');
+          } else if (msg.type === 'ppo_progress' || msg.type === 'training_progress') {
+            setProgress(prev => ({ ...prev, ...msg }));
+          }
+        } catch { /* non-JSON frame — ignore */ }
+      };
+    } catch { /* WS unavailable — polling below still covers status */ }
+
     const endpoint = isES
       ? '/api/simulations/controller_tuning_lab/es/status'
       : '/api/simulations/controller_tuning_lab/ppo/status';
@@ -709,7 +728,10 @@ const TrainingPanel = memo(function TrainingPanel({ currentParams }) {
         if (st?.state === 'cancelled') setStatus('cancelled');
       } catch { /* ignore poll errors */ }
     }, 2000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (ws && ws.readyState <= WebSocket.OPEN) ws.close();
+    };
   }, [status, isES]);
 
   if (!RL_METHODS.includes(method)) return null;

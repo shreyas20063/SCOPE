@@ -72,6 +72,8 @@ class SecondOrderSystemSimulator(BaseSimulator):
 
     HUB_SLOTS = ['control']
 
+    HUB_PRODUCER_ONLY = True  # exports only; from_hub_data always returns False
+
     @staticmethod
     def _slider_to_Q(slider_value: float) -> float:
         """

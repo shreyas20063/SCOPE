@@ -96,6 +96,46 @@ def _check_stability(poles: np.ndarray, domain: str) -> bool:
     return bool(np.all(np.real(poles) < -1e-10))
 
 
+def _classify_stability(poles: np.ndarray, domain: str) -> str:
+    """Three-way stability classification from pole locations.
+
+    Textbook rule (Ogata Sec. 5-4, Nise Sec. 6.1): a system is marginally
+    stable when no pole lies strictly inside the unstable region and every
+    pole on the stability boundary (jω-axis for CT, unit circle for DT) is
+    simple. A repeated boundary pole produces unbounded t·e^{jωt}-type
+    modes, so it is classified unstable.
+
+    Args:
+        poles: 1-D array of pole locations (complex).
+        domain: 'ct' for continuous-time or 'dt' for discrete-time.
+
+    Returns:
+        One of 'stable', 'marginally_stable', 'unstable'.
+    """
+    if len(poles) == 0:
+        return "stable"
+    poles = np.asarray(poles, dtype=complex)
+    # Signed distance into the unstable region (positive = unstable side),
+    # using the same boundary tolerance as _check_stability.
+    tol = 1e-10
+    if domain == "dt":
+        dist = np.abs(poles) - 1.0
+    else:
+        dist = np.real(poles)
+    if bool(np.any(dist > tol)):
+        return "unstable"
+    boundary = poles[np.abs(dist) <= tol]
+    if boundary.size == 0:
+        return "stable"
+    # Repeated boundary poles (numerically coincident) are unstable.
+    remaining = list(boundary)
+    while remaining:
+        pole = remaining.pop()
+        if any(abs(pole - other) <= 1e-6 for other in remaining):
+            return "unstable"
+    return "marginally_stable"
+
+
 def _controllability_rank(A: np.ndarray, B: np.ndarray) -> int:
     """Compute the rank of the controllability matrix [B, AB, ..., A^{n-1}B].
 
@@ -193,9 +233,19 @@ def validate_and_enrich_control(data: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         if source == "tf":
-            return _enrich_from_tf(data, domain)
+            result = _enrich_from_tf(data, domain)
         else:
-            return _enrich_from_ss(data, domain)
+            result = _enrich_from_ss(data, domain)
+        # Pass the controller design through enrichment untouched — the hub's
+        # stale-controller detection (HubContext) compares it against later
+        # plant pushes, so dropping it here would make staleness undetectable.
+        if (
+            result.get("success")
+            and result.get("data") is not None
+            and isinstance(data.get("controller"), dict)
+        ):
+            result["data"]["controller"] = data["controller"]
+        return result
     except Exception as exc:
         return {"success": False, "error": str(exc)}
 
@@ -232,6 +282,8 @@ def _enrich_from_transfer_matrix(data: Dict[str, Any], domain: str) -> Dict[str,
     enriched_entries: List[List[Dict[str, Any]]] = []
     all_poles: List[complex] = []
     all_stable = True
+    any_unstable = False
+    any_marginal = False
     max_order = 0
 
     for i in range(p):
@@ -261,11 +313,16 @@ def _enrich_from_transfer_matrix(data: Dict[str, Any], domain: str) -> Dict[str,
             zeros = np.roots(num_t) if len(num_t) > 1 else np.array([])
 
             entry_stable = _check_stability(poles, domain)
+            entry_stability = _classify_stability(poles, domain)
             entry_order = len(poles)
 
             all_poles.extend(poles.tolist())
             if not entry_stable:
                 all_stable = False
+            if entry_stability == "unstable":
+                any_unstable = True
+            elif entry_stability == "marginally_stable":
+                any_marginal = True
             max_order = max(max_order, entry_order)
 
             row.append({
@@ -300,6 +357,14 @@ def _enrich_from_transfer_matrix(data: Dict[str, Any], domain: str) -> Dict[str,
         "poles": all_poles_display,
         "zeros": [],
         "stable": all_stable,
+        # Per-entry classification combined: any unstable entry dominates;
+        # classifying the pooled pole list would falsely flag shared simple
+        # boundary poles (one mode appearing in several entries) as repeated.
+        "stability": (
+            "unstable" if any_unstable
+            else "marginally_stable" if any_marginal
+            else "stable"
+        ),
         "system_type": sys_type,
         "order": max_order,
     }
@@ -374,12 +439,15 @@ def _enrich_from_tf(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
         system_type = _count_origin_poles_ct(poles)
 
     stable = _check_stability(poles, domain)
+    stability = _classify_stability(poles, domain)
     variable = "z" if domain == "dt" else "s"
 
     # Derive state-space (SISO only).
     ss_data: Optional[Dict[str, Any]] = None
     controllable: Optional[bool] = None
     observable: Optional[bool] = None
+    ctrb_rank: Optional[int] = None
+    obsv_rank: Optional[int] = None
 
     if order > 0:
         A, B, C, D = tf2ss(num_trimmed, den_trimmed)
@@ -390,8 +458,10 @@ def _enrich_from_tf(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
             "D": _to_float_list(D),
         }
         n = A.shape[0]
-        controllable = _controllability_rank(A, B) == n
-        observable = _observability_rank(A, C) == n
+        ctrb_rank = _controllability_rank(A, B)
+        obsv_rank = _observability_rank(A, C)
+        controllable = ctrb_rank == n
+        observable = obsv_rank == n
 
     enriched = {
         "source": "tf",
@@ -407,14 +477,17 @@ def _enrich_from_tf(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
         "system_type": system_type,
         "order": order,
         "stable": stable,
+        "stability": stability,
     }
 
     if ss_data is not None:
         enriched["ss"] = ss_data
     if controllable is not None:
         enriched["controllable"] = controllable
+        enriched["controllability_rank"] = ctrb_rank
     if observable is not None:
         enriched["observable"] = observable
+        enriched["observability_rank"] = obsv_rank
 
     # Transmission zeros and Gramians (when SS is available)
     if order > 0 and ss_data is not None:
@@ -502,9 +575,12 @@ def _enrich_from_ss(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
         system_type = _count_origin_poles_ct(poles)
 
     stable = _check_stability(poles, domain)
+    stability = _classify_stability(poles, domain)
 
-    controllable = _controllability_rank(A, B) == n
-    observable = _observability_rank(A, C) == n
+    ctrb_rank = _controllability_rank(A, B)
+    obsv_rank = _observability_rank(A, C)
+    controllable = ctrb_rank == n
+    observable = obsv_rank == n
 
     enriched: Dict[str, Any] = {
         "source": "ss",
@@ -521,8 +597,11 @@ def _enrich_from_ss(data: Dict[str, Any], domain: str) -> Dict[str, Any]:
         "system_type": system_type,
         "order": order,
         "stable": stable,
+        "stability": stability,
         "controllable": controllable,
         "observable": observable,
+        "controllability_rank": ctrb_rank,
+        "observability_rank": obsv_rank,
     }
 
     # Derive TF

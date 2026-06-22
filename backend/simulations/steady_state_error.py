@@ -23,6 +23,20 @@ from scipy import signal
 from .base_simulator import BaseSimulator
 
 
+def _inf_to_json(v: Optional[float]) -> Any:
+    """Map ±inf to the JSON-safe strings MATLAB's jsonencode also uses.
+
+    DataHandler.serialize_result converts float inf to null (JSON has no
+    Infinity literal), which collapses 'infinite' and 'missing' into one
+    value. Error constants and steady-state errors are exactly the fields
+    where that distinction is the lesson (Ogata Table 5-2), so they ride
+    as explicit "Infinity"/"-Infinity" strings instead.
+    """
+    if isinstance(v, float) and np.isinf(v):
+        return "Infinity" if v > 0 else "-Infinity"
+    return v
+
+
 class SteadyStateErrorSimulator(BaseSimulator):
     """Steady-state error analyzer for feedback control systems."""
 
@@ -1201,14 +1215,20 @@ class SteadyStateErrorSimulator(BaseSimulator):
             "hub_domain": self.HUB_DOMAIN,
             "hub_dimensions": self.HUB_DIMENSIONS,
             "system_type": sys_type,
+            # Infinite constants are emitted as the JSON string "Infinity"
+            # (MATLAB jsonencode convention). DataHandler would otherwise
+            # convert float inf to null, making ∞ indistinguishable from
+            # "not computed" on the API/frontend side.
             "error_constants": {
-                "Kp": ec["Kp"], "Kv": ec["Kv"], "Ka": ec["Ka"],
-                "K_static": ec["K_static"],
+                "Kp": _inf_to_json(ec["Kp"]), "Kv": _inf_to_json(ec["Kv"]),
+                "Ka": _inf_to_json(ec["Ka"]),
+                "K_static": _inf_to_json(ec["K_static"]),
             },
             "error_constants_display": ec_display,
             "steady_state_errors": {
-                "step": ss_errors["step"], "ramp": ss_errors["ramp"],
-                "parabolic": ss_errors["parabolic"],
+                "step": _inf_to_json(ss_errors["step"]),
+                "ramp": _inf_to_json(ss_errors["ramp"]),
+                "parabolic": _inf_to_json(ss_errors["parabolic"]),
             },
             "steady_state_errors_display": ess_display,
             "cl_stable": is_stable,

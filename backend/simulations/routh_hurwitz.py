@@ -114,6 +114,8 @@ class RouthHurwitzSimulator(BaseSimulator):
 
     HUB_SLOTS = ['control']
 
+    HUB_PRODUCER_ONLY = True  # exports only; from_hub_data always returns False
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._routh_result: Dict[str, Any] = {}

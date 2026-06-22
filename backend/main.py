@@ -404,6 +404,12 @@ async def get_simulation_state(sim_id: str, x_session_id: str = Header(default=D
                 metadata = result["data"].setdefault("metadata", {})
                 if isinstance(metadata, dict):
                     metadata["has_custom_from_hub_data"] = has_custom
+                    # Producer-only sims reject every hub pull by design; the
+                    # frontend stays silent for them but notifies the user when
+                    # a genuine consumer rejects an incompatible payload.
+                    metadata["hub_producer_only"] = bool(
+                        getattr(simulator, "HUB_PRODUCER_ONLY", False)
+                    )
         except Exception:
             pass  # defensive — never fail the state request over a flag
         return {

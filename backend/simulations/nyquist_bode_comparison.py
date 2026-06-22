@@ -391,6 +391,63 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
             "stability_status": status,
         }
 
+        self._compute_closed_loop_freq_metrics()
+
+    def _compute_closed_loop_freq_metrics(self) -> None:
+        """Closed-loop bandwidth and resonance peak under unity feedback.
+
+        Ogata Sec. 7-3: for T(jω) = G(jω)/(1+G(jω)), the resonance peak
+        Mr = max|T(jω)| at ω = ωr, and the bandwidth ωBW is the frequency
+        where |T| falls to 1/√2 of its zero-frequency value |T(0)|.
+        Only meaningful when the closed loop is stable.
+        """
+        self._stability_info.update({
+            "cl_bandwidth": None,
+            "cl_resonance_peak_db": None,
+            "cl_resonance_freq": None,
+        })
+
+        # Closed-loop poles: den + num = 0 (gain already baked into num).
+        n = max(len(self._num_coeffs), len(self._den_coeffs))
+        num_p = np.pad(self._num_coeffs, (n - len(self._num_coeffs), 0))
+        den_p = np.pad(self._den_coeffs, (n - len(self._den_coeffs), 0))
+        char_poly = np.trim_zeros(den_p + num_p, "f")
+        if len(char_poly) > 1:
+            cl_poles = np.roots(char_poly)
+            if not bool(np.all(np.real(cl_poles) < -1e-9)):
+                return  # CL unstable/marginal — BW and Mr are undefined
+        elif len(char_poly) == 0:
+            return
+
+        T = self._H / (1.0 + self._H)
+        T_mag = np.abs(T)
+
+        # |T(0)| from the polynomials directly (robust for Type ≥ 1 plants
+        # where G(0) → ∞ and T(0) → 1).
+        num0 = float(np.polyval(self._num_coeffs, 0.0))
+        den0 = float(np.polyval(self._den_coeffs, 0.0))
+        t0 = abs(num0 / (den0 + num0)) if abs(den0 + num0) > 1e-12 else 1.0
+        if t0 < 1e-12:
+            return
+
+        # Resonance peak (max of |T| over the computed grid).
+        peak_idx = int(np.argmax(T_mag))
+        mr = float(T_mag[peak_idx])
+        self._stability_info["cl_resonance_peak_db"] = round(float(20.0 * np.log10(max(mr, 1e-30))), 2)
+        # ωr only exists when there is an actual interior peak above |T(0)|.
+        if mr > t0 * 1.001 and 0 < peak_idx < len(self._omega) - 1:
+            self._stability_info["cl_resonance_freq"] = round(float(self._omega[peak_idx]), 4)
+
+        # Bandwidth: first crossing of |T| below |T(0)|/√2 (log-interpolated).
+        thresh = t0 / np.sqrt(2.0)
+        below = np.where(T_mag < thresh)[0]
+        if len(below) > 0 and below[0] > 0:
+            i = below[0]
+            m0, m1 = T_mag[i - 1], T_mag[i]
+            frac = (m0 - thresh) / (m0 - m1) if m0 != m1 else 0.0
+            w_bw = self._omega[i - 1] * (self._omega[i] / self._omega[i - 1]) ** frac
+            self._stability_info["cl_bandwidth"] = round(float(w_bw), 4)
+
     # =========================================================================
     # Plot generation
     # =========================================================================

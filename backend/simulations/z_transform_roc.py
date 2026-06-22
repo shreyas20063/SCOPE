@@ -97,6 +97,8 @@ class ZTransformROCSimulator(BaseSimulator):
     }
 
     HUB_SLOTS = ['control']
+
+    HUB_PRODUCER_ONLY = True  # exports only; from_hub_data always returns False
     HUB_DOMAIN = "dt"
 
     def __init__(self, simulation_id: str):

@@ -2,13 +2,16 @@
 """
 SCOPE Platform Validation Suite — Benchmark Harness
 
-Exercises SCOPE simulators through their public API with standard textbook
-parameters, extracts numerical results, and exports to JSON for comparison
-against MATLAB Control System Toolbox outputs.
+Exercises SCOPE end-to-end through the platform's public HTTP API — the
+same path the web frontend uses (init via /execute, parameter changes via
+/update, button actions via /execute, reads via /state) — with standard
+textbook parameters, extracts numerical results, and exports to JSON for
+comparison against MATLAB Control System Toolbox outputs.
 
 Usage:
     cd <project_root>
-    python -m validation.run_scope_benchmarks
+    python -m validation.run_scope_benchmarks             # HTTP API (default)
+    python -m validation.run_scope_benchmarks --direct    # legacy in-process
 
 Output:
     validation/results/scope_results.json
@@ -705,7 +708,7 @@ def _extract_feedback(state):
 # Runner
 # ---------------------------------------------------------------------------
 def run_benchmark(bench_id: str, bench_def: dict) -> dict:
-    """Run a single benchmark and return results dict."""
+    """Run a single benchmark in-process (legacy --direct mode)."""
     sim_id = bench_def["sim_id"]
     params = bench_def["params"]
 
@@ -751,10 +754,86 @@ def run_benchmark(bench_id: str, bench_def: dict) -> dict:
         }
 
 
-def run_all():
-    """Run all benchmarks and save results."""
-    print(f"SCOPE Validation Suite — {len(BENCHMARKS)} benchmarks")
+def run_benchmark_api(bench_id: str, bench_def: dict, client) -> dict:
+    """Run a single benchmark through the HTTP API (default mode).
+
+    Drives the FastAPI app end-to-end — init via /execute, parameter
+    changes via /update, button actions via /execute, final read via
+    /state — exactly the request sequence the web frontend issues. Each
+    benchmark uses its own X-Session-ID so simulator instances and the
+    response cache stay isolated between benchmarks (BUG-075).
+    """
+    sim_id = bench_def["sim_id"]
+    params = bench_def["params"]
+    headers = {"X-Session-ID": f"benchmark-{bench_id}"}
+    base = f"/api/simulations/{sim_id}"
+
+    try:
+        t0 = time.perf_counter()
+
+        resp = client.post(f"{base}/execute",
+                           json={"action": "init", "params": {}}, headers=headers)
+        if resp.status_code != 200 or not resp.json().get("success"):
+            return {"_status": "ERROR", "_sim_id": sim_id,
+                    "_error": f"init failed: HTTP {resp.status_code} {resp.text[:200]}"}
+
+        # One request per parameter to mirror sequential update_parameter
+        # semantics (preset auto-switching depends on application order).
+        for name, value in params.items():
+            resp = client.post(f"{base}/update",
+                               json={"params": {name: value}}, headers=headers)
+            if resp.status_code != 200 or not resp.json().get("success"):
+                return {"_status": "ERROR", "_sim_id": sim_id,
+                        "_error": f"update {name} failed: HTTP {resp.status_code} {resp.text[:200]}"}
+
+        for action in bench_def.get("actions", []):
+            resp = client.post(f"{base}/execute",
+                               json={"action": action, "params": {}}, headers=headers)
+            if resp.status_code != 200:
+                return {"_status": "ERROR", "_sim_id": sim_id,
+                        "_error": f"action {action} failed: HTTP {resp.status_code} {resp.text[:200]}"}
+
+        resp = client.get(f"{base}/state", headers=headers)
+        if resp.status_code != 200 or not resp.json().get("success"):
+            return {"_status": "ERROR", "_sim_id": sim_id,
+                    "_error": f"state failed: HTTP {resp.status_code} {resp.text[:200]}"}
+        state = resp.json()["data"]
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+
+        results = bench_def["extract"](state)
+        results["_elapsed_ms"] = round(elapsed_ms, 2)
+        results["_status"] = "OK"
+        results["_sim_id"] = sim_id
+        results["_params_used"] = params
+        results["_transport"] = "http_api"
+        return results
+
+    except Exception as e:
+        return {
+            "_status": "ERROR",
+            "_sim_id": sim_id,
+            "_error": str(e),
+            "_traceback": traceback.format_exc(),
+        }
+
+
+def run_all(direct: bool = False):
+    """Run all benchmarks and save results.
+
+    Args:
+        direct: If True, call simulator classes in-process (legacy mode).
+            Default is False: drive the FastAPI app through the HTTP API,
+            the same path the web frontend uses.
+    """
+    transport = "in-process (direct)" if direct else "HTTP API (FastAPI TestClient)"
+    print(f"SCOPE Validation Suite — {len(BENCHMARKS)} benchmarks via {transport}")
     print("=" * 60)
+
+    client = None
+    if not direct:
+        from fastapi.testclient import TestClient
+        import main as backend_main
+        client = TestClient(backend_main.app)
 
     results = {}
     passed = 0
@@ -763,7 +842,10 @@ def run_all():
     for bench_id, bench_def in BENCHMARKS.items():
         desc = bench_def.get("description", bench_id)
         print(f"\n  [{bench_id}] {desc}")
-        result = run_benchmark(bench_id, bench_def)
+        if direct:
+            result = run_benchmark(bench_id, bench_def)
+        else:
+            result = run_benchmark_api(bench_id, bench_def, client)
 
         status = result.get("_status", "ERROR")
         if status == "OK":
@@ -781,6 +863,7 @@ def run_all():
     output = {
         "metadata": {
             "platform": "SCOPE",
+            "transport": "in_process" if direct else "http_api",
             "numpy_version": np.__version__,
             "scipy_version": __import__("scipy").__version__,
             "python_version": sys.version.split()[0],
@@ -805,4 +888,4 @@ def run_all():
 
 
 if __name__ == "__main__":
-    run_all()
+    run_all(direct="--direct" in sys.argv)
