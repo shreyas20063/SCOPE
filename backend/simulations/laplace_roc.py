@@ -234,8 +234,11 @@ class LaplaceROCSimulator(BaseSimulator):
             #   = 1/(s-p1) [right-sided part] + 1/(s-p2) [left-sided part]
             # Keep as sum of partial fractions
             den = np.polymul([1.0, -p1], [1.0, -p2])
-            # Numerator for sum: (s-p2) + (s-p1) = 2s - (p1+p2)
-            num = np.array([2.0, -(p1 + p2)])
+            # e^{-a|t|} = e^{p1 t}u(t) + e^{p2 t}u(-t) needs residue +1 at the left pole
+            # and -1 at the right pole: H(s) = 1/(s-p1) - 1/(s-p2) => num = -|p1 - p2|.
+            # (The old num=[2,-(p1+p2)] put residue +1 at BOTH poles, making the left lobe
+            #  negative — the ODD signal e^{-t}u(t) - e^{t}u(-t), not e^{-a|t|}. See BUG-095.)
+            num = np.array([-abs(p1 - p2)])
             self._num_coeffs = np.real(num)
             self._den_coeffs = np.real(den)
 
@@ -487,7 +490,15 @@ class LaplaceROCSimulator(BaseSimulator):
             else:
                 return f"1 / (s + {-a:.3g})"
 
-        elif family in ("two_sided", "sum_exponentials"):
+        elif family == "two_sided":
+            # e^{-a|t|}: H(s) = 1/(s - p_left) - 1/(s - p_right)  (residue +1 / -1)
+            poles = [float(self.parameters["pole1_real"]), float(self.parameters["pole2_real"])]
+            left, right = min(poles), max(poles)
+            lt = f"(s - {left:.3g})" if left >= 0 else f"(s + {-left:.3g})"
+            rt = f"(s - {right:.3g})" if right >= 0 else f"(s + {-right:.3g})"
+            return f"1/{lt} - 1/{rt}"
+
+        elif family == "sum_exponentials":
             p1 = float(self.parameters["pole1_real"])
             p2 = float(self.parameters["pole2_real"])
             term1 = f"(s - {p1:.3g})" if p1 >= 0 else f"(s + {-p1:.3g})"
