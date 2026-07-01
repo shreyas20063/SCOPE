@@ -16,13 +16,13 @@ Key features:
 import copy
 import re
 import numpy as np
-from collections import deque
 from itertools import combinations
 from typing import Any, Dict, List, Optional, Tuple
 from .base_simulator import BaseSimulator
 
 
 _SUPER_DIGITS = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
+_SUB_DIGITS = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
 
 def _superscript(n: int) -> str:
     """Convert integer to Unicode superscript: 2 -> '²', 13 -> '¹³'."""
@@ -548,7 +548,7 @@ class SignalFlowScopeSimulator(BaseSimulator):
         return incoming, outgoing
 
     def _find_reachable_nodes(self, start: str, outgoing: Dict[str, List[str]]) -> List[str]:
-        """Find all nodes reachable from start using BFS."""
+        """Find all nodes reachable from start using DFS (stack-based)."""
         visited = set()
         stack = [start]
         while stack:
@@ -973,6 +973,20 @@ class SignalFlowScopeSimulator(BaseSimulator):
             signal = self._make_signal_ct(input_type, t, t_end, amplitude, freq, duty, chirp_end)
             return (t, signal)
 
+    # Periodic waveforms are functions of a normalized phase in [0, 1) and are
+    # identical in CT and DT — only the phase base (freq·t vs freq·n/fs) differs.
+    @staticmethod
+    def _square(phase: np.ndarray, amp: float, duty: float) -> np.ndarray:
+        return np.where(phase < duty, amp, -amp)
+
+    @staticmethod
+    def _sawtooth(phase: np.ndarray, amp: float) -> np.ndarray:
+        return amp * (2.0 * phase - 1.0)
+
+    @staticmethod
+    def _triangle(phase: np.ndarray, amp: float) -> np.ndarray:
+        return amp * (2.0 * np.abs(2.0 * phase - 1.0) - 1.0)
+
     def _make_signal_dt(
         self, sig_type: str, n: np.ndarray, N: int,
         amp: float, freq: float, duty: float, chirp_end: float,
@@ -994,14 +1008,11 @@ class SignalFlowScopeSimulator(BaseSimulator):
         elif sig_type == "ramp":
             s = amp * n / N
         elif sig_type == "square":
-            phase = (freq * n / fs) % 1.0
-            s = np.where(phase < duty, amp, -amp)
+            s = self._square((freq * n / fs) % 1.0, amp, duty)
         elif sig_type == "sawtooth":
-            phase = (freq * n / fs) % 1.0
-            s = amp * (2.0 * phase - 1.0)
+            s = self._sawtooth((freq * n / fs) % 1.0, amp)
         elif sig_type == "triangle":
-            phase = (freq * n / fs) % 1.0
-            s = amp * (2.0 * np.abs(2.0 * phase - 1.0) - 1.0)
+            s = self._triangle((freq * n / fs) % 1.0, amp)
         elif sig_type == "chirp":
             t_norm = n / max(N - 1, 1)
             inst_freq = freq + (chirp_end - freq) * t_norm
@@ -1029,14 +1040,11 @@ class SignalFlowScopeSimulator(BaseSimulator):
         elif sig_type == "ramp":
             s = amp * t / t_end
         elif sig_type == "square":
-            phase = (freq * t) % 1.0
-            s = np.where(phase < duty, amp, -amp)
+            s = self._square((freq * t) % 1.0, amp, duty)
         elif sig_type == "sawtooth":
-            phase = (freq * t) % 1.0
-            s = amp * (2.0 * phase - 1.0)
+            s = self._sawtooth((freq * t) % 1.0, amp)
         elif sig_type == "triangle":
-            phase = (freq * t) % 1.0
-            s = amp * (2.0 * np.abs(2.0 * phase - 1.0) - 1.0)
+            s = self._triangle((freq * t) % 1.0, amp)
         elif sig_type == "chirp":
             inst_freq = freq + (chirp_end - freq) * t / t_end
             phase_acc = 2 * np.pi * np.cumsum(inst_freq) * dt
@@ -1153,8 +1161,7 @@ class SignalFlowScopeSimulator(BaseSimulator):
     @staticmethod
     def _subscript(n: int) -> str:
         """Convert integer to Unicode subscript digits."""
-        subs = "₀₁₂₃₄₅₆₇₈₉"
-        return "".join(subs[int(d)] for d in str(n))
+        return str(n).translate(_SUB_DIGITS)
 
     def _compute_sfg_nodes(self) -> List[Dict[str, Any]]:
         """Compute SFG nodes — only signal points (input, output, adder, junction).

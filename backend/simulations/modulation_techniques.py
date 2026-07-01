@@ -39,16 +39,11 @@ class ModulationTechniquesSimulator(BaseSimulator):
 
     # Colors matching PyQt5 COLORS dict
     COLORS = {
-        "bg": "#F9FAFB",
-        "panel": "#FFFFFF",
         "accent": "#2563EB",      # Blue
-        "accent_dark": "#1D4ED8",
         "success": "#16A34A",      # Green
         "warning": "#CA8A04",      # Orange/Amber
         "danger": "#DC2626",       # Red
-        "text_primary": "#0F172A",
         "text_secondary": "#475569",
-        "grid": "#D1D5DB",
         "purple": "#8b5cf6",
     }
 
@@ -193,6 +188,7 @@ class ModulationTechniquesSimulator(BaseSimulator):
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._audio = None
+        self._audio_norm = None
         self._time = None
         self._original_sr = self.SAMPLE_RATE
 
@@ -204,6 +200,7 @@ class ModulationTechniquesSimulator(BaseSimulator):
         self._fm_modulated = None
         self._fm_recovered = None
         self._fm_inst_freq = None
+        self._bw_hz = None
 
         # FDM state
         self._fdm_multiplexed = None
@@ -288,6 +285,14 @@ class ModulationTechniquesSimulator(BaseSimulator):
         elif demo_mode == "fdm":
             self._compute_fdm()
 
+    def _lowpass(self, sig: np.ndarray, order: int) -> np.ndarray:
+        """Zero-phase Butterworth low-pass at 5 kHz (or 0.9*Nyquist)."""
+        nyq = self._original_sr / 2.0
+        cutoff = min(5000, nyq * 0.9)
+        wn = min(0.99, cutoff / nyq)
+        b, a = signal.butter(order, wn, btype="low")
+        return signal.filtfilt(b, a, sig)
+
     # =========================================================================
     # AM Computation (matching am.py)
     # =========================================================================
@@ -324,11 +329,7 @@ class ModulationTechniquesSimulator(BaseSimulator):
         else:
             # Synchronous demodulation
             demod_sync = self._am_modulated * carrier
-            nyq = self._original_sr / 2.0
-            cutoff = min(5000, nyq * 0.9)
-            wn = min(0.99, cutoff / nyq)
-            b, a = signal.butter(6, wn, btype="low")
-            self._am_recovered = signal.filtfilt(b, a, demod_sync) * 2
+            self._am_recovered = self._lowpass(demod_sync, order=6) * 2
 
         # Normalize recovered
         self._am_recovered = self._am_recovered / (np.max(np.abs(self._am_recovered)) + 1e-10)
@@ -387,14 +388,16 @@ class ModulationTechniquesSimulator(BaseSimulator):
             self._fm_inst_freq = inst_freq
 
         # Lowpass filter recovered signal
-        nyq = self._original_sr / 2.0
-        cutoff = min(5000, nyq * 0.9)
-        wn = min(0.99, cutoff / nyq)
-        b, a = signal.butter(5, wn, btype="low")
-        self._fm_recovered = signal.filtfilt(b, a, self._fm_recovered)
+        self._fm_recovered = self._lowpass(self._fm_recovered, order=5)
 
         # Normalize recovered
         self._fm_recovered = self._fm_recovered / (np.max(np.abs(self._fm_recovered)) + 1e-10)
+
+        # Transmission bandwidth: Carson's rule (FM) / narrowband PM estimate
+        if fm_pm_mode == "fm":
+            self._bw_hz = 2 * (self.parameters["fm_deviation"] + 5000)
+        else:
+            self._bw_hz = 2 * 5000 * (1 + self.parameters["pm_sensitivity"])
 
     # =========================================================================
     # FDM Computation (matching fdm.py)
@@ -476,6 +479,60 @@ class ModulationTechniquesSimulator(BaseSimulator):
     # Plot generation
     # =========================================================================
 
+    def _display_segment(self):
+        """Return (seg slice, t_seg_ms) for the centred display window."""
+        length = len(self._audio_norm)
+        seg_start = length // 4
+        seg_end = min(seg_start + self.DISPLAY_SAMPLES, length)
+        seg = slice(seg_start, seg_end)
+        t_seg = self._time[seg] * 1000  # Convert to ms
+        return seg, t_seg
+
+    @staticmethod
+    def _line_trace(x, y, name, color, width, dash=None, showlegend=None):
+        """Build a Plotly line-scatter trace dict."""
+        line = {"color": color, "width": width}
+        if dash is not None:
+            line["dash"] = dash
+        trace = {
+            "x": x,
+            "y": y,
+            "type": "scatter",
+            "mode": "lines",
+            "name": name,
+            "line": line,
+        }
+        if showlegend is not None:
+            trace["showlegend"] = showlegend
+        return trace
+
+    def _spectrum_plot(self, plot_id, title, sig, xrange, shapes_fn=None):
+        """Welch PSD (dB) plot: welch → 10·log10 → base layout + xaxis + shapes."""
+        freqs, psd = signal.welch(sig, self._original_sr, nperseg=min(4096, len(sig)))
+        psd_db = 10 * np.log10(psd + 1e-12)
+
+        layout = {
+            **self._get_plot_layout("Frequency (kHz)", "Power (dB)"),
+            "xaxis": {
+                "title": "Frequency (kHz)",
+                "range": xrange,
+                "showgrid": True,
+                "gridcolor": "rgba(148, 163, 184, 0.15)",
+            },
+        }
+        if shapes_fn is not None:
+            layout["shapes"] = shapes_fn(psd_db)
+
+        return {
+            "id": plot_id,
+            "title": title,
+            "data": [self._line_trace(
+                (freqs / 1000).tolist(), psd_db.tolist(),
+                "PSD", self.COLORS["warning"], 1.5,
+            )],
+            "layout": layout,
+        }
+
     def get_plots(self) -> List[Dict[str, Any]]:
         """Generate plots based on current demo mode."""
         if not self._initialized:
@@ -496,64 +553,44 @@ class ModulationTechniquesSimulator(BaseSimulator):
         """Generate AM demo plots (4 subplots like PyQt5)."""
         plots = []
 
-        # Calculate display segment
-        length = len(self._audio_norm)
-        seg_start = length // 4
-        seg_end = min(seg_start + self.DISPLAY_SAMPLES, length)
-        seg = slice(seg_start, seg_end)
-        t_seg = self._time[seg] * 1000  # Convert to ms
+        seg, t_seg = self._display_segment()
 
         fc_hz = self.parameters["am_carrier_freq"] * 1000
         am_mode = self.parameters["am_mode"]
         carrier_dc = self.parameters["am_carrier_dc"]
 
+        t_ms = t_seg.tolist()
+
         # Plot 1: Message Signal
         plots.append({
             "id": "am_message",
             "title": "Message Signal x(t)",
-            "data": [{
-                "x": t_seg.tolist(),
-                "y": self._audio_norm[seg].tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": "Message",
-                "line": {"color": self.COLORS["accent"], "width": 1.5},
-            }],
+            "data": [self._line_trace(
+                t_ms, self._audio_norm[seg].tolist(),
+                "Message", self.COLORS["accent"], 1.5,
+            )],
             "layout": self._get_plot_layout("Time (ms)", "Amplitude"),
         })
 
         # Plot 2: Modulated Signal
         mode_label = {"dsb_sc": "DSB-SC", "am_carrier": "AM+Carrier", "envelope": "Envelope"}
-        mod_data = [{
-            "x": t_seg.tolist(),
-            "y": self._am_modulated[seg].tolist(),
-            "type": "scatter",
-            "mode": "lines",
-            "name": "Modulated",
-            "line": {"color": self.COLORS["danger"], "width": 1},
-        }]
+        mod_data = [self._line_trace(
+            t_ms, self._am_modulated[seg].tolist(),
+            "Modulated", self.COLORS["danger"], 1,
+        )]
 
         # Add envelope for non-DSB-SC modes
         if am_mode != "dsb_sc":
             env = (self._audio_norm + carrier_dc)[seg]
             mod_data.extend([
-                {
-                    "x": t_seg.tolist(),
-                    "y": env.tolist(),
-                    "type": "scatter",
-                    "mode": "lines",
-                    "name": "Envelope",
-                    "line": {"color": self.COLORS["success"], "width": 1.2},
-                },
-                {
-                    "x": t_seg.tolist(),
-                    "y": (-env).tolist(),
-                    "type": "scatter",
-                    "mode": "lines",
-                    "name": "-Envelope",
-                    "line": {"color": self.COLORS["success"], "width": 1.2},
-                    "showlegend": False,
-                },
+                self._line_trace(
+                    t_ms, env.tolist(),
+                    "Envelope", self.COLORS["success"], 1.2,
+                ),
+                self._line_trace(
+                    t_ms, (-env).tolist(),
+                    "-Envelope", self.COLORS["success"], 1.2, showlegend=False,
+                ),
             ])
 
         plots.append({
@@ -568,48 +605,25 @@ class ModulationTechniquesSimulator(BaseSimulator):
         plots.append({
             "id": "am_recovered",
             "title": f"Recovered Signal ({method} demod)",
-            "data": [{
-                "x": t_seg.tolist(),
-                "y": self._am_recovered[seg].tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": "Recovered",
-                "line": {"color": self.COLORS["success"], "width": 1.5},
-            }],
+            "data": [self._line_trace(
+                t_ms, self._am_recovered[seg].tolist(),
+                "Recovered", self.COLORS["success"], 1.5,
+            )],
             "layout": self._get_plot_layout("Time (ms)", "Amplitude"),
         })
 
         # Plot 4: Spectrum
-        freqs, psd = signal.welch(self._am_modulated, self._original_sr, nperseg=min(4096, len(self._am_modulated)))
-        psd_db = 10 * np.log10(psd + 1e-12)
+        def _am_shapes(psd_db):
+            return [{
+                "type": "line",
+                "x0": fc_hz / 1000, "x1": fc_hz / 1000,
+                "y0": float(psd_db.min() - 10), "y1": float(psd_db.max() + 5),
+                "line": {"color": self.COLORS["danger"], "width": 2, "dash": "dash"},
+            }]
 
-        plots.append({
-            "id": "am_spectrum",
-            "title": "Spectrum",
-            "data": [{
-                "x": (freqs / 1000).tolist(),
-                "y": psd_db.tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": "PSD",
-                "line": {"color": self.COLORS["warning"], "width": 1.5},
-            }],
-            "layout": {
-                **self._get_plot_layout("Frequency (kHz)", "Power (dB)"),
-                "xaxis": {
-                    "title": "Frequency (kHz)",
-                    "range": [0, 25],
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.15)",
-                },
-                "shapes": [{
-                    "type": "line",
-                    "x0": fc_hz / 1000, "x1": fc_hz / 1000,
-                    "y0": float(psd_db.min() - 10), "y1": float(psd_db.max() + 5),
-                    "line": {"color": self.COLORS["danger"], "width": 2, "dash": "dash"},
-                }],
-            },
-        })
+        plots.append(self._spectrum_plot(
+            "am_spectrum", "Spectrum", self._am_modulated, [0, 25], _am_shapes,
+        ))
 
         return plots
 
@@ -617,27 +631,20 @@ class ModulationTechniquesSimulator(BaseSimulator):
         """Generate FM/PM demo plots (5 subplots like PyQt5)."""
         plots = []
 
-        length = len(self._audio_norm)
-        seg_start = length // 4
-        seg_end = min(seg_start + self.DISPLAY_SAMPLES, length)
-        seg = slice(seg_start, seg_end)
-        t_seg = self._time[seg] * 1000
+        seg, t_seg = self._display_segment()
 
         fc_hz = self.parameters["fm_carrier_freq"] * 1000
         fm_pm_mode = self.parameters["fm_pm_mode"]
+        t_ms = t_seg.tolist()
 
         # Plot 1: Message Signal
         plots.append({
             "id": "fm_message",
             "title": "Message Signal x(t)",
-            "data": [{
-                "x": t_seg.tolist(),
-                "y": self._audio_norm[seg].tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": "Message",
-                "line": {"color": self.COLORS["accent"], "width": 1.5},
-            }],
+            "data": [self._line_trace(
+                t_ms, self._audio_norm[seg].tolist(),
+                "Message", self.COLORS["accent"], 1.5,
+            )],
             "layout": self._get_plot_layout("Time (ms)", "Amplitude"),
         })
 
@@ -650,14 +657,10 @@ class ModulationTechniquesSimulator(BaseSimulator):
         plots.append({
             "id": "fm_modulated",
             "title": title,
-            "data": [{
-                "x": t_seg.tolist(),
-                "y": self._fm_modulated[seg].tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": "Modulated",
-                "line": {"color": self.COLORS["danger"], "width": 1},
-            }],
+            "data": [self._line_trace(
+                t_ms, self._fm_modulated[seg].tolist(),
+                "Modulated", self.COLORS["danger"], 1,
+            )],
             "layout": self._get_plot_layout("Time (ms)", "Amplitude"),
         })
 
@@ -667,22 +670,14 @@ class ModulationTechniquesSimulator(BaseSimulator):
             "id": "fm_inst_freq",
             "title": "Instantaneous Frequency",
             "data": [
-                {
-                    "x": t_seg.tolist(),
-                    "y": inst_freq_khz.tolist(),
-                    "type": "scatter",
-                    "mode": "lines",
-                    "name": "Inst. Freq",
-                    "line": {"color": self.COLORS["purple"], "width": 1.5},
-                },
-                {
-                    "x": [t_seg[0], t_seg[-1]],
-                    "y": [fc_hz / 1000, fc_hz / 1000],
-                    "type": "scatter",
-                    "mode": "lines",
-                    "name": "Carrier",
-                    "line": {"color": self.COLORS["danger"], "width": 1, "dash": "dash"},
-                },
+                self._line_trace(
+                    t_ms, inst_freq_khz.tolist(),
+                    "Inst. Freq", self.COLORS["purple"], 1.5,
+                ),
+                self._line_trace(
+                    [t_seg[0], t_seg[-1]], [fc_hz / 1000, fc_hz / 1000],
+                    "Carrier", self.COLORS["danger"], 1, dash="dash",
+                ),
             ],
             "layout": self._get_plot_layout("Time (ms)", "Frequency (kHz)"),
         })
@@ -691,50 +686,23 @@ class ModulationTechniquesSimulator(BaseSimulator):
         plots.append({
             "id": "fm_recovered",
             "title": "Recovered Baseband",
-            "data": [{
-                "x": t_seg.tolist(),
-                "y": self._fm_recovered[seg].tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": "Recovered",
-                "line": {"color": self.COLORS["success"], "width": 1.5},
-            }],
+            "data": [self._line_trace(
+                t_ms, self._fm_recovered[seg].tolist(),
+                "Recovered", self.COLORS["success"], 1.5,
+            )],
             "layout": self._get_plot_layout("Time (ms)", "Amplitude"),
         })
 
         # Plot 5: Spectrum
-        freqs, psd = signal.welch(self._fm_modulated, self._original_sr, nperseg=min(4096, len(self._fm_modulated)))
-        psd_db = 10 * np.log10(psd + 1e-12)
-
-        # Carson's rule bandwidth
+        # Carson's rule bandwidth (computed in _compute_fm_pm)
         if fm_pm_mode == "fm":
-            bw_hz = 2 * (self.parameters["fm_deviation"] + 5000)
-            bw_text = f"Carson BW ≈ {bw_hz/1000:.1f} kHz"
+            bw_text = f"Carson BW ≈ {self._bw_hz/1000:.1f} kHz"
         else:
-            bw_hz = 2 * 5000 * (1 + self.parameters["pm_sensitivity"])
-            bw_text = f"BW ≈ {bw_hz/1000:.1f} kHz"
+            bw_text = f"BW ≈ {self._bw_hz/1000:.1f} kHz"
 
-        plots.append({
-            "id": "fm_spectrum",
-            "title": f"Spectrum | {bw_text}",
-            "data": [{
-                "x": (freqs / 1000).tolist(),
-                "y": psd_db.tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": "PSD",
-                "line": {"color": self.COLORS["warning"], "width": 1.5},
-            }],
-            "layout": {
-                **self._get_plot_layout("Frequency (kHz)", "Power (dB)"),
-                "xaxis": {
-                    "title": "Frequency (kHz)",
-                    "range": [0, 30],
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.15)",
-                },
-            },
-        })
+        plots.append(self._spectrum_plot(
+            "fm_spectrum", f"Spectrum | {bw_text}", self._fm_modulated, [0, 30],
+        ))
 
         return plots
 
@@ -742,82 +710,53 @@ class ModulationTechniquesSimulator(BaseSimulator):
         """Generate FDM demo plots (3 subplots like PyQt5)."""
         plots = []
 
-        length = len(self._audio_norm)
-        seg_start = length // 4
-        seg_end = min(seg_start + self.DISPLAY_SAMPLES, length)
-        seg = slice(seg_start, seg_end)
-        t_seg = self._time[seg] * 1000
+        seg, t_seg = self._display_segment()
 
         n_channels = int(self.parameters["fdm_channels"])
         demod_channel = int(min(self.parameters["fdm_demod_channel"], n_channels))
+        t_ms = t_seg.tolist()
 
         # Plot 1: Multiplexed Signal
         plots.append({
             "id": "fdm_multiplexed",
             "title": f"Multiplexed Signal ({n_channels} channels)",
-            "data": [{
-                "x": t_seg.tolist(),
-                "y": self._fdm_multiplexed[seg].tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": "Multiplexed",
-                "line": {"color": self.COLORS["warning"], "width": 1},
-            }],
+            "data": [self._line_trace(
+                t_ms, self._fdm_multiplexed[seg].tolist(),
+                "Multiplexed", self.COLORS["warning"], 1,
+            )],
             "layout": self._get_plot_layout("Time (ms)", "Amplitude"),
         })
 
         # Plot 2: Spectrum with channel markers
-        freqs, psd = signal.welch(self._fdm_multiplexed, self._original_sr, nperseg=min(4096, len(self._fdm_multiplexed)))
-        psd_db = 10 * np.log10(psd + 1e-12)
+        def _fdm_shapes(psd_db):
+            y0 = float(psd_db.min() - 10)
+            y1 = float(psd_db.max() + 5)
+            shapes = []
+            for i, fc in enumerate(self._fdm_carrier_freqs):
+                selected = i == demod_channel - 1
+                color = self.COLORS["accent"] if selected else self.COLORS["text_secondary"]
+                shapes.append({
+                    "type": "line",
+                    "x0": fc / 1000, "x1": fc / 1000,
+                    "y0": y0, "y1": y1,
+                    "line": {"color": color, "width": 2 if selected else 1, "dash": "dash"},
+                })
+            return shapes
 
-        spectrum_data = [{
-            "x": (freqs / 1000).tolist(),
-            "y": psd_db.tolist(),
-            "type": "scatter",
-            "mode": "lines",
-            "name": "PSD",
-            "line": {"color": self.COLORS["warning"], "width": 1.5},
-        }]
-
-        # Add channel markers
-        shapes = []
-        for i, fc in enumerate(self._fdm_carrier_freqs):
-            color = self.COLORS["accent"] if i == demod_channel - 1 else self.COLORS["text_secondary"]
-            shapes.append({
-                "type": "line",
-                "x0": fc / 1000, "x1": fc / 1000,
-                "y0": float(psd_db.min() - 10), "y1": float(psd_db.max() + 5),
-                "line": {"color": color, "width": 2 if i == demod_channel - 1 else 1, "dash": "dash"},
-            })
-
-        plots.append({
-            "id": "fdm_spectrum",
-            "title": f"Spectrum (Channel {demod_channel} selected)",
-            "data": spectrum_data,
-            "layout": {
-                **self._get_plot_layout("Frequency (kHz)", "Power (dB)"),
-                "xaxis": {
-                    "title": "Frequency (kHz)",
-                    "range": [0, max(fc / 1000 for fc in self._fdm_carrier_freqs) + 10],
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.15)",
-                },
-                "shapes": shapes,
-            },
-        })
+        fdm_xrange = [0, max(fc / 1000 for fc in self._fdm_carrier_freqs) + 10]
+        plots.append(self._spectrum_plot(
+            "fdm_spectrum", f"Spectrum (Channel {demod_channel} selected)",
+            self._fdm_multiplexed, fdm_xrange, _fdm_shapes,
+        ))
 
         # Plot 3: Demodulated Channel
         plots.append({
             "id": "fdm_demodulated",
             "title": f"Demodulated Channel {demod_channel}",
-            "data": [{
-                "x": t_seg.tolist(),
-                "y": self._fdm_demodulated[seg].tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": "Demodulated",
-                "line": {"color": self.COLORS["success"], "width": 1.5},
-            }],
+            "data": [self._line_trace(
+                t_ms, self._fdm_demodulated[seg].tolist(),
+                "Demodulated", self.COLORS["success"], 1.5,
+            )],
             "layout": self._get_plot_layout("Time (ms)", "Amplitude"),
         })
 

@@ -176,7 +176,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
             "clear_all": self._action_clear_all,
             "load_preset": self._action_load_preset,
             "add_at_click": self._action_add_at_click,
-            "set_placement_mode": self._action_set_placement_mode,
             "parse_tf": self._action_parse_tf,
         }
 
@@ -197,6 +196,25 @@ class AudioFreqResponseSimulator(BaseSimulator):
     # Action handlers
     # =========================================================================
 
+    def _add_root(self, root_list: List[complex], real: float, imag: float) -> None:
+        """Append a root to root_list, adding a conjugate pair when complex."""
+        if abs(imag) > self.IMAG_THRESHOLD:
+            root_list.append(complex(real, imag))
+            root_list.append(complex(real, -imag))
+        else:
+            root_list.append(complex(real, 0))
+
+    def _remove_root_and_conjugate(self, root_list: List[complex], index: int) -> None:
+        """Remove root at index and its conjugate (if the root was complex)."""
+        root = root_list[index]
+        root_list.pop(index)
+        if abs(root.imag) > self.IMAG_THRESHOLD:
+            conjugate = complex(root.real, -root.imag)
+            for i, r in enumerate(root_list):
+                if abs(r - conjugate) < 1e-4:
+                    root_list.pop(i)
+                    break
+
     def _action_add_pole(self, params: Dict[str, Any]) -> None:
         """Add a pole (with conjugate pair if complex)."""
         real = float(params.get("real", -1000))
@@ -206,16 +224,11 @@ class AudioFreqResponseSimulator(BaseSimulator):
             self._error = f"Maximum {self.MAX_POLES} poles reached"
             return
 
-        if abs(imag) > self.IMAG_THRESHOLD:
-            # Complex: add conjugate pair
-            if len(self._poles) + 2 > self.MAX_POLES:
-                self._error = f"Need 2 slots for conjugate pair, only {self.MAX_POLES - len(self._poles)} left"
-                return
-            self._poles.append(complex(real, imag))
-            self._poles.append(complex(real, -imag))
-        else:
-            self._poles.append(complex(real, 0))
+        if abs(imag) > self.IMAG_THRESHOLD and len(self._poles) + 2 > self.MAX_POLES:
+            self._error = f"Need 2 slots for conjugate pair, only {self.MAX_POLES - len(self._poles)} left"
+            return
 
+        self._add_root(self._poles, real, imag)
         self._compute()
 
     def _action_add_zero(self, params: Dict[str, Any]) -> None:
@@ -227,15 +240,11 @@ class AudioFreqResponseSimulator(BaseSimulator):
             self._error = f"Maximum {self.MAX_ZEROS} zeros reached"
             return
 
-        if abs(imag) > self.IMAG_THRESHOLD:
-            if len(self._zeros) + 2 > self.MAX_ZEROS:
-                self._error = f"Need 2 slots for conjugate pair, only {self.MAX_ZEROS - len(self._zeros)} left"
-                return
-            self._zeros.append(complex(real, imag))
-            self._zeros.append(complex(real, -imag))
-        else:
-            self._zeros.append(complex(real, 0))
+        if abs(imag) > self.IMAG_THRESHOLD and len(self._zeros) + 2 > self.MAX_ZEROS:
+            self._error = f"Need 2 slots for conjugate pair, only {self.MAX_ZEROS - len(self._zeros)} left"
+            return
 
+        self._add_root(self._zeros, real, imag)
         self._compute()
 
     def _action_remove_pole(self, params: Dict[str, Any]) -> None:
@@ -245,17 +254,7 @@ class AudioFreqResponseSimulator(BaseSimulator):
             self._error = "Invalid pole index"
             return
 
-        pole = self._poles[index]
-        self._poles.pop(index)
-
-        # Remove conjugate if it was complex
-        if abs(pole.imag) > self.IMAG_THRESHOLD:
-            conjugate = complex(pole.real, -pole.imag)
-            for i, p in enumerate(self._poles):
-                if abs(p - conjugate) < 1e-4:
-                    self._poles.pop(i)
-                    break
-
+        self._remove_root_and_conjugate(self._poles, index)
         self._compute()
 
     def _action_remove_zero(self, params: Dict[str, Any]) -> None:
@@ -265,16 +264,7 @@ class AudioFreqResponseSimulator(BaseSimulator):
             self._error = "Invalid zero index"
             return
 
-        zero = self._zeros[index]
-        self._zeros.pop(index)
-
-        if abs(zero.imag) > self.IMAG_THRESHOLD:
-            conjugate = complex(zero.real, -zero.imag)
-            for i, z in enumerate(self._zeros):
-                if abs(z - conjugate) < 1e-4:
-                    self._zeros.pop(i)
-                    break
-
+        self._remove_root_and_conjugate(self._zeros, index)
         self._compute()
 
     def _action_move_pole(self, params: Dict[str, Any]) -> None:
@@ -287,23 +277,8 @@ class AudioFreqResponseSimulator(BaseSimulator):
             self._error = "Invalid pole index"
             return
 
-        # Remove old pole (and conjugate)
-        old_pole = self._poles[index]
-        self._poles.pop(index)
-        if abs(old_pole.imag) > self.IMAG_THRESHOLD:
-            conjugate = complex(old_pole.real, -old_pole.imag)
-            for i, p in enumerate(self._poles):
-                if abs(p - conjugate) < 1e-4:
-                    self._poles.pop(i)
-                    break
-
-        # Add new pole at target position
-        if abs(imag) > self.IMAG_THRESHOLD:
-            self._poles.append(complex(real, imag))
-            self._poles.append(complex(real, -imag))
-        else:
-            self._poles.append(complex(real, 0))
-
+        self._remove_root_and_conjugate(self._poles, index)
+        self._add_root(self._poles, real, imag)
         self._compute()
 
     def _action_move_zero(self, params: Dict[str, Any]) -> None:
@@ -316,23 +291,8 @@ class AudioFreqResponseSimulator(BaseSimulator):
             self._error = "Invalid zero index"
             return
 
-        # Remove old zero (and conjugate)
-        old_zero = self._zeros[index]
-        self._zeros.pop(index)
-        if abs(old_zero.imag) > self.IMAG_THRESHOLD:
-            conjugate = complex(old_zero.real, -old_zero.imag)
-            for i, z in enumerate(self._zeros):
-                if abs(z - conjugate) < 1e-4:
-                    self._zeros.pop(i)
-                    break
-
-        # Add new zero at target position
-        if abs(imag) > self.IMAG_THRESHOLD:
-            self._zeros.append(complex(real, imag))
-            self._zeros.append(complex(real, -imag))
-        else:
-            self._zeros.append(complex(real, 0))
-
+        self._remove_root_and_conjugate(self._zeros, index)
+        self._add_root(self._zeros, real, imag)
         self._compute()
 
     def _action_clear_all(self, params: Dict[str, Any]) -> None:
@@ -349,10 +309,6 @@ class AudioFreqResponseSimulator(BaseSimulator):
         self._zeros = list(zeros)
         self.parameters["gain_K"] = round(K, 4)
         self._compute()
-
-    def _action_set_placement_mode(self, params: Dict[str, Any]) -> None:
-        """Switch between pole and zero placement (kept for backwards compat)."""
-        pass  # Placement mode is now frontend-only state
 
     def _action_add_at_click(self, params: Dict[str, Any]) -> None:
         """Add pole or zero based on placement_mode param from frontend."""
@@ -855,9 +811,11 @@ class AudioFreqResponseSimulator(BaseSimulator):
             return "custom"
 
         mag = self._magnitude
-        low_avg = float(np.mean(mag[:50]))
-        mid_avg = float(np.mean(mag[400:600]))
-        high_avg = float(np.mean(mag[-50:]))
+        n = len(mag)
+        edge = n // 20          # 5% band at each end
+        low_avg = float(np.mean(mag[:edge]))
+        mid_avg = float(np.mean(mag[2 * n // 5:3 * n // 5]))
+        high_avg = float(np.mean(mag[n - edge:]))
         peak_mag = float(np.max(mag))
         min_mag = float(np.min(mag))
 
@@ -1326,9 +1284,9 @@ class AudioFreqResponseSimulator(BaseSimulator):
             "plots": self.get_plots(),
             "metadata": {
                 "simulation_type": "audio_freq_response",
-            "hub_slots": self.HUB_SLOTS,
-            "hub_domain": self.HUB_DOMAIN,
-            "hub_dimensions": self.HUB_DIMENSIONS,
+                "hub_slots": self.HUB_SLOTS,
+                "hub_domain": self.HUB_DOMAIN,
+                "hub_dimensions": self.HUB_DIMENSIONS,
                 "sticky_controls": True,
 
                 # Pole/zero data

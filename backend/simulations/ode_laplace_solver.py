@@ -258,24 +258,16 @@ class ODELaplaceSolverSimulator(BaseSimulator):
     def _load_coefficients(self) -> None:
         """Load output/input polynomials from preset or custom input.
 
-        Preset-owned scalar fields (`input_signal`, `alpha`, `omega`) are
-        applied only on preset TRANSITION — not on every compute. Without
-        this guard, any later user update to one of those fields is silently
-        reverted on the next _compute() call: user picks preset=underdamped,
-        then tries input_signal=cosine, which would otherwise be overwritten
-        back to the preset's default on the very next state fetch. Tracked
-        via _last_loaded_preset.
+        Preset-owned scalar fields (input_signal, alpha, omega) apply only on
+        preset transition, so later user overrides survive the next _compute().
         """
         preset = self.parameters.get("preset", "first_order_impulse")
         preset_changed = (preset != getattr(self, "_last_loaded_preset", None))
 
         if preset != "custom" and preset in self.PRESETS:
             p = self.PRESETS[preset]
-            # ODE coefficients ARE reloaded every compute — they're derived
-            # from the preset, not user-editable while a preset is active.
             self._output_poly = list(p["output_coeffs"])
             self._input_poly = list(p["input_coeffs"])
-            # Scalar fields only apply on transition so user overrides stick.
             if preset_changed:
                 self.parameters["input_signal"] = p.get("input_signal", "delta")
                 if "alpha" in p:
@@ -290,14 +282,11 @@ class ODELaplaceSolverSimulator(BaseSimulator):
                 str(self.parameters.get("input_coeffs", "1"))
             )
 
-        # Record what preset we just loaded, so the next _load_coefficients
-        # call can detect a transition vs. a re-compute of the same preset.
         self._last_loaded_preset = preset
 
-        # Validate: need at least first-order ODE
+        # Need at least a first-order ODE with nonzero leading coefficient.
         if len(self._output_poly) < 2:
             self._output_poly = [1, 1]
-        # Ensure leading coefficient is nonzero
         if abs(self._output_poly[0]) < 1e-15:
             self._output_poly[0] = 1.0
 
@@ -333,14 +322,12 @@ class ODELaplaceSolverSimulator(BaseSimulator):
     # ── Core computation ──────────────────────────────────────────
 
     def _compute(self) -> None:
-        """Full computation pipeline."""
+        """Full numerical pipeline — caches to self._* (no display strings)."""
         self._load_coefficients()
         self._compute_input_transform()
         self._form_Y_s()
         self._partial_fraction_decomposition()
         self._assemble_time_domain()
-        self._build_ode_text()
-        self._build_solution_steps()
 
     def _form_Y_s(self) -> None:
         """Form Y(s) = B(s)·X_num(s) / (A(s)·X_den(s))."""
@@ -394,9 +381,6 @@ class ODELaplaceSolverSimulator(BaseSimulator):
 
         y = np.zeros(len(t), dtype=complex)
 
-        # Group poles by proximity to handle repeated poles
-        # scipy.signal.residue returns repeated poles consecutively
-        # with residues for (s-p)^{-1}, (s-p)^{-2}, ... (highest first)
         pole_groups = self._group_poles()
 
         for group in pole_groups:
@@ -406,9 +390,6 @@ class ODELaplaceSolverSimulator(BaseSimulator):
                 # L⁻¹{ R / (s-p)^(k+1) } = R · t^k / k! · e^{pt} · u(t)
                 term = r * (t ** k / factorial(k)) * np.exp(pole * t)
                 y += term
-
-        # Add direct terms (impulse components at t=0, rare for proper systems)
-        # k[0]*δ(t) + k[1]*δ'(t) + ... — we skip display of these
 
         self._y_t = np.clip(np.real(y), -self.CLAMP_VALUE, self.CLAMP_VALUE)
         self._x_t = self._compute_input_signal(t)
@@ -429,13 +410,12 @@ class ODELaplaceSolverSimulator(BaseSimulator):
             if i in used:
                 continue
             p = self._poles[i]
-            # Find all indices with the same pole
             indices = [
                 j for j in range(len(self._poles))
                 if j not in used and abs(self._poles[j] - p) < 1e-8
             ]
             used.update(indices)
-            # Residues are already in the right order: index k → (s-p)^{-(k+1)}
+            # scipy orders residues so index k → (s-p)^{-(k+1)}.
             resids = [self._residues[j] for j in indices]
             groups.append({
                 "pole": p,
@@ -534,14 +514,6 @@ class ODELaplaceSolverSimulator(BaseSimulator):
         """Step 0: Display the original ODE."""
         order = len(self._output_poly) - 1
         sig = self._input_signal_name
-
-        # Build the full ODE with actual input signal substituted
-        # Replace x(t) placeholder with the actual input signal
-        ode_with_input = self._ode_text
-        if sig != "x(t)":
-            # For presets, RHS is typically just a coefficient times x(t)
-            # Show the actual input signal
-            pass
 
         return {
             "step": 0,
@@ -1261,6 +1233,10 @@ class ODELaplaceSolverSimulator(BaseSimulator):
         if self._t is None:
             self._compute()
 
+        # Presentation strings are built here (STATE), not in _compute (MATH).
+        self._build_ode_text()
+        self._build_solution_steps()
+
         state = super().get_state()
 
         # Reveal steps up to current
@@ -1343,7 +1319,6 @@ class ODELaplaceSolverSimulator(BaseSimulator):
             coeffs = coeffs.tolist()
         degree = len(coeffs) - 1
         terms = []
-        superscripts = {"0": "⁰", "1": "", "2": "²", "3": "³", "4": "⁴", "5": "⁵"}
 
         for i, c in enumerate(coeffs):
             power = degree - i
@@ -1364,8 +1339,7 @@ class ODELaplaceSolverSimulator(BaseSimulator):
             elif power == 1:
                 var_str = f"{c_str}{var}"
             else:
-                sup = superscripts.get(str(power), f"^{power}")
-                var_str = f"{c_str}{var}{sup}"
+                var_str = f"{c_str}{var}{ODELaplaceSolverSimulator._superscript(power)}"
 
             # Sign
             if len(terms) == 0:
@@ -1487,7 +1461,6 @@ class ODELaplaceSolverSimulator(BaseSimulator):
 
     @staticmethod
     def _superscript(n: int) -> str:
-        """Return unicode superscript for small integers."""
         sup_map = {2: "²", 3: "³", 4: "⁴", 5: "⁵"}
         return sup_map.get(n, f"^{n}")
 
@@ -1510,6 +1483,5 @@ class ODELaplaceSolverSimulator(BaseSimulator):
 
     @staticmethod
     def _ordinal(n: int) -> str:
-        """Return ordinal string for a number."""
         suffixes = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}
         return suffixes.get(n, f"{n}th")

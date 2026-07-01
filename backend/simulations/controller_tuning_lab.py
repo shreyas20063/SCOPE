@@ -516,26 +516,9 @@ class ControllerTuningLabSimulator(PIDTuningMixin, ModernControlMixin, BaseSimul
             self._ctrl_num = np.array([Kp + Kd * N, Kp * N])
             self._ctrl_den = np.array([1.0, N])
         elif ctype == "PID":
-            # C(s) = Kp + Ki/s + Kd*N*s/(s+N)
-            has_i = abs(Ki) > 1e-12
-            has_d = abs(Kd) > 1e-12
-            if has_i and has_d:
-                # Full PID: common denom s*(s+N)
-                # Num: (Kp + Kd*N)*s² + (Kp*N + Ki)*s + Ki*N
-                self._ctrl_num = np.array([Kp + Kd * N, Kp * N + Ki, Ki * N])
-                self._ctrl_den = np.array([1.0, N, 0.0])
-            elif has_i:
-                # PI: C(s) = (Kp*s + Ki) / s
-                self._ctrl_num = np.array([Kp, Ki])
-                self._ctrl_den = np.array([1.0, 0.0])
-            elif has_d:
-                # PD: C(s) = ((Kp+Kd*N)*s + Kp*N) / (s+N)
-                self._ctrl_num = np.array([Kp + Kd * N, Kp * N])
-                self._ctrl_den = np.array([1.0, N])
-            else:
-                # Just P
-                self._ctrl_num = np.array([Kp])
-                self._ctrl_den = np.array([1.0])
+            # C(s) = Kp + Ki/s + Kd*N*s/(s+N); collapses to PI/PD/P
+            # depending on which gains are active (see _pid_to_tf).
+            self._ctrl_num, self._ctrl_den = self._pid_to_tf(Kp, Ki, Kd)
         elif ctype == "lead_lag":
             Kc = float(p.get("lead_lag_Kc", 1.0))
             zero = float(p.get("lead_lag_zero", 2.0))
@@ -594,7 +577,7 @@ class ControllerTuningLabSimulator(PIDTuningMixin, ModernControlMixin, BaseSimul
 
     def _compute_closed_loop(self) -> None:
         """Compute open-loop and closed-loop transfer functions."""
-        if getattr(self, '_state_feedback_mode', False):
+        if self._state_feedback_mode:
             # CL already computed in _build_controller_tf for state-feedback.
             # Recover loop TF: L(s) = T(s)/(1-T(s)) = cl_num / (cl_den - cl_num)
             # This gives correct Bode/Nyquist/margins for ANY controller topology.
@@ -643,7 +626,7 @@ class ControllerTuningLabSimulator(PIDTuningMixin, ModernControlMixin, BaseSimul
         For state feedback: U(s)/R(s) = T(s)/G(s) = (cl_num·plant_den)/(cl_den·plant_num).
         """
         try:
-            if getattr(self, '_state_feedback_mode', False):
+            if self._state_feedback_mode:
                 # U/R = T(s)/G(s) since Y = G*U always holds
                 u_num = np.convolve(self._cl_num, self._plant_den)
                 u_den = np.convolve(self._cl_den, self._plant_num)
@@ -834,31 +817,99 @@ class ControllerTuningLabSimulator(PIDTuningMixin, ModernControlMixin, BaseSimul
         if len(w) < 2:
             return gm_db, pm_deg, w_gc, w_pc
 
-        # Gain crossover: |L(jw)| = 0 dB
-        for i in range(len(mag_db) - 1):
-            if (mag_db[i] >= 0 and mag_db[i + 1] < 0) or (mag_db[i] <= 0 and mag_db[i + 1] > 0):
-                frac = (0 - mag_db[i]) / (mag_db[i + 1] - mag_db[i] + 1e-15)
-                frac = np.clip(frac, 0, 1)
-                w_gc = float(w[i] + frac * (w[i + 1] - w[i]))
-                phase_at_gc = float(phase_deg[i] + frac * (phase_deg[i + 1] - phase_deg[i]))
-                pm_deg = float(180.0 + phase_at_gc)
-                break
+        # Gain crossover: first sign change of |L(jw)| through 0 dB.
+        cur, nxt = mag_db[:-1], mag_db[1:]
+        gc_cross = ((cur >= 0) & (nxt < 0)) | ((cur <= 0) & (nxt > 0))
+        if gc_cross.any():
+            i = int(np.argmax(gc_cross))
+            frac = np.clip((0 - mag_db[i]) / (mag_db[i + 1] - mag_db[i] + 1e-15), 0, 1)
+            w_gc = float(w[i] + frac * (w[i + 1] - w[i]))
+            phase_at_gc = float(phase_deg[i] + frac * (phase_deg[i + 1] - phase_deg[i]))
+            pm_deg = float(180.0 + phase_at_gc)
 
-        # Phase crossover: phase = -180°
-        for i in range(len(phase_deg) - 1):
-            if (phase_deg[i] >= -180 and phase_deg[i + 1] < -180) or \
-               (phase_deg[i] <= -180 and phase_deg[i + 1] > -180):
-                frac = (-180 - phase_deg[i]) / (phase_deg[i + 1] - phase_deg[i] + 1e-15)
-                frac = np.clip(frac, 0, 1)
-                w_pc = float(w[i] + frac * (w[i + 1] - w[i]))
-                mag_at_pc = float(mag_db[i] + frac * (mag_db[i + 1] - mag_db[i]))
-                gm_db = float(-mag_at_pc)
-                break
+        # Phase crossover: first sign change of phase through -180°.
+        cur, nxt = phase_deg[:-1], phase_deg[1:]
+        pc_cross = ((cur >= -180) & (nxt < -180)) | ((cur <= -180) & (nxt > -180))
+        if pc_cross.any():
+            i = int(np.argmax(pc_cross))
+            frac = np.clip((-180 - phase_deg[i]) / (phase_deg[i + 1] - phase_deg[i] + 1e-15), 0, 1)
+            w_pc = float(w[i] + frac * (w[i + 1] - w[i]))
+            mag_at_pc = float(mag_db[i] + frac * (mag_db[i + 1] - mag_db[i]))
+            gm_db = float(-mag_at_pc)
 
         return gm_db, pm_deg, w_gc, w_pc
 
     # =========================================================================
-    # Transfer function display strings
+    # Reference system
+    # =========================================================================
+
+    def _save_reference(self) -> None:
+        """Save current step response as a reference snapshot."""
+        t, y = self._compute_step_response()
+        e = self._compute_error_signal(y)
+        w, mag_db, phase_deg = self._compute_bode()
+        metrics = self._compute_performance_metrics(t, y, e, w, mag_db, phase_deg)
+        label = self._make_reference_label()
+        ctype = self.parameters.get("controller_type", "PID")
+        # Include relevant params for the current controller type
+        save_keys = {"controller_type", "tuning_method", "plant_preset"}
+        if ctype in ("P", "PI", "PD", "PID"):
+            save_keys |= {"Kp", "Ki", "Kd"}
+        elif ctype == "lead_lag":
+            save_keys |= {"lead_lag_Kc", "lead_lag_zero", "lead_lag_pole"}
+        elif ctype in ("state_feedback", "pole_placement", "lqr", "lqg"):
+            # Save K vector and LQR/LQG weights
+            n = self._plant_order
+            save_keys |= {f"sf_k{i+1}" for i in range(n)}
+            save_keys |= {f"lqr_q{i+1}" for i in range(n)}
+            save_keys.add("lqr_r")
+            if ctype == "lqg":
+                save_keys |= {f"lqg_qw{i+1}" for i in range(n)}
+                save_keys.add("lqg_rv")
+        saved_params = {k: v for k, v in self.parameters.items() if k in save_keys}
+        # Also include computed K and L vectors
+        if self._state_feedback_K is not None:
+            saved_params["_K"] = self._state_feedback_K.tolist()
+        if self._kalman_L is not None:
+            saved_params["_L"] = self._kalman_L.tolist()
+
+        snapshot = {
+            "t": t.tolist(),
+            "y": y.tolist(),
+            "label": label,
+            "params": saved_params,
+            "metrics": metrics,
+        }
+        if len(self._reference_responses) >= 5:
+            self._reference_responses.pop(0)
+        self._reference_responses.append(snapshot)
+
+    def _make_reference_label(self) -> str:
+        """Generate a label for the current controller configuration."""
+        ctype = self.parameters.get("controller_type", "PID")
+        if ctype == "lead_lag":
+            Kc = self.parameters.get("lead_lag_Kc", 1)
+            z = self.parameters.get("lead_lag_zero", 2)
+            p = self.parameters.get("lead_lag_pole", 10)
+            return f"Lead-Lag: Kc={Kc:.2g}, z={z:.2g}, p={p:.2g}"
+        if ctype in ("state_feedback", "pole_placement", "lqr", "lqg"):
+            K = self._state_feedback_K
+            k_str = f"K=[{', '.join(f'{k:.3g}' for k in K)}]" if K is not None else "K=?"
+            if ctype == "lqg":
+                L = self._kalman_L
+                l_str = f", L=[{', '.join(f'{l:.3g}' for l in L)}]" if L is not None else ""
+                return f"LQG: {k_str}{l_str}"
+            label_map = {"state_feedback": "SF", "pole_placement": "PP", "lqr": "LQR"}
+            return f"{label_map.get(ctype, ctype)}: {k_str}"
+        Kp = self.parameters.get("Kp", 1)
+        Ki = self.parameters.get("Ki", 0)
+        Kd = self.parameters.get("Kd", 0)
+        method = self.parameters.get("tuning_method", "manual")
+        prefix = method.replace("_", " ").title() if method != "manual" else "Manual"
+        return f"{ctype} ({prefix}): Kp={Kp:.3g}, Ki={Ki:.3g}, Kd={Kd:.3g}"
+
+    # =========================================================================
+    # Presentation: transfer-function display strings (LaTeX / plain text)
     # =========================================================================
 
     def _compute_tf_strings(self) -> dict:
@@ -875,8 +926,8 @@ class ControllerTuningLabSimulator(PIDTuningMixin, ModernControlMixin, BaseSimul
 
         ctype = self.parameters.get("controller_type", "PID")
         if ctype == "lqg":
-            K = getattr(self, '_state_feedback_K', None)
-            L = getattr(self, '_kalman_L', None)
+            K = self._state_feedback_K
+            L = self._kalman_L
             if K is not None and L is not None:
                 k_str = ', '.join(f'{k:.4g}' for k in K)
                 l_str = ', '.join(f'{l:.4g}' for l in L)
@@ -887,8 +938,8 @@ class ControllerTuningLabSimulator(PIDTuningMixin, ModernControlMixin, BaseSimul
             else:
                 result["controller_tf_latex"] = "\\text{LQG (not computed)}"
                 result["controller_tf_str"] = "LQG: K, L not computed"
-        elif getattr(self, '_state_feedback_mode', False):
-            K = getattr(self, '_state_feedback_K', None)
+        elif self._state_feedback_mode:
+            K = self._state_feedback_K
             if K is not None:
                 k_str = ', '.join(f'{k:.4g}' for k in K)
                 result["controller_tf_latex"] = f"\\mathbf{{K}} = [{k_str}]"
@@ -953,75 +1004,6 @@ class ControllerTuningLabSimulator(PIDTuningMixin, ModernControlMixin, BaseSimul
         if den_str.strip() == "1":
             return num_str
         return f"\\frac{{{num_str}}}{{{den_str}}}"
-
-    # =========================================================================
-    # Reference system
-    # =========================================================================
-
-    def _save_reference(self) -> None:
-        """Save current step response as a reference snapshot."""
-        t, y = self._compute_step_response()
-        e = self._compute_error_signal(y)
-        w, mag_db, phase_deg = self._compute_bode()
-        metrics = self._compute_performance_metrics(t, y, e, w, mag_db, phase_deg)
-        label = self._make_reference_label()
-        ctype = self.parameters.get("controller_type", "PID")
-        # Include relevant params for the current controller type
-        save_keys = {"controller_type", "tuning_method", "plant_preset"}
-        if ctype in ("P", "PI", "PD", "PID"):
-            save_keys |= {"Kp", "Ki", "Kd"}
-        elif ctype == "lead_lag":
-            save_keys |= {"lead_lag_Kc", "lead_lag_zero", "lead_lag_pole"}
-        elif ctype in ("state_feedback", "pole_placement", "lqr", "lqg"):
-            # Save K vector and LQR/LQG weights
-            n = getattr(self, '_plant_order', 1)
-            save_keys |= {f"sf_k{i+1}" for i in range(n)}
-            save_keys |= {f"lqr_q{i+1}" for i in range(n)}
-            save_keys.add("lqr_r")
-            if ctype == "lqg":
-                save_keys |= {f"lqg_qw{i+1}" for i in range(n)}
-                save_keys.add("lqg_rv")
-        saved_params = {k: v for k, v in self.parameters.items() if k in save_keys}
-        # Also include computed K and L vectors
-        if getattr(self, '_state_feedback_K', None) is not None:
-            saved_params["_K"] = self._state_feedback_K.tolist()
-        if getattr(self, '_kalman_L', None) is not None:
-            saved_params["_L"] = self._kalman_L.tolist()
-
-        snapshot = {
-            "t": t.tolist(),
-            "y": y.tolist(),
-            "label": label,
-            "params": saved_params,
-            "metrics": metrics,
-        }
-        if len(self._reference_responses) >= 5:
-            self._reference_responses.pop(0)
-        self._reference_responses.append(snapshot)
-
-    def _make_reference_label(self) -> str:
-        """Generate a label for the current controller configuration."""
-        ctype = self.parameters.get("controller_type", "PID")
-        if ctype == "lead_lag":
-            Kc = self.parameters.get("lead_lag_Kc", 1)
-            z = self.parameters.get("lead_lag_zero", 2)
-            p = self.parameters.get("lead_lag_pole", 10)
-            return f"Lead-Lag: Kc={Kc:.2g}, z={z:.2g}, p={p:.2g}"
-        if ctype in ("state_feedback", "pole_placement", "lqr", "lqg"):
-            K = getattr(self, '_state_feedback_K', None)
-            k_str = f"K=[{', '.join(f'{k:.3g}' for k in K)}]" if K is not None else "K=?"
-            if ctype == "lqg":
-                L = getattr(self, '_kalman_L', None)
-                l_str = f", L=[{', '.join(f'{l:.3g}' for l in L)}]" if L is not None else ""
-                return f"LQG: {k_str}{l_str}"
-            label_map = {"state_feedback": "SF", "pole_placement": "PP", "lqr": "LQR"}
-            return f"{label_map.get(ctype, ctype)}: {k_str}"
-        Kp = self.parameters.get("Kp", 1)
-        Ki = self.parameters.get("Ki", 0)
-        Kd = self.parameters.get("Kd", 0)
-        method = self.parameters.get("tuning_method", "manual")
-        prefix = method.replace("_", " ").title() if method != "manual" else "Manual"
-        return f"{ctype} ({prefix}): Kp={Kp:.3g}, Ki={Ki:.3g}, Kd={Kd:.3g}"
 
     # =========================================================================
     # Plot builders
@@ -1342,23 +1324,23 @@ class ControllerTuningLabSimulator(PIDTuningMixin, ModernControlMixin, BaseSimul
                     "controller_label": getattr(self, "_last_tf_strings", {}).get("controller_tf_latex", "C(s)"),
                     "feedback_gain": "1",
                 },
-                "is_controllable": getattr(self, '_is_controllable', True),
-                "plant_order": getattr(self, '_plant_order', 1),
+                "is_controllable": self._is_controllable,
+                "plant_order": self._plant_order,
                 "state_feedback_K": (
                     self._state_feedback_K.tolist()
-                    if getattr(self, '_state_feedback_K', None) is not None else None
+                    if self._state_feedback_K is not None else None
                 ),
                 "state_feedback_K_str": (
                     f"K = [{', '.join(f'{k:.4g}' for k in self._state_feedback_K)}]"
-                    if getattr(self, '_state_feedback_K', None) is not None else None
+                    if self._state_feedback_K is not None else None
                 ),
                 "kalman_L": (
                     self._kalman_L.tolist()
-                    if getattr(self, '_kalman_L', None) is not None else None
+                    if self._kalman_L is not None else None
                 ),
                 "kalman_L_str": (
                     f"L = [{', '.join(f'{l:.4g}' for l in self._kalman_L)}]"
-                    if getattr(self, '_kalman_L', None) is not None else None
+                    if self._kalman_L is not None else None
                 ),
                 "ss_matrices": (
                     {
@@ -1404,16 +1386,13 @@ class ControllerTuningLabSimulator(PIDTuningMixin, ModernControlMixin, BaseSimul
                 "zero": float(p.get("lead_lag_zero", 1.0)),
                 "pole": float(p.get("lead_lag_pole", 10.0)),
             }
-        elif getattr(self, "_state_feedback_K", None) is not None:
+        elif self._state_feedback_K is not None:
             controller["gains"] = {"K": np.asarray(self._state_feedback_K).ravel().tolist()}
-        ctrl_num = getattr(self, "_ctrl_num", None)
-        ctrl_den = getattr(self, "_ctrl_den", None)
-        if ctrl_num is not None and ctrl_den is not None:
-            controller["tf"] = {
-                "num": np.asarray(ctrl_num, dtype=float).ravel().tolist(),
-                "den": np.asarray(ctrl_den, dtype=float).ravel().tolist(),
-                "variable": "s",
-            }
+        controller["tf"] = {
+            "num": np.asarray(self._ctrl_num, dtype=float).ravel().tolist(),
+            "den": np.asarray(self._ctrl_den, dtype=float).ravel().tolist(),
+            "variable": "s",
+        }
 
         return {
             "source": "tf",
