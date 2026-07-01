@@ -18,16 +18,16 @@ Features:
 References: Nise Ch.8, Ogata Ch.6, Franklin/Powell/Emami-Naeini Ch.5
 """
 
-import re
 import time
 import numpy as np
 from typing import Any, Dict, List, Optional, Tuple
 from scipy import signal
 from .base_simulator import BaseSimulator
+from core.data_handler import DataHandler
 from core.palette import (
     BLUE, RED, GREEN, AMBER, PURPLE, PINK, CYAN, TEAL, VIOLET,
     PAPER_BG, PLOT_BG, TEXT_COLOR, GRID_COLOR, ZEROLINE_COLOR,
-    STABLE_FILL, UNSTABLE_FILL,
+    UNSTABLE_FILL,
 )
 
 
@@ -45,15 +45,6 @@ class RootLocusSimulator(BaseSimulator):
     OL_POLE_COLOR = RED
     OL_ZERO_COLOR = BLUE
     CL_POLE_COLOR = AMBER
-    STABLE_FILL = STABLE_FILL
-    UNSTABLE_FILL = UNSTABLE_FILL
-
-    # Plot styling
-    GRID_COLOR = GRID_COLOR
-    ZERO_LINE_COLOR = ZEROLINE_COLOR
-    TEXT_COLOR = TEXT_COLOR
-    PAPER_BG = PAPER_BG
-    PLOT_BG = PLOT_BG
 
     # Damping line zeta values
     ZETA_VALUES = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
@@ -264,8 +255,8 @@ class RootLocusSimulator(BaseSimulator):
         special = self._cached_special or {}
 
         # Open-loop poles/zeros
-        ol_poles = np.roots(self._den) if len(self._den) > 1 else np.array([])
-        ol_zeros = np.roots(self._num) if len(self._num) > 1 else np.array([])
+        ol_poles = self._ol_poles()
+        ol_zeros = self._ol_zeros()
 
         # Stability
         if len(cl_poles) == 0:
@@ -307,7 +298,7 @@ class RootLocusSimulator(BaseSimulator):
             "stability": stability,
             "dominant_poles": dominant,
             "metrics": metrics,
-            "special_points": self._serialize_special_points(special),
+            "special_points": DataHandler.serialize_result(special),
             "transfer_function": {
                 "num_display": num_display,
                 "den_display": den_display,
@@ -439,12 +430,24 @@ class RootLocusSimulator(BaseSimulator):
         self._cached_k_values = k_values
         self._cached_branches = branches
 
-    def _cl_poles_at_k(self, k: float) -> np.ndarray:
-        """Compute closed-loop poles for given K. CL char eq: D(s) + K*N(s) = 0."""
+    def _ol_poles(self) -> np.ndarray:
+        """Open-loop poles = roots of D(s)."""
+        return np.roots(self._den) if len(self._den) > 1 else np.array([])
+
+    def _ol_zeros(self) -> np.ndarray:
+        """Open-loop zeros = roots of N(s)."""
+        return np.roots(self._num) if len(self._num) > 1 else np.array([])
+
+    def _cl_char_poly(self, k: float) -> np.ndarray:
+        """Closed-loop characteristic polynomial D(s) + K*N(s), N right-padded to deg D."""
         num_padded = np.zeros_like(self._den)
         offset = len(self._den) - len(self._num)
         num_padded[offset:] = self._num
-        char_poly = self._den + k * num_padded
+        return self._den + k * num_padded
+
+    def _cl_poles_at_k(self, k: float) -> np.ndarray:
+        """Compute closed-loop poles for given K. CL char eq: D(s) + K*N(s) = 0."""
+        char_poly = self._cl_char_poly(k)
         try:
             return np.roots(char_poly)
         except Exception:
@@ -648,8 +651,8 @@ class RootLocusSimulator(BaseSimulator):
 
     def _compute_asymptotes(self, negative: bool) -> Dict:
         """Compute asymptote centroid and angles."""
-        poles = np.roots(self._den) if len(self._den) > 1 else np.array([])
-        zeros = np.roots(self._num) if len(self._num) > 1 else np.array([])
+        poles = self._ol_poles()
+        zeros = self._ol_zeros()
         n_p = len(poles)
         n_z = len(zeros)
         n_a = n_p - n_z
@@ -705,8 +708,8 @@ class RootLocusSimulator(BaseSimulator):
 
     def _compute_departure_angles(self) -> List[Dict]:
         """Departure angles at complex open-loop poles."""
-        poles = np.roots(self._den) if len(self._den) > 1 else np.array([])
-        zeros = np.roots(self._num) if len(self._num) > 1 else np.array([])
+        poles = self._ol_poles()
+        zeros = self._ol_zeros()
 
         departures = []
         for i, p in enumerate(poles):
@@ -737,8 +740,8 @@ class RootLocusSimulator(BaseSimulator):
 
     def _compute_arrival_angles(self) -> List[Dict]:
         """Arrival angles at complex open-loop zeros."""
-        poles = np.roots(self._den) if len(self._den) > 1 else np.array([])
-        zeros = np.roots(self._num) if len(self._num) > 1 else np.array([])
+        poles = self._ol_poles()
+        zeros = self._ol_zeros()
 
         arrivals = []
         for i, z in enumerate(zeros):
@@ -766,8 +769,8 @@ class RootLocusSimulator(BaseSimulator):
 
     def _find_real_axis_segments(self, negative: bool) -> List[Dict]:
         """Find segments of real axis that are part of the root locus."""
-        poles = np.roots(self._den) if len(self._den) > 1 else np.array([])
-        zeros = np.roots(self._num) if len(self._num) > 1 else np.array([])
+        poles = self._ol_poles()
+        zeros = self._ol_zeros()
 
         # Get all real poles and zeros
         real_pz = []
@@ -863,10 +866,7 @@ class RootLocusSimulator(BaseSimulator):
             system_type = self._count_origin_poles(self._den)
             # DC gain of closed-loop
             num_cl = K * self._num
-            den_cl_padded = np.zeros_like(self._den)
-            offset = len(self._den) - len(self._num)
-            den_cl_padded[offset:] = self._num
-            den_cl = self._den + K * den_cl_padded
+            den_cl = self._cl_char_poly(K)
 
             if system_type == 0:
                 # Type 0: e_ss = 1/(1+Kp) where Kp = lim_{s→0} K*G(s)
@@ -1008,7 +1008,7 @@ class RootLocusSimulator(BaseSimulator):
                 })
 
         # Open-loop poles (×)
-        ol_poles = np.roots(self._den) if len(self._den) > 1 else np.array([])
+        ol_poles = self._ol_poles()
         if len(ol_poles) > 0:
             traces.append({
                 "x": [float(np.real(p)) for p in ol_poles],
@@ -1026,7 +1026,7 @@ class RootLocusSimulator(BaseSimulator):
             })
 
         # Open-loop zeros (○)
-        ol_zeros = np.roots(self._num) if len(self._num) > 1 else np.array([])
+        ol_zeros = self._ol_zeros()
         if len(ol_zeros) > 0:
             traces.append({
                 "x": [float(np.real(z)) for z in ol_zeros],
@@ -1173,7 +1173,7 @@ class RootLocusSimulator(BaseSimulator):
             "type": "rect",
             "x0": 0, "x1": re_max + 10,
             "y0": im_min - 10, "y1": im_max + 10,
-            "fillcolor": self.UNSTABLE_FILL,
+            "fillcolor": UNSTABLE_FILL,
             "line": {"width": 0},
             "layer": "below",
         })
@@ -1283,25 +1283,15 @@ class RootLocusSimulator(BaseSimulator):
                     "borderwidth": 1,
                 })
 
-            # jω crossings
+            # jω crossings (annotate at +omega always, at -omega when |omega| > 0.1)
             for jw in self._cached_special.get("jw_crossings", []):
-                annotations_list.append({
-                    "x": 0,
-                    "y": jw["omega"],
-                    "text": f"jω (K={jw['K']:.2f})",
-                    "showarrow": True,
-                    "arrowhead": 2,
-                    "arrowsize": 0.8,
-                    "font": {"size": 10, "color": "#f59e0b"},
-                    "bgcolor": "rgba(10, 14, 39, 0.8)",
-                    "bordercolor": "#f59e0b",
-                    "borderwidth": 1,
-                })
-                # Also annotate at -omega
+                y_coords = [jw["omega"]]
                 if jw["omega"] > 0.1:
+                    y_coords.append(-jw["omega"])
+                for y in y_coords:
                     annotations_list.append({
                         "x": 0,
-                        "y": -jw["omega"],
+                        "y": y,
                         "text": f"jω (K={jw['K']:.2f})",
                         "showarrow": True,
                         "arrowhead": 2,
@@ -1313,14 +1303,14 @@ class RootLocusSimulator(BaseSimulator):
                     })
 
         layout = {
-            "title": {"text": "Root Locus", "font": {"size": 16, "color": self.TEXT_COLOR}},
-            "paper_bgcolor": self.PAPER_BG,
-            "plot_bgcolor": self.PLOT_BG,
-            "font": {"family": "Inter, sans-serif", "size": 12, "color": self.TEXT_COLOR},
+            "title": {"text": "Root Locus", "font": {"size": 16, "color": TEXT_COLOR}},
+            "paper_bgcolor": PAPER_BG,
+            "plot_bgcolor": PLOT_BG,
+            "font": {"family": "Inter, sans-serif", "size": 12, "color": TEXT_COLOR},
             "xaxis": {
                 "title": "Real (σ)",
-                "gridcolor": self.GRID_COLOR,
-                "zerolinecolor": self.ZERO_LINE_COLOR,
+                "gridcolor": GRID_COLOR,
+                "zerolinecolor": ZEROLINE_COLOR,
                 "zerolinewidth": 2,
                 "range": [re_min, re_max],
                 "autorange": False,
@@ -1329,8 +1319,8 @@ class RootLocusSimulator(BaseSimulator):
             },
             "yaxis": {
                 "title": "Imaginary (jω)",
-                "gridcolor": self.GRID_COLOR,
-                "zerolinecolor": self.ZERO_LINE_COLOR,
+                "gridcolor": GRID_COLOR,
+                "zerolinecolor": ZEROLINE_COLOR,
                 "zerolinewidth": 2,
                 "range": [im_min, im_max],
                 "autorange": False,
@@ -1348,8 +1338,6 @@ class RootLocusSimulator(BaseSimulator):
 
     def _build_step_response_plot(self) -> Dict:
         """Build step response plot at current K."""
-        import time
-
         K = float(self.parameters["gain_K"])
         negative = bool(self.parameters["negative_k"])
         if negative:
@@ -1372,10 +1360,7 @@ class RootLocusSimulator(BaseSimulator):
                 raise ValueError("_skip_")
 
             num_cl = K * self._num
-            num_padded = np.zeros_like(self._den)
-            offset = len(self._den) - len(self._num)
-            num_padded[offset:] = self._num
-            den_cl = self._den + K * num_padded
+            den_cl = self._cl_char_poly(K)
 
             # Check if system is proper
             if len(num_cl) > len(den_cl):
@@ -1447,19 +1432,19 @@ class RootLocusSimulator(BaseSimulator):
                 })
 
         layout = {
-            "title": {"text": f"Step Response (K = {abs(float(self.parameters['gain_K'])):.2f})", "font": {"size": 14, "color": self.TEXT_COLOR}},
-            "paper_bgcolor": self.PAPER_BG,
-            "plot_bgcolor": self.PLOT_BG,
-            "font": {"family": "Inter, sans-serif", "size": 12, "color": self.TEXT_COLOR},
+            "title": {"text": f"Step Response (K = {abs(float(self.parameters['gain_K'])):.2f})", "font": {"size": 14, "color": TEXT_COLOR}},
+            "paper_bgcolor": PAPER_BG,
+            "plot_bgcolor": PLOT_BG,
+            "font": {"family": "Inter, sans-serif", "size": 12, "color": TEXT_COLOR},
             "xaxis": {
                 "title": "Time (s)",
-                "gridcolor": self.GRID_COLOR,
-                "zerolinecolor": self.ZERO_LINE_COLOR,
+                "gridcolor": GRID_COLOR,
+                "zerolinecolor": ZEROLINE_COLOR,
             },
             "yaxis": {
                 "title": "Amplitude",
-                "gridcolor": self.GRID_COLOR,
-                "zerolinecolor": self.ZERO_LINE_COLOR,
+                "gridcolor": GRID_COLOR,
+                "zerolinecolor": ZEROLINE_COLOR,
             },
             "showlegend": True,
             "legend": {"x": 0.6, "y": 0.98, "font": {"size": 10}},
@@ -1568,19 +1553,19 @@ class RootLocusSimulator(BaseSimulator):
             })
 
         layout = {
-            "title": {"text": "Performance vs Gain", "font": {"size": 14, "color": self.TEXT_COLOR}},
-            "paper_bgcolor": self.PAPER_BG,
-            "plot_bgcolor": self.PLOT_BG,
-            "font": {"family": "Inter, sans-serif", "size": 12, "color": self.TEXT_COLOR},
+            "title": {"text": "Performance vs Gain", "font": {"size": 14, "color": TEXT_COLOR}},
+            "paper_bgcolor": PAPER_BG,
+            "plot_bgcolor": PLOT_BG,
+            "font": {"family": "Inter, sans-serif", "size": 12, "color": TEXT_COLOR},
             "xaxis": {
                 "title": "Gain K",
-                "gridcolor": self.GRID_COLOR,
-                "zerolinecolor": self.ZERO_LINE_COLOR,
+                "gridcolor": GRID_COLOR,
+                "zerolinecolor": ZEROLINE_COLOR,
             },
             "yaxis": {
                 "title": "Damping Ratio ζ",
-                "gridcolor": self.GRID_COLOR,
-                "zerolinecolor": self.ZERO_LINE_COLOR,
+                "gridcolor": GRID_COLOR,
+                "zerolinecolor": ZEROLINE_COLOR,
                 "titlefont": {"color": "#3b82f6"},
                 "tickfont": {"color": "#3b82f6"},
                 "range": [0, 2],
@@ -1652,11 +1637,10 @@ class RootLocusSimulator(BaseSimulator):
         new_real = float(params.get("real", 0))
         new_imag = float(params.get("imag", 0))
 
-        poles = np.roots(self._den) if len(self._den) > 1 else np.array([])
+        poles = self._ol_poles()
         if index < 0 or index >= len(poles):
             return self.get_state()
 
-        # Convert to complex array so we can assign complex values
         poles = poles.astype(complex)
         old_pole = poles[index]
         new_pole = complex(new_real, new_imag)
@@ -1684,11 +1668,10 @@ class RootLocusSimulator(BaseSimulator):
         new_real = float(params.get("real", 0))
         new_imag = float(params.get("imag", 0))
 
-        zeros = np.roots(self._num) if len(self._num) > 1 else np.array([])
+        zeros = self._ol_zeros()
         if index < 0 or index >= len(zeros):
             return self.get_state()
 
-        # Convert to complex array so we can assign complex values
         zeros = zeros.astype(complex)
         old_zero = zeros[index]
         new_zero = complex(new_real, new_imag)
@@ -1749,10 +1732,6 @@ class RootLocusSimulator(BaseSimulator):
         return self.get_state()
 
     # =========================================================================
-    # Helpers
-    # =========================================================================
-
-    # =========================================================================
     # TF Expression Parser (delegated to core.tf_parser)
     # =========================================================================
 
@@ -1760,11 +1739,6 @@ class RootLocusSimulator(BaseSimulator):
         """Parse a TF expression into coefficient strings. Delegates to core."""
         from core.tf_parser import parse_tf_expression
         return parse_tf_expression(expr)
-
-    def _parse_polynomial_expr(self, poly_str: str) -> List[float]:
-        """Parse polynomial expression. Delegates to core."""
-        from core.tf_parser import parse_polynomial_expr
-        return parse_polynomial_expr(poly_str)
 
     # =========================================================================
     # Routh-Hurwitz Analysis
@@ -1782,11 +1756,7 @@ class RootLocusSimulator(BaseSimulator):
             return {"rows": [], "powers": [], "first_column": [], "sign_changes": 0,
                     "rhp_poles": 0, "flags": [], "stable": True}
 
-        # Build CL characteristic polynomial
-        num_padded = np.zeros_like(self._den)
-        offset = len(self._den) - len(self._num)
-        num_padded[offset:] = self._num
-        char_poly = self._den + K * num_padded
+        char_poly = self._cl_char_poly(K)
 
         return compute_routh_array(char_poly)
 
@@ -1928,36 +1898,3 @@ class RootLocusSimulator(BaseSimulator):
                 result += f" + {term}"
 
         return result
-
-    def _serialize_special_points(self, special: Dict) -> Dict:
-        """Ensure all special points are JSON-serializable."""
-        serialized = {}
-        for key, value in special.items():
-            if isinstance(value, list):
-                serialized[key] = []
-                for item in value:
-                    if isinstance(item, dict):
-                        s_item = {}
-                        for k, v in item.items():
-                            if isinstance(v, dict):
-                                s_item[k] = {sk: float(sv) if isinstance(sv, (int, float, np.floating)) else sv for sk, sv in v.items()}
-                            elif isinstance(v, (np.floating, np.integer)):
-                                s_item[k] = float(v)
-                            else:
-                                s_item[k] = v
-                        serialized[key].append(s_item)
-                    else:
-                        serialized[key].append(value)
-            elif isinstance(value, dict):
-                s_dict = {}
-                for k, v in value.items():
-                    if isinstance(v, (np.floating, np.integer)):
-                        s_dict[k] = float(v)
-                    elif isinstance(v, list):
-                        s_dict[k] = [float(x) if isinstance(x, (np.floating, np.integer)) else x for x in v]
-                    else:
-                        s_dict[k] = v
-                serialized[key] = s_dict
-            else:
-                serialized[key] = value
-        return serialized

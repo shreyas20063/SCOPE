@@ -524,11 +524,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
         return self.get_state()
 
     def _apply_preset(self, preset_id: str) -> None:
-        """Fill matrix expression fields from a preset definition.
-
-        Args:
-            preset_id: Key in _PRESETS dict.
-        """
+        """Fill matrix expression fields from a preset definition."""
         if preset_id not in self._PRESETS:
             return
         preset = self._PRESETS[preset_id]
@@ -539,14 +535,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
 
     @staticmethod
     def _matrix_to_expr(mat: List[List[float]]) -> str:
-        """Convert a nested list matrix to semicolon-delimited string.
-
-        Args:
-            mat: 2-D list of floats.
-
-        Returns:
-            String like '1, 2; 3, 4'.
-        """
+        """Convert a nested-list matrix to a semicolon-delimited string like '1, 2; 3, 4'."""
         rows = []
         for row in mat:
             rows.append(", ".join(str(v) for v in row))
@@ -756,15 +745,11 @@ class MIMODesignStudioSimulator(BaseSimulator):
             time_span = float(self.parameters.get("time_span", 10))
             t_eval = np.linspace(0, time_span, self._N_TIME_POINTS)
 
-            # 7. Clamp step_input_channel to valid range
-            step_ch = int(self.parameters.get("step_input_channel", 0))
-            step_ch = max(0, min(step_ch, m - 1))
-
-            # 8. Step and impulse responses (all channels for grid plots)
+            # 7. Step and impulse responses (all channels for grid plots)
             step_data = mimo_step_response(A, B, C, D, t_eval)
             impulse_data = mimo_impulse_response(A, B, C, D, t_eval)
 
-            # 9. Preset info
+            # 8. Preset info
             preset_id = self.parameters.get("preset", "aircraft_lateral")
             preset_info = self._PRESETS.get(preset_id, {})
             preset_name = preset_info.get("name", "Custom")
@@ -778,7 +763,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
                 "output_names", [f"y{i+1}" for i in range(p)]
             )
 
-            # 10. Stability classification
+            # 9. Stability classification
             real_parts = eigs.real
             is_stable = bool(np.all(real_parts < -1e-10))
             is_marginal = bool(
@@ -801,7 +786,6 @@ class MIMODesignStudioSimulator(BaseSimulator):
                 "step_data": step_data,
                 "impulse_data": impulse_data,
                 "t": t_eval,
-                "t_eval": t_eval,
                 "preset_id": preset_id,
                 "preset_name": preset_name,
                 "state_names": state_names,
@@ -810,7 +794,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
                 "error": None,
             }
 
-            # 11. Controller design dispatch
+            # 10. Controller design dispatch
             design_mode = self.parameters.get("design_mode", "analysis")
             if design_mode == "pole_placement":
                 self._compute_pole_placement(data, A, B, C, D)
@@ -1059,40 +1043,61 @@ class MIMODesignStudioSimulator(BaseSimulator):
         cl_step = mimo_step_response(A_cl, B, C, D, t)
         cl_impulse = mimo_impulse_response(A_cl, B, C, D, t)
         # Store with same (j, i) tuple keys as OL responses
-        data["cl_step_responses"] = {}
-        for key, val in cl_step["responses"].items():
-            data["cl_step_responses"][key] = val
-        data["cl_impulse_responses"] = {}
-        for key, val in cl_impulse["responses"].items():
-            data["cl_impulse_responses"][key] = val
+        data["cl_step_responses"] = dict(cl_step["responses"])
+        data["cl_impulse_responses"] = dict(cl_impulse["responses"])
 
     # ------------------------------------------------------------------ #
     #  Plot builders                                                     #
     # ------------------------------------------------------------------ #
 
-    def _step_response_grid_plot(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Build a Plotly subplot grid for step responses (p rows x m cols).
+    # kind -> (data key, CL-responses key, OL trace color, grid id/prefix, title)
+    _GRID_KINDS: Dict[str, Dict[str, str]] = {
+        "step": {
+            "data_key": "step_data",
+            "cl_key": "cl_step_responses",
+            "ol_color": "#3b82f6",
+            "grid_id": "step_response_grid",
+            "prefix": "step_grid",
+            "title": "Step Response Grid",
+        },
+        "impulse": {
+            "data_key": "impulse_data",
+            "cl_key": "cl_impulse_responses",
+            "ol_color": "#ef4444",
+            "grid_id": "impulse_response_grid",
+            "prefix": "impulse_grid",
+            "title": "Impulse Response Grid",
+        },
+    }
 
-        Each subplot shows the step response from input j to output i.
-        Open-loop traces are solid blue; closed-loop (when available)
-        are solid green with dashed OL.
+    def _response_grid_plot(self, data: Dict[str, Any], kind: str) -> Dict[str, Any]:
+        """Build a Plotly subplot grid (p rows x m cols) for a response kind.
+
+        Each subplot shows the response from input j to output i. Open-loop
+        traces use the kind's color; when a closed-loop design is present the
+        OL trace is dashed and the closed-loop response is overlaid solid green.
 
         Args:
             data: Computed data dict from _compute().
+            kind: 'step' or 'impulse' — selects the data source, CL key,
+                open-loop color, and grid id/title via _GRID_KINDS.
 
         Returns:
             Plotly-compatible plot dict.
         """
-        step_data = data["step_data"]
-        t = step_data["t"].tolist()
-        responses = step_data["responses"]
+        cfg = self._GRID_KINDS[kind]
+        ol_color = cfg["ol_color"]
+
+        src = data[cfg["data_key"]]
+        t = src["t"].tolist()
+        responses = src["responses"]
         m = data["m"]
         p = data["p"]
         input_names = data["input_names"]
         output_names = data["output_names"]
 
-        cl_step = data.get("cl_step_responses")
-        has_cl = cl_step is not None
+        cl_responses = data.get(cfg["cl_key"])
+        has_cl = cl_responses is not None
 
         traces: List[Dict] = []
         annotations: List[Dict] = []
@@ -1185,14 +1190,14 @@ class MIMODesignStudioSimulator(BaseSimulator):
                     if hasattr(y_data, "tolist"):
                         y_data = y_data.tolist()
 
-                    if has_cl and key in cl_step:
+                    if has_cl and key in cl_responses:
                         # OL as dashed
                         traces.append({
                             "x": t,
                             "y": y_data,
                             "type": "scatter",
                             "mode": "lines",
-                            "line": {"color": "#3b82f6", "width": 1.5, "dash": "dash"},
+                            "line": {"color": ol_color, "width": 1.5, "dash": "dash"},
                             "xaxis": xref,
                             "yaxis": yref,
                             "name": "Open-Loop",
@@ -1200,7 +1205,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
                             "legendgroup": "ol",
                         })
                         # CL as solid
-                        cl_y = cl_step[key]
+                        cl_y = cl_responses[key]
                         if hasattr(cl_y, "tolist"):
                             cl_y = cl_y.tolist()
                         traces.append({
@@ -1221,7 +1226,7 @@ class MIMODesignStudioSimulator(BaseSimulator):
                             "y": y_data,
                             "type": "scatter",
                             "mode": "lines",
-                            "line": {"color": "#3b82f6", "width": 2},
+                            "line": {"color": ol_color, "width": 2},
                             "xaxis": xref,
                             "yaxis": yref,
                             "showlegend": False,
@@ -1231,173 +1236,12 @@ class MIMODesignStudioSimulator(BaseSimulator):
 
         layout["annotations"] = annotations
         ts = time.time()
-        layout["datarevision"] = f"step_grid-{ts}"
-        layout["uirevision"] = "step_grid"
+        layout["datarevision"] = f"{cfg['prefix']}-{ts}"
+        layout["uirevision"] = cfg["prefix"]
 
         return {
-            "id": "step_response_grid",
-            "title": "Step Response Grid",
-            "data": traces,
-            "layout": layout,
-        }
-
-    def _impulse_response_grid_plot(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Build a Plotly subplot grid for impulse responses (p rows x m cols).
-
-        Same structure as step grid but for impulse data.
-
-        Args:
-            data: Computed data dict from _compute().
-
-        Returns:
-            Plotly-compatible plot dict.
-        """
-        impulse_data = data["impulse_data"]
-        t = impulse_data["t"].tolist()
-        responses = impulse_data["responses"]
-        m = data["m"]
-        p = data["p"]
-        input_names = data["input_names"]
-        output_names = data["output_names"]
-
-        cl_impulse = data.get("cl_impulse_responses")
-        has_cl = cl_impulse is not None
-
-        traces: List[Dict] = []
-        annotations: List[Dict] = []
-
-        left_gutter = 0.06  # space for row labels left of first column
-        h_gap = 0.08
-        v_gap = 0.12
-        usable_w = 1.0 - left_gutter
-        plot_w = (usable_w - h_gap * (m - 1)) / m if m > 1 else usable_w
-        plot_h = (1.0 - v_gap * (p - 1)) / p if p > 1 else 1.0
-
-        layout: Dict[str, Any] = {
-            "paper_bgcolor": "#0a0e27",
-            "plot_bgcolor": "#131b2e",
-            "font": {"family": "Inter, sans-serif", "size": 11, "color": "#f1f5f9"},
-            "margin": {"t": 60, "r": 25, "b": 55, "l": 60},
-            "showlegend": has_cl,
-            "legend": {
-                "orientation": "h",
-                "x": 0.5,
-                "xanchor": "center",
-                "y": 1.08,
-                "yanchor": "bottom",
-                "bgcolor": "rgba(0,0,0,0)",
-                "font": {"size": 11, "color": "#94a3b8"},
-            },
-        }
-
-        axis_idx = 1
-        for i in range(p):
-            for j in range(m):
-                x0 = left_gutter + j * (plot_w + h_gap)
-                x1 = x0 + plot_w
-                y1 = 1.0 - i * (plot_h + v_gap)
-                y0 = y1 - plot_h
-
-                x_key = "xaxis" if axis_idx == 1 else f"xaxis{axis_idx}"
-                y_key = "yaxis" if axis_idx == 1 else f"yaxis{axis_idx}"
-                xref = "x" if axis_idx == 1 else f"x{axis_idx}"
-                yref = "y" if axis_idx == 1 else f"y{axis_idx}"
-
-                layout[x_key] = {
-                    "domain": [x0, x1],
-                    "gridcolor": "rgba(148,163,184,0.1)",
-                    "zerolinecolor": "rgba(148,163,184,0.3)",
-                    "showticklabels": i == p - 1,
-                    "title": {
-                        "text": "Time (s)" if i == p - 1 else "",
-                        "font": {"size": 10},
-                    },
-                }
-                layout[y_key] = {
-                    "domain": [y0, y1],
-                    "gridcolor": "rgba(148,163,184,0.1)",
-                    "zerolinecolor": "rgba(148,163,184,0.3)",
-                }
-
-                if i == 0:
-                    annotations.append({
-                        "text": f"<b>{input_names[j] if j < len(input_names) else f'u{j+1}'}</b>",
-                        "xref": "paper",
-                        "yref": "paper",
-                        "x": (x0 + x1) / 2,
-                        "y": y1 + 0.04,
-                        "showarrow": False,
-                        "font": {"size": 11, "color": "#94a3b8"},
-                    })
-
-                if j == 0:
-                    annotations.append({
-                        "text": f"<b>{output_names[i] if i < len(output_names) else f'y{i+1}'}</b>",
-                        "xref": "paper",
-                        "yref": "paper",
-                        "x": left_gutter / 2,
-                        "y": (y0 + y1) / 2,
-                        "showarrow": False,
-                        "font": {"size": 12, "color": "#94a3b8"},
-                        "textangle": -90,
-                    })
-
-                key = (j, i)
-                if key in responses:
-                    y_data = responses[key]
-                    if hasattr(y_data, "tolist"):
-                        y_data = y_data.tolist()
-
-                    if has_cl and key in cl_impulse:
-                        traces.append({
-                            "x": t,
-                            "y": y_data,
-                            "type": "scatter",
-                            "mode": "lines",
-                            "line": {"color": "#ef4444", "width": 1.5, "dash": "dash"},
-                            "xaxis": xref,
-                            "yaxis": yref,
-                            "name": "Open-Loop",
-                            "showlegend": (i == 0 and j == 0),
-                            "legendgroup": "ol",
-                        })
-                        cl_y = cl_impulse[key]
-                        if hasattr(cl_y, "tolist"):
-                            cl_y = cl_y.tolist()
-                        traces.append({
-                            "x": t,
-                            "y": cl_y,
-                            "type": "scatter",
-                            "mode": "lines",
-                            "line": {"color": "#10b981", "width": 2},
-                            "xaxis": xref,
-                            "yaxis": yref,
-                            "name": "Closed-Loop",
-                            "showlegend": (i == 0 and j == 0),
-                            "legendgroup": "cl",
-                        })
-                    else:
-                        traces.append({
-                            "x": t,
-                            "y": y_data,
-                            "type": "scatter",
-                            "mode": "lines",
-                            "line": {"color": "#ef4444", "width": 2},
-                            "xaxis": xref,
-                            "yaxis": yref,
-                            "showlegend": False,
-                        })
-
-                axis_idx += 1
-
-        layout["annotations"] = annotations
-        ts = time.time()
-        layout["datarevision"] = f"impulse_grid-{ts}"
-        layout["uirevision"] = "impulse_grid"
-
-        return {
-            "id": "impulse_response_grid",
-            "title": "Impulse Response Grid",
+            "id": cfg["grid_id"],
+            "title": cfg["title"],
             "data": traces,
             "layout": layout,
         }
@@ -1633,8 +1477,8 @@ class MIMODesignStudioSimulator(BaseSimulator):
             return []
 
         return [
-            self._step_response_grid_plot(data),
-            self._impulse_response_grid_plot(data),
+            self._response_grid_plot(data, "step"),
+            self._response_grid_plot(data, "impulse"),
             self._eigenvalue_plot(data),
         ]
 

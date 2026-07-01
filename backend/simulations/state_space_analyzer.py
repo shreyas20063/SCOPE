@@ -18,22 +18,19 @@ from typing import Any, Dict, List, Optional, Tuple
 import threading
 from .base_simulator import BaseSimulator
 from core.ss_utils import (
-    tf_proper_decomposition,
     tf2ss_canonical,
     mimo_tf2ss,
     minreal,
     controllability_gramian,
     observability_gramian,
     transmission_zeros,
-    ss2tf_mimo,
-    convert_canonical,
 )
 
 # Safe parse transformations: no auto_symbol, no implicit multiplication
 _SAFE_TRANSFORMATIONS = standard_transformations + (convert_xor,)
 
 # Module-level sympy symbols (shared, immutable)
-_x1_sym, _x2_sym, _x3_sym, _u_sym = sp.symbols("x1 x2 x3 u", real=True)
+_x1_sym, _x2_sym, _u_sym = sp.symbols("x1 x2 u", real=True)
 # Extended symbols for N×M×P nonlinear mode
 _x_syms = sp.symbols("x1:7", real=True)   # x1, x2, x3, x4, x5, x6
 _u_syms = sp.symbols("u1:5", real=True)   # u1, u2, u3, u4
@@ -656,6 +653,20 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                 "A": None,
             }
 
+    @staticmethod
+    def _stability(eigenvalues: np.ndarray) -> Tuple[bool, bool]:
+        """Classify stability from A's eigenvalues (Ogata Sec. 5-4).
+
+        Returns (is_stable, is_marginal). Asymptotically stable iff every
+        eigenvalue has strictly negative real part; marginally stable if none
+        is in the open RHP but the system is not asymptotically stable. For an
+        empty spectrum (n=0), np.all returns True → (True, False), matching the
+        static-gain convention.
+        """
+        is_stable = bool(np.all(eigenvalues.real < -1e-10))
+        is_marginal = bool(np.all(eigenvalues.real <= 1e-10) and not is_stable)
+        return is_stable, is_marginal
+
     # -------------------------------------------------------------------------
     # Linear TF path
     # -------------------------------------------------------------------------
@@ -744,10 +755,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
 
         n = A.shape[0]
         eigenvalues = np.linalg.eigvals(A) if n > 0 else np.array([])
-        is_stable = bool(np.all(eigenvalues.real < -1e-10)) if n > 0 else True
-        is_marginal = bool(
-            np.all(eigenvalues.real <= 1e-10) and not is_stable
-        ) if n > 0 else False
+        is_stable, is_marginal = self._stability(eigenvalues)
 
         # Transmission zeros
         t_zeros = transmission_zeros(A, B, C, D) if n > 0 else np.array([])
@@ -1050,10 +1058,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
 
         n = A.shape[0]
         eigenvalues = np.linalg.eigvals(A) if n > 0 else np.array([])
-        is_stable = bool(np.all(eigenvalues.real < -1e-10)) if n > 0 else True
-        is_marginal = bool(
-            np.all(eigenvalues.real <= 1e-10) and not is_stable
-        ) if n > 0 else False
+        is_stable, is_marginal = self._stability(eigenvalues)
 
         # Transmission zeros
         t_zeros = transmission_zeros(A, B, C, D) if n > 0 else np.array([])
@@ -1326,12 +1331,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                     "zerolinecolor": "rgba(148,163,184,0.3)",
                     "color": "#f1f5f9",
                 },
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
-                "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
-                "showlegend": True,
-                "legend": {"font": {"color": "#94a3b8"}, "bgcolor": "rgba(0,0,0,0.3)"},
+                **self._dark_layout_base(),
                 "uirevision": "mimo_step_grid",
             },
         }
@@ -1390,12 +1390,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                     "zerolinecolor": "rgba(148,163,184,0.3)",
                     "color": "#f1f5f9",
                 },
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
-                "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
-                "showlegend": True,
-                "legend": {"font": {"color": "#94a3b8"}, "bgcolor": "rgba(0,0,0,0.3)"},
+                **self._dark_layout_base(),
                 "uirevision": "sv_plot",
             },
         }
@@ -1425,8 +1420,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
             raise ValueError(f"C must have {n} columns to match A, got {C.shape[1]}")
 
         eigenvalues = np.linalg.eigvals(A)
-        is_stable = bool(np.all(eigenvalues.real < -1e-10))
-        is_marginal = bool(np.all(eigenvalues.real <= 1e-10) and not is_stable)
+        is_stable, is_marginal = self._stability(eigenvalues)
 
         latex_steps = self._build_direct_latex(A, B, C, D, eigenvalues, n, is_marginal)
 
@@ -1744,15 +1738,10 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
         # Build symbol lists
         x_syms_used = list(_x_syms[:n_states])
         u_syms_used = list(_u_syms[:m_inputs]) if m_inputs > 0 else []
-        all_syms = x_syms_used + u_syms_used
 
         # Parse expressions
         f_exprs = [self._safe_parse_expr(s) for s in f_strs]
         h_exprs = [self._safe_parse_expr(s) for s in h_strs]
-
-        # Lambdify for numerical evaluation
-        f_funcs = [sp.lambdify(all_syms if all_syms else [sp.Symbol('_dummy')],
-                               expr, modules="numpy") for expr in f_exprs]
 
         latex_steps: List[Dict[str, str]] = []
 
@@ -2027,8 +2016,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
 
         # Eigenvalues & stability
         eigenvalues = np.linalg.eigvals(A_np)
-        is_stable = bool(np.all(eigenvalues.real < -1e-10))
-        is_marginal_nl = bool(np.all(eigenvalues.real <= 1e-10) and not is_stable)
+        is_stable, is_marginal_nl = self._stability(eigenvalues)
 
         eig_parts = []
         for r, im in zip(eigenvalues.real, eigenvalues.imag):
@@ -2270,6 +2258,19 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
     # Plots
     # -------------------------------------------------------------------------
 
+    @staticmethod
+    def _dark_layout_base() -> Dict[str, Any]:
+        """Shared dark-theme Plotly layout keys (paper/plot bg, font, margin,
+        legend). Callers add axis titles, uirevision, and annotations."""
+        return {
+            "paper_bgcolor": "rgba(0,0,0,0)",
+            "plot_bgcolor": "rgba(0,0,0,0)",
+            "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
+            "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
+            "showlegend": True,
+            "legend": {"font": {"color": "#94a3b8"}, "bgcolor": "rgba(0,0,0,0.3)"},
+        }
+
     def _eigenvalue_plot(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Eigenvalue map in the complex plane."""
         eig_real = data.get("eigenvalues", {}).get("real", [])
@@ -2348,12 +2349,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                     "color": "#f1f5f9",
                     "autorange": True,
                 },
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
-                "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
-                "showlegend": True,
-                "legend": {"font": {"color": "#94a3b8"}, "bgcolor": "rgba(0,0,0,0.3)"},
+                **self._dark_layout_base(),
                 "uirevision": uirev,
                 "annotations": [
                     {
@@ -2444,12 +2440,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                         "color": "#f1f5f9",
                         "autorange": True,
                     },
-                    "paper_bgcolor": "rgba(0,0,0,0)",
-                    "plot_bgcolor": "rgba(0,0,0,0)",
-                    "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
-                    "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
-                    "showlegend": True,
-                    "legend": {"font": {"color": "#94a3b8"}, "bgcolor": "rgba(0,0,0,0.3)"},
+                    **self._dark_layout_base(),
                     "uirevision": uirev,
                 },
             }
@@ -2521,19 +2512,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                         "color": "#f1f5f9",
                         "autorange": True,
                     },
-                    "paper_bgcolor": "rgba(0,0,0,0)",
-                    "plot_bgcolor": "rgba(0,0,0,0)",
-                    "font": {
-                        "family": "Inter, sans-serif",
-                        "size": 12,
-                        "color": "#f1f5f9",
-                    },
-                    "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
-                    "showlegend": True,
-                    "legend": {
-                        "font": {"color": "#94a3b8"},
-                        "bgcolor": "rgba(0,0,0,0.3)",
-                    },
+                    **self._dark_layout_base(),
                     "uirevision": uirev,
                 },
             }
@@ -2619,19 +2598,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                         "zerolinecolor": "rgba(148,163,184,0.3)",
                         "color": "#f1f5f9",
                     },
-                    "paper_bgcolor": "rgba(0,0,0,0)",
-                    "plot_bgcolor": "rgba(0,0,0,0)",
-                    "font": {
-                        "family": "Inter, sans-serif",
-                        "size": 12,
-                        "color": "#f1f5f9",
-                    },
-                    "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
-                    "showlegend": True,
-                    "legend": {
-                        "font": {"color": "#94a3b8"},
-                        "bgcolor": "rgba(0,0,0,0.3)",
-                    },
+                    **self._dark_layout_base(),
                     "uirevision": f"{uirev_base}-mag",
                 },
             }
@@ -2681,19 +2648,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                         "zerolinecolor": "rgba(148,163,184,0.3)",
                         "color": "#f1f5f9",
                     },
-                    "paper_bgcolor": "rgba(0,0,0,0)",
-                    "plot_bgcolor": "rgba(0,0,0,0)",
-                    "font": {
-                        "family": "Inter, sans-serif",
-                        "size": 12,
-                        "color": "#f1f5f9",
-                    },
-                    "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
-                    "showlegend": True,
-                    "legend": {
-                        "font": {"color": "#94a3b8"},
-                        "bgcolor": "rgba(0,0,0,0.3)",
-                    },
+                    **self._dark_layout_base(),
                     "uirevision": f"{uirev_base}-phase",
                 },
             }
@@ -2809,12 +2764,7 @@ class StateSpaceAnalyzerSimulator(BaseSimulator):
                     "color": "#f1f5f9",
                     "range": [x2_eq - margin, x2_eq + margin],
                 },
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
-                "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
-                "showlegend": True,
-                "legend": {"font": {"color": "#94a3b8"}, "bgcolor": "rgba(0,0,0,0.3)"},
+                **self._dark_layout_base(),
                 "uirevision": uirev,
             },
         }
