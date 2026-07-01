@@ -196,20 +196,15 @@ class ZTransformROCSimulator(BaseSimulator):
         family = self.parameters["signal_family"]
 
         if family in ("right_exponential", "left_exponential"):
-            a = complex(self.parameters["pole_real"], self.parameters["pole_imag"])
+            # Single-sided exponential x[n] = a^n u[n] is a REAL signal: use pole_real
+            # only. A complex a would require a conjugate pair, i.e. a two-pole system
+            # that is NOT the a^n u[n] this family is labelled as (see BUG-094).
+            a = complex(float(self.parameters["pole_real"]), 0.0)
             self._poles = np.array([a])
-            if abs(a.imag) > 1e-6:
-                self._poles = np.array([a, np.conj(a)])
             self._zeros = np.array([])
-            # H(z) = 1 / (1 - a*z^{-1})  =>  num=[1], den=[1, -a]
-            if len(self._poles) == 2:
-                self._num_coeffs = np.array([1.0])
-                self._den_coeffs = np.real(np.polymul([1.0], np.polymul(
-                    [1.0, -self._poles[0]], [1.0, -self._poles[1]]
-                )))
-            else:
-                self._num_coeffs = np.array([1.0])
-                self._den_coeffs = np.array([1.0, -float(a.real)])
+            # H(z) = 1 / (1 - a z^{-1})  =>  num=[1], den=[1, -a]
+            self._num_coeffs = np.array([1.0])
+            self._den_coeffs = np.array([1.0, -a.real])
 
         elif family == "two_sided":
             a = complex(self.parameters["pole_real"], self.parameters["pole_imag"])
@@ -465,11 +460,8 @@ class ZTransformROCSimulator(BaseSimulator):
         family = self.parameters["signal_family"]
 
         if family in ("right_exponential", "left_exponential"):
-            a = complex(self.parameters["pole_real"], self.parameters["pole_imag"])
-            if abs(a.imag) < 1e-6:
-                return f"1 / (1 - {a.real:.3g}z\u207b\u00b9)"
-            else:
-                return f"1 / (1 - ({a.real:.2g}+{a.imag:.2g}j)z\u207b\u00b9)(1 - ({a.real:.2g}-{a.imag:.2g}j)z\u207b\u00b9)"
+            a = float(self.parameters["pole_real"])
+            return f"1 / (1 - {a:.3g}z\u207b\u00b9)"
 
         elif family == "two_sided":
             a = complex(self.parameters["pole_real"], self.parameters["pole_imag"])
@@ -521,15 +513,11 @@ class ZTransformROCSimulator(BaseSimulator):
         """Build title string for time-domain plot."""
         family = self.parameters["signal_family"]
         if family == "right_exponential":
-            a = complex(self.parameters["pole_real"], self.parameters["pole_imag"])
-            if abs(a.imag) < 1e-6:
-                return f"x[n] = ({a.real:.3g})\u207f u[n]  (causal)"
-            return f"x[n] = ({a:.2g})\u207f u[n]  (causal)"
+            a = float(self.parameters["pole_real"])
+            return f"x[n] = ({a:.3g})\u207f u[n]  (causal)"
         elif family == "left_exponential":
-            a = complex(self.parameters["pole_real"], self.parameters["pole_imag"])
-            if abs(a.imag) < 1e-6:
-                return f"x[n] = -({a.real:.3g})\u207f u[-n-1]  (anti-causal)"
-            return f"x[n] = -({a:.2g})\u207f u[-n-1]  (anti-causal)"
+            a = float(self.parameters["pole_real"])
+            return f"x[n] = -({a:.3g})\u207f u[-n-1]  (anti-causal)"
         elif family == "damped_sinusoid":
             r = self.parameters["r_magnitude"]
             w0 = self.parameters["omega_0"]

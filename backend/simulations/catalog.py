@@ -1648,7 +1648,7 @@ SIMULATION_CATALOG = [
             {"type": "slider", "name": "pole_real", "label": "Pole 1 Real", "min": -1.5, "max": 1.5, "step": 0.01, "default": 0.7, "group": "Poles",
              "visible_when": {"signal_family": ["right_exponential", "left_exponential", "two_sided", "second_order"]}},
             {"type": "slider", "name": "pole_imag", "label": "Pole 1 Imaginary", "min": -1.5, "max": 1.5, "step": 0.01, "default": 0.0, "group": "Poles",
-             "visible_when": {"signal_family": ["right_exponential", "left_exponential", "two_sided", "second_order"]}},
+             "visible_when": {"signal_family": ["two_sided", "second_order"]}},
             {"type": "slider", "name": "pole2_real", "label": "Pole 2 Real", "min": -1.5, "max": 1.5, "step": 0.01, "default": -0.5, "group": "Poles",
              "visible_when": {"signal_family": ["two_sided", "second_order"]}},
             {"type": "slider", "name": "pole2_imag", "label": "Pole 2 Imaginary", "min": -1.5, "max": 1.5, "step": 0.01, "default": 0.0, "group": "Poles",
