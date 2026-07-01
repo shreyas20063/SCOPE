@@ -20,6 +20,8 @@ _trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz
 class SignalOperationsSimulator(BaseSimulator):
     """Simulator for signal transformation operations."""
 
+    # ── 1. DEFINE ────────────────────────────────────────────────
+
     TIME_RANGE = (-5.0, 5.0)
     NUM_SAMPLES = 1000
     IMPULSE_SIGMA = 0.05
@@ -117,6 +119,9 @@ class SignalOperationsSimulator(BaseSimulator):
         self._even: Optional[np.ndarray] = None
         self._odd: Optional[np.ndarray] = None
         self._formula: str = "f(t)"
+        self._metrics: Optional[Dict[str, Any]] = None
+
+    # ── 2. LIFECYCLE ─────────────────────────────────────────────
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
@@ -132,39 +137,10 @@ class SignalOperationsSimulator(BaseSimulator):
         self._compute()
         return self.get_state()
 
-    def get_plots(self) -> List[Dict[str, Any]]:
-        if self._t is None:
-            self._compute()
-
-        y_arrays = [self._original, self._transformed]
-        plots = [
-            self._create_original_plot(y_arrays),
-            self._create_transformed_plot(y_arrays),
-        ]
-
-        if self.parameters.get("show_decomposition", False) and self._even is not None:
-            plots.append(self._create_decomposition_plot())
-
-        return plots
-
-    def get_state(self) -> Dict[str, Any]:
-        state = super().get_state()
-        state["metadata"] = {
-            "simulation_type": "signal_operations",
-            "hub_slots": self.HUB_SLOTS,
-            "hub_domain": self.HUB_DOMAIN,
-            "hub_dimensions": self.HUB_DIMENSIONS,
-            "formula_display": self._formula,
-            "active_operations": self._get_active_operations(),
-            "signal_metrics": self._compute_metrics() if self._t is not None else None,
-            "presets": self.PRESETS,
-        }
-        return state
-
-    # ── Computation ──────────────────────────────────────────────
+    # ── 3. MATH ──────────────────────────────────────────────────
 
     def _compute(self) -> None:
-        """Compute original and transformed signals."""
+        """Compute original and transformed signals plus cached metrics."""
         signal_type = self.parameters["signal_type"]
         frequency = self.parameters["frequency"]
         A = self.parameters["amplitude"]
@@ -187,13 +163,11 @@ class SignalOperationsSimulator(BaseSimulator):
         self._formula = self._build_formula(A, a, t0, reverse, dc)
 
         # Even/odd decomposition of original signal
-        if self.parameters.get("show_decomposition", False):
-            f_neg = self._generate_signal(signal_type, frequency, -self._t)
-            self._even = (self._original + f_neg) / 2.0
-            self._odd = (self._original - f_neg) / 2.0
-        else:
-            self._even = None
-            self._odd = None
+        f_neg = self._generate_signal(signal_type, frequency, -self._t)
+        self._even = (self._original + f_neg) / 2.0
+        self._odd = (self._original - f_neg) / 2.0
+
+        self._metrics = self._compute_metrics()
 
     @staticmethod
     def _generate_signal(signal_type: str, frequency: float, t: np.ndarray) -> np.ndarray:
@@ -261,7 +235,7 @@ class SignalOperationsSimulator(BaseSimulator):
         elif A == -1.0:
             result = f"-f({inner})"
         else:
-            result = f"{A:g} \u00b7 f({inner})"
+            result = f"{A:g} · f({inner})"
 
         if dc > 0:
             result = f"{result} + {dc:g}"
@@ -269,30 +243,6 @@ class SignalOperationsSimulator(BaseSimulator):
             result = f"{result} - {abs(dc):g}"
 
         return result
-
-    # ── Metadata Helpers ──────────────────────────────────────────
-
-    def _get_active_operations(self) -> List[Dict[str, Any]]:
-        """Return list of active (non-identity) operations for badge display."""
-        ops = []
-        A = self.parameters["amplitude"]
-        a = self.parameters["time_scale"]
-        t0 = self.parameters["time_shift"]
-        reverse = self.parameters["time_reverse"]
-        dc = self.parameters["dc_offset"]
-
-        if A != 1.0:
-            ops.append({"name": "Amplitude", "symbol": f"A = {A:g}", "color": "#ef4444"})
-        if a != 1.0:
-            ops.append({"name": "Time Scale", "symbol": f"a = {a:g}", "color": "#f59e0b"})
-        if t0 != 0.0:
-            ops.append({"name": "Time Shift", "symbol": f"t\u2080 = {t0:g}", "color": "#3b82f6"})
-        if reverse:
-            ops.append({"name": "Time Reverse", "symbol": "f(\u2212t)", "color": "#8b5cf6"})
-        if dc != 0.0:
-            ops.append({"name": "DC Offset", "symbol": f"DC = {dc:g}", "color": "#10b981"})
-
-        return ops
 
     def _compute_metrics(self) -> Dict[str, Any]:
         """Compute signal properties for display."""
@@ -319,7 +269,62 @@ class SignalOperationsSimulator(BaseSimulator):
             "energy_ratio": round(transformed_energy / max(original_energy, 1e-10), 4),
         }
 
-    # ── Plot Construction ────────────────────────────────────────
+    def _get_active_operations(self) -> List[Dict[str, Any]]:
+        """Return list of active (non-identity) operations for badge display."""
+        ops = []
+        A = self.parameters["amplitude"]
+        a = self.parameters["time_scale"]
+        t0 = self.parameters["time_shift"]
+        reverse = self.parameters["time_reverse"]
+        dc = self.parameters["dc_offset"]
+
+        if A != 1.0:
+            ops.append({"name": "Amplitude", "symbol": f"A = {A:g}", "color": "#ef4444"})
+        if a != 1.0:
+            ops.append({"name": "Time Scale", "symbol": f"a = {a:g}", "color": "#f59e0b"})
+        if t0 != 0.0:
+            ops.append({"name": "Time Shift", "symbol": f"t₀ = {t0:g}", "color": "#3b82f6"})
+        if reverse:
+            ops.append({"name": "Time Reverse", "symbol": "f(−t)", "color": "#8b5cf6"})
+        if dc != 0.0:
+            ops.append({"name": "DC Offset", "symbol": f"DC = {dc:g}", "color": "#10b981"})
+
+        return ops
+
+    # ── 4. PRESENT ───────────────────────────────────────────────
+
+    def get_plots(self) -> List[Dict[str, Any]]:
+        if self._t is None:
+            self._compute()
+
+        y_arrays = [self._original, self._transformed]
+        plots = [
+            self._create_original_plot(y_arrays),
+            self._create_transformed_plot(y_arrays),
+        ]
+
+        if self.parameters.get("show_decomposition", False):
+            plots.append(self._create_decomposition_plot())
+
+        return plots
+
+    def _trace(self, y: np.ndarray, name: str, color: str, width: float,
+               dash: Optional[str] = None, opacity: Optional[float] = None) -> Dict[str, Any]:
+        """Build a single Plotly line trace over the shared time axis."""
+        line: Dict[str, Any] = {"color": color, "width": width}
+        if dash is not None:
+            line["dash"] = dash
+        trace: Dict[str, Any] = {
+            "x": self._t.tolist(),
+            "y": y.tolist(),
+            "type": "scatter",
+            "mode": "lines",
+            "name": name,
+            "line": line,
+        }
+        if opacity is not None:
+            trace["opacity"] = opacity
+        return trace
 
     def _get_base_layout(self, xtitle: str, ytitle: str, y_data: Optional[List[np.ndarray]] = None) -> Dict[str, Any]:
         """Standard Plotly layout for signal plots with smart y-axis ranging."""
@@ -367,14 +372,7 @@ class SignalOperationsSimulator(BaseSimulator):
             "id": "original",
             "title": f"Original Signal: {signal_name}",
             "data": [
-                {
-                    "x": self._t.tolist(),
-                    "y": self._original.tolist(),
-                    "type": "scatter",
-                    "mode": "lines",
-                    "name": "f(t)",
-                    "line": {"color": "#3b82f6", "width": 2.5},
-                }
+                self._trace(self._original, "f(t)", "#3b82f6", 2.5),
             ],
             "layout": self._get_base_layout("t (seconds)", "Amplitude", y_arrays),
         }
@@ -385,23 +383,8 @@ class SignalOperationsSimulator(BaseSimulator):
             "id": "transformed",
             "title": f"Transformed: {self._formula}",
             "data": [
-                {
-                    "x": self._t.tolist(),
-                    "y": self._original.tolist(),
-                    "type": "scatter",
-                    "mode": "lines",
-                    "name": "f(t) [original]",
-                    "line": {"color": "#3b82f6", "width": 1.5, "dash": "dot"},
-                    "opacity": 0.35,
-                },
-                {
-                    "x": self._t.tolist(),
-                    "y": self._transformed.tolist(),
-                    "type": "scatter",
-                    "mode": "lines",
-                    "name": self._formula,
-                    "line": {"color": "#ef4444", "width": 2.5},
-                },
+                self._trace(self._original, "f(t) [original]", "#3b82f6", 1.5, dash="dot", opacity=0.35),
+                self._trace(self._transformed, self._formula, "#ef4444", 2.5),
             ],
             "layout": self._get_base_layout("t (seconds)", "Amplitude", y_arrays),
         }
@@ -413,31 +396,25 @@ class SignalOperationsSimulator(BaseSimulator):
             "id": "decomposition",
             "title": "Even / Odd Decomposition of f(t)",
             "data": [
-                {
-                    "x": self._t.tolist(),
-                    "y": self._original.tolist(),
-                    "type": "scatter",
-                    "mode": "lines",
-                    "name": "f(t) [original]",
-                    "line": {"color": "#3b82f6", "width": 1.5, "dash": "dot"},
-                    "opacity": 0.3,
-                },
-                {
-                    "x": self._t.tolist(),
-                    "y": self._even.tolist(),
-                    "type": "scatter",
-                    "mode": "lines",
-                    "name": "Even: \u00bd[f(t) + f(\u2212t)]",
-                    "line": {"color": "#10b981", "width": 2.5},
-                },
-                {
-                    "x": self._t.tolist(),
-                    "y": self._odd.tolist(),
-                    "type": "scatter",
-                    "mode": "lines",
-                    "name": "Odd: \u00bd[f(t) \u2212 f(\u2212t)]",
-                    "line": {"color": "#f59e0b", "width": 2.5},
-                },
+                self._trace(self._original, "f(t) [original]", "#3b82f6", 1.5, dash="dot", opacity=0.3),
+                self._trace(self._even, "Even: ½[f(t) + f(−t)]", "#10b981", 2.5),
+                self._trace(self._odd, "Odd: ½[f(t) − f(−t)]", "#f59e0b", 2.5),
             ],
             "layout": self._get_base_layout("t (seconds)", "Amplitude", y_arrays),
         }
+
+    # ── 5. STATE ─────────────────────────────────────────────────
+
+    def get_state(self) -> Dict[str, Any]:
+        state = super().get_state()
+        state["metadata"] = {
+            "simulation_type": "signal_operations",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
+            "formula_display": self._formula,
+            "active_operations": self._get_active_operations(),
+            "signal_metrics": self._metrics if self._t is not None else None,
+            "presets": self.PRESETS,
+        }
+        return state

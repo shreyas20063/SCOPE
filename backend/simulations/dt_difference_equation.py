@@ -8,8 +8,6 @@ and incrementally growing stem plots.
 
 from typing import Any, Dict, List, Optional
 
-import numpy as np
-
 from .base_simulator import BaseSimulator
 
 
@@ -135,7 +133,7 @@ class DifferenceEquationSimulator(BaseSimulator):
         # At least 1 delay for all our presets
         num_delays = max(num_delays, 1)
         self._delay_states = [0.0] * num_delays
-        self._wire_values = self._get_at_rest_wire_values()
+        self._wire_values = self._at_rest_wire_values()
 
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
         """Update a single parameter and reset computation state."""
@@ -312,28 +310,10 @@ class DifferenceEquationSimulator(BaseSimulator):
         elif diagram_type == "leaky_integrator":
             self._delay_states[0] = y_n
 
-    def _get_at_rest_wire_values(self) -> Dict[str, float]:
+    def _at_rest_wire_values(self) -> Dict[str, float]:
         """Wire values when system is at rest (all zeros)."""
         diagram_type = self.PRESETS[self.parameters["equation_preset"]]["diagram_type"]
-        if diagram_type == "difference_machine":
-            return {
-                "x_in": 0, "gain_out": 0, "delay_in": 0, "delay_out": 0, "adder_out": 0
-            }
-        elif diagram_type == "accumulator":
-            return {
-                "x_in": 0, "delay_out": 0, "adder_out": 0, "delay_in": 0
-            }
-        elif diagram_type == "moving_average":
-            return {
-                "x_in": 0, "gain1_out": 0, "delay_out": 0, "gain2_out": 0,
-                "adder_out": 0, "delay_in": 0
-            }
-        elif diagram_type == "leaky_integrator":
-            return {
-                "x_in": 0, "gain_x_out": 0, "delay_out": 0, "gain_fb_out": 0,
-                "adder_out": 0, "delay_in": 0
-            }
-        return {}
+        return self._compute_wire_values(diagram_type, 0.0, 0.0, [0.0])
 
     # =========================================================================
     # Action handlers (step_forward, step_backward, reset, advance)
@@ -380,15 +360,13 @@ class DifferenceEquationSimulator(BaseSimulator):
             # For wire values, we need delay outputs from the step before current
             if len(self._delay_states_history) >= 2:
                 prev_delays = self._delay_states_history[-2]
-            elif len(self._delay_states_history) == 1:
-                prev_delays = [0.0] * len(self._delay_states)
             else:
                 prev_delays = [0.0] * len(self._delay_states)
             self._wire_values = self._compute_wire_values(
                 preset["diagram_type"], x_n, y_n, prev_delays
             )
         else:
-            self._wire_values = self._get_at_rest_wire_values()
+            self._wire_values = self._at_rest_wire_values()
 
         return self.get_state()
 
@@ -581,35 +559,32 @@ class DifferenceEquationSimulator(BaseSimulator):
         sorted_x = sorted(self._x_history.items())
         sorted_y = sorted(self._y_history.items())
 
-        state = {
-            "parameters": self.parameters.copy(),
-            "plots": self.get_plots(),
-            "metadata": {
-                "simulation_type": "dt_difference_equation",
+        state = super().get_state()
+        state["metadata"] = {
+            "simulation_type": "dt_difference_equation",
             "hub_slots": self.HUB_SLOTS,
             "hub_domain": self.HUB_DOMAIN,
             "hub_dimensions": self.HUB_DIMENSIONS,
-                "has_custom_viewer": True,
-                "current_n": self._current_n,
-                "is_at_rest": self._current_n <= self.N_START,
-                "can_step_back": self._current_n > self.N_START,
-                "can_step_forward": self._current_n < self.N_MAX,
-                "equation_text": preset["equation_text"],
-                "equation_preset": self.parameters["equation_preset"],
-                "equation_description": preset["description"],
-                "diagram_type": preset["diagram_type"],
-                "wire_values": {k: round(v, 6) for k, v in self._wire_values.items()},
-                "delay_states": [round(d, 6) for d in self._delay_states],
-                "substitution_history": self._substitution_history[-20:],  # last 20
-                "x_values": {
-                    "n": [item[0] for item in sorted_x],
-                    "values": [round(item[1], 6) for item in sorted_x],
-                },
-                "y_values": {
-                    "n": [item[0] for item in sorted_y],
-                    "values": [round(item[1], 6) for item in sorted_y],
-                },
-                "input_signal_type": self.parameters["input_signal"],
+            "has_custom_viewer": True,
+            "current_n": self._current_n,
+            "is_at_rest": self._current_n <= self.N_START,
+            "can_step_back": self._current_n > self.N_START,
+            "can_step_forward": self._current_n < self.N_MAX,
+            "equation_text": preset["equation_text"],
+            "equation_preset": self.parameters["equation_preset"],
+            "equation_description": preset["description"],
+            "diagram_type": preset["diagram_type"],
+            "wire_values": {k: round(v, 6) for k, v in self._wire_values.items()},
+            "delay_states": [round(d, 6) for d in self._delay_states],
+            "substitution_history": self._substitution_history[-20:],  # last 20
+            "x_values": {
+                "n": [item[0] for item in sorted_x],
+                "values": [round(item[1], 6) for item in sorted_x],
             },
+            "y_values": {
+                "n": [item[0] for item in sorted_y],
+                "values": [round(item[1], 6) for item in sorted_y],
+            },
+            "input_signal_type": self.parameters["input_signal"],
         }
         return state

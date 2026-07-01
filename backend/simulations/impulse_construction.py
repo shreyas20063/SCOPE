@@ -1,9 +1,7 @@
-"""
-Unit Impulse δ(t) Construction Lab Simulator
+"""Unit Impulse δ(t) Construction Lab — limiting process of unit-area pulses.
 
-Builds intuition for the Dirac delta function by showing the limiting process:
-rectangular pulses p_ε(t) of width 2ε and height 1/(2ε), always unit area,
-as ε → 0.
+Rectangular pulses p_ε(t) of width 2ε and height 1/(2ε) (always unit area) as ε → 0.
+Textbook: Oppenheim Signals & Systems §1.4 (δ(t) as limit of p_ε(t)).
 
 Modes:
   - construction: Pulse + running integral converging to u(t)
@@ -21,15 +19,11 @@ from .base_simulator import BaseSimulator
 # NumPy 2.0 renamed trapz -> trapezoid
 _trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz
 
-# --- Constants ---
-NUM_SAMPLES = 2000
-T_MIN = -3.0
-T_MAX = 5.0
-
 
 class ImpulseConstructionSimulator(BaseSimulator):
     """Simulator for the unit impulse construction lab."""
 
+    # ── 1. DEFINE ──────────────────────────────────────────────────────
     PARAMETER_SCHEMA = {
         "epsilon": {
             "type": "slider",
@@ -69,6 +63,25 @@ class ImpulseConstructionSimulator(BaseSimulator):
 
     HUB_SLOTS = []
 
+    NUM_SAMPLES = 2000
+    T_MIN = -3.0
+    T_MAX = 5.0
+
+    def __init__(self, simulation_id):
+        super().__init__(simulation_id)
+        # result caches (populated by _compute)
+        self._t = None
+        self._dt = None
+        self._pulse = None
+        self._height = None
+        self._area_numerical = None
+        self._integral = None
+        self._system_output = None
+        # ideal-limit reference curves (populated by _compute)
+        self._ideal_step = None
+        self._ideal_system = None
+
+    # ── 2. LIFECYCLE ───────────────────────────────────────────────────
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
         for name, value in self.parameters.items():
@@ -82,16 +95,14 @@ class ImpulseConstructionSimulator(BaseSimulator):
         self._compute()
         return self.get_state()
 
-    # ------------------------------------------------------------------
-    # Internal computation
-    # ------------------------------------------------------------------
+    # ── 3. MATH ────────────────────────────────────────────────────────
 
     def _compute(self) -> None:
         """Recompute all derived arrays from current parameters."""
         eps = float(self.parameters["epsilon"])
         mode = self.parameters["mode"]
 
-        self._t = np.linspace(T_MIN, T_MAX, NUM_SAMPLES)
+        self._t = np.linspace(self.T_MIN, self.T_MAX, self.NUM_SAMPLES)
         self._dt = self._t[1] - self._t[0]
 
         # Rectangular pulse — always needed
@@ -100,10 +111,14 @@ class ImpulseConstructionSimulator(BaseSimulator):
         self._height = height
         self._area_numerical = float(_trapz(self._pulse, self._t))
 
+        # Ideal-limit reference curves: u(t) and e^(pt)u(t)
+        p = float(self.parameters["system_pole"])
+        self._ideal_step = np.where(self._t >= 0, 1.0, 0.0)
+        self._ideal_system = np.where(self._t >= 0, np.exp(p * self._t), 0.0)
+
         if mode == "construction":
             self._integral = np.cumsum(self._pulse) * self._dt
         elif mode == "system_response":
-            p = float(self.parameters["system_pole"])
             self._system_output = self._analytical_convolution(eps, p)
         # contrast mode has no heavy precompute
 
@@ -131,9 +146,7 @@ class ImpulseConstructionSimulator(BaseSimulator):
 
         return y
 
-    # ------------------------------------------------------------------
-    # Plot builders
-    # ------------------------------------------------------------------
+    # ── 4. PRESENT ─────────────────────────────────────────────────────
 
     def get_plots(self) -> List[Dict[str, Any]]:
         mode = self.parameters["mode"]
@@ -144,38 +157,65 @@ class ImpulseConstructionSimulator(BaseSimulator):
         else:  # contrast
             return [self._build_contrast_pulse_plot(), self._build_contrast_integral_plot()]
 
+    def _limit_trace(self, y_ideal: np.ndarray, name: str) -> Dict[str, Any]:
+        """Dashed-green reference trace for an ideal-limit curve."""
+        return {
+            "x": self._t.tolist(),
+            "y": y_ideal.tolist(),
+            "type": "scatter",
+            "mode": "lines",
+            "name": name,
+            "line": {"color": "#10b981", "width": 2, "dash": "dash"},
+        }
+
+    def _line_plot(
+        self,
+        plot_id: str,
+        title: str,
+        traces: List[Dict[str, Any]],
+        y_range: List[float],
+    ) -> Dict[str, Any]:
+        """Assemble a standard line plot: base layout + fixed y-range."""
+        layout = self._base_layout(plot_id)
+        layout["yaxis"]["range"] = y_range
+        layout["yaxis"]["autorange"] = False
+        return {
+            "id": plot_id,
+            "title": title,
+            "data": traces,
+            "layout": layout,
+        }
+
     # --- Pulse plot (construction & system_response) ---
 
     def _build_pulse_plot(self) -> Dict[str, Any]:
         eps = float(self.parameters["epsilon"])
-        t_list = self._t.tolist()
-        pulse_list = self._pulse.tolist()
 
         traces = [
             {
-                "x": t_list,
-                "y": pulse_list,
+                "x": self._t.tolist(),
+                "y": self._pulse.tolist(),
                 "type": "scatter",
                 "mode": "lines",
-                "name": f"p_\u03b5(t)  \u03b5={eps:.2f}",
+                "name": f"p_ε(t)  ε={eps:.2f}",
                 "line": {"color": "#3b82f6", "width": 2.5},
                 "fill": "tozeroy",
                 "fillcolor": "rgba(59,130,246,0.15)",
             },
         ]
 
-        layout = self._base_layout("pulse_plot")
-        layout["xaxis"]["title"] = {"text": "t (seconds)", "font": {"size": 13}}
-        layout["yaxis"]["title"] = {"text": "Amplitude", "font": {"size": 13}}
-
         # Dynamic y-axis: always show full pulse with 15% headroom
         y_top = self._height * 1.15
-        layout["yaxis"]["range"] = [-y_top * 0.03, y_top]
-        layout["yaxis"]["autorange"] = False
+        plot = self._line_plot(
+            "pulse_plot",
+            f"Rectangular Pulse p_ε(t) — ε = {eps:.3f}",
+            traces,
+            [-y_top * 0.03, y_top],
+        )
 
         # Annotation showing height value for readability
         if self._height > 5:
-            layout["annotations"] = [
+            plot["layout"]["annotations"] = [
                 {
                     "x": 0,
                     "y": self._height,
@@ -187,69 +227,41 @@ class ImpulseConstructionSimulator(BaseSimulator):
                 }
             ]
 
-        return {
-            "id": "pulse_plot",
-            "title": f"Rectangular Pulse p_\u03b5(t) \u2014 \u03b5 = {eps:.3f}",
-            "data": traces,
-            "layout": layout,
-        }
+        return plot
 
     # --- Integral plot (construction mode) ---
 
     def _build_integral_plot(self) -> Dict[str, Any]:
-        t_list = self._t.tolist()
-        integral_list = self._integral.tolist()
-        show_limit = bool(self.parameters["show_limit"])
-
         traces = [
             {
-                "x": t_list,
-                "y": integral_list,
+                "x": self._t.tolist(),
+                "y": self._integral.tolist(),
                 "type": "scatter",
                 "mode": "lines",
-                "name": "\u222bp_\u03b5(\u03c4)d\u03c4",
+                "name": "∫p_ε(τ)dτ",
                 "line": {"color": "#ef4444", "width": 2.5},
             },
         ]
 
-        if show_limit:
-            unit_step = np.where(self._t >= 0, 1.0, 0.0).tolist()
-            traces.append(
-                {
-                    "x": t_list,
-                    "y": unit_step,
-                    "type": "scatter",
-                    "mode": "lines",
-                    "name": "u(t) \u2014 ideal limit",
-                    "line": {"color": "#10b981", "width": 2, "dash": "dash"},
-                }
-            )
+        if bool(self.parameters["show_limit"]):
+            traces.append(self._limit_trace(self._ideal_step, "u(t) — ideal limit"))
 
-        layout = self._base_layout("integral_plot")
-        layout["xaxis"]["title"] = {"text": "t (seconds)", "font": {"size": 13}}
-        layout["yaxis"]["title"] = {"text": "Amplitude", "font": {"size": 13}}
-        layout["yaxis"]["range"] = [-0.15, 1.35]
-        layout["yaxis"]["autorange"] = False
-
-        return {
-            "id": "integral_plot",
-            "title": "Running Integral \u2192 converges to u(t)",
-            "data": traces,
-            "layout": layout,
-        }
+        return self._line_plot(
+            "integral_plot",
+            "Running Integral → converges to u(t)",
+            traces,
+            [-0.15, 1.35],
+        )
 
     # --- System output plot (system_response mode) ---
 
     def _build_system_output_plot(self) -> Dict[str, Any]:
-        t_list = self._t.tolist()
-        output_list = self._system_output.tolist()
         p = float(self.parameters["system_pole"])
-        show_limit = bool(self.parameters["show_limit"])
 
         traces = [
             {
-                "x": t_list,
-                "y": output_list,
+                "x": self._t.tolist(),
+                "y": self._system_output.tolist(),
                 "type": "scatter",
                 "mode": "lines",
                 "name": f"System output (p={p:.1f})",
@@ -257,17 +269,9 @@ class ImpulseConstructionSimulator(BaseSimulator):
             },
         ]
 
-        if show_limit:
-            ideal = np.where(self._t >= 0, np.exp(p * self._t), 0.0).tolist()
+        if bool(self.parameters["show_limit"]):
             traces.append(
-                {
-                    "x": t_list,
-                    "y": ideal,
-                    "type": "scatter",
-                    "mode": "lines",
-                    "name": f"e^({p:.1f}t)u(t) \u2014 ideal limit",
-                    "line": {"color": "#10b981", "width": 2, "dash": "dash"},
-                }
+                self._limit_trace(self._ideal_system, f"e^({p:.1f}t)u(t) — ideal limit")
             )
 
         # Compute dynamic y range from actual data
@@ -276,31 +280,22 @@ class ImpulseConstructionSimulator(BaseSimulator):
         y_min = float(np.min(y_vals)) if len(y_vals) > 0 else 0.0
         pad = max((y_max - y_min) * 0.15, 0.1)
 
-        layout = self._base_layout("system_output")
-        layout["xaxis"]["title"] = {"text": "t (seconds)", "font": {"size": 13}}
-        layout["yaxis"]["title"] = {"text": "Amplitude", "font": {"size": 13}}
-        layout["yaxis"]["range"] = [y_min - pad * 0.3, y_max + pad]
-        layout["yaxis"]["autorange"] = False
-
-        return {
-            "id": "system_output",
-            "title": f"First-Order System Output \u2014 pole p = {p:.1f}",
-            "data": traces,
-            "layout": layout,
-        }
+        return self._line_plot(
+            "system_output",
+            f"First-Order System Output — pole p = {p:.1f}",
+            traces,
+            [y_min - pad * 0.3, y_max + pad],
+        )
 
     # --- Contrast plots ---
 
     def _build_contrast_pulse_plot(self) -> Dict[str, Any]:
         """w(t) = 1 only at t=0, 0 elsewhere — shown as a single marker."""
-        t_list = self._t.tolist()
-        zero_line = np.zeros_like(self._t).tolist()
-
         traces = [
             # Horizontal zero line
             {
-                "x": t_list,
-                "y": zero_line,
+                "x": self._t.tolist(),
+                "y": np.zeros_like(self._t).tolist(),
                 "type": "scatter",
                 "mode": "lines",
                 "name": "w(t) = 0 elsewhere",
@@ -318,65 +313,76 @@ class ImpulseConstructionSimulator(BaseSimulator):
             },
         ]
 
-        layout = self._base_layout("contrast_plot")
-        layout["xaxis"]["title"] = {"text": "t (seconds)", "font": {"size": 13}}
-        layout["yaxis"]["title"] = {"text": "Amplitude", "font": {"size": 13}}
-        layout["yaxis"]["range"] = [-0.15, 1.5]
-        layout["yaxis"]["autorange"] = False
-
-        return {
-            "id": "contrast_plot",
-            "title": "\"Bad\" Building Block: w(t) = 1 at t=0 only",
-            "data": traces,
-            "layout": layout,
-        }
+        return self._line_plot(
+            "contrast_plot",
+            "\"Bad\" Building Block: w(t) = 1 at t=0 only",
+            traces,
+            [-0.15, 1.5],
+        )
 
     def _build_contrast_integral_plot(self) -> Dict[str, Any]:
         """Integral of w(t) is identically zero — contrasted with u(t)."""
-        t_list = self._t.tolist()
-        zero_line = np.zeros_like(self._t).tolist()
-        show_limit = bool(self.parameters["show_limit"])
-
         traces = [
             {
-                "x": t_list,
-                "y": zero_line,
+                "x": self._t.tolist(),
+                "y": np.zeros_like(self._t).tolist(),
                 "type": "scatter",
                 "mode": "lines",
-                "name": "\u222bw(\u03c4)d\u03c4 = 0",
+                "name": "∫w(τ)dτ = 0",
                 "line": {"color": "#ef4444", "width": 2.5},
             },
         ]
 
-        if show_limit:
-            unit_step = np.where(self._t >= 0, 1.0, 0.0).tolist()
-            traces.append(
-                {
-                    "x": t_list,
-                    "y": unit_step,
-                    "type": "scatter",
-                    "mode": "lines",
-                    "name": "u(t) \u2014 what we need",
-                    "line": {"color": "#10b981", "width": 2, "dash": "dash"},
-                }
-            )
+        if bool(self.parameters["show_limit"]):
+            traces.append(self._limit_trace(self._ideal_step, "u(t) — what we need"))
 
-        layout = self._base_layout("contrast_integral")
-        layout["xaxis"]["title"] = {"text": "t (seconds)", "font": {"size": 13}}
-        layout["yaxis"]["title"] = {"text": "Amplitude", "font": {"size": 13}}
-        layout["yaxis"]["range"] = [-0.15, 1.35]
-        layout["yaxis"]["autorange"] = False
+        return self._line_plot(
+            "contrast_integral",
+            "Integral of w(t) — always zero (fails!)",
+            traces,
+            [-0.15, 1.35],
+        )
+
+    def _base_layout(self, plot_id: str) -> Dict[str, Any]:
+        mode = self.parameters["mode"]
+        eps = self.parameters["epsilon"]
+        pole = self.parameters["system_pole"]
+        # datarevision: changes every call → forces Plotly to re-render data
+        data_rev = f"{plot_id}-{mode}-{eps}-{pole}-{time.time()}"
+        # uirevision: changes on mode switch → resets zoom/pan per mode
+        # but stable within a mode so slider drags don't reset zoom
+        ui_rev = f"{plot_id}-{mode}"
 
         return {
-            "id": "contrast_integral",
-            "title": "Integral of w(t) \u2014 always zero (fails!)",
-            "data": traces,
-            "layout": layout,
+            "xaxis": {
+                "title": {"text": "t (seconds)", "font": {"size": 13}},
+                "gridcolor": "rgba(148,163,184,0.1)",
+                "zerolinecolor": "rgba(148,163,184,0.3)",
+                "color": "#94a3b8",
+                "range": [self.T_MIN, self.T_MAX],
+                "autorange": False,
+            },
+            "yaxis": {
+                "title": {"text": "Amplitude", "font": {"size": 13}},
+                "gridcolor": "rgba(148,163,184,0.1)",
+                "zerolinecolor": "rgba(148,163,184,0.3)",
+                "color": "#94a3b8",
+                "autorange": True,
+            },
+            "paper_bgcolor": "rgba(0,0,0,0)",
+            "plot_bgcolor": "rgba(0,0,0,0)",
+            "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
+            "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
+            "showlegend": True,
+            "legend": {
+                "font": {"color": "#94a3b8", "size": 11},
+                "bgcolor": "rgba(0,0,0,0)",
+            },
+            "datarevision": data_rev,
+            "uirevision": ui_rev,
         }
 
-    # ------------------------------------------------------------------
-    # State
-    # ------------------------------------------------------------------
+    # ── 5. STATE ───────────────────────────────────────────────────────
 
     def get_state(self) -> Dict[str, Any]:
         state = super().get_state()
@@ -396,44 +402,3 @@ class ImpulseConstructionSimulator(BaseSimulator):
             else None,
         }
         return state
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
-    def _base_layout(self, plot_id: str) -> Dict[str, Any]:
-        mode = self.parameters["mode"]
-        eps = self.parameters["epsilon"]
-        pole = self.parameters["system_pole"]
-        # datarevision: changes every call → forces Plotly to re-render data
-        data_rev = f"{plot_id}-{mode}-{eps}-{pole}-{time.time()}"
-        # uirevision: changes on mode switch → resets zoom/pan per mode
-        # but stable within a mode so slider drags don't reset zoom
-        ui_rev = f"{plot_id}-{mode}"
-
-        return {
-            "xaxis": {
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "color": "#94a3b8",
-                "range": [T_MIN, T_MAX],
-                "autorange": False,
-            },
-            "yaxis": {
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "color": "#94a3b8",
-                "autorange": True,
-            },
-            "paper_bgcolor": "rgba(0,0,0,0)",
-            "plot_bgcolor": "rgba(0,0,0,0)",
-            "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
-            "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
-            "showlegend": True,
-            "legend": {
-                "font": {"color": "#94a3b8", "size": 11},
-                "bgcolor": "rgba(0,0,0,0)",
-            },
-            "datarevision": data_rev,
-            "uirevision": ui_rev,
-        }

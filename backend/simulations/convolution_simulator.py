@@ -46,13 +46,13 @@ class ConvolutionSimulator(BaseSimulator):
     DISCRETE_RANGE = (-15, 25)
 
     # Colors
-    SIGNAL_X_COLOR = "#3b82f6"   # Blue
-    SIGNAL_H_COLOR = "#10b981"   # Green
-    PRODUCT_COLOR = "#f59e0b"    # Amber
-    RESULT_COLOR = "#ef4444"     # Red
-    MARKER_COLOR = "#8b5cf6"     # Purple
-    FLIP_COLOR = "#a855f7"       # Purple for flip step
-    SHIFT_COLOR = "#f97316"      # Orange for shift step
+    SIGNAL_X_COLOR = "#3b82f6"
+    SIGNAL_H_COLOR = "#10b981"
+    PRODUCT_COLOR = "#f59e0b"
+    RESULT_COLOR = "#ef4444"
+    MARKER_COLOR = "#8b5cf6"
+    FLIP_COLOR = "#a855f7"
+    SHIFT_COLOR = "#f97316"
 
     # Demo presets
     DEMO_PRESETS = {
@@ -344,7 +344,6 @@ class ConvolutionSimulator(BaseSimulator):
         speed = self.parameters.get("animation_speed", 1.0)
         mode = self.parameters["mode"]
 
-        # Determine step size based on mode and speed
         if mode == "discrete":
             step = 1 * speed
         else:
@@ -353,7 +352,6 @@ class ConvolutionSimulator(BaseSimulator):
         current_t = self.parameters["time_shift"]
         new_t = current_t + step
 
-        # Wrap around at boundaries
         max_t = self.PARAMETER_SCHEMA["time_shift"]["max"]
         min_t = self.PARAMETER_SCHEMA["time_shift"]["min"]
 
@@ -559,35 +557,23 @@ class ConvolutionSimulator(BaseSimulator):
         x_seq, x_start = self._parser.parse_discrete_sequence(x_expr, n)
         h_seq, h_start = self._parser.parse_discrete_sequence(h_expr, n)
 
-        # Create full arrays on the grid
-        self._x_t = np.zeros(len(n), dtype=float)
-        self._h_original = np.zeros(len(n), dtype=float)
+        n_len = len(n)
+        n_first = int(n[0])
+        x_seq = np.asarray(x_seq, dtype=float)
+        h_seq = np.asarray(h_seq, dtype=float)
+        x_i = np.arange(len(x_seq))
+        h_i = np.arange(len(h_seq))
 
-        # Place x sequence
-        for i, val in enumerate(x_seq):
-            idx = x_start + i - int(n[0])
-            if 0 <= idx < len(n):
-                self._x_t[idx] = val
+        def _place(values: np.ndarray, indices: np.ndarray) -> np.ndarray:
+            arr = np.zeros(n_len, dtype=float)
+            mask = (indices >= 0) & (indices < n_len)
+            arr[indices[mask]] = values[mask]
+            return arr
 
-        # Place h sequence (original)
-        for i, val in enumerate(h_seq):
-            idx = h_start + i - int(n[0])
-            if 0 <= idx < len(n):
-                self._h_original[idx] = val
-
-        # Compute h[-k] - flipped
-        self._h_flipped = np.zeros(len(n), dtype=float)
-        for i, val in enumerate(h_seq):
-            idx = -(h_start + i) - int(n[0])
-            if 0 <= idx < len(n):
-                self._h_flipped[idx] = val
-
-        # Compute h[n₀ - k] - flipped and shifted
-        self._h_shifted = np.zeros(len(n), dtype=float)
-        for i, val in enumerate(h_seq):
-            idx = n0 - (h_start + i) - int(n[0])
-            if 0 <= idx < len(n):
-                self._h_shifted[idx] = val
+        self._x_t = _place(x_seq, x_start + x_i - n_first)
+        self._h_original = _place(h_seq, h_start + h_i - n_first)
+        self._h_flipped = _place(h_seq, -(h_start + h_i) - n_first)
+        self._h_shifted = _place(h_seq, n0 - (h_start + h_i) - n_first)
 
         # Compute product x[k] * h[n₀ - k]
         self._product = self._x_t * self._h_shifted
@@ -663,18 +649,39 @@ class ConvolutionSimulator(BaseSimulator):
 
     def _get_block_step_plots(self) -> List[Dict[str, Any]]:
         """Generate block-step decomposition visualization."""
-        mode = self.parameters["mode"]
-        t0 = self.parameters["time_shift"]
-        is_discrete = mode == "discrete"
-
-        plots = [
+        return [
             self._create_original_signals_plot(),
             self._create_flip_plot(),
             self._create_shift_plot(),
             self._create_multiply_plot(),
             self._create_integrate_plot(),
         ]
-        return plots
+
+    @staticmethod
+    def _stem_traces(x_vals: List[float], y_vals: List[float], color: str,
+                     name: str, line_name: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Build stem-plot line + marker traces for a discrete sequence."""
+        stem_x, stem_y = [], []
+        for xi, yi in zip(x_vals, y_vals):
+            stem_x.extend([xi, xi, None])
+            stem_y.extend([0, yi, None])
+        line_trace = {
+            "x": stem_x, "y": stem_y,
+            "type": "scatter", "mode": "lines",
+            "line": {"color": color, "width": 1.5},
+            "showlegend": False,
+        }
+        if line_name is not None:
+            line_trace["name"] = line_name
+        return [
+            line_trace,
+            {
+                "x": x_vals, "y": y_vals,
+                "type": "scatter", "mode": "markers",
+                "name": name,
+                "marker": {"size": 8, "color": color},
+            },
+        ]
 
     def _create_signal_x_plot(self) -> Dict[str, Any]:
         """Create plot for input signal x(τ)."""
@@ -688,25 +695,10 @@ class ConvolutionSimulator(BaseSimulator):
         data_traces = []
 
         if is_discrete:
-            # Create stem plot for discrete
-            x_vals = self._tau.tolist()
-            y_vals = self._x_t.tolist()
-            stem_x, stem_y = [], []
-            for xi, yi in zip(x_vals, y_vals):
-                stem_x.extend([xi, xi, None])
-                stem_y.extend([0, yi, None])
-            data_traces.append({
-                "x": stem_x, "y": stem_y,
-                "type": "scatter", "mode": "lines",
-                "line": {"color": self.SIGNAL_X_COLOR, "width": 1.5},
-                "showlegend": False,
-            })
-            data_traces.append({
-                "x": x_vals, "y": y_vals,
-                "type": "scatter", "mode": "markers",
-                "name": "x[k]",
-                "marker": {"size": 8, "color": self.SIGNAL_X_COLOR},
-            })
+            data_traces.extend(self._stem_traces(
+                self._tau.tolist(), self._x_t.tolist(),
+                self.SIGNAL_X_COLOR, "x[k]"
+            ))
         else:
             data_traces.append({
                 "x": self._tau.tolist(),
@@ -720,10 +712,7 @@ class ConvolutionSimulator(BaseSimulator):
             "id": "signal_x",
             "title": title,
             "data": data_traces,
-            "layout": self._get_standard_layout(
-                "τ" if not is_discrete else "k",
-                [-0.5, 1.5]
-            ),
+            "layout": self._get_standard_layout("τ" if not is_discrete else "k"),
         }
 
     def _create_signal_h_plot(self) -> Dict[str, Any]:
@@ -743,25 +732,10 @@ class ConvolutionSimulator(BaseSimulator):
         data_traces = []
 
         if is_discrete:
-            # Create stem plot for discrete
-            x_vals = self._tau.tolist()
-            y_vals = self._h_shifted.tolist()
-            stem_x, stem_y = [], []
-            for xi, yi in zip(x_vals, y_vals):
-                stem_x.extend([xi, xi, None])
-                stem_y.extend([0, yi, None])
-            data_traces.append({
-                "x": stem_x, "y": stem_y,
-                "type": "scatter", "mode": "lines",
-                "line": {"color": self.SIGNAL_H_COLOR, "width": 1.5},
-                "showlegend": False,
-            })
-            data_traces.append({
-                "x": x_vals, "y": y_vals,
-                "type": "scatter", "mode": "markers",
-                "name": "h[n₀-k]",
-                "marker": {"size": 8, "color": self.SIGNAL_H_COLOR},
-            })
+            data_traces.extend(self._stem_traces(
+                self._tau.tolist(), self._h_shifted.tolist(),
+                self.SIGNAL_H_COLOR, "h[n₀-k]"
+            ))
         else:
             data_traces.append({
                 "x": self._tau.tolist(),
@@ -775,10 +749,7 @@ class ConvolutionSimulator(BaseSimulator):
             "id": "signal_h",
             "title": title,
             "data": data_traces,
-            "layout": self._get_standard_layout(
-                "τ" if not is_discrete else "k",
-                [-0.5, 1.5]
-            ),
+            "layout": self._get_standard_layout("τ" if not is_discrete else "k"),
         }
 
     def _create_product_plot(self) -> Dict[str, Any]:
@@ -792,25 +763,10 @@ class ConvolutionSimulator(BaseSimulator):
         data_traces = []
 
         if is_discrete:
-            # Create stem plot for discrete
-            x_vals = self._tau.tolist()
-            y_vals = self._product.tolist()
-            stem_x, stem_y = [], []
-            for xi, yi in zip(x_vals, y_vals):
-                stem_x.extend([xi, xi, None])
-                stem_y.extend([0, yi, None])
-            data_traces.append({
-                "x": stem_x, "y": stem_y,
-                "type": "scatter", "mode": "lines",
-                "line": {"color": self.PRODUCT_COLOR, "width": 1.5},
-                "showlegend": False,
-            })
-            data_traces.append({
-                "x": x_vals, "y": y_vals,
-                "type": "scatter", "mode": "markers",
-                "name": "x·h",
-                "marker": {"size": 8, "color": self.PRODUCT_COLOR},
-            })
+            data_traces.extend(self._stem_traces(
+                self._tau.tolist(), self._product.tolist(),
+                self.PRODUCT_COLOR, "x·h"
+            ))
         else:
             data_traces.append({
                 "x": self._tau.tolist(),
@@ -826,10 +782,7 @@ class ConvolutionSimulator(BaseSimulator):
             "id": "product",
             "title": title,
             "data": data_traces,
-            "layout": self._get_standard_layout(
-                "τ" if not is_discrete else "k",
-                None
-            ),
+            "layout": self._get_standard_layout("τ" if not is_discrete else "k"),
         }
 
     def _create_result_plot(self) -> Dict[str, Any]:
@@ -841,38 +794,12 @@ class ConvolutionSimulator(BaseSimulator):
         data_traces = []
 
         if is_discrete:
-            # Create stem plot for discrete: vertical lines + markers
             x_vals = self._t_result.tolist() if self._t_result is not None else []
             y_vals = self._y_result.tolist() if self._y_result is not None else []
-
-            # Create stem lines (vertical lines from 0 to each point)
-            stem_x = []
-            stem_y = []
-            for xi, yi in zip(x_vals, y_vals):
-                stem_x.extend([xi, xi, None])
-                stem_y.extend([0, yi, None])
-
-            # Stem lines
-            data_traces.append({
-                "x": stem_x,
-                "y": stem_y,
-                "type": "scatter",
-                "mode": "lines",
-                "name": "",
-                "line": {"color": self.RESULT_COLOR, "width": 1.5},
-                "showlegend": False,
-            })
-            # Stem markers (points at top)
-            data_traces.append({
-                "x": x_vals,
-                "y": y_vals,
-                "type": "scatter",
-                "mode": "markers",
-                "name": "y[n]",
-                "marker": {"size": 8, "color": self.RESULT_COLOR},
-            })
+            data_traces.extend(self._stem_traces(
+                x_vals, y_vals, self.RESULT_COLOR, "y[n]", line_name=""
+            ))
         else:
-            # Continuous: regular line plot
             data_traces.append({
                 "x": self._t_result.tolist() if self._t_result is not None else [],
                 "y": self._y_result.tolist() if self._y_result is not None else [],
@@ -898,7 +825,7 @@ class ConvolutionSimulator(BaseSimulator):
             "title": "Convolution Result y = x * h",
             "data": data_traces,
             "layout": {
-                **self._get_standard_layout("t" if not is_discrete else "n", None),
+                **self._get_standard_layout("t" if not is_discrete else "n"),
                 "legend": {
                     "orientation": "h",
                     "yanchor": "bottom",
@@ -940,7 +867,7 @@ class ConvolutionSimulator(BaseSimulator):
                 },
             ],
             "layout": {
-                **self._get_standard_layout("τ", [-0.5, 1.5]),
+                **self._get_standard_layout("τ"),
                 "legend": {"orientation": "h", "y": 1.1},
             },
         }
@@ -965,7 +892,7 @@ class ConvolutionSimulator(BaseSimulator):
                     "marker": {"size": 6, "color": self.FLIP_COLOR},
                 },
             ],
-            "layout": self._get_standard_layout("τ", [-0.5, 1.5]),
+            "layout": self._get_standard_layout("τ"),
         }
 
     def _create_shift_plot(self) -> Dict[str, Any]:
@@ -994,7 +921,7 @@ class ConvolutionSimulator(BaseSimulator):
                     "marker": {"size": 6, "color": self.SHIFT_COLOR},
                 },
             ],
-            "layout": self._get_standard_layout("τ", [-0.5, 1.5]),
+            "layout": self._get_standard_layout("τ"),
         }
 
     def _create_multiply_plot(self) -> Dict[str, Any]:
@@ -1020,7 +947,7 @@ class ConvolutionSimulator(BaseSimulator):
                     **fill_opts,
                 },
             ],
-            "layout": self._get_standard_layout("τ", None),
+            "layout": self._get_standard_layout("τ"),
         }
 
     def _create_integrate_plot(self) -> Dict[str, Any]:
@@ -1060,12 +987,12 @@ class ConvolutionSimulator(BaseSimulator):
                 },
             ],
             "layout": {
-                **self._get_standard_layout("t" if not is_discrete else "n", None),
+                **self._get_standard_layout("t" if not is_discrete else "n"),
                 "legend": {"orientation": "h", "y": 1.1},
             },
         }
 
-    def _get_standard_layout(self, x_label: str, y_range: Optional[List[float]] = None, auto_y: bool = True) -> Dict[str, Any]:
+    def _get_standard_layout(self, x_label: str) -> Dict[str, Any]:
         """Get standard plot layout with autorange support."""
         mode = self.parameters["mode"]
         is_discrete = mode == "discrete"
@@ -1094,11 +1021,6 @@ class ConvolutionSimulator(BaseSimulator):
             "paper_bgcolor": "rgba(0,0,0,0)",
             "uirevision": "constant",
         }
-
-        # Only use fixed y_range if explicitly provided and not using auto
-        if y_range and not auto_y:
-            layout["yaxis"]["range"] = y_range
-            layout["yaxis"]["autorange"] = False
 
         return layout
 

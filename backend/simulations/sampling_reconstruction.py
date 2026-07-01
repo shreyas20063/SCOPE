@@ -129,9 +129,9 @@ class SamplingReconstructionSimulator(BaseSimulator):
             "plots": plots,
             "metadata": {
                 "simulation_type": "sampling_reconstruction",
-            "hub_slots": self.HUB_SLOTS,
-            "hub_domain": self.HUB_DOMAIN,
-            "hub_dimensions": self.HUB_DIMENSIONS,
+                "hub_slots": self.HUB_SLOTS,
+                "hub_domain": self.HUB_DOMAIN,
+                "hub_dimensions": self.HUB_DIMENSIONS,
                 "sampling_info": {
                     "sampling_frequency": round(fs, 2),
                     "sampling_interval": round(1.0 / fs, 4),
@@ -402,6 +402,27 @@ class SamplingReconstructionSimulator(BaseSimulator):
             "font": {"color": "#e2e8f0", "family": "Inter, sans-serif", "size": 12},
         }
 
+    def _time_axis_layout(self, ytitle: str, t_window: float) -> Dict[str, Any]:
+        """Shared layout for the time-domain plots (sampling/reconstruction/error)."""
+        return {
+            **self._get_base_layout(),
+            "xaxis": {
+                "title": "Time (s)",
+                "showgrid": True,
+                "gridcolor": "rgba(148,163,184,0.1)",
+                "zerolinecolor": "rgba(148,163,184,0.3)",
+                "range": [0, t_window],
+            },
+            "yaxis": {
+                "title": ytitle,
+                "showgrid": True,
+                "gridcolor": "rgba(148,163,184,0.1)",
+                "zerolinecolor": "rgba(148,163,184,0.3)",
+            },
+            "legend": {"orientation": "h", "y": 1.12, "x": 0.5, "xanchor": "center"},
+            "showlegend": True,
+        }
+
     def _create_sampling_plot(self) -> Dict[str, Any]:
         fs = self.parameters["sampling_frequency"]
         t_cont = self._t_continuous.tolist()
@@ -446,24 +467,7 @@ class SamplingReconstructionSimulator(BaseSimulator):
         ]
 
         t_window = self.parameters["time_window"]
-        layout = {
-            **self._get_base_layout(),
-            "xaxis": {
-                "title": "Time (s)",
-                "showgrid": True,
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "range": [0, t_window],
-            },
-            "yaxis": {
-                "title": "Amplitude",
-                "showgrid": True,
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-            },
-            "legend": {"orientation": "h", "y": 1.12, "x": 0.5, "xanchor": "center"},
-            "showlegend": True,
-        }
+        layout = self._time_axis_layout("Amplitude", t_window)
 
         return {"id": "sampling", "title": "Sampling", "data": data, "layout": layout}
 
@@ -471,7 +475,7 @@ class SamplingReconstructionSimulator(BaseSimulator):
         """Frequency domain: original spectrum + spectral copies from sampling."""
         fs = float(self.parameters["sampling_frequency"])
         fmax = self._max_signal_freq
-        nyquist = fs / 2.0
+        nyquist = self._nyquist_freq
         is_safe = self._is_above_nyquist
 
         freq_list = self._freq_display.tolist()
@@ -607,58 +611,10 @@ class SamplingReconstructionSimulator(BaseSimulator):
                 "opacity": 0.4,
             })
 
-        if self.parameters["show_zoh"]:
-            q = self._quality_label(self._mse_zoh)
-            data.append({
-                "x": t_cont,
-                "y": self._x_zoh.tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": f"ZOH \u2014 {q}",
-                "line": {"color": "#f59e0b", "width": 2},
-            })
-
-        if self.parameters["show_linear"]:
-            q = self._quality_label(self._mse_linear)
-            data.append({
-                "x": t_cont,
-                "y": self._x_linear.tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": f"Linear \u2014 {q}",
-                "line": {"color": "#10b981", "width": 2},
-            })
-
-        if self.parameters["show_sinc"]:
-            q = self._quality_label(self._mse_sinc)
-            data.append({
-                "x": t_cont,
-                "y": self._x_sinc.tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": f"Sinc \u2014 {q}",
-                "line": {"color": "#8b5cf6", "width": 2},
-            })
+        data.extend(self._reconstruction_traces(t_cont, error=False))
 
         t_window = self.parameters["time_window"]
-        layout = {
-            **self._get_base_layout(),
-            "xaxis": {
-                "title": "Time (s)",
-                "showgrid": True,
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "range": [0, t_window],
-            },
-            "yaxis": {
-                "title": "Amplitude",
-                "showgrid": True,
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-            },
-            "legend": {"orientation": "h", "y": 1.12, "x": 0.5, "xanchor": "center"},
-            "showlegend": True,
-        }
+        layout = self._time_axis_layout("Amplitude", t_window)
 
         return {
             "id": "reconstruction",
@@ -669,60 +625,10 @@ class SamplingReconstructionSimulator(BaseSimulator):
 
     def _create_error_plot(self) -> Dict[str, Any]:
         t_cont = self._t_continuous.tolist()
-        data: List[Dict[str, Any]] = []
-
-        if self.parameters["show_zoh"]:
-            err = (self._x_continuous - self._x_zoh).tolist()
-            data.append({
-                "x": t_cont,
-                "y": err,
-                "type": "scatter",
-                "mode": "lines",
-                "name": "ZOH Error",
-                "line": {"color": "#f59e0b", "width": 1.5},
-            })
-
-        if self.parameters["show_linear"]:
-            err = (self._x_continuous - self._x_linear).tolist()
-            data.append({
-                "x": t_cont,
-                "y": err,
-                "type": "scatter",
-                "mode": "lines",
-                "name": "Linear Error",
-                "line": {"color": "#10b981", "width": 1.5},
-            })
-
-        if self.parameters["show_sinc"]:
-            err = (self._x_continuous - self._x_sinc).tolist()
-            data.append({
-                "x": t_cont,
-                "y": err,
-                "type": "scatter",
-                "mode": "lines",
-                "name": "Sinc Error",
-                "line": {"color": "#8b5cf6", "width": 1.5},
-            })
+        data: List[Dict[str, Any]] = self._reconstruction_traces(t_cont, error=True)
 
         t_window = self.parameters["time_window"]
-        layout = {
-            **self._get_base_layout(),
-            "xaxis": {
-                "title": "Time (s)",
-                "showgrid": True,
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "range": [0, t_window],
-            },
-            "yaxis": {
-                "title": "Error",
-                "showgrid": True,
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-            },
-            "legend": {"orientation": "h", "y": 1.12, "x": 0.5, "xanchor": "center"},
-            "showlegend": True,
-        }
+        layout = self._time_axis_layout("Error", t_window)
 
         return {
             "id": "error",
@@ -730,3 +636,37 @@ class SamplingReconstructionSimulator(BaseSimulator):
             "data": data,
             "layout": layout,
         }
+
+    # Per-method reconstruction traces: (show-flag, recon array, mse, color, label).
+    # Reconstruction plot draws the array with a quality-annotated name; the error
+    # plot draws (original - array) with an "<label> Error" name. Same gating/colors.
+    _RECON_METHODS = (
+        ("show_zoh", "_x_zoh", "_mse_zoh", "#f59e0b", "ZOH"),
+        ("show_linear", "_x_linear", "_mse_linear", "#10b981", "Linear"),
+        ("show_sinc", "_x_sinc", "_mse_sinc", "#8b5cf6", "Sinc"),
+    )
+
+    def _reconstruction_traces(self, t_cont: List, error: bool) -> List[Dict[str, Any]]:
+        traces: List[Dict[str, Any]] = []
+        for flag, arr_attr, mse_attr, color, label in self._RECON_METHODS:
+            if not self.parameters[flag]:
+                continue
+            arr = getattr(self, arr_attr)
+            if error:
+                y = (self._x_continuous - arr).tolist()
+                name = f"{label} Error"
+                width = 1.5
+            else:
+                q = self._quality_label(getattr(self, mse_attr))
+                y = arr.tolist()
+                name = f"{label} \u2014 {q}"
+                width = 2
+            traces.append({
+                "x": t_cont,
+                "y": y,
+                "type": "scatter",
+                "mode": "lines",
+                "name": name,
+                "line": {"color": color, "width": width},
+            })
+        return traces

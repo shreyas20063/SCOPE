@@ -96,9 +96,15 @@ class SecondOrderSystemSimulator(BaseSimulator):
         self._zeta = 0.0
         self._bandwidth = 0.0
         self._resonant_freq = None
+        self._is_underdamped = False
+        self._peak_db = None
         self._omega = None
         self._magnitude_db = None
         self._phase_deg = None
+
+    # =========================================================================
+    # LIFECYCLE — thin, uniform: merge/validate → _compute → get_state
+    # =========================================================================
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         """Initialize simulation with parameters."""
@@ -124,6 +130,10 @@ class SecondOrderSystemSimulator(BaseSimulator):
         self._compute()
         return self.get_state()
 
+    # =========================================================================
+    # MATH — the ONLY place physics lives
+    # =========================================================================
+
     def _compute(self) -> None:
         """Compute poles, damping classification, and Bode frequency response.
 
@@ -143,16 +153,14 @@ class SecondOrderSystemSimulator(BaseSimulator):
         # Compute frequency response
         self._compute_frequency_response(omega_0, Q)
 
-    # =========================================================================
-    # Math functions (extracted from rlc_circuit/core/rlc_system.py)
-    # =========================================================================
-
     def _analyze_system(self, omega_0: float, Q: float) -> None:
         """Calculate poles, damping details, and derived metrics."""
         zeta = 1.0 / (2.0 * Q)
         self._zeta = zeta
 
-        if Q > 0.5:
+        self._is_underdamped = Q > 0.5
+
+        if self._is_underdamped:
             # Underdamped - complex conjugate poles
             real_part = -omega_0 * zeta
             imag_part = omega_0 * np.sqrt(max(0.0, 1.0 - zeta**2))
@@ -174,10 +182,12 @@ class SecondOrderSystemSimulator(BaseSimulator):
             self._poles = np.array([s1, s2])
             self._damping_type = "Overdamped (Real Distinct Poles)"
 
-        # Resonant frequency (only exists for Q > 0.707)
+        # Resonant frequency and peak (only exist for Q > 0.707)
         self._resonant_freq = None
+        self._peak_db = None
         if Q > 0.707:
             self._resonant_freq = omega_0 * np.sqrt(1.0 - 1.0 / (2.0 * Q**2))
+            self._peak_db = 20 * np.log10(Q / np.sqrt(1.0 - 1.0 / (2.0 * Q)**2))
 
         # Bandwidth
         self._bandwidth = omega_0 / Q
@@ -201,7 +211,7 @@ class SecondOrderSystemSimulator(BaseSimulator):
         self._phase_deg = np.angle(response, deg=True)
 
     # =========================================================================
-    # Plot generation
+    # PRESENT — Plotly dicts only; never compute here
     # =========================================================================
 
     def get_plots(self) -> List[Dict[str, Any]]:
@@ -216,72 +226,33 @@ class SecondOrderSystemSimulator(BaseSimulator):
         ]
         return plots
 
-    def to_hub_data(self):
-        """Export second-order TF: omega_0^2 / (s^2 + omega_0/Q * s + omega_0^2)."""
-        omega_0 = float(self.parameters.get("omega_0", 10.0))
-        Q = self._slider_to_Q(float(self.parameters.get("Q_slider", 50)))
-        w2 = omega_0 ** 2
-        return {
-            "source": "tf",
-            "domain": self.HUB_DOMAIN,
-            "dimensions": self.HUB_DIMENSIONS,
-            "tf": {
-                "num": [w2],
-                "den": [1.0, omega_0 / Q, w2],
-                "variable": "s",
-            },
-        }
+    @staticmethod
+    def _base_layout(xaxis: Dict[str, Any], yaxis: Dict[str, Any],
+                     uirevision: str) -> Dict[str, Any]:
+        """Assemble a Plotly layout from per-plot axes plus shared chrome.
 
-    def from_hub_data(self, hub_data):
-        """Producer-only: parameterized by omega_0 and Q.
-
-        An arbitrary input TF cannot be reduced to these two parameters
-        unless it is exactly second-order with zero numerator dynamics,
-        and even then there are sign ambiguities. Producer only — returns
-        False so the frontend doesn't show a misleading hub-sync badge.
+        The legend, margin, and transparent backgrounds are identical across
+        all three plots; only the axes and uirevision differ.
         """
-        return False
-
-    def get_state(self) -> Dict[str, Any]:
-        """Return current simulation state with system info metadata."""
-        base_state = super().get_state()
-
-        omega_0 = self.parameters["omega_0"]
-        Q = self._slider_to_Q(self.parameters["Q_slider"])
-
-        # Format pole information
-        if np.iscomplex(self._poles[0]):
-            pole_str = f"s = {self._poles[0].real:.2f} ± {abs(self._poles[0].imag):.2f}j"
-            pole_magnitude = round(abs(self._poles[0]), 2)
-        else:
-            pole_str = f"s₁ = {self._poles[0]:.2f}, s₂ = {self._poles[1]:.2f}"
-            pole_magnitude = None
-
-        # Add metadata with system info
-        base_state["metadata"] = {
-            "simulation_type": "second_order_system",
-            "hub_slots": self.HUB_SLOTS,
-            "hub_domain": self.HUB_DOMAIN,
-            "hub_dimensions": self.HUB_DIMENSIONS,
-            "sticky_controls": True,  # Keep control panel fixed when scrolling
-            "system_info": {
-                "omega_0": round(omega_0, 2),
-                "Q": round(Q, 3),
-                "zeta": round(self._zeta, 4),
-                "damping_type": self._damping_type,
-                "poles": pole_str,
-                "pole_magnitude": pole_magnitude,
-                "bandwidth": round(self._bandwidth, 2),
-                "resonant_freq": round(self._resonant_freq, 2) if self._resonant_freq else None,
+        return {
+            "xaxis": xaxis,
+            "yaxis": yaxis,
+            "legend": {
+                "orientation": "v",
+                "yanchor": "bottom",
+                "y": 0.02,
+                "xanchor": "left",
+                "x": 0.02,
+                "bgcolor": "rgba(15, 23, 42, 0.8)",
+                "bordercolor": "rgba(148, 163, 184, 0.2)",
+                "borderwidth": 1,
+                "font": {"size": 11},
             },
-            "current_params": {
-                "omega_0": omega_0,
-                "Q": Q,
-                "Q_slider": self.parameters["Q_slider"],
-            },
+            "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
+            "plot_bgcolor": "rgba(0,0,0,0)",
+            "paper_bgcolor": "rgba(0,0,0,0)",
+            "uirevision": uirevision,
         }
-
-        return base_state
 
     def _create_pole_zero_plot(self) -> Dict[str, Any]:
         """Create pole-zero map in S-plane with auto-adjusting axes."""
@@ -292,8 +263,8 @@ class SecondOrderSystemSimulator(BaseSimulator):
         damping_label = "Underdamped" if Q > 0.5 else ("Critical" if abs(Q - 0.5) < 0.01 else "Overdamped")
 
         # Default fixed axis limits
-        default_xlim = [-600, 50]
-        default_ylim = [-120, 120]
+        default_xlim = self.POLE_ZERO_X_RANGE
+        default_ylim = self.POLE_ZERO_Y_RANGE
 
         # Calculate actual pole bounds for auto-adjusting
         pole_x_values = []
@@ -350,7 +321,7 @@ class SecondOrderSystemSimulator(BaseSimulator):
         })
 
         # Add ωn circle only when complex poles exist (underdamped)
-        has_complex_poles = len(self._poles) > 0 and np.iscomplex(self._poles[0])
+        has_complex_poles = len(self._poles) > 0 and self._is_underdamped
         if has_complex_poles:
             omega_n = np.abs(self._poles[0])
             theta = np.linspace(0, 2 * np.pi, 100)
@@ -406,8 +377,8 @@ class SecondOrderSystemSimulator(BaseSimulator):
             "id": "pole_zero",
             "title": f"Pole-Zero Map (S-Plane) | Q = {Q:.2f} ({damping_label})",
             "data": traces,
-            "layout": {
-                "xaxis": {
+            "layout": self._base_layout(
+                xaxis={
                     "title": "Real (σ)",
                     "showgrid": True,
                     "gridcolor": "rgba(148, 163, 184, 0.2)",
@@ -417,7 +388,7 @@ class SecondOrderSystemSimulator(BaseSimulator):
                     "range": xlim,
                     "fixedrange": False,
                 },
-                "yaxis": {
+                yaxis={
                     "title": "Imaginary (ω)",
                     "showgrid": True,
                     "gridcolor": "rgba(148, 163, 184, 0.2)",
@@ -429,22 +400,8 @@ class SecondOrderSystemSimulator(BaseSimulator):
                     "scaleratio": 1,
                     "fixedrange": False,
                 },
-                "legend": {
-                    "orientation": "v",
-                    "yanchor": "bottom",
-                    "y": 0.02,
-                    "xanchor": "left",
-                    "x": 0.02,
-                    "bgcolor": "rgba(15, 23, 42, 0.8)",
-                    "bordercolor": "rgba(148, 163, 184, 0.2)",
-                    "borderwidth": 1,
-                    "font": {"size": 11},
-                },
-                "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "constant",
-            },
+                uirevision="constant",
+            ),
         }
 
     def _create_bode_magnitude_plot(self) -> Dict[str, Any]:
@@ -453,7 +410,7 @@ class SecondOrderSystemSimulator(BaseSimulator):
         Q = self._slider_to_Q(self.parameters["Q_slider"])
 
         # Default y-axis limits
-        default_ylim = [-80, 40]
+        default_ylim = self.BODE_MAG_Y_RANGE
 
         # Auto-adjust if magnitude exceeds bounds
         mag_max = float(np.max(self._magnitude_db))
@@ -498,11 +455,10 @@ class SecondOrderSystemSimulator(BaseSimulator):
         })
 
         # Add -3dB bandwidth line if resonant
-        if Q > 0.707:
-            peak_db = 20 * np.log10(Q / np.sqrt(1.0 - 1.0 / (2.0 * Q)**2))
+        if self._peak_db is not None:
             data.append({
                 "x": [self.BODE_MAG_X_RANGE[0], self.BODE_MAG_X_RANGE[1]],
-                "y": [peak_db - 3.0, peak_db - 3.0],
+                "y": [self._peak_db - 3.0, self._peak_db - 3.0],
                 "type": "scatter",
                 "mode": "lines",
                 "name": "-3dB Bandwidth",
@@ -513,8 +469,8 @@ class SecondOrderSystemSimulator(BaseSimulator):
             "id": "bode_magnitude",
             "title": f"Bode Plot - Magnitude | ω₀ = {omega_0:.1f} rad/s, Q = {Q:.2f}",
             "data": data,
-            "layout": {
-                "xaxis": {
+            "layout": self._base_layout(
+                xaxis={
                     "title": "Frequency (rad/s)",
                     "type": "log",
                     "showgrid": True,
@@ -522,7 +478,7 @@ class SecondOrderSystemSimulator(BaseSimulator):
                     "range": [np.log10(self.BODE_MAG_X_RANGE[0]), np.log10(self.BODE_MAG_X_RANGE[1])],
                     "fixedrange": False,
                 },
-                "yaxis": {
+                yaxis={
                     "title": "Magnitude (dB)",
                     "showgrid": True,
                     "gridcolor": "rgba(148, 163, 184, 0.2)",
@@ -531,22 +487,8 @@ class SecondOrderSystemSimulator(BaseSimulator):
                     "range": ylim,
                     "fixedrange": False,
                 },
-                "legend": {
-                    "orientation": "v",
-                    "yanchor": "bottom",
-                    "y": 0.02,
-                    "xanchor": "left",
-                    "x": 0.02,
-                    "bgcolor": "rgba(15, 23, 42, 0.8)",
-                    "bordercolor": "rgba(148, 163, 184, 0.2)",
-                    "borderwidth": 1,
-                    "font": {"size": 11},
-                },
-                "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "bode_mag",
-            },
+                uirevision="bode_mag",
+            ),
         }
 
     def _create_bode_phase_plot(self) -> Dict[str, Any]:
@@ -598,8 +540,8 @@ class SecondOrderSystemSimulator(BaseSimulator):
             "id": "bode_phase",
             "title": f"Bode Plot - Phase | ω₀ = {omega_0:.1f} rad/s, Q = {Q:.2f}",
             "data": data,
-            "layout": {
-                "xaxis": {
+            "layout": self._base_layout(
+                xaxis={
                     "title": "Frequency (rad/s)",
                     "type": "log",
                     "showgrid": True,
@@ -607,7 +549,7 @@ class SecondOrderSystemSimulator(BaseSimulator):
                     "range": [np.log10(self.BODE_MAG_X_RANGE[0]), np.log10(self.BODE_MAG_X_RANGE[1])],
                     "fixedrange": False,
                 },
-                "yaxis": {
+                yaxis={
                     "title": "Phase (degrees)",
                     "showgrid": True,
                     "gridcolor": "rgba(148, 163, 184, 0.2)",
@@ -616,20 +558,77 @@ class SecondOrderSystemSimulator(BaseSimulator):
                     "range": self.BODE_PHASE_Y_RANGE,
                     "fixedrange": False,
                 },
-                "legend": {
-                    "orientation": "v",
-                    "yanchor": "bottom",
-                    "y": 0.02,
-                    "xanchor": "left",
-                    "x": 0.02,
-                    "bgcolor": "rgba(15, 23, 42, 0.8)",
-                    "bordercolor": "rgba(148, 163, 184, 0.2)",
-                    "borderwidth": 1,
-                    "font": {"size": 11},
-                },
-                "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "bode_phase",
+                uirevision="bode_phase",
+            ),
+        }
+
+    # =========================================================================
+    # STATE — contract + metadata (simulation_type REQUIRED), hub exports
+    # =========================================================================
+
+    def get_state(self) -> Dict[str, Any]:
+        """Return current simulation state with system info metadata."""
+        base_state = super().get_state()
+
+        omega_0 = self.parameters["omega_0"]
+        Q = self._slider_to_Q(self.parameters["Q_slider"])
+
+        # Format pole information
+        if self._is_underdamped:
+            pole_str = f"s = {self._poles[0].real:.2f} ± {abs(self._poles[0].imag):.2f}j"
+            pole_magnitude = round(abs(self._poles[0]), 2)
+        else:
+            pole_str = f"s₁ = {self._poles[0]:.2f}, s₂ = {self._poles[1]:.2f}"
+            pole_magnitude = None
+
+        # Add metadata with system info
+        base_state["metadata"] = {
+            "simulation_type": "second_order_system",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
+            "sticky_controls": True,  # Keep control panel fixed when scrolling
+            "system_info": {
+                "omega_0": round(omega_0, 2),
+                "Q": round(Q, 3),
+                "zeta": round(self._zeta, 4),
+                "damping_type": self._damping_type,
+                "poles": pole_str,
+                "pole_magnitude": pole_magnitude,
+                "bandwidth": round(self._bandwidth, 2),
+                "resonant_freq": round(self._resonant_freq, 2) if self._resonant_freq else None,
+            },
+            "current_params": {
+                "omega_0": omega_0,
+                "Q": Q,
+                "Q_slider": self.parameters["Q_slider"],
             },
         }
+
+        return base_state
+
+    def to_hub_data(self):
+        """Export second-order TF: omega_0^2 / (s^2 + omega_0/Q * s + omega_0^2)."""
+        omega_0 = float(self.parameters.get("omega_0", 10.0))
+        Q = self._slider_to_Q(float(self.parameters.get("Q_slider", 50)))
+        w2 = omega_0 ** 2
+        return {
+            "source": "tf",
+            "domain": self.HUB_DOMAIN,
+            "dimensions": self.HUB_DIMENSIONS,
+            "tf": {
+                "num": [w2],
+                "den": [1.0, omega_0 / Q, w2],
+                "variable": "s",
+            },
+        }
+
+    def from_hub_data(self, hub_data):
+        """Producer-only: parameterized by omega_0 and Q.
+
+        An arbitrary input TF cannot be reduced to these two parameters
+        unless it is exactly second-order with zero numerator dynamics,
+        and even then there are sign ambiguities. Producer only — returns
+        False so the frontend doesn't show a misleading hub-sync badge.
+        """
+        return False

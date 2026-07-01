@@ -19,7 +19,6 @@ class CTImpulseResponseSimulator(BaseSimulator):
 
     MAX_DISPLAY_VALUE = 100.0
     NUM_SAMPLES = 500
-    MAX_TERMS = 20
     MARGINAL_EPSILON = 0.05
 
     TERM_COLORS = [
@@ -117,76 +116,6 @@ class CTImpulseResponseSimulator(BaseSimulator):
             plots.append(self._create_terms_plot(data))
         return plots
 
-    def get_state(self) -> Dict[str, Any]:
-        p = float(self.parameters["pole_p"])
-        max_terms = int(self.parameters["num_terms"])
-
-        # Convergence classification
-        if p < -self.MARGINAL_EPSILON:
-            convergence = "converging"
-        elif p > self.MARGINAL_EPSILON:
-            convergence = "diverging"
-        else:
-            convergence = "marginal"
-
-        # Pole half-plane
-        if p < 0:
-            pole_half_plane = "left"
-        elif p > 0:
-            pole_half_plane = "right"
-        else:
-            pole_half_plane = "origin"
-
-        # Latest term label
-        k = max(self._current_terms - 1, 0)
-        if self._current_terms == 0:
-            latest_term_label = "No terms yet"
-        elif k == 0:
-            latest_term_label = "u(t)"
-        elif k == 1:
-            latest_term_label = "pt"
-        else:
-            latest_term_label = f"(pt)^{k}/{k}!"
-
-        # Compute once — used for both plots and error
-        data = self._compute()
-
-        # Max approximation error at current term count
-        max_error = 0.0
-        if self._current_terms > 0:
-            exact = data["exact"]
-            partial = data["partial_sums"][self._current_terms - 1]
-            errors = np.abs(exact - partial)
-            mask = (np.abs(exact) < self.MAX_DISPLAY_VALUE) & (
-                np.abs(partial) < self.MAX_DISPLAY_VALUE
-            )
-            if np.any(mask):
-                max_error = float(np.max(errors[mask]))
-
-        # Build plots from the same data
-        plots = [self._create_buildup_plot(data)]
-        if bool(self.parameters["show_individual_terms"]) and self._current_terms > 0:
-            plots.append(self._create_terms_plot(data))
-
-        return {
-            "parameters": self.parameters.copy(),
-            "plots": plots,
-            "metadata": {
-                "simulation_type": "ct_impulse_response",
-            "hub_slots": self.HUB_SLOTS,
-            "hub_domain": self.HUB_DOMAIN,
-            "hub_dimensions": self.HUB_DIMENSIONS,
-                "pole_p": p,
-                "convergence": convergence,
-                "pole_half_plane": pole_half_plane,
-                "current_terms": self._current_terms,
-                "max_terms": max_terms,
-                "latest_term_label": latest_term_label,
-                "max_error": round(max_error, 6),
-                "revision": self._revision,
-            },
-        }
-
     # -- Computation -------------------------------------------------------
 
     def _adaptive_time_range(self, p: float) -> float:
@@ -245,6 +174,20 @@ class CTImpulseResponseSimulator(BaseSimulator):
             "p": p,
             "t_max": t_max,
         }
+
+    def _max_error(self, data: Dict[str, Any]) -> float:
+        """Max |exact - partial| at the current term count (in-range samples only)."""
+        if self._current_terms == 0:
+            return 0.0
+        exact = data["exact"]
+        partial = data["partial_sums"][self._current_terms - 1]
+        errors = np.abs(exact - partial)
+        mask = (np.abs(exact) < self.MAX_DISPLAY_VALUE) & (
+            np.abs(partial) < self.MAX_DISPLAY_VALUE
+        )
+        if np.any(mask):
+            return float(np.max(errors[mask]))
+        return 0.0
 
     # -- Plot construction -------------------------------------------------
 
@@ -427,4 +370,58 @@ class CTImpulseResponseSimulator(BaseSimulator):
             "title": "Individual Taylor Terms T_k(t) = (pt)^k / k!",
             "data": traces,
             "layout": layout,
+        }
+
+    # -- State -------------------------------------------------------------
+
+    def get_state(self) -> Dict[str, Any]:
+        p = float(self.parameters["pole_p"])
+        max_terms = int(self.parameters["num_terms"])
+
+        # Convergence classification
+        if p < -self.MARGINAL_EPSILON:
+            convergence = "converging"
+        elif p > self.MARGINAL_EPSILON:
+            convergence = "diverging"
+        else:
+            convergence = "marginal"
+
+        # Pole half-plane
+        if p < 0:
+            pole_half_plane = "left"
+        elif p > 0:
+            pole_half_plane = "right"
+        else:
+            pole_half_plane = "origin"
+
+        # Latest term label
+        k = max(self._current_terms - 1, 0)
+        if self._current_terms == 0:
+            latest_term_label = "No terms yet"
+        elif k == 0:
+            latest_term_label = "u(t)"
+        elif k == 1:
+            latest_term_label = "pt"
+        else:
+            latest_term_label = f"(pt)^{k}/{k}!"
+
+        max_error = self._max_error(self._compute())
+
+        return {
+            "parameters": self.parameters.copy(),
+            "plots": self.get_plots(),
+            "metadata": {
+                "simulation_type": "ct_impulse_response",
+                "hub_slots": self.HUB_SLOTS,
+                "hub_domain": self.HUB_DOMAIN,
+                "hub_dimensions": self.HUB_DIMENSIONS,
+                "pole_p": p,
+                "convergence": convergence,
+                "pole_half_plane": pole_half_plane,
+                "current_terms": self._current_terms,
+                "max_terms": max_terms,
+                "latest_term_label": latest_term_label,
+                "max_error": round(max_error, 6),
+                "revision": self._revision,
+            },
         }

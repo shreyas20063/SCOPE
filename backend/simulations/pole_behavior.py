@@ -1,12 +1,7 @@
-"""
-Pole Behavior Explorer
+"""Pole Behavior Explorer — first-order DT system y[n] = p0^n u[n].   Textbook: Oppenheim §2.3.
 
-Interactive visualization of first-order DT system y[n] = p0^n * u[n].
-Users drag a pole on the real number line and observe:
-- Stem plot of the unit-sample response
-- Color-coded stability regions (convergent / divergent)
-- Optional envelope |p0|^n overlay
-- Quiz mode: identify the pole from a mystery stem plot
+Drag a real pole and observe the unit-sample response stem plot, its |p0|^n
+envelope, stability classification, and an optional quiz mode.
 """
 
 import random
@@ -21,6 +16,7 @@ from .base_simulator import BaseSimulator
 class PoleBehaviorSimulator(BaseSimulator):
     """Simulator for first-order DT pole behavior exploration."""
 
+    # ── 1. DEFINE ──────────────────────────────────────────────
     PARAMETER_SCHEMA = {
         "pole_position": {
             "type": "slider",
@@ -57,12 +53,15 @@ class PoleBehaviorSimulator(BaseSimulator):
         "mode": "explore",
     }
 
+    QUIZ_CANDIDATES = [
+        -1.5, -1.2, -1.0, -0.9, -0.8, -0.7, -0.5, -0.3,
+        0.0, 0.3, 0.5, 0.7, 0.8, 0.9, 1.0, 1.2, 1.5,
+    ]
 
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)
         self._n: Optional[np.ndarray] = None
         self._y: Optional[np.ndarray] = None
-        self._envelope: Optional[np.ndarray] = None
 
         # Quiz state
         self._quiz_pole: Optional[float] = None
@@ -72,6 +71,7 @@ class PoleBehaviorSimulator(BaseSimulator):
         self._quiz_user_answer: Optional[float] = None
         self._quiz_generated: bool = False
 
+    # ── 2. LIFECYCLE ───────────────────────────────────────────
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
         for name, value in self.parameters.items():
@@ -85,10 +85,7 @@ class PoleBehaviorSimulator(BaseSimulator):
             self.parameters[name] = self._validate_param(name, value)
             if name == "mode":
                 # Always reset quiz state on any mode change
-                self._quiz_generated = False
-                self._quiz_answered = False
-                self._quiz_correct = None
-                self._quiz_user_answer = None
+                self._reset_quiz()
         self._compute()
         return self.get_state()
 
@@ -96,68 +93,14 @@ class PoleBehaviorSimulator(BaseSimulator):
         """Reset all parameters and quiz state to defaults."""
         self.parameters = self.DEFAULT_PARAMS.copy()
         self._initialized = True
-        # Reset quiz state
-        self._quiz_pole = None
-        self._quiz_y = None
-        self._quiz_generated = False
-        self._quiz_answered = False
-        self._quiz_correct = None
-        self._quiz_user_answer = None
-        # Recompute with default params
+        self._reset_quiz()
         self._compute()
         return self.get_state()
 
-    def _compute(self) -> None:
-        p0 = float(self.parameters["pole_position"])
-        N = int(self.parameters["num_samples"])
-
-        self._n = np.arange(0, N)
-
-        # Handle p0 = 0: 0^0 = 1, 0^n = 0 for n >= 1
-        if p0 == 0.0:
-            self._y = np.zeros(N)
-            self._y[0] = 1.0
-        else:
-            self._y = np.float64(p0) ** self._n
-
-        # Envelope: |p0|^n
-        abs_p0 = abs(p0)
-        if abs_p0 == 0.0:
-            self._envelope = np.zeros(N)
-            self._envelope[0] = 1.0
-        else:
-            self._envelope = np.float64(abs_p0) ** self._n
-
-        # Quiz generation
-        if self.parameters["mode"] == "quiz" and not self._quiz_generated:
-            self._generate_quiz()
-
-    def _generate_quiz(self) -> None:
-        candidates = [
-            -1.5, -1.2, -1.0, -0.9, -0.8, -0.7, -0.5, -0.3,
-            0.0, 0.3, 0.5, 0.7, 0.8, 0.9, 1.0, 1.2, 1.5,
-        ]
-        self._quiz_pole = random.choice(candidates)
-        N = int(self.parameters["num_samples"])
-        n = np.arange(0, N)
-
-        if self._quiz_pole == 0.0:
-            self._quiz_y = np.zeros(N)
-            self._quiz_y[0] = 1.0
-        else:
-            self._quiz_y = np.float64(self._quiz_pole) ** n
-
-        self._quiz_generated = True
-        self._quiz_answered = False
-        self._quiz_correct = None
-        self._quiz_user_answer = None
-
+    # ── 3. ACTIONS ─────────────────────────────────────────────
     def handle_action(self, action: str, params: Dict[str, Any]) -> Dict[str, Any]:
         if action == "new_quiz":
-            self._quiz_generated = False
-            self._quiz_answered = False
-            self._quiz_correct = None
-            self._quiz_user_answer = None
+            self._reset_quiz()
             self._compute()
         elif action == "check_answer":
             user_pole = float(params.get("answer", 0.0))
@@ -166,74 +109,118 @@ class PoleBehaviorSimulator(BaseSimulator):
             self._quiz_correct = abs(user_pole - self._quiz_pole) < 0.15
         return self.get_state()
 
-    def get_plots(self) -> List[Dict[str, Any]]:
-        # Always recompute to ensure plots match current parameters
-        self._compute()
+    # ── 4. MATH ────────────────────────────────────────────────
+    def _compute(self) -> None:
+        p0 = float(self.parameters["pole_position"])
+        N = int(self.parameters["num_samples"])
 
+        # y[n] = p0^n u[n]; NumPy gives 0**0 == 1 and 0**n == 0 for n >= 1.
+        self._n = np.arange(0, N)
+        self._y = np.power(np.float64(p0), self._n)
+
+        if self.parameters["mode"] == "quiz" and not self._quiz_generated:
+            self._generate_quiz()
+
+    def _generate_quiz(self) -> None:
+        self._quiz_pole = random.choice(self.QUIZ_CANDIDATES)
+        N = int(self.parameters["num_samples"])
+        n = np.arange(0, N)
+        self._quiz_y = np.power(np.float64(self._quiz_pole), n)
+
+        self._quiz_generated = True
+        self._quiz_answered = False
+        self._quiz_correct = None
+        self._quiz_user_answer = None
+
+    def _reset_quiz(self) -> None:
+        self._quiz_pole = None
+        self._quiz_y = None
+        self._quiz_generated = False
+        self._quiz_answered = False
+        self._quiz_correct = None
+        self._quiz_user_answer = None
+
+    # ── 5. PRESENT ─────────────────────────────────────────────
+    def get_plots(self) -> List[Dict[str, Any]]:
         if self.parameters["mode"] == "quiz":
             return [self._create_quiz_stem_plot()]
         return [self._create_stem_plot()]
 
+    @staticmethod
+    def _stem_traces(
+        n: np.ndarray,
+        y: np.ndarray,
+        name: str,
+        stem_color: str,
+        marker_line_color: str,
+    ) -> List[Dict[str, Any]]:
+        """Stem lines (with None separators) + marker dots for a discrete signal."""
+        stem_x = np.empty(3 * len(n), dtype=object)
+        stem_y = np.empty(3 * len(n), dtype=object)
+        stem_x[0::3] = [int(v) for v in n]
+        stem_x[1::3] = [int(v) for v in n]
+        stem_x[2::3] = None
+        stem_y[0::3] = 0
+        stem_y[1::3] = [float(v) for v in y]
+        stem_y[2::3] = None
+
+        return [
+            {
+                "x": stem_x.tolist(),
+                "y": stem_y.tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Stems",
+                "line": {"color": stem_color, "width": 2},
+                "showlegend": False,
+                "hoverinfo": "skip",
+            },
+            {
+                "x": n.tolist(),
+                "y": y.tolist(),
+                "type": "scatter",
+                "mode": "markers",
+                "name": name,
+                "marker": {
+                    "color": stem_color,
+                    "size": 8,
+                    "line": {"color": marker_line_color, "width": 1.5},
+                },
+            },
+        ]
+
     def _create_stem_plot(self) -> Dict[str, Any]:
         p0 = self.parameters["pole_position"]
         show_envelope = self.parameters["show_envelope"]
-        traces = []
 
-        # Stem lines: single trace with None separators for vertical lines
-        stem_x: List = []
-        stem_y: List = []
-        for i in range(len(self._n)):
-            stem_x.extend([int(self._n[i]), int(self._n[i]), None])
-            stem_y.extend([0, float(self._y[i]), None])
+        traces = self._stem_traces(
+            self._n, self._y, f"y[n] = ({p0})ⁿ", "#3b82f6", "#1e40af"
+        )
 
-        traces.append({
-            "x": stem_x,
-            "y": stem_y,
-            "type": "scatter",
-            "mode": "lines",
-            "name": "Stems",
-            "line": {"color": "#3b82f6", "width": 2},
-            "showlegend": False,
-            "hoverinfo": "skip",
-        })
-
-        # Marker dots at tips
-        traces.append({
-            "x": self._n.tolist(),
-            "y": self._y.tolist(),
-            "type": "scatter",
-            "mode": "markers",
-            "name": f"y[n] = ({p0})\u207f",
-            "marker": {
-                "color": "#3b82f6",
-                "size": 8,
-                "line": {"color": "#1e40af", "width": 1.5},
-            },
-        })
-
-        # Envelope overlay (conditional)
+        # Envelope |p0|^n == |p0^n| for integer n (conditional overlay)
         if show_envelope:
+            envelope = np.abs(self._y)
             traces.append({
                 "x": self._n.tolist(),
-                "y": self._envelope.tolist(),
+                "y": envelope.tolist(),
                 "type": "scatter",
                 "mode": "lines",
-                "name": f"|{p0}|\u207f (envelope)",
+                "name": f"|{p0}|ⁿ (envelope)",
                 "line": {"color": "#10b981", "width": 2, "dash": "dash"},
             })
             traces.append({
                 "x": self._n.tolist(),
-                "y": (-self._envelope).tolist(),
+                "y": (-envelope).tolist(),
                 "type": "scatter",
                 "mode": "lines",
-                "name": f"\u2212|{p0}|\u207f",
+                "name": f"−|{p0}|ⁿ",
                 "line": {"color": "#10b981", "width": 2, "dash": "dash"},
                 "showlegend": False,
             })
 
         return {
             "id": "stem_plot",
-            "title": f"Unit-Sample Response: p\u2080 = {p0}",
+            "title": f"Unit-Sample Response: p₀ = {p0}",
             "data": traces,
             "layout": self._get_stem_layout(),
         }
@@ -242,45 +229,16 @@ class PoleBehaviorSimulator(BaseSimulator):
         if not self._quiz_generated:
             self._generate_quiz()
 
-        traces = []
         n_arr = np.arange(0, len(self._quiz_y))
-
-        # Stems
-        stem_x: List = []
-        stem_y: List = []
-        for i in range(len(n_arr)):
-            stem_x.extend([int(n_arr[i]), int(n_arr[i]), None])
-            stem_y.extend([0, float(self._quiz_y[i]), None])
-
-        traces.append({
-            "x": stem_x,
-            "y": stem_y,
-            "type": "scatter",
-            "mode": "lines",
-            "name": "Stems",
-            "line": {"color": "#f59e0b", "width": 2},
-            "showlegend": False,
-            "hoverinfo": "skip",
-        })
-
-        traces.append({
-            "x": n_arr.tolist(),
-            "y": self._quiz_y.tolist(),
-            "type": "scatter",
-            "mode": "markers",
-            "name": "y[n] = p\u2080\u207f (mystery)",
-            "marker": {
-                "color": "#f59e0b",
-                "size": 8,
-                "line": {"color": "#b45309", "width": 1.5},
-            },
-        })
+        traces = self._stem_traces(
+            n_arr, self._quiz_y, "y[n] = p₀ⁿ (mystery)", "#f59e0b", "#b45309"
+        )
 
         if self._quiz_answered:
             if self._quiz_correct:
-                title = f"Correct! p\u2080 = {self._quiz_pole}"
+                title = f"Correct! p₀ = {self._quiz_pole}"
             else:
-                title = f"Incorrect. Actual p\u2080 = {self._quiz_pole}"
+                title = f"Incorrect. Actual p₀ = {self._quiz_pole}"
         else:
             title = "Quiz: What pole produced this response?"
 
@@ -321,6 +279,7 @@ class PoleBehaviorSimulator(BaseSimulator):
             "uirevision": "stem_plot",
         }
 
+    # ── 6. STATE ───────────────────────────────────────────────
     def get_state(self) -> Dict[str, Any]:
         state = super().get_state()
         p0 = float(self.parameters["pole_position"])
