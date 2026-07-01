@@ -197,16 +197,18 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
             return np.array([K]), np.array([1.0, a, 0.0])
 
         elif preset == "marginally_stable":
-            # K / (s(s+1)(s+2)) — marginally stable at K=6
-            a = float(self.parameters["pole_a"])
-            b = float(self.parameters["pole_b"])
-            den = np.convolve([1.0, 0.0], np.convolve([1.0, a], [1.0, b]))
+            # K / (s(s+1)(s+2)) — marginally stable at K=6, exactly as labeled.
+            # Fixed poles: the catalog shows no pole sliders here, but the code read
+            # the invisible pole_a/pole_b defaults (2, 5), silently building
+            # K/(s(s+2)(s+5)) — marginal at K=70, not the labeled K=6 (BUG-099).
+            den = np.convolve([1.0, 0.0], np.convolve([1.0, 1.0], [1.0, 2.0]))
             return np.array([K]), den
 
         elif preset == "high_gm_low_pm":
-            # K(s+0.5) / ((s+1)(s+5)(s+10)) — large gain margin, tight phase margin
-            zz = float(self.parameters["zero_z"])
-            num = np.array([K, K * zz])
+            # K(s+0.5) / ((s+1)(s+5)(s+10)) — large gain margin, tight phase margin.
+            # Fixed zero: reading the invisible zero_z default (1.0) cancelled the
+            # pole at s=-1, collapsing the order and the GM/PM story (BUG-099).
+            num = np.array([K, K * 0.5])
             den = np.convolve([1.0, 1.0], np.convolve([1.0, 5.0], [1.0, 10.0]))
             return num, den
 
@@ -265,12 +267,9 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
             a = float(self.parameters["pole_a"])
             return f"H(s) = {K:.2g} / (s(s + {a:.2g}))"
         elif preset == "marginally_stable":
-            a = float(self.parameters["pole_a"])
-            b = float(self.parameters["pole_b"])
-            return f"H(s) = {K:.2g} / (s(s + {a:.2g})(s + {b:.2g}))"
+            return f"H(s) = {K:.2g} / (s(s + 1)(s + 2))"
         elif preset == "high_gm_low_pm":
-            zz = float(self.parameters["zero_z"])
-            return f"H(s) = {K:.2g}(s + {zz:.2g}) / ((s + 1)(s + 5)(s + 10))"
+            return f"H(s) = {K:.2g}(s + 0.5) / ((s + 1)(s + 5)(s + 10))"
         elif preset == "custom":
             num_str = self._poly_to_str(self._num_coeffs)
             den_str = self._poly_to_str(self._den_coeffs)
