@@ -16,6 +16,7 @@ Math extracted from: ct_dt_poles/core/math_handler.py
 """
 
 import numpy as np
+from scipy.signal import lfilter
 from typing import Any, Dict, List, Optional
 from .base_simulator import BaseSimulator
 
@@ -39,33 +40,22 @@ class CTDTPolesSimulator(BaseSimulator):
     T_TAU_RANGE = np.linspace(0.01, 3.0, 150)
     TRAJECTORY_T_TAU_VALUES = np.linspace(0.1, 3.0, 60)
 
-    # Unified color palette - matches DC Motor simulation
+    # Trace color palette (custom "DC Motor" scheme; not the shared core.palette set)
     COLORS = {
-        # Primary response colors
-        "continuous": "#22d3ee",       # Cyan - CT system (matches DC Motor step response)
-        "reference": "#f472b6",        # Pink - reference lines (matches DC Motor final value)
-        "envelope": "#fbbf24",         # Amber - envelope/accent curves
-
-        # Stability colors
-        "stable_discrete": "#34d399",  # Emerald green - stable DT
-        "unstable_discrete": "#f87171", # Coral red - unstable DT/poles
-        "pole_marker": "#f87171",      # Coral red - poles (matches DC Motor)
-
-        # S-plane/Z-plane colors
-        "imaginary_axis": "#a855f7",   # Purple - stability boundary (matches DC Motor)
-        "unit_circle": "#a855f7",      # Purple for unit circle (same as imaginary axis)
-        "omega_circle": "#fbbf24",     # Amber - natural frequency circle
-
-        # Region fills
-        "fill_stable": "rgba(52, 211, 153, 0.08)",   # Light emerald (matches DC Motor)
+        "continuous": "#22d3ee",
+        "reference": "#f472b6",
+        "envelope": "#fbbf24",
+        "stable_discrete": "#34d399",
+        "unstable_discrete": "#f87171",
+        "pole_marker": "#f87171",
+        "imaginary_axis": "#a855f7",
+        "unit_circle": "#a855f7",
+        "omega_circle": "#fbbf24",
+        "fill_stable": "rgba(52, 211, 153, 0.08)",
         "fill_unstable": "rgba(248, 113, 113, 0.08)",
-
-        # Trajectory colors
         "trajectory_stable": "#34d399",
         "trajectory_marginal": "#fbbf24",
         "trajectory_unstable": "#f87171",
-
-        # Grid and text
         "grid": "rgba(148, 163, 184, 0.2)",
         "text": "#e2e8f0",
     }
@@ -269,32 +259,32 @@ class CTDTPolesSimulator(BaseSimulator):
         n_samples = min(int(t_max / T) + 1, 300)
         self._t_discrete = np.arange(n_samples) * T
 
-        y = np.zeros(n_samples)
+        # First-order IIR recurrences y[i] = a1*y[i-1] + input[i] (u[-1] taken as 0).
         if method == "forward_euler":
-            y_val = 0.0
-            for i in range(n_samples):
-                y_val = (1 - T / tau) * y_val + (T / tau)
-                y[i] = y_val
-                if abs(y_val) > 50:  # Prevent explosion
-                    y[i:] = np.nan
-                    break
+            # y[i] = (1 - T/τ) y[i-1] + T/τ
+            a1 = 1 - T / tau
+            u = np.full(n_samples, T / tau)
+            y = lfilter([1.0], [1.0, -a1], u)
+            # Explosion guard: NaN from the first sample whose magnitude exceeds 50.
+            exploded = np.abs(y) > 50
+            if exploded.any():
+                y[int(np.argmax(exploded)):] = np.nan
         elif method == "backward_euler":
-            y_prev = 0.0
-            for i in range(n_samples):
-                y_val = (y_prev + T / tau) / (1 + T / tau)
-                y[i] = y_val
-                y_prev = y_val
+            # y[i] = y[i-1]/(1 + T/τ) + (T/τ)/(1 + T/τ)
+            denom = 1 + T / tau
+            u = np.full(n_samples, (T / tau) / denom)
+            y = lfilter([1.0], [1.0, -1.0 / denom], u)
         elif method == "trapezoidal":
-            y_prev = 0.0
-            x_prev = 0.0
-            for i in range(n_samples):
-                x_current = 1.0
-                numerator = y_prev * (1 - T / (2 * tau)) + (T / (2 * tau)) * (x_current + x_prev)
-                denominator = 1 + T / (2 * tau)
-                y_val = numerator / denominator
-                y[i] = y_val
-                y_prev = y_val
-                x_prev = x_current
+            # y[i] = c1/den·y[i-1] + (T/2τ)/den·(x[i] + x[i-1]), x[i]=1, x[-1]=0
+            den = 1 + T / (2 * tau)
+            g = (T / (2 * tau)) / den
+            x_current = np.ones(n_samples)
+            x_prev = np.ones(n_samples)
+            x_prev[0] = 0.0
+            u = g * (x_current + x_prev)
+            y = lfilter([1.0], [1.0, -(1 - T / (2 * tau)) / den], u)
+        else:
+            y = np.zeros(n_samples)
 
         self._dt_response = y
 
@@ -340,23 +330,16 @@ class CTDTPolesSimulator(BaseSimulator):
     def _compute_stability_curve(self, tau: float, method: str) -> None:
         """Compute pole magnitude across T/τ range."""
         s_pole = -1.0 / tau
-        magnitudes = []
-        for T_tau in self.T_TAU_RANGE:
-            T_temp = T_tau * tau
-            z_pole = self._get_dt_pole(s_pole, T_temp, method)
-            magnitudes.append(abs(z_pole))
-        self._stability_curve = np.array(magnitudes)
+        z_pole = self._get_dt_pole(s_pole, self.T_TAU_RANGE * tau, method)
+        self._stability_curve = np.abs(z_pole)
 
     def _compute_pole_trajectory(self, tau: float, method: str) -> None:
         """Compute pole positions for trajectory visualization."""
         s_pole = -1.0 / tau
-        trajectory = []
         self._trajectory_t_tau = self.TRAJECTORY_T_TAU_VALUES
-        for T_tau in self._trajectory_t_tau:
-            T_temp = T_tau * tau
-            z_pole = self._get_dt_pole(s_pole, T_temp, method)
-            trajectory.append(z_pole)
-        self._pole_trajectory = trajectory
+        self._pole_trajectory = self._get_dt_pole(
+            s_pole, self._trajectory_t_tau * tau, method
+        )
 
     # =========================================================================
     # Plot generation - matching PyQt5 exactly
@@ -972,21 +955,38 @@ class CTDTPolesSimulator(BaseSimulator):
             },
         }
 
-    def get_computed_values(self) -> Dict[str, Any]:
-        """Return computed values for display (matching PyQt5 status display)."""
+    def _pole_projection(self) -> Dict[str, Any]:
+        """Shared raw scalar fields re-derived by both computed-values and metadata."""
         return {
+            "method": self.parameters["method"],
+            "t_tau_ratio": self.parameters["t_tau_ratio"],
+            "T": self._T,
+            "tau": self._tau,
             "s_pole": self._s_pole,
             "z_pole_real": float(np.real(self._z_pole)),
             "z_pole_imag": float(np.imag(self._z_pole)),
             "z_magnitude": abs(self._z_pole),
-            "t_tau_ratio": self.parameters["t_tau_ratio"],
-            "T": self._T,
-            "tau": self._tau,
             "is_stable": self._is_stable,
-            "stability_status": "STABLE" if self._is_stable else "UNSTABLE",
             "rms_error": self._rms_error,
             "performance_rating": self._performance_rating,
-            "method": self.parameters["method"],
+        }
+
+    def get_computed_values(self) -> Dict[str, Any]:
+        """Return computed values for display (matching PyQt5 status display)."""
+        proj = self._pole_projection()
+        return {
+            "s_pole": proj["s_pole"],
+            "z_pole_real": proj["z_pole_real"],
+            "z_pole_imag": proj["z_pole_imag"],
+            "z_magnitude": proj["z_magnitude"],
+            "t_tau_ratio": proj["t_tau_ratio"],
+            "T": proj["T"],
+            "tau": proj["tau"],
+            "is_stable": proj["is_stable"],
+            "stability_status": "STABLE" if proj["is_stable"] else "UNSTABLE",
+            "rms_error": proj["rms_error"],
+            "performance_rating": proj["performance_rating"],
+            "method": proj["method"],
             "method_info": self.METHOD_EXPLANATIONS.get(self.parameters["method"], {}),
         }
 
@@ -997,6 +997,7 @@ class CTDTPolesSimulator(BaseSimulator):
         state["guided_scenarios"] = self.GUIDED_SCENARIOS
 
         # Add metadata with sticky_controls flag
+        proj = self._pole_projection()
         state["metadata"] = {
             "simulation_type": "ct_dt_poles",
             "hub_slots": self.HUB_SLOTS,
@@ -1004,17 +1005,17 @@ class CTDTPolesSimulator(BaseSimulator):
             "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,  # Keep control panel fixed when scrolling
             "system_info": {
-                "method": self.parameters["method"],
-                "t_tau_ratio": round(self.parameters["t_tau_ratio"], 3),
-                "T": round(self._T, 4),
-                "tau": self._tau,
-                "s_pole": round(self._s_pole, 3),
-                "z_pole_real": round(float(np.real(self._z_pole)), 4),
-                "z_pole_imag": round(float(np.imag(self._z_pole)), 4),
-                "z_magnitude": round(abs(self._z_pole), 4),
-                "is_stable": self._is_stable,
-                "rms_error": round(self._rms_error, 4) if self._rms_error != float("inf") else None,
-                "performance_rating": self._performance_rating,
+                "method": proj["method"],
+                "t_tau_ratio": round(proj["t_tau_ratio"], 3),
+                "T": round(proj["T"], 4),
+                "tau": proj["tau"],
+                "s_pole": round(proj["s_pole"], 3),
+                "z_pole_real": round(proj["z_pole_real"], 4),
+                "z_pole_imag": round(proj["z_pole_imag"], 4),
+                "z_magnitude": round(proj["z_magnitude"], 4),
+                "is_stable": proj["is_stable"],
+                "rms_error": round(proj["rms_error"], 4) if proj["rms_error"] != float("inf") else None,
+                "performance_rating": proj["performance_rating"],
             },
         }
 

@@ -35,7 +35,6 @@ class NyquistStabilitySimulator(BaseSimulator):
     UNIT_CIRCLE_COLOR = "#10b981"
     STABLE_COLOR = "#34d399"
     CONTOUR_COLOR = "#fbbf24"
-    CONTOUR_COLOR_DIM = "rgba(251, 191, 36, 0.4)"
     CL_POLE_STABLE_COLOR = "#10b981"
     CL_POLE_UNSTABLE_COLOR = "#ef4444"
     IMAGINARY_AXIS_COLOR = "#a855f7"
@@ -167,6 +166,9 @@ class NyquistStabilitySimulator(BaseSimulator):
         self._poles: Optional[np.ndarray] = None
         self._zeros: Optional[np.ndarray] = None
         self._cl_poles: Optional[np.ndarray] = None
+        self._P: int = 0
+        self._Z: int = 0
+        self._N: int = 0
         self._stability_criterion: Dict[str, Any] = {}
         self._stability_info: Dict[str, Any] = {}
         self._tf_expression: str = ""
@@ -216,10 +218,20 @@ class NyquistStabilitySimulator(BaseSimulator):
         self._compute_poles_zeros()
         self._compute_frequency_response()
         self._compute_closed_loop_poles()
+        # RHP pole counts: P = OL RHP poles, Z = CL RHP poles (single source of truth)
+        self._P = self._rhp_count(self._poles)
+        self._Z = self._rhp_count(self._cl_poles)
         self._compute_d_contour()
         self._count_encirclements()  # Uses D-contour image + CL poles for verification
         self._compute_stability_margins()
         self._compute_stability_criterion()
+
+    @staticmethod
+    def _rhp_count(roots: Optional[np.ndarray], tol: float = 1e-10) -> int:
+        """Count roots strictly in the right-half plane (Re > tol)."""
+        if roots is None or len(roots) == 0:
+            return 0
+        return int(np.sum(np.real(roots) > tol))
 
     # =========================================================================
     # Transfer function construction
@@ -461,9 +473,7 @@ class NyquistStabilitySimulator(BaseSimulator):
         N_numerical = int(round(-total_angle / (2 * np.pi)))
 
         # Algebraic verification: N = Z - P (argument principle, always exact)
-        P = int(np.sum(np.real(self._poles) > 1e-10)) if len(self._poles) > 0 else 0
-        Z = int(np.sum(np.real(self._cl_poles) > 1e-10)) if len(self._cl_poles) > 0 else 0
-        N_algebraic = Z - P
+        N_algebraic = self._Z - self._P
 
         # Use numerical result when it agrees with algebraic, otherwise fall back
         if self._passes_through_critical:
@@ -516,8 +526,8 @@ class NyquistStabilitySimulator(BaseSimulator):
 
     def _compute_stability_criterion(self) -> None:
         """Assemble the N = Z - P relationship."""
-        P = int(np.sum(np.real(self._poles) > 1e-10)) if len(self._poles) > 0 else 0
-        Z = int(np.sum(np.real(self._cl_poles) > 1e-10)) if len(self._cl_poles) > 0 else 0
+        P = self._P
+        Z = self._Z
         N = self._N
 
         # Check for marginal stability (CL poles on jω axis)
@@ -630,8 +640,58 @@ class NyquistStabilitySimulator(BaseSimulator):
         self._d_contour_image = num_val / den_val
 
     # =========================================================================
-    # Plot generation
+    # Present (Plotly dicts)
     # =========================================================================
+
+    @staticmethod
+    def _axis(title: str, axis_range: List[float]) -> Dict[str, Any]:
+        """Shared axis styling (design-system grid/zeroline)."""
+        return {
+            "title": title,
+            "showgrid": True,
+            "gridcolor": "rgba(148, 163, 184, 0.15)",
+            "zeroline": True,
+            "zerolinecolor": "rgba(148, 163, 184, 0.3)",
+            "range": axis_range,
+            "fixedrange": False,
+        }
+
+    def _base_layout(
+        self,
+        x_title: str,
+        y_title: str,
+        x_range: List[float],
+        y_range: List[float],
+        uirevision: str,
+        anchor_axis: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Common Plotly layout skeleton shared by all three plots.
+
+        anchor_axis: which axis carries scaleanchor/scaleratio to keep a 1:1
+        aspect ratio ("x" pins yaxis to x; "y" pins xaxis to y; None = free).
+        """
+        xaxis = self._axis(x_title, x_range)
+        yaxis = self._axis(y_title, y_range)
+        if anchor_axis == "y":
+            xaxis["scaleanchor"] = "y"
+            xaxis["scaleratio"] = 1
+        elif anchor_axis == "x":
+            yaxis["scaleanchor"] = "x"
+            yaxis["scaleratio"] = 1
+        return {
+            "xaxis": xaxis,
+            "yaxis": yaxis,
+            "legend": {
+                "orientation": "h",
+                "yanchor": "bottom", "y": 1.02,
+                "xanchor": "left", "x": 0,
+                "font": {"size": 11},
+            },
+            "margin": {"l": 60, "r": 25, "t": 45, "b": 55},
+            "plot_bgcolor": "rgba(0,0,0,0)",
+            "paper_bgcolor": "rgba(0,0,0,0)",
+            "uirevision": uirevision,
+        }
 
     def get_plots(self) -> List[Dict[str, Any]]:
         """Generate all plot dicts."""
@@ -642,63 +702,6 @@ class NyquistStabilitySimulator(BaseSimulator):
             self._create_d_contour_plot(),
             self._create_cl_pole_map(),
         ]
-
-    def get_state(self) -> Dict[str, Any]:
-        """Return state with stability criterion metadata."""
-        if not self._initialized:
-            self.initialize()
-
-        base_state = super().get_state()
-
-        # Subsample for frontend animation
-        step = max(1, len(self._omega) // 500)
-        omega_sub = self._omega[::step]
-        real_sub = np.real(self._H[::step])
-        imag_sub = np.imag(self._H[::step])
-        mag = np.abs(self._H[::step])
-        clip_mask = mag < self.NYQUIST_MAG_CLIP
-        real_clipped = np.where(clip_mask, real_sub, np.nan)
-        imag_clipped = np.where(clip_mask, imag_sub, np.nan)
-
-        # D-contour points for animation
-        d_step = max(1, len(self._d_contour_s) // 300)
-        d_contour_real = np.real(self._d_contour_s[::d_step])
-        d_contour_imag = np.imag(self._d_contour_s[::d_step])
-        d_image_real = np.real(self._d_contour_image[::d_step])
-        d_image_imag = np.imag(self._d_contour_image[::d_step])
-        d_image_mag = np.abs(self._d_contour_image[::d_step])
-        d_clip = d_image_mag < self.NYQUIST_MAG_CLIP
-        d_image_real_clipped = np.where(d_clip, d_image_real, np.nan)
-        d_image_imag_clipped = np.where(d_clip, d_image_imag, np.nan)
-
-        # Format poles/zeros for JSON
-        ol_poles = [[float(np.real(p)), float(np.imag(p))] for p in self._poles] if len(self._poles) > 0 else []
-        ol_zeros = [[float(np.real(z)), float(np.imag(z))] for z in self._zeros] if len(self._zeros) > 0 else []
-        cl_poles = [[float(np.real(p)), float(np.imag(p))] for p in self._cl_poles] if len(self._cl_poles) > 0 else []
-
-        base_state["metadata"] = {
-            "simulation_type": "nyquist_stability",
-            "hub_slots": self.HUB_SLOTS,
-            "hub_domain": self.HUB_DOMAIN,
-            "hub_dimensions": self.HUB_DIMENSIONS,
-            "has_custom_viewer": True,
-            "sticky_controls": True,
-            "stability_criterion": self._stability_criterion,
-            "stability_info": self._stability_info,
-            "tf_expression": self._tf_expression,
-            "ol_poles": ol_poles,
-            "ol_zeros": ol_zeros,
-            "cl_poles": cl_poles,
-            "omega": omega_sub.tolist(),
-            "nyquist_real": real_clipped.tolist(),
-            "nyquist_imag": imag_clipped.tolist(),
-            "d_contour_s_real": d_contour_real.tolist(),
-            "d_contour_s_imag": d_contour_imag.tolist(),
-            "d_contour_image_real": d_image_real_clipped.tolist(),
-            "d_contour_image_imag": d_image_imag_clipped.tolist(),
-            "preset_name": self.parameters["preset"],
-        }
-        return base_state
 
     def _create_nyquist_plot(self) -> Dict[str, Any]:
         """Nyquist plot with encirclement analysis."""
@@ -804,56 +807,28 @@ class NyquistStabilitySimulator(BaseSimulator):
             y_range = [-3, 3]
 
         # Encirclement count annotation
-        status = criterion.get("stability_status", "")
         ann_color = self.STABLE_COLOR if criterion.get("is_stable") else self.CRITICAL_POINT_COLOR
+
+        layout = self._base_layout(
+            "Re{L(j\u03c9)}", "Im{L(j\u03c9)}", x_range, y_range, "nyquist", anchor_axis="y",
+        )
+        layout["annotations"] = [{
+            "text": f"N = {N} {'(CW)' if N > 0 else '(CCW)' if N < 0 else ''}",
+            "xref": "paper", "yref": "paper",
+            "x": 0.98, "y": 0.02,
+            "showarrow": False,
+            "font": {"size": 14, "color": ann_color, "family": "Inter, sans-serif"},
+            "bgcolor": "rgba(0,0,0,0.6)",
+            "bordercolor": ann_color,
+            "borderwidth": 1,
+            "borderpad": 6,
+        }]
 
         return {
             "id": "nyquist_plot",
             "title": "Nyquist Plot \u2014 L(j\u03c9)",
             "data": traces,
-            "layout": {
-                "xaxis": {
-                    "title": "Re{L(j\u03c9)}",
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.15)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": x_range,
-                    "fixedrange": False,
-                    "scaleanchor": "y",
-                    "scaleratio": 1,
-                },
-                "yaxis": {
-                    "title": "Im{L(j\u03c9)}",
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.15)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": y_range,
-                    "fixedrange": False,
-                },
-                "annotations": [{
-                    "text": f"N = {N} {'(CW)' if N > 0 else '(CCW)' if N < 0 else ''}",
-                    "xref": "paper", "yref": "paper",
-                    "x": 0.98, "y": 0.02,
-                    "showarrow": False,
-                    "font": {"size": 14, "color": ann_color, "family": "Inter, sans-serif"},
-                    "bgcolor": "rgba(0,0,0,0.6)",
-                    "bordercolor": ann_color,
-                    "borderwidth": 1,
-                    "borderpad": 6,
-                }],
-                "legend": {
-                    "orientation": "h",
-                    "yanchor": "bottom", "y": 1.02,
-                    "xanchor": "left", "x": 0,
-                    "font": {"size": 11},
-                },
-                "margin": {"l": 60, "r": 25, "t": 45, "b": 55},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "nyquist",
-            },
+            "layout": layout,
         }
 
     def _create_d_contour_plot(self) -> Dict[str, Any]:
@@ -972,38 +947,9 @@ class NyquistStabilitySimulator(BaseSimulator):
             "id": "d_contour_plot",
             "title": f"D-Contour (S-Plane) \u2014 P = {P} OL RHP pole(s)",
             "data": traces,
-            "layout": {
-                "xaxis": {
-                    "title": "Real (\u03c3)",
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.15)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": xlim,
-                    "fixedrange": False,
-                },
-                "yaxis": {
-                    "title": "Imaginary (j\u03c9)",
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.15)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": ylim,
-                    "scaleanchor": "x",
-                    "scaleratio": 1,
-                    "fixedrange": False,
-                },
-                "legend": {
-                    "orientation": "h",
-                    "yanchor": "bottom", "y": 1.02,
-                    "xanchor": "left", "x": 0,
-                    "font": {"size": 11},
-                },
-                "margin": {"l": 60, "r": 25, "t": 45, "b": 55},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "d_contour",
-            },
+            "layout": self._base_layout(
+                "Real (\u03c3)", "Imaginary (j\u03c9)", xlim, ylim, "d_contour", anchor_axis="x",
+            ),
         }
 
     def _create_cl_pole_map(self) -> Dict[str, Any]:
@@ -1049,53 +995,30 @@ class NyquistStabilitySimulator(BaseSimulator):
             unstable_poles = [p for p in self._cl_poles if np.real(p) > 1e-10]
             marginal_poles = [p for p in self._cl_poles if abs(np.real(p)) <= 1e-10]
 
-            if stable_poles:
-                traces.append({
-                    "x": [float(np.real(p)) for p in stable_poles],
-                    "y": [float(np.imag(p)) for p in stable_poles],
-                    "type": "scatter",
-                    "mode": "markers",
-                    "name": "CL Poles (stable)",
-                    "marker": {
-                        "symbol": "x",
-                        "size": 14,
-                        "color": self.CL_POLE_STABLE_COLOR,
-                        "line": {"width": 3, "color": self.CL_POLE_STABLE_COLOR},
-                    },
-                    "hovertemplate": "CL Pole (stable)<br>s = %{x:.3f} + %{y:.3f}j<extra></extra>",
-                })
-
-            if unstable_poles:
-                traces.append({
-                    "x": [float(np.real(p)) for p in unstable_poles],
-                    "y": [float(np.imag(p)) for p in unstable_poles],
-                    "type": "scatter",
-                    "mode": "markers",
-                    "name": "CL Poles (unstable)",
-                    "marker": {
-                        "symbol": "x",
-                        "size": 14,
-                        "color": self.CL_POLE_UNSTABLE_COLOR,
-                        "line": {"width": 3, "color": self.CL_POLE_UNSTABLE_COLOR},
-                    },
-                    "hovertemplate": "CL Pole (RHP!)<br>s = %{x:.3f} + %{y:.3f}j<extra></extra>",
-                })
-
-            if marginal_poles:
-                traces.append({
-                    "x": [float(np.real(p)) for p in marginal_poles],
-                    "y": [float(np.imag(p)) for p in marginal_poles],
-                    "type": "scatter",
-                    "mode": "markers",
-                    "name": "CL Poles (marginal)",
-                    "marker": {
-                        "symbol": "x",
-                        "size": 14,
-                        "color": self.CONTOUR_COLOR,
-                        "line": {"width": 3, "color": self.CONTOUR_COLOR},
-                    },
-                    "hovertemplate": "CL Pole (j\u03c9 axis)<br>s = %{x:.3f} + %{y:.3f}j<extra></extra>",
-                })
+            pole_groups = [
+                (stable_poles, self.CL_POLE_STABLE_COLOR, "CL Poles (stable)",
+                 "CL Pole (stable)<br>s = %{x:.3f} + %{y:.3f}j<extra></extra>"),
+                (unstable_poles, self.CL_POLE_UNSTABLE_COLOR, "CL Poles (unstable)",
+                 "CL Pole (RHP!)<br>s = %{x:.3f} + %{y:.3f}j<extra></extra>"),
+                (marginal_poles, self.CONTOUR_COLOR, "CL Poles (marginal)",
+                 "CL Pole (j\u03c9 axis)<br>s = %{x:.3f} + %{y:.3f}j<extra></extra>"),
+            ]
+            for subset, color, label, hover in pole_groups:
+                if subset:
+                    traces.append({
+                        "x": [float(np.real(p)) for p in subset],
+                        "y": [float(np.imag(p)) for p in subset],
+                        "type": "scatter",
+                        "mode": "markers",
+                        "name": label,
+                        "marker": {
+                            "symbol": "x",
+                            "size": 14,
+                            "color": color,
+                            "line": {"width": 3, "color": color},
+                        },
+                        "hovertemplate": hover,
+                    })
 
         K = float(self.parameters["gain_K"])
 
@@ -1103,36 +1026,68 @@ class NyquistStabilitySimulator(BaseSimulator):
             "id": "cl_pole_map",
             "title": f"Closed-Loop Poles (K={K:.2g}) \u2014 Z = {Z}",
             "data": traces,
-            "layout": {
-                "xaxis": {
-                    "title": "Real (\u03c3)",
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.15)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": xlim,
-                    "fixedrange": False,
-                },
-                "yaxis": {
-                    "title": "Imaginary (j\u03c9)",
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.15)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": ylim,
-                    "scaleanchor": "x",
-                    "scaleratio": 1,
-                    "fixedrange": False,
-                },
-                "legend": {
-                    "orientation": "h",
-                    "yanchor": "bottom", "y": 1.02,
-                    "xanchor": "left", "x": 0,
-                    "font": {"size": 11},
-                },
-                "margin": {"l": 60, "r": 25, "t": 45, "b": 55},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "cl_poles",
-            },
+            "layout": self._base_layout(
+                "Real (\u03c3)", "Imaginary (j\u03c9)", xlim, ylim, "cl_poles", anchor_axis="x",
+            ),
         }
+
+    # =========================================================================
+    # State
+    # =========================================================================
+
+    def get_state(self) -> Dict[str, Any]:
+        """Return state with stability criterion metadata."""
+        if not self._initialized:
+            self.initialize()
+
+        base_state = super().get_state()
+
+        # Subsample for frontend animation
+        step = max(1, len(self._omega) // 500)
+        omega_sub = self._omega[::step]
+        real_sub = np.real(self._H[::step])
+        imag_sub = np.imag(self._H[::step])
+        mag = np.abs(self._H[::step])
+        clip_mask = mag < self.NYQUIST_MAG_CLIP
+        real_clipped = np.where(clip_mask, real_sub, np.nan)
+        imag_clipped = np.where(clip_mask, imag_sub, np.nan)
+
+        # D-contour points for animation
+        d_step = max(1, len(self._d_contour_s) // 300)
+        d_contour_real = np.real(self._d_contour_s[::d_step])
+        d_contour_imag = np.imag(self._d_contour_s[::d_step])
+        d_image_real = np.real(self._d_contour_image[::d_step])
+        d_image_imag = np.imag(self._d_contour_image[::d_step])
+        d_image_mag = np.abs(self._d_contour_image[::d_step])
+        d_clip = d_image_mag < self.NYQUIST_MAG_CLIP
+        d_image_real_clipped = np.where(d_clip, d_image_real, np.nan)
+        d_image_imag_clipped = np.where(d_clip, d_image_imag, np.nan)
+
+        # Format poles/zeros for JSON
+        ol_poles = [[float(np.real(p)), float(np.imag(p))] for p in self._poles] if len(self._poles) > 0 else []
+        ol_zeros = [[float(np.real(z)), float(np.imag(z))] for z in self._zeros] if len(self._zeros) > 0 else []
+        cl_poles = [[float(np.real(p)), float(np.imag(p))] for p in self._cl_poles] if len(self._cl_poles) > 0 else []
+
+        base_state["metadata"] = {
+            "simulation_type": "nyquist_stability",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
+            "has_custom_viewer": True,
+            "sticky_controls": True,
+            "stability_criterion": self._stability_criterion,
+            "stability_info": self._stability_info,
+            "tf_expression": self._tf_expression,
+            "ol_poles": ol_poles,
+            "ol_zeros": ol_zeros,
+            "cl_poles": cl_poles,
+            "omega": omega_sub.tolist(),
+            "nyquist_real": real_clipped.tolist(),
+            "nyquist_imag": imag_clipped.tolist(),
+            "d_contour_s_real": d_contour_real.tolist(),
+            "d_contour_s_imag": d_contour_imag.tolist(),
+            "d_contour_image_real": d_image_real_clipped.tolist(),
+            "d_contour_image_imag": d_image_imag_clipped.tolist(),
+            "preset_name": self.parameters["preset"],
+        }
+        return base_state

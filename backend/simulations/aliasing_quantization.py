@@ -1,11 +1,14 @@
-"""
-Aliasing & Quantization Simulator
-Matching PyQt5 version exactly with 3 demo modes:
+"""Aliasing & Quantization Simulator — sampling and amplitude quantization demos.
+
+Textbook: Oppenheim & Schafer, Discrete-Time Signal Processing, §4.2 (sampling /
+Nyquist) and §4.8 (quantization noise / dither).
+
+Three demo modes:
 - Audio Aliasing: Nyquist theorem, downsampling, anti-aliasing filter
 - Audio Quantization: Standard, Dither, Robert's method comparison
 - Image Quantization: Visual comparison of quantization methods on images
 
-Uses real audio and image files from assets folder (matching PyQt5).
+Uses real audio and image files from the assets folder.
 """
 
 import numpy as np
@@ -36,12 +39,14 @@ class AliasingQuantizationSimulator(BaseSimulator):
     COLOR_PROCESSED = "#ef4444"   # Red/Orange
     COLOR_DITHER = "#22c55e"      # Green
     COLOR_ROBERTS = "#a855f7"     # Purple
-    COLOR_NYQUIST = "#10b981"     # Green
     COLOR_ERROR = "#f59e0b"       # Amber
 
     # Audio generation parameters
     AUDIO_DURATION = 3.0  # seconds
     ORIGINAL_SAMPLE_RATE = 44100  # Hz
+
+    # Overlaid dither/Roberts transfer-curve realizations in the quantizer plot
+    N_REALIZATIONS = 30
 
     # Parameter schema mirrors the catalog controls so inputs are
     # validated (clamped/coerced) before computation, like every other tool.
@@ -97,9 +102,15 @@ class AliasingQuantizationSimulator(BaseSimulator):
         self._downsampled = None
         self._downsampled_time = None
         self._new_sr = None
+        self._freqs_orig = None
+        self._psd_orig_db = None
+        self._freqs_down = None
+        self._psd_down_db = None
         # Quantization results
         self._quantized = None
         self._quant_error = None
+        self._freqs_err = None
+        self._psd_err_db = None
         # Image results
         self._original_image = None
         self._standard_image = None
@@ -170,10 +181,7 @@ class AliasingQuantizationSimulator(BaseSimulator):
             self._time = np.linspace(0, len(self._audio) / self._original_sr,
                                      len(self._audio), dtype=np.float32)
 
-            print(f"Loaded audio: {len(self._audio)} samples at {self._original_sr} Hz")
-
-        except Exception as e:
-            print(f"Failed to load audio file: {e}. Using synthetic audio.")
+        except Exception:
             self._generate_synthetic_audio()
 
     def _generate_synthetic_audio(self) -> None:
@@ -209,10 +217,8 @@ class AliasingQuantizationSimulator(BaseSimulator):
 
             # Convert to numpy array normalized to [0, 1]
             self._original_image = np.array(img).astype(np.float32) / 255.0
-            print(f"Loaded image: {self._original_image.shape}")
 
-        except Exception as e:
-            print(f"Failed to load image file: {e}. Using synthetic image.")
+        except Exception:
             self._generate_synthetic_image()
 
     def _generate_synthetic_image(self) -> None:
@@ -272,6 +278,24 @@ class AliasingQuantizationSimulator(BaseSimulator):
         # Create downsampled time axis
         self._downsampled_time = np.arange(len(self._downsampled), dtype=np.float32) / self._new_sr
 
+        # Power spectra (Welch), converted to dB for the spectrum plot
+        nperseg_orig = min(2048, len(self._audio))
+        nperseg_down = min(512, len(self._downsampled))
+
+        try:
+            self._freqs_orig, psd_orig = signal.welch(self._audio, self._original_sr, nperseg=nperseg_orig)
+            self._psd_orig_db = 10 * np.log10(psd_orig + 1e-12)
+        except Exception:
+            self._freqs_orig = np.array([0])
+            self._psd_orig_db = np.array([-100])
+
+        try:
+            self._freqs_down, psd_down = signal.welch(self._downsampled, self._new_sr, nperseg=nperseg_down)
+            self._psd_down_db = 10 * np.log10(psd_down + 1e-12)
+        except Exception:
+            self._freqs_down = np.array([0])
+            self._psd_down_db = np.array([-100])
+
     # =========================================================================
     # QUANTIZATION DEMO (matching PyQt5 quantization_demo.py)
     # =========================================================================
@@ -300,6 +324,15 @@ class AliasingQuantizationSimulator(BaseSimulator):
             self._snr_db = 10 * np.log10(signal_power / noise_power)
         else:
             self._snr_db = float('inf')
+
+        # Quantization-error power spectrum (Welch), in dB
+        nperseg = min(2048, len(self._quant_error))
+        try:
+            self._freqs_err, psd_err = signal.welch(self._quant_error, self._original_sr, nperseg=nperseg)
+            self._psd_err_db = 10 * np.log10(psd_err + 1e-12)
+        except Exception:
+            self._freqs_err = np.array([0])
+            self._psd_err_db = np.array([-100])
 
     @staticmethod
     def _uniform_quantize(sig: np.ndarray, bits: int) -> np.ndarray:
@@ -425,23 +458,9 @@ class AliasingQuantizationSimulator(BaseSimulator):
         time_down = self._downsampled_time[down_start:down_end]
         audio_down = self._downsampled[down_start:down_end]
 
-        # Compute spectra using Welch's method
-        nperseg_orig = min(2048, len(self._audio))
-        nperseg_down = min(512, len(self._downsampled))
-
-        try:
-            freqs_orig, psd_orig = signal.welch(self._audio, self._original_sr, nperseg=nperseg_orig)
-            psd_orig_db = 10 * np.log10(psd_orig + 1e-12)
-        except Exception:
-            freqs_orig = np.array([0])
-            psd_orig_db = np.array([-100])
-
-        try:
-            freqs_down, psd_down = signal.welch(self._downsampled, self._new_sr, nperseg=nperseg_down)
-            psd_down_db = 10 * np.log10(psd_down + 1e-12)
-        except Exception:
-            freqs_down = np.array([0])
-            psd_down_db = np.array([-100])
+        # Spectra (computed and cached in _compute_aliasing)
+        freqs_orig, psd_orig_db = self._freqs_orig, self._psd_orig_db
+        freqs_down, psd_down_db = self._freqs_down, self._psd_down_db
 
         plots = [
             # Plot 1: Original Signal
@@ -560,14 +579,8 @@ class AliasingQuantizationSimulator(BaseSimulator):
         audio_segment = self._audio[start_idx:end_idx]
         quant_segment = self._quantized[start_idx:end_idx]
 
-        # Compute error spectrum
-        nperseg = min(2048, len(self._quant_error))
-        try:
-            freqs_err, psd_err = signal.welch(self._quant_error, self._original_sr, nperseg=nperseg)
-            psd_err_db = 10 * np.log10(psd_err + 1e-12)
-        except Exception:
-            freqs_err = np.array([0])
-            psd_err_db = np.array([-100])
+        # Error spectrum (computed and cached in _compute_quantization)
+        freqs_err, psd_err_db = self._freqs_err, self._psd_err_db
 
         # Quantization function - for dither/roberts show multiple realizations like PyQt5
         x_test = np.linspace(-1, 1, 500)
@@ -585,8 +598,8 @@ class AliasingQuantizationSimulator(BaseSimulator):
                 "line": {"color": self.COLOR_ERROR, "width": 2},
             })
         else:
-            # Dither/Roberts - show 30 realizations with low opacity like PyQt5
-            for i in range(30):
+            # Dither/Roberts - show N realizations with low opacity like PyQt5
+            for i in range(self.N_REALIZATIONS):
                 if method == "dither":
                     y_test = self._dither_quantize(x_test, bits)
                 else:
@@ -886,6 +899,24 @@ class AliasingQuantizationSimulator(BaseSimulator):
     # METADATA
     # =========================================================================
 
+    def _audio_playback(self, processed: np.ndarray, processed_sr: float) -> Dict[str, Any]:
+        """Build the audio_original/audio_processed playback dict.
+
+        Original audio is limited to 2 seconds for web transfer; the processed
+        stream is sent as-is at its own sample rate.
+        """
+        max_samples = int(2.0 * self._original_sr)
+        return {
+            "audio_original": {
+                "data": self._audio[:max_samples].tolist(),
+                "sample_rate": int(self._original_sr),
+            },
+            "audio_processed": {
+                "data": processed.tolist(),
+                "sample_rate": int(processed_sr),
+            },
+        }
+
     def get_metadata(self) -> Dict[str, Any]:
         """Return simulation metadata."""
         mode = self.parameters["demo_mode"]
@@ -902,10 +933,6 @@ class AliasingQuantizationSimulator(BaseSimulator):
 
         if mode == "aliasing":
             factor = self.parameters["downsample_factor"]
-            # Send full quality audio (limited to 2 seconds for web transfer)
-            max_samples_orig = int(2.0 * self._original_sr)
-            audio_orig_limited = self._audio[:max_samples_orig]
-
             return {
                 **base_metadata,
                 "original_sr": int(self._original_sr),
@@ -915,24 +942,12 @@ class AliasingQuantizationSimulator(BaseSimulator):
                 "downsample_factor": factor,
                 "anti_aliasing": self.parameters["anti_aliasing"],
                 "aliasing_risk": self._new_sr < 2 * 3520,  # Highest frequency in our audio
-                # Full quality audio for playback
-                "audio_original": {
-                    "data": audio_orig_limited.tolist(),
-                    "sample_rate": int(self._original_sr),
-                },
-                "audio_processed": {
-                    "data": self._downsampled.tolist(),
-                    "sample_rate": int(self._new_sr),
-                },
+                **self._audio_playback(self._downsampled, self._new_sr),
             }
 
         elif mode == "quantization":
             bits = self.parameters["bit_depth"]
-            # Send full quality audio (limited to 2 seconds for web transfer)
             max_samples = int(2.0 * self._original_sr)
-            audio_orig_limited = self._audio[:max_samples]
-            quant_limited = self._quantized[:max_samples]
-
             return {
                 **base_metadata,
                 "bit_depth": bits,
@@ -940,15 +955,7 @@ class AliasingQuantizationSimulator(BaseSimulator):
                 "method": self.parameters["quant_method"],
                 "snr_db": self._snr_db if self._snr_db != float('inf') else None,
                 "snr_text": f"{self._snr_db:.1f} dB" if self._snr_db != float('inf') else "∞ dB",
-                # Full quality audio for playback
-                "audio_original": {
-                    "data": audio_orig_limited.tolist(),
-                    "sample_rate": int(self._original_sr),
-                },
-                "audio_processed": {
-                    "data": quant_limited.tolist(),
-                    "sample_rate": int(self._original_sr),
-                },
+                **self._audio_playback(self._quantized[:max_samples], self._original_sr),
             }
 
         elif mode == "image":

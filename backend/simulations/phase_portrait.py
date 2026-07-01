@@ -50,7 +50,7 @@ _SAFE_NAMESPACE = {
     "__builtins__": {},
 }
 
-from core.expr_validator import validate_expr as _validate_expr_core, DANGEROUS_PATTERNS as _DANGEROUS_PATTERNS
+from core.expr_validator import validate_expr as _validate_expr_core
 
 
 def _validate_expr(expr: str) -> Tuple[bool, str]:
@@ -290,9 +290,11 @@ class PhasePortraitSimulator(BaseSimulator):
         self._g_func = None
         self._error: Optional[str] = None
         self._next_traj_id = 0
+        self._vf: Optional[Dict[str, Any]] = None
         self._apply_preset()
         self._compile_functions()
         self._find_equilibria()
+        self._vf = self._compute_vector_field()
         self._initialized = True
 
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
@@ -312,11 +314,13 @@ class PhasePortraitSimulator(BaseSimulator):
                 self._compile_functions()
                 self._find_equilibria()
                 self._reintegrate_trajectories()
+                self._vf = self._compute_vector_field()
             else:
                 needs_eq_update = name in ("x_min", "x_max", "y_min", "y_max", "grid_density")
                 if needs_eq_update:
                     self._find_equilibria()
                     self._reintegrate_trajectories()
+                    self._vf = self._compute_vector_field()
 
         return self.get_state()
 
@@ -486,54 +490,46 @@ class PhasePortraitSimulator(BaseSimulator):
     # ------------------------------------------------------------------ #
     #  Trajectory integration                                             #
     # ------------------------------------------------------------------ #
+    def _integrate_span(self, t_end: float, x0: float, y0: float):
+        """RK45→LSODA retry ladder for one time span [0, t_end]. Returns the
+        scipy solution object, or None if both solvers raise/fail to start."""
+        try:
+            sol = solve_ivp(
+                self._dynamics, [0, t_end], [x0, y0],
+                method="RK45", max_step=0.05,
+                dense_output=False, rtol=1e-8, atol=1e-10,
+            )
+            if not sol.success:
+                # Retry with stiff-capable solver
+                sol = solve_ivp(
+                    self._dynamics, [0, t_end], [x0, y0],
+                    method="LSODA", max_step=0.05,
+                    dense_output=False, rtol=1e-6, atol=1e-8,
+                )
+            return sol
+        except Exception:
+            return None
+
     def _integrate_trajectory(self, x0: float, y0: float) -> Optional[Dict[str, Any]]:
         """Integrate a trajectory from initial condition (x0, y0)."""
         t_max = float(self.parameters["trajectory_time"])
 
         # Forward integration
-        try:
-            sol_fwd = solve_ivp(
-                self._dynamics, [0, t_max], [x0, y0],
-                method="RK45", max_step=0.05,
-                dense_output=False, rtol=1e-8, atol=1e-10,
-            )
-            if not sol_fwd.success:
-                # Retry with stiff-capable solver
-                sol_fwd = solve_ivp(
-                    self._dynamics, [0, t_max], [x0, y0],
-                    method="LSODA", max_step=0.05,
-                    dense_output=False, rtol=1e-6, atol=1e-8,
-                )
-            if sol_fwd.success:
-                x1_fwd = sol_fwd.y[0].tolist()
-                x2_fwd = sol_fwd.y[1].tolist()
-                t_fwd = sol_fwd.t.tolist()
-            else:
-                x1_fwd, x2_fwd, t_fwd = [x0], [y0], [0.0]
-        except Exception:
+        sol_fwd = self._integrate_span(t_max, x0, y0)
+        if sol_fwd is not None and sol_fwd.success:
+            x1_fwd = sol_fwd.y[0].tolist()
+            x2_fwd = sol_fwd.y[1].tolist()
+            t_fwd = sol_fwd.t.tolist()
+        else:
             x1_fwd, x2_fwd, t_fwd = [x0], [y0], [0.0]
 
         # Backward integration (reverse time)
-        try:
-            sol_bwd = solve_ivp(
-                self._dynamics, [0, -t_max], [x0, y0],
-                method="RK45", max_step=0.05,
-                dense_output=False, rtol=1e-8, atol=1e-10,
-            )
-            if not sol_bwd.success:
-                # Retry with stiff-capable solver
-                sol_bwd = solve_ivp(
-                    self._dynamics, [0, -t_max], [x0, y0],
-                    method="LSODA", max_step=0.05,
-                    dense_output=False, rtol=1e-6, atol=1e-8,
-                )
-            if sol_bwd.success and len(sol_bwd.t) > 1:
-                x1_bwd = sol_bwd.y[0][1:][::-1].tolist()
-                x2_bwd = sol_bwd.y[1][1:][::-1].tolist()
-                t_bwd = sol_bwd.t[1:][::-1].tolist()
-            else:
-                x1_bwd, x2_bwd, t_bwd = [], [], []
-        except Exception:
+        sol_bwd = self._integrate_span(-t_max, x0, y0)
+        if sol_bwd is not None and sol_bwd.success and len(sol_bwd.t) > 1:
+            x1_bwd = sol_bwd.y[0][1:][::-1].tolist()
+            x2_bwd = sol_bwd.y[1][1:][::-1].tolist()
+            t_bwd = sol_bwd.t[1:][::-1].tolist()
+        else:
             x1_bwd, x2_bwd, t_bwd = [], [], []
 
         x1_full = x1_bwd + x1_fwd
@@ -651,7 +647,7 @@ class PhasePortraitSimulator(BaseSimulator):
 
     def _build_phase_portrait(self) -> Dict[str, Any]:
         """Main phase plane: vector field + trajectories + equilibria."""
-        vf = self._compute_vector_field()
+        vf = self._vf if self._vf is not None else self._compute_vector_field()
         traces = []
 
         # --- Vector field as line-segment arrows ---
@@ -662,15 +658,19 @@ class PhasePortraitSimulator(BaseSimulator):
         arrow_scale_x = x_range / n_grid * 0.4
         arrow_scale_y = y_range / n_grid * 0.4
 
-        arrow_x = []
-        arrow_y = []
-        for i in range(n_pts):
-            x0 = vf["x"][i]
-            y0 = vf["y"][i]
-            dx = vf["u"][i] * arrow_scale_x
-            dy = vf["v"][i] * arrow_scale_y
-            arrow_x.extend([x0, x0 + dx, None])
-            arrow_y.extend([y0, y0 + dy, None])
+        vf_x = np.asarray(vf["x"], dtype=float)
+        vf_y = np.asarray(vf["y"], dtype=float)
+        vf_u = np.asarray(vf["u"], dtype=float)
+        vf_v = np.asarray(vf["v"], dtype=float)
+        vf_mag = np.asarray(vf["magnitude"], dtype=float)
+
+        tip_x = vf_x + vf_u * arrow_scale_x
+        tip_y = vf_y + vf_v * arrow_scale_y
+
+        # Interleave [start, tip, NaN] per point; NaN serializes to None (line break)
+        nan_col = np.full(n_pts, np.nan)
+        arrow_x = np.column_stack([vf_x, tip_x, nan_col]).ravel().tolist()
+        arrow_y = np.column_stack([vf_y, tip_y, nan_col]).ravel().tolist()
 
         traces.append({
             "x": arrow_x,
@@ -682,13 +682,10 @@ class PhasePortraitSimulator(BaseSimulator):
         })
 
         # Arrow heads (dots at tips, colored by magnitude)
-        head_x, head_y, head_mag = [], [], []
-        for i in range(n_pts):
-            if vf["magnitude"][i] < 1e-12:
-                continue
-            head_x.append(vf["x"][i] + vf["u"][i] * arrow_scale_x)
-            head_y.append(vf["y"][i] + vf["v"][i] * arrow_scale_y)
-            head_mag.append(vf["magnitude"][i])
+        head_mask = vf_mag >= 1e-12
+        head_x = tip_x[head_mask].tolist()
+        head_y = tip_y[head_mask].tolist()
+        head_mag = vf_mag[head_mask].tolist()
 
         if head_x:
             traces.append({
@@ -757,25 +754,17 @@ class PhasePortraitSimulator(BaseSimulator):
                     "hoverinfo": "skip",
                 })
 
-        # --- Equilibria ---
-        eq_colors = {
-            "stable_node": "#10b981", "unstable_node": "#ef4444",
-            "saddle": "#f59e0b", "stable_spiral": "#06b6d4",
-            "unstable_spiral": "#f97316", "center": "#8b5cf6",
-            "degenerate": "#64748b",
+        # --- Equilibria ---   (color, symbol, label) per equilibrium type
+        eq_style = {
+            "stable_node": ("#10b981", "circle", "Stable Node"),
+            "unstable_node": ("#ef4444", "circle-open", "Unstable Node"),
+            "saddle": ("#f59e0b", "x", "Saddle"),
+            "stable_spiral": ("#06b6d4", "circle", "Stable Spiral"),
+            "unstable_spiral": ("#f97316", "circle-open", "Unstable Spiral"),
+            "center": ("#8b5cf6", "diamond", "Center"),
+            "degenerate": ("#64748b", "square", "Degenerate"),
         }
-        eq_symbols = {
-            "stable_node": "circle", "unstable_node": "circle-open",
-            "saddle": "x", "stable_spiral": "circle",
-            "unstable_spiral": "circle-open", "center": "diamond",
-            "degenerate": "square",
-        }
-        eq_labels = {
-            "stable_node": "Stable Node", "unstable_node": "Unstable Node",
-            "saddle": "Saddle", "stable_spiral": "Stable Spiral",
-            "unstable_spiral": "Unstable Spiral", "center": "Center",
-            "degenerate": "Degenerate",
-        }
+        _default_style = ("#64748b", "circle", None)
 
         eq_by_type: Dict[str, list] = {}
         for eq in self._equilibria:
@@ -785,6 +774,9 @@ class PhasePortraitSimulator(BaseSimulator):
             eq_by_type[et].append(eq)
 
         for et, eqs in eq_by_type.items():
+            et_color, et_symbol, et_label = eq_style.get(et, _default_style)
+            if et_label is None:
+                et_label = et
             xs = [eq["x1"] for eq in eqs]
             ys = [eq["x2"] for eq in eqs]
             hovers = []
@@ -806,7 +798,7 @@ class PhasePortraitSimulator(BaseSimulator):
                                 break
                 hovers.append(
                     f"({eq['x1']:.3f}, {eq['x2']:.3f})<br>"
-                    f"{eq_labels[et]}<br>"
+                    f"{et_label}<br>"
                     f"\u03bb: {', '.join(ev_strs)}<br>"
                     f"tr={eq['trace']:.4f}, det={eq['determinant']:.4f}"
                 )
@@ -815,11 +807,11 @@ class PhasePortraitSimulator(BaseSimulator):
                 "mode": "markers",
                 "marker": {
                     "size": 12,
-                    "color": eq_colors.get(et, "#64748b"),
-                    "symbol": eq_symbols.get(et, "circle"),
+                    "color": et_color,
+                    "symbol": et_symbol,
                     "line": {"color": "#fff", "width": 2},
                 },
-                "name": eq_labels.get(et, et),
+                "name": et_label,
                 "hovertemplate": "%{customdata}<extra></extra>",
                 "customdata": hovers,
             })

@@ -150,7 +150,6 @@ class InverseZTransformSimulator(BaseSimulator):
         self._zeros: np.ndarray = np.array([])
         self._residues: np.ndarray = np.array([])
         self._direct_terms: np.ndarray = np.array([])
-        self._pole_multiplicity: Dict[int, int] = {}
 
         # ROC per-pole assignment
         self._roc_regions: List[Dict[str, Any]] = []
@@ -164,6 +163,10 @@ class InverseZTransformSimulator(BaseSimulator):
         self._h_n: Optional[np.ndarray] = None
         self._n: Optional[np.ndarray] = None
         self._is_stable: bool = True
+
+        # Frequency response |H(e^jω)| on the unit circle
+        self._omega: Optional[np.ndarray] = None
+        self._Hmag: Optional[np.ndarray] = None
 
         # Quiz state
         self._quiz_active: bool = False
@@ -254,16 +257,6 @@ class InverseZTransformSimulator(BaseSimulator):
         if not self._den_z or all(abs(c) < 1e-15 for c in self._den_z):
             self._den_z = [1.0]
 
-    @staticmethod
-    def _poly_z_to_zinv(coeffs_z: List[float]) -> np.ndarray:
-        """Convert polynomial in descending z to z⁻¹ form for residuez.
-
-        coeffs_z: [a0, a1, ..., aN] representing a0*z^N + a1*z^(N-1) + ... + aN
-        Returns: [a0, a1, ..., aN] as coefficients of [1, z^-1, z^-2, ...] * z^N
-        For residuez, we need coefficients of z⁻¹: [b0, b1, ...] = N(z)/z^M / D(z)/z^N
-        """
-        return np.array(coeffs_z, dtype=float)
-
     # ── Core computation ──────────────────────────────────────────
 
     def _compute(self) -> None:
@@ -302,12 +295,26 @@ class InverseZTransformSimulator(BaseSimulator):
         # Assemble time-domain signal
         self._assemble_time_domain()
 
+        # Frequency response |H(e^jω)| on the unit circle
+        self._omega, self._Hmag = self._freq_response(b_z, a_z)
+
         # Compute alternative methods
         self._compute_long_division(b_zinv, a_zinv)
         self._compute_power_series(b_zinv, a_zinv)
 
         # Build solution steps
         self._build_solution_steps()
+
+    @staticmethod
+    def _freq_response(b_z: np.ndarray, a_z: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """|H(e^jω)| = |B(z)/A(z)| evaluated on the unit circle z = e^jω."""
+        omega = np.linspace(-np.pi, np.pi, 512)
+        z_vals = np.exp(1j * omega)
+        num_vals = np.polyval(b_z, z_vals)
+        den_vals = np.polyval(a_z, z_vals)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            H_mag = np.clip(np.abs(num_vals / den_vals), 0, 100)  # clamp for display
+        return omega, H_mag
 
     def _convert_to_zinv_form(
         self, b_z: np.ndarray, a_z: np.ndarray
@@ -365,6 +372,12 @@ class InverseZTransformSimulator(BaseSimulator):
                 "pole_imag": float(p.imag),
             })
 
+    def _is_causal(self, i: int) -> bool:
+        """ROC causality flag for pole i, defaulting to causal when unassigned."""
+        if i < len(self._roc_regions):
+            return self._roc_regions[i]["causal"]
+        return True
+
     # ── Time-domain assembly ──────────────────────────────────────
 
     def _assemble_time_domain(self) -> None:
@@ -385,10 +398,7 @@ class InverseZTransformSimulator(BaseSimulator):
 
         # Add partial fraction terms
         for i, (r, p) in enumerate(zip(self._residues, self._poles)):
-            if i < len(self._roc_regions):
-                is_causal = self._roc_regions[i]["causal"]
-            else:
-                is_causal = True
+            is_causal = self._is_causal(i)
 
             if is_causal:
                 # Causal: r * p^n * u[n]
@@ -569,8 +579,9 @@ class InverseZTransformSimulator(BaseSimulator):
             })
 
         # Direct terms
+        has_direct_terms = len(self._direct_terms) > 0 and any(abs(d) > 1e-10 for d in self._direct_terms)
         direct_str = ""
-        if len(self._direct_terms) > 0 and any(abs(d) > 1e-10 for d in self._direct_terms):
+        if has_direct_terms:
             direct_parts = []
             for k, d in enumerate(self._direct_terms):
                 if abs(d) > 1e-10:
@@ -586,7 +597,7 @@ class InverseZTransformSimulator(BaseSimulator):
             "description": f"Decomposed into {len(self._residues)} partial fraction term(s).",
             "details": {
                 "algebra_steps": algebra_steps,
-                "has_direct_terms": len(self._direct_terms) > 0 and any(abs(d) > 1e-10 for d in self._direct_terms),
+                "has_direct_terms": has_direct_terms,
             },
         }
 
@@ -602,7 +613,7 @@ class InverseZTransformSimulator(BaseSimulator):
 
         pairs = []
         for i, (r, p) in enumerate(zip(self._residues, self._poles)):
-            is_causal = self._roc_regions[i]["causal"] if i < len(self._roc_regions) else True
+            is_causal = self._is_causal(i)
             r_str = self._fmt_complex(r)
             p_str = self._fmt_complex(p)
             mag = abs(p)
@@ -658,7 +669,7 @@ class InverseZTransformSimulator(BaseSimulator):
 
         terms = []
         for i, (r, p) in enumerate(zip(self._residues, self._poles)):
-            is_causal = self._roc_regions[i]["causal"] if i < len(self._roc_regions) else True
+            is_causal = self._is_causal(i)
             r_str = self._fmt_complex(r)
             p_str = self._fmt_complex(p)
 
@@ -886,17 +897,21 @@ class InverseZTransformSimulator(BaseSimulator):
         if n is None or h is None:
             return {"id": "impulse_response", "title": "h[n]", "data": [], "layout": self._base_layout("n", "h[n]")}
 
-        # Stem lines
+        # Stem lines: one trace with None-separated segments (0→h[i] per sample)
+        stem_x: List[Any] = []
+        stem_y: List[Any] = []
         for i in range(N):
-            traces.append({
-                "x": [int(n[i]), int(n[i])],
-                "y": [0, float(h[i])],
-                "type": "scatter",
-                "mode": "lines",
-                "line": {"color": "#3b82f6", "width": 2},
-                "showlegend": False,
-                "hoverinfo": "skip",
-            })
+            stem_x.extend([int(n[i]), int(n[i]), None])
+            stem_y.extend([0, float(h[i]), None])
+        traces.append({
+            "x": stem_x,
+            "y": stem_y,
+            "type": "scatter",
+            "mode": "lines",
+            "line": {"color": "#3b82f6", "width": 2},
+            "showlegend": False,
+            "hoverinfo": "skip",
+        })
 
         # Markers
         traces.append({
@@ -940,22 +955,9 @@ class InverseZTransformSimulator(BaseSimulator):
         return {"id": "impulse_response", "title": "Impulse Response h[n]", "data": traces, "layout": layout}
 
     def _make_magnitude_response_plot(self) -> Dict[str, Any]:
-        """Compute and plot |H(e^jω)| on the unit circle."""
-        omega = np.linspace(-np.pi, np.pi, 512)
-        z_vals = np.exp(1j * omega)
-
-        b_z = np.array(self._num_z, dtype=float)
-        a_z = np.array(self._den_z, dtype=float)
-
-        # Evaluate H(z) = B(z)/A(z)
-        num_vals = np.polyval(b_z, z_vals)
-        den_vals = np.polyval(a_z, z_vals)
-
-        # Avoid division by zero
-        with np.errstate(divide="ignore", invalid="ignore"):
-            H = num_vals / den_vals
-            H_mag = np.abs(H)
-            H_mag = np.clip(H_mag, 0, 100)  # Clamp for display
+        """Plot the cached magnitude response |H(e^jω)| on the unit circle."""
+        omega = self._omega
+        H_mag = self._Hmag
 
         traces = [{
             "x": (omega / np.pi).tolist(),

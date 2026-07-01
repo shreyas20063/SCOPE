@@ -15,10 +15,8 @@ from typing import Any, Dict, List, Optional
 from .base_simulator import BaseSimulator
 from core.controllers import (
     numerical_jacobian, controllability_matrix,
-    compute_lqr, compute_pole_placement, compute_lqg, compute_pid_gains,
-    simulate_pid, simulate_state_feedback, simulate_lqg,
-    compute_performance_metrics, compute_energy,
-    ss2tf_siso, auto_tune_zn_closed, auto_tune_itae, auto_tune_lqr_itae,
+    compute_lqr, compute_pole_placement, compute_lqg,
+    simulate_state_feedback, simulate_lqg, auto_tune_lqr_itae,
 )
 
 
@@ -340,21 +338,7 @@ class FurutaPendulumSimulator(BaseSimulator):
                         self._controller_info["auto_tune_fallback"] = True
                     self._controller_info["auto_tune_method"] = ctrl
 
-                # Compute stability and settling
-                self._peak_angle = float(np.max(np.abs(self._theta)))
-                self._peak_angle_deg = float(np.degrees(self._peak_angle))
-                last_samples = min(200, len(self._theta))
-                self._is_stable = np.all(np.abs(self._theta[-last_samples:]) < np.radians(5))
-                if self._peak_angle > np.radians(90):
-                    self._is_stable = False
-                within_tolerance = np.abs(self._theta) < np.radians(5)
-                self._settling_time = None
-                settling_window = min(100, len(self._theta) // 2)
-                if np.any(within_tolerance) and self._is_stable and settling_window > 0:
-                    for i in range(len(within_tolerance) - settling_window):
-                        if np.all(within_tolerance[i:i + settling_window]):
-                            self._settling_time = self._time[i]
-                            break
+                self._compute_stability_metrics()
                 return
 
             except Exception as e:
@@ -369,12 +353,10 @@ class FurutaPendulumSimulator(BaseSimulator):
         Ki = self.parameters["Ki"]
         Kd = self.parameters["Kd"]
 
-        # Arm feedback gains (essential for underactuated stability):
-        # The Furuta pendulum requires full-state feedback for stabilization.
-        # Pure theta-only PID cannot stabilize it because the arm (phi) dynamics
-        # are strongly coupled through the off-diagonal mass matrix term m·r·l·cos(θ).
-        arm_position_gain = 3.0   # ≈ |K[0,2]| from default LQR
-        arm_damping_gain = 5.0    # ≈ |K[0,3]| from default LQR
+        # Full-state feedback: theta-only PID cannot stabilize the underactuated
+        # Furuta pendulum (arm coupling m·r·l·cos θ). Gains ≈ |K[0,2:4]| of default LQR.
+        arm_position_gain = 3.0
+        arm_damping_gain = 5.0
 
         def pid_rhs(t, z):
             theta_v, theta_dot_v, phi_v, phi_dot_v, ie = z
@@ -402,111 +384,28 @@ class FurutaPendulumSimulator(BaseSimulator):
                             method='LSODA', t_eval=t_eval,
                             rtol=1e-6, atol=1e-8)
 
-        n_pts = len(sol.t)
         self._time = sol.t
         self._theta = sol.y[0]
         self._theta_dot = sol.y[1]
         self._phi = sol.y[2]
         self._phi_dot = sol.y[3]
 
-        # Reconstruct torque
-        self._torque = np.zeros(n_pts)
-        for i in range(n_pts):
-            ie_val = sol.y[4, i]
-            self._torque[i] = np.clip(
-                Kp * self._theta[i] + Ki * ie_val + Kd * self._theta_dot[i]
-                + arm_position_gain * self._phi[i] + arm_damping_gain * self._phi_dot[i],
-                -self.TORQUE_LIMIT, self.TORQUE_LIMIT)
+        # Reconstruct torque (same PID + arm-feedback law, clipped)
+        self._torque = np.clip(
+            Kp * self._theta + Ki * sol.y[4] + Kd * self._theta_dot
+            + arm_position_gain * self._phi + arm_damping_gain * self._phi_dot,
+            -self.TORQUE_LIMIT, self.TORQUE_LIMIT)
 
-        # Build 3D trajectory from result
-        self._arm_positions = []
-        self._pendulum_positions = []
-        self._velocities = []
-        self._energies = []
-        self._angular_velocities = []
-
-        for i in range(n_pts):
-            theta_v = self._theta[i]
-            phi_v = self._phi[i]
-            theta_dot_v = self._theta_dot[i]
-            phi_dot_v = self._phi_dot[i]
-
-            arm_x = r * np.cos(phi_v)
-            arm_y = r * np.sin(phi_v)
-            perp_x = -np.sin(phi_v)
-            perp_y = np.cos(phi_v)
-            pend_x = arm_x + l * np.sin(theta_v) * perp_x
-            pend_y = arm_y + l * np.sin(theta_v) * perp_y
-            pend_z = l * np.cos(theta_v)
-
-            self._arm_positions.append([float(arm_x), float(arm_y), 0.0])
-            self._pendulum_positions.append([float(pend_x), float(pend_y), float(pend_z)])
-
-            if i > 0:
-                prev = self._pendulum_positions[-2]
-                dt_val = max(sol.t[i] - sol.t[i - 1], 1e-6)
-                vel_x = (pend_x - prev[0]) / dt_val
-                vel_y = (pend_y - prev[1]) / dt_val
-                vel_z = (pend_z - prev[2]) / dt_val
-                speed = np.sqrt(vel_x**2 + vel_y**2 + vel_z**2)
-            else:
-                vel_x, vel_y, vel_z, speed = 0.0, 0.0, 0.0, 0.0
-            self._velocities.append([float(vel_x), float(vel_y), float(vel_z), float(speed)])
-
-            # Energy from mass matrix
-            I_p_loc = mass * l**2 / 3.0
-            ARM_M = 0.15
-            I_r_loc = ARM_M * r**2 / 3.0
-            M11_ = I_p_loc + mass * l**2
-            M12_ = mass * r * l * np.cos(theta_v)
-            M22_ = I_r_loc + mass * r**2 + mass * l**2 * np.sin(theta_v)**2
-            ke = 0.5 * (M11_ * theta_dot_v**2 + 2 * M12_ * theta_dot_v * phi_dot_v + M22_ * phi_dot_v**2)
-            pe = mass * self.G * l * np.cos(theta_v)
-            self._energies.append(float(ke + pe))
-            self._angular_velocities.append([float(theta_dot_v), float(phi_dot_v)])
-
-        self._current_arm_pos = self._arm_positions[-1] if self._arm_positions else [0, 0, 0]
-        self._current_pendulum_pos = self._pendulum_positions[-1] if self._pendulum_positions else [0, 0, 0.3]
-
-        # Stability metrics
-        self._peak_angle = float(np.max(np.abs(self._theta)))
-        self._peak_angle_deg = float(np.degrees(self._peak_angle))
-        last_samples = min(200, n_pts)
-        self._is_stable = np.all(np.abs(self._theta[-last_samples:]) < np.radians(5))
-        if self._peak_angle > np.radians(90):
-            self._is_stable = False
-
-        within_tolerance = np.abs(self._theta) < np.radians(5)
-        self._settling_time = None
-        settling_window = min(100, n_pts // 2)
-        if np.any(within_tolerance) and self._is_stable and settling_window > 0:
-            for i in range(len(within_tolerance) - settling_window):
-                if np.all(within_tolerance[i:i + settling_window]):
-                    self._settling_time = float(self._time[i])
-                    break
+        self._build_visualization_arrays(
+            self._time, self._theta, self._theta_dot, self._phi, self._phi_dot)
+        self._compute_stability_metrics()
 
     def _compute_dynamics(self, state: np.ndarray, torque: float,
                           mass: float, l: float, r: float,
                           I_p: float, I_r: float) -> np.ndarray:
-        """
-        Compute state derivatives using full Euler-Lagrange mass matrix formulation.
+        """Euler-Lagrange dynamics M(q)·[θ_dd, φ_dd]ᵀ = τ_gen, solved via Cramer's rule.
 
-        Derived from the Lagrangian L = T - V for a rotary inverted pendulum.
-        State: [theta, theta_dot, phi, phi_dot]
-          theta: pendulum angle from upright (0 = up)
-          phi: arm rotation angle (horizontal plane)
-
-        Mass matrix M(q):
-          M11 = I_p + m·l²        (pendulum inertia about pivot)
-          M12 = m·r·l·cos(theta)  (coupling: arm ↔ pendulum)
-          M21 = M12
-          M22 = I_r + m·r² + m·l²·sin²(theta)  (effective arm inertia)
-
-        Equations: M(q)·[theta_dd, phi_dd]' = tau_gen
-        Solved via 2×2 matrix inversion: [theta_dd, phi_dd]' = M⁻¹ · tau_gen
-
-        References: Furuta (1992), Quanser SRV02 documentation,
-                    Åström & Furuta (2000) "Swinging up a pendulum by energy control"
+        Textbook: Åström & Furuta (2000), "Swinging up a pendulum by energy control".
         """
         theta, theta_dot, phi, phi_dot = state
 
@@ -540,16 +439,83 @@ class FurutaPendulumSimulator(BaseSimulator):
 
         return np.array([theta_dot, theta_acc, phi_dot, phi_acc])
 
-    def _integrate_rk4(self, state: np.ndarray, torque: float,
-                       mass: float, l: float, r: float,
-                       I_p: float, I_r: float) -> np.ndarray:
-        """RK4 integration step."""
-        k1 = self._compute_dynamics(state, torque, mass, l, r, I_p, I_r)
-        k2 = self._compute_dynamics(state + 0.5 * self.DT * k1, torque, mass, l, r, I_p, I_r)
-        k3 = self._compute_dynamics(state + 0.5 * self.DT * k2, torque, mass, l, r, I_p, I_r)
-        k4 = self._compute_dynamics(state + self.DT * k3, torque, mass, l, r, I_p, I_r)
+    def _build_visualization_arrays(self, t, theta, theta_dot, phi, phi_dot) -> None:
+        """Cache 3D geometry, backward-difference velocities, and Lagrangian energy."""
+        t = np.asarray(t, dtype=float)
+        theta = np.asarray(theta, dtype=float)
+        theta_dot = np.asarray(theta_dot, dtype=float)
+        phi = np.asarray(phi, dtype=float)
+        phi_dot = np.asarray(phi_dot, dtype=float)
+        n_pts = len(t)
 
-        return state + (self.DT / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
+        mass = self.parameters["mass"]
+        l = self.parameters["pendulum_length"]
+        r = self.parameters["arm_length"]
+
+        sin_theta = np.sin(theta)
+        cos_theta = np.cos(theta)
+        arm_x = r * np.cos(phi)
+        arm_y = r * np.sin(phi)
+        perp_x = -np.sin(phi)
+        perp_y = np.cos(phi)
+        pend_x = arm_x + l * sin_theta * perp_x
+        pend_y = arm_y + l * sin_theta * perp_y
+        pend_z = l * cos_theta
+
+        self._arm_positions = [
+            [float(arm_x[i]), float(arm_y[i]), 0.0] for i in range(n_pts)]
+        self._pendulum_positions = [
+            [float(pend_x[i]), float(pend_y[i]), float(pend_z[i])] for i in range(n_pts)]
+
+        # Backward-difference velocities (index 0 = zeros)
+        vel_x = np.zeros(n_pts)
+        vel_y = np.zeros(n_pts)
+        vel_z = np.zeros(n_pts)
+        if n_pts > 1:
+            dt = np.maximum(np.diff(t), 1e-6)
+            vel_x[1:] = np.diff(pend_x) / dt
+            vel_y[1:] = np.diff(pend_y) / dt
+            vel_z[1:] = np.diff(pend_z) / dt
+        speed = np.sqrt(vel_x**2 + vel_y**2 + vel_z**2)
+        self._velocities = [
+            [float(vel_x[i]), float(vel_y[i]), float(vel_z[i]), float(speed[i])]
+            for i in range(n_pts)]
+
+        # Total energy T + V from the mass matrix (see _compute_dynamics)
+        I_p_loc = mass * l**2 / 3.0
+        I_r_loc = 0.15 * r**2 / 3.0
+        M11 = I_p_loc + mass * l**2
+        M12 = mass * r * l * cos_theta
+        M22 = I_r_loc + mass * r**2 + mass * l**2 * sin_theta**2
+        ke = 0.5 * (M11 * theta_dot**2 + 2 * M12 * theta_dot * phi_dot + M22 * phi_dot**2)
+        pe = mass * self.G * l * cos_theta
+        energy = ke + pe
+        self._energies = [float(e) for e in energy]
+        self._angular_velocities = [
+            [float(theta_dot[i]), float(phi_dot[i])] for i in range(n_pts)]
+
+        self._current_arm_pos = self._arm_positions[-1] if self._arm_positions else [0, 0, 0]
+        self._current_pendulum_pos = (
+            self._pendulum_positions[-1] if self._pendulum_positions else [0, 0, 0.3])
+
+    def _compute_stability_metrics(self) -> None:
+        """Peak angle, ±5° settling, and stability of the pendulum trajectory."""
+        n_pts = len(self._theta)
+        self._peak_angle = float(np.max(np.abs(self._theta)))
+        self._peak_angle_deg = float(np.degrees(self._peak_angle))
+        last_samples = min(200, n_pts)
+        self._is_stable = np.all(np.abs(self._theta[-last_samples:]) < np.radians(5))
+        if self._peak_angle > np.radians(90):
+            self._is_stable = False
+
+        within_tolerance = np.abs(self._theta) < np.radians(5)
+        self._settling_time = None
+        settling_window = min(100, n_pts // 2)
+        if np.any(within_tolerance) and self._is_stable and settling_window > 0:
+            for i in range(len(within_tolerance) - settling_window):
+                if np.all(within_tolerance[i:i + settling_window]):
+                    self._settling_time = float(self._time[i])
+                    break
 
     def _dynamics_wrapper(self, x: np.ndarray, u: np.ndarray) -> np.ndarray:
         """Wrap physics as f(x, u) for controllers.py compatibility."""
@@ -589,7 +555,6 @@ class FurutaPendulumSimulator(BaseSimulator):
         t = result["t"]
         x = result["x"]
         u = result["u"]
-        n_pts = len(t)
 
         self._time = t
         self._theta = x[:, 0]
@@ -598,59 +563,8 @@ class FurutaPendulumSimulator(BaseSimulator):
         self._phi_dot = x[:, 3]
         self._torque = u[:, 0]
 
-        # Rebuild 3D trajectory data
-        mass = self.parameters["mass"]
-        l = self.parameters["pendulum_length"]
-        r = self.parameters["arm_length"]
-        self._arm_positions = []
-        self._pendulum_positions = []
-        self._velocities = []
-        self._energies = []
-        self._angular_velocities = []
-
-        for i in range(n_pts):
-            theta = self._theta[i]
-            phi = self._phi[i]
-            theta_dot = self._theta_dot[i]
-            phi_dot = self._phi_dot[i]
-
-            arm_x = r * np.cos(phi)
-            arm_y = r * np.sin(phi)
-            perp_x = -np.sin(phi)
-            perp_y = np.cos(phi)
-            pend_x = arm_x + l * np.sin(theta) * perp_x
-            pend_y = arm_y + l * np.sin(theta) * perp_y
-            pend_z = l * np.cos(theta)
-
-            self._arm_positions.append([float(arm_x), float(arm_y), 0.0])
-            self._pendulum_positions.append([float(pend_x), float(pend_y), float(pend_z)])
-
-            if i > 0:
-                prev = self._pendulum_positions[-2]
-                dt_val = t[i] - t[i - 1] if i > 0 else self.DT
-                dt_val = max(dt_val, 1e-6)
-                vel_x = (pend_x - prev[0]) / dt_val
-                vel_y = (pend_y - prev[1]) / dt_val
-                vel_z = (pend_z - prev[2]) / dt_val
-                speed = np.sqrt(vel_x**2 + vel_y**2 + vel_z**2)
-            else:
-                vel_x, vel_y, vel_z, speed = 0.0, 0.0, 0.0, 0.0
-            self._velocities.append([float(vel_x), float(vel_y), float(vel_z), float(speed)])
-
-            # Energy from mass matrix (consistent with _compute_dynamics)
-            I_p_loc = mass * l**2 / 3.0
-            ARM_M = 0.15
-            I_r_loc = ARM_M * r**2 / 3.0
-            M11_ = I_p_loc + mass * l**2
-            M12_ = mass * r * l * np.cos(theta)
-            M22_ = I_r_loc + mass * r**2 + mass * l**2 * np.sin(theta)**2
-            ke = 0.5 * (M11_ * theta_dot**2 + 2 * M12_ * theta_dot * phi_dot + M22_ * phi_dot**2)
-            pe = mass * self.G * l * np.cos(theta)
-            self._energies.append(float(ke + pe))
-            self._angular_velocities.append([float(theta_dot), float(phi_dot)])
-
-        self._current_arm_pos = self._arm_positions[-1] if self._arm_positions else [0, 0, 0]
-        self._current_pendulum_pos = self._pendulum_positions[-1] if self._pendulum_positions else [0, 0, 0.3]
+        self._build_visualization_arrays(
+            self._time, self._theta, self._theta_dot, self._phi, self._phi_dot)
 
     # =========================================================================
     # Plot generation

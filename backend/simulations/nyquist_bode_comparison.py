@@ -24,15 +24,11 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
 
     # Colors matching codebase conventions
     RESPONSE_COLOR = "#22d3ee"       # Cyan - main response curve
-    RESPONSE_COLOR_DIM = "rgba(34, 211, 238, 0.4)"  # Dimmed for negative freq
     POLE_COLOR = "#f87171"           # Red - poles
     ZERO_COLOR = "#3b82f6"           # Blue - zeros
-    REFERENCE_COLOR = "#f472b6"      # Pink - reference lines
     STABLE_COLOR = "#34d399"         # Emerald green
     CRITICAL_POINT_COLOR = "#ef4444" # Red - (-1, 0) point
-    UNIT_CIRCLE_COLOR = "#10b981"    # Green - unit circle
     CROSSOVER_COLOR = "#fbbf24"      # Amber - crossover markers
-    IMAGINARY_AXIS_COLOR = "#a855f7" # Purple - jω axis
 
     PARAMETER_SCHEMA = {
         "preset": {
@@ -116,6 +112,9 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
         self._H: Optional[np.ndarray] = None
         self._magnitude_db: Optional[np.ndarray] = None
         self._phase_deg: Optional[np.ndarray] = None
+        self._nyq_clip_mask: Optional[np.ndarray] = None
+        self._nyq_real_clipped: Optional[np.ndarray] = None
+        self._nyq_imag_clipped: Optional[np.ndarray] = None
         self._num_coeffs: Optional[np.ndarray] = None
         self._den_coeffs: Optional[np.ndarray] = None
         self._poles: Optional[np.ndarray] = None
@@ -224,6 +223,14 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
         return np.array([K]), np.array([1.0, 1.0])
 
     @staticmethod
+    def _cplx_to_xy(arr: np.ndarray) -> Tuple[List[float], List[float]]:
+        """Split a complex array into ([Re...], [Im...]) float lists."""
+        return (
+            [float(np.real(v)) for v in arr],
+            [float(np.imag(v)) for v in arr],
+        )
+
+    @staticmethod
     def _parse_coefficients(s: str, fallback: List[float]) -> List[float]:
         """Parse comma-separated coefficient string, e.g. '1, 2.5, 3'."""
         try:
@@ -279,12 +286,13 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
             power = n - i
             if abs(c) < 1e-12:
                 continue
-            coeff_str = f"{c:.3g}" if (abs(c) != 1.0 or power == 0) else ("" if c > 0 else "-")
-            if power == 0:
-                coeff_str = f"{c:.3g}"
             var_str = f"s^{power}" if power > 1 else ("s" if power == 1 else "")
-            term = f"{coeff_str}{var_str}"
-            terms.append(term)
+            # A leading unit coefficient on an s-term is implicit ("s", not "1s").
+            if power > 0 and abs(c) == 1.0:
+                coeff_str = "" if c > 0 else "-"
+            else:
+                coeff_str = f"{c:.3g}"
+            terms.append(f"{coeff_str}{var_str}")
         return " + ".join(terms) if terms else "0"
 
     # =========================================================================
@@ -314,6 +322,11 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
         magnitude = np.clip(magnitude, 1e-30, None)  # Avoid log(0)
         self._magnitude_db = 20.0 * np.log10(magnitude)
         self._phase_deg = np.unwrap(np.angle(self._H)) * 180.0 / np.pi
+
+        # Nyquist display clipping: mask extreme |H| once, reused by plot + state.
+        self._nyq_clip_mask = np.abs(self._H) < self.NYQUIST_MAG_CLIP
+        self._nyq_real_clipped = np.where(self._nyq_clip_mask, np.real(self._H), np.nan)
+        self._nyq_imag_clipped = np.where(self._nyq_clip_mask, np.imag(self._H), np.nan)
 
     def _compute_stability_margins(self) -> None:
         """Compute gain margin, phase margin, and stability status."""
@@ -475,22 +488,16 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
         omega_sub = self._omega[::step]
         mag_sub = self._magnitude_db[::step]
         phase_sub = self._phase_deg[::step]
-        real_sub = np.real(self._H[::step])
-        imag_sub = np.imag(self._H[::step])
 
-        # Clip nyquist values for frontend display
-        nyq_mag = np.abs(self._H[::step])
-        clip_mask = nyq_mag < self.NYQUIST_MAG_CLIP
-        real_clipped = np.where(clip_mask, real_sub, np.nan)
-        imag_clipped = np.where(clip_mask, imag_sub, np.nan)
+        # Clipped Nyquist coords computed in _compute; subsample (where() commutes with slicing).
+        real_clipped = self._nyq_real_clipped[::step]
+        imag_clipped = self._nyq_imag_clipped[::step]
 
-        # Format poles/zeros for JSON
-        poles_list = []
-        for p in self._poles:
-            poles_list.append([float(np.real(p)), float(np.imag(p))])
-        zeros_list = []
-        for z in self._zeros:
-            zeros_list.append([float(np.real(z)), float(np.imag(z))])
+        # Format poles/zeros for JSON as [[re, im], ...] pairs
+        pole_re, pole_im = self._cplx_to_xy(self._poles)
+        zero_re, zero_im = self._cplx_to_xy(self._zeros)
+        poles_list = [[re, im] for re, im in zip(pole_re, pole_im)]
+        zeros_list = [[re, im] for re, im in zip(zero_re, zero_im)]
 
         base_state["metadata"] = {
             "simulation_type": "nyquist_bode_comparison",
@@ -686,16 +693,14 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
 
     def _create_nyquist_plot(self) -> Dict[str, Any]:
         """Nyquist plot: Im(H(jω)) vs Re(H(jω)) with both freq branches."""
-        H = self._H
-        real_part = np.real(H)
-        imag_part = np.imag(H)
-        mag = np.abs(H)
+        real_part = np.real(self._H)
+        imag_part = np.imag(self._H)
 
-        # Clip extreme values for display
-        clip_mask = mag < self.NYQUIST_MAG_CLIP
-        real_clipped = np.where(clip_mask, real_part, np.nan).tolist()
-        imag_clipped = np.where(clip_mask, imag_part, np.nan).tolist()
-        imag_neg = np.where(clip_mask, -imag_part, np.nan).tolist()  # Negative freq branch
+        # Clipped display coords computed once in _compute.
+        clip_mask = self._nyq_clip_mask
+        real_clipped = self._nyq_real_clipped.tolist()
+        imag_clipped = self._nyq_imag_clipped.tolist()
+        imag_neg = (-self._nyq_imag_clipped).tolist()  # Negative freq branch
 
         traces = [
             # Positive frequency branch (solid)
@@ -715,7 +720,7 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
                 "type": "scatter",
                 "mode": "lines",
                 "name": "H(jω), ω < 0",
-                "line": {"color": self.RESPONSE_COLOR_DIM, "width": 2, "dash": "dash"},
+                "line": {"color": "rgba(34, 211, 238, 0.4)", "width": 2, "dash": "dash"},  # dimmed cyan
                 "hovertemplate": "Re = %{x:.3g}<br>Im = %{y:.3g}<extra>ω < 0</extra>",
             },
             # Critical point (-1, 0)
@@ -741,7 +746,7 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
             "type": "scatter",
             "mode": "lines",
             "name": "Unit Circle",
-            "line": {"color": self.UNIT_CIRCLE_COLOR, "width": 1, "dash": "dot"},
+            "line": {"color": "#10b981", "width": 1, "dash": "dot"},  # green
             "opacity": 0.5,
             "hoverinfo": "skip",
         })
@@ -860,7 +865,7 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
             "y": [ylim[0], ylim[1]],
             "type": "scatter",
             "mode": "lines",
-            "line": {"color": self.IMAGINARY_AXIS_COLOR, "width": 2, "dash": "solid"},
+            "line": {"color": "#a855f7", "width": 2, "dash": "solid"},  # purple - jω axis
             "name": "jω axis",
             "showlegend": True,
             "hoverinfo": "name",
@@ -868,9 +873,10 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
 
         # Plot zeros
         if len(self._zeros) > 0:
+            zero_x, zero_y = self._cplx_to_xy(self._zeros)
             traces.append({
-                "x": [float(np.real(z)) for z in self._zeros],
-                "y": [float(np.imag(z)) for z in self._zeros],
+                "x": zero_x,
+                "y": zero_y,
                 "type": "scatter",
                 "mode": "markers",
                 "name": "Zeros",
@@ -885,9 +891,10 @@ class NyquistBodeComparisonSimulator(BaseSimulator):
 
         # Plot poles
         if len(self._poles) > 0:
+            pole_x, pole_y = self._cplx_to_xy(self._poles)
             traces.append({
-                "x": [float(np.real(p)) for p in self._poles],
-                "y": [float(np.imag(p)) for p in self._poles],
+                "x": pole_x,
+                "y": pole_y,
                 "type": "scatter",
                 "mode": "markers",
                 "name": "Poles",
