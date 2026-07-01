@@ -258,19 +258,13 @@ class LeadLagDesignerSimulator(BaseSimulator):
             parts.append(f"{Kc:.4g}")
 
         if self.parameters.get("lead_enable"):
-            alpha = float(self.parameters["lead_alpha"])
-            wm = float(self.parameters["lead_wm"])
-            sqrt_a = np.sqrt(alpha)
-            wz = wm * sqrt_a
-            wp = wm / sqrt_a
+            g = self._lead_geometry()
+            wz, wp = g["wz"], g["wp"]
             parts.append(f"\\frac{{{1/wz:.3g}s+1}}{{{1/wp:.3g}s+1}}")
 
         if self.parameters.get("lag_enable"):
-            beta = float(self.parameters["lag_beta"])
-            wm_lag = float(self.parameters["lag_wm"])
-            sqrt_b = np.sqrt(beta)
-            wz = wm_lag / sqrt_b
-            wp = wm_lag * sqrt_b
+            g = self._lag_geometry()
+            wz, wp = g["wz"], g["wp"]
             parts.append(f"\\frac{{{1/wz:.3g}s+1}}{{{1/wp:.3g}s+1}}")
 
         comp_latex = " \\cdot ".join(parts) if parts else "1"
@@ -330,8 +324,11 @@ class LeadLagDesignerSimulator(BaseSimulator):
         # Margins
         margins = self._compute_margins(w, H_L)
 
+        # Closed-loop step response — computed once, shared by metrics + plot
+        step = self._step_response_data(num_T, den_T)
+
         # Design info
-        design_info = self._build_design_info(margins, num_T, den_T)
+        design_info = self._build_design_info(margins, num_T, den_T, step)
 
         # Build plots
         show_comp = bool(p.get("show_components", True))
@@ -340,7 +337,7 @@ class LeadLagDesignerSimulator(BaseSimulator):
         plots = [
             self._plot_bode_mag(w, H_G, H_C, H_L, margins, show_comp),
             self._plot_bode_phase(w, H_G, H_C, H_L, margins, pm_target, show_comp),
-            self._plot_step_response(num_T, den_T),
+            self._plot_step_response(num_T, den_T, step),
             self._plot_pole_zero(num_L, den_L, num_T, den_T),
             self._plot_comp_phase(w, H_lead, H_lag, H_C),
             self._plot_nichols(w, H_L, margins),
@@ -352,9 +349,9 @@ class LeadLagDesignerSimulator(BaseSimulator):
     def _adaptive_freq_range(num: np.ndarray, den: np.ndarray) -> np.ndarray:
         """Compute frequency range that captures all interesting features."""
         freqs = [1.0]
-        for p in np.roots(den):
-            if abs(p) > 1e-6:
-                freqs.append(abs(p))
+        for pole in np.roots(den):
+            if abs(pole) > 1e-6:
+                freqs.append(abs(pole))
         if len(num) > 1:
             for z in np.roots(num):
                 if abs(z) > 1e-6:
@@ -363,38 +360,104 @@ class LeadLagDesignerSimulator(BaseSimulator):
         w_max = min(1e6, max(freqs) * 50)
         return np.logspace(np.log10(w_min), np.log10(w_max), 1000)
 
+    @staticmethod
+    def _step_response_data(num_T: np.ndarray, den_T: np.ndarray) -> dict:
+        """Simulate the closed-loop step response once for reuse.
+
+        Returns a dict with keys:
+            is_stable : bool           — all CL poles in the open LHP
+            t, y      : np.ndarray     — time/output of signal.step (None if not run)
+            ss_val    : float          — steady-state value y[-1] (None if not run)
+        The stable-branch time grid (adaptive t_end from the slowest pole) is
+        shared by both the step-metrics block and the step-response plot.
+        """
+        cl_poles = np.roots(den_T)
+        is_stable = len(cl_poles) == 0 or np.all(np.real(cl_poles) < 0)
+        data = {"is_stable": is_stable, "t": None, "y": None, "ss_val": None}
+
+        if is_stable and len(den_T) > 0:
+            try:
+                sys_cl = signal.TransferFunction(num_T, den_T)
+                if len(cl_poles) > 0:
+                    neg = np.real(cl_poles[np.real(cl_poles) < 0])
+                    slowest = np.min(np.abs(neg)) if len(neg) > 0 else 1.0
+                    t_end = min(50, max(5, 6.0 / max(slowest, 1e-6)))
+                else:
+                    t_end = 10
+                t = np.linspace(0, t_end, 500)
+                t_out, y = signal.step(sys_cl, T=t)
+                data["t"] = t_out
+                data["y"] = y
+                data["ss_val"] = float(y[-1]) if len(y) > 0 else 0
+            except Exception:
+                data["t"] = None
+                data["y"] = None
+                data["ss_val"] = None
+
+        return data
+
+    def _lead_geometry(self) -> dict:
+        """Unrounded lead-section quantities from raw params (single source).
+
+        φ_max = arcsin((1-α)/(1+α)),  ωz = ωm√α,  ωp = ωm/√α,  HF gain = -20log₁₀α.
+        Shared by design_info, the phase-breakdown plot, and the LaTeX labels.
+        """
+        alpha = float(self.parameters["lead_alpha"])
+        wm = float(self.parameters["lead_wm"])
+        sqrt_a = np.sqrt(alpha)
+        return {
+            "alpha": alpha,
+            "wm": wm,
+            "phi_max": float(np.degrees(np.arcsin((1 - alpha) / (1 + alpha)))),
+            "wz": float(wm * sqrt_a),
+            "wp": float(wm / sqrt_a),
+            "hf_gain_db": float(-20 * np.log10(alpha)),
+        }
+
+    def _lag_geometry(self) -> dict:
+        """Unrounded lag-section quantities from raw params (single source).
+
+        φ_lag = -arcsin((1-β)/(1+β)),  ωz = ωm/√β,  ωp = ωm√β,  LF boost = -20log₁₀β.
+        Shared by design_info, the phase-breakdown plot, and the LaTeX labels.
+        """
+        beta = float(self.parameters["lag_beta"])
+        wm = float(self.parameters["lag_wm"])
+        sqrt_b = np.sqrt(beta)
+        return {
+            "beta": beta,
+            "wm": wm,
+            "phi_max_lag": float(-np.degrees(np.arcsin((1 - beta) / (1 + beta)))),
+            "wz": float(wm / sqrt_b),
+            "wp": float(wm * sqrt_b),
+            "lf_gain_boost_db": float(-20 * np.log10(beta)),
+        }
+
     def _build_design_info(self, margins: dict, num_T: np.ndarray,
-                           den_T: np.ndarray) -> dict:
+                           den_T: np.ndarray, step: dict) -> dict:
         """Compute design equations and derived quantities."""
         p = self.parameters
         info = {"Kc": float(p["gain_Kc"])}
 
         if p.get("lead_enable"):
-            alpha = float(p["lead_alpha"])
-            wm = float(p["lead_wm"])
-            sqrt_a = np.sqrt(alpha)
+            g = self._lead_geometry()
             info["lead"] = {
-                "alpha": round(alpha, 4),
-                "wm": round(wm, 4),
-                "phi_max": round(float(np.degrees(np.arcsin(
-                    (1 - alpha) / (1 + alpha)))), 2),
-                "wz": round(float(wm * sqrt_a), 4),
-                "wp": round(float(wm / sqrt_a), 4),
-                "hf_gain_db": round(float(-20 * np.log10(alpha)), 2),
+                "alpha": round(g["alpha"], 4),
+                "wm": round(g["wm"], 4),
+                "phi_max": round(g["phi_max"], 2),
+                "wz": round(g["wz"], 4),
+                "wp": round(g["wp"], 4),
+                "hf_gain_db": round(g["hf_gain_db"], 2),
             }
 
         if p.get("lag_enable"):
-            beta = float(p["lag_beta"])
-            wm_lag = float(p["lag_wm"])
-            sqrt_b = np.sqrt(beta)
+            g = self._lag_geometry()
             info["lag"] = {
-                "beta": round(beta, 4),
-                "wm": round(wm_lag, 4),
-                "phi_max_lag": round(float(-np.degrees(np.arcsin(
-                    (1 - beta) / (1 + beta)))), 2),
-                "wz": round(float(wm_lag / sqrt_b), 4),
-                "wp": round(float(wm_lag * sqrt_b), 4),
-                "lf_gain_boost_db": round(float(-20 * np.log10(beta)), 2),
+                "beta": round(g["beta"], 4),
+                "wm": round(g["wm"], 4),
+                "phi_max_lag": round(g["phi_max_lag"], 2),
+                "wz": round(g["wz"], 4),
+                "wp": round(g["wp"], 4),
+                "lf_gain_boost_db": round(g["lf_gain_boost_db"], 2),
             }
 
         # Margins
@@ -412,24 +475,12 @@ class LeadLagDesignerSimulator(BaseSimulator):
             for p in cl_poles
         ]
 
-        # Step metrics (computed here to avoid double step computation)
-        if info["cl_stable"]:
-            try:
-                sys_cl = signal.TransferFunction(num_T, den_T)
-                if len(cl_poles) > 0:
-                    neg_real = np.real(cl_poles[stable_mask])
-                    slowest = np.min(np.abs(neg_real)) if len(neg_real) > 0 else 1.0
-                    t_end = min(50, max(5, 6.0 / max(slowest, 1e-6)))
-                else:
-                    t_end = 10
-                t_arr = np.linspace(0, t_end, 500)
-                _, y = signal.step(sys_cl, T=t_arr)
-                ss_val = float(y[-1]) if len(y) > 0 else 0
-                if abs(ss_val) > 1e-6:
-                    info["step_metrics"] = self._step_metrics(t_arr, y, ss_val)
-                    info["step_metrics"]["ss_error"] = round(abs(1.0 - ss_val), 4)
-            except Exception:
-                pass
+        # Step metrics — reuse the once-computed closed-loop step response
+        if info["cl_stable"] and step["y"] is not None:
+            t_arr, y, ss_val = step["t"], step["y"], step["ss_val"]
+            if abs(ss_val) > 1e-6:
+                info["step_metrics"] = self._step_metrics(t_arr, y, ss_val)
+                info["step_metrics"]["ss_error"] = round(abs(1.0 - ss_val), 4)
 
         return info
 
@@ -475,6 +526,31 @@ class LeadLagDesignerSimulator(BaseSimulator):
     # Plot builders
     # =========================================================================
 
+    @staticmethod
+    def _axis_layout(x_title, y_title, legend_xy, *, x_log=False, x_scaleanchor=None):
+        """Shared Plotly layout: grid, margin, and legend, matching all 6 plots."""
+        xaxis = {"title": x_title, "gridcolor": "rgba(148,163,184,0.1)"}
+        if x_log:
+            xaxis["type"] = "log"
+        if x_scaleanchor is not None:
+            xaxis["scaleanchor"] = x_scaleanchor
+        return {
+            "xaxis": xaxis,
+            "yaxis": {"title": y_title, "gridcolor": "rgba(148,163,184,0.1)"},
+            "legend": {"x": legend_xy[0], "y": legend_xy[1],
+                       "bgcolor": "rgba(0,0,0,0)", "font": {"size": 10}},
+            "margin": {"t": 35, "r": 20, "b": 50, "l": 55},
+        }
+
+    @staticmethod
+    def _hline_trace(x0, x1, y, color, dash="dash", width=1):
+        """Horizontal reference-line trace (no legend entry)."""
+        return {
+            "x": [float(x0), float(x1)], "y": [y, y],
+            "type": "scatter", "mode": "lines", "showlegend": False,
+            "line": {"color": color, "width": width, "dash": dash},
+        }
+
     def _plot_bode_mag(self, w, H_G, H_C, H_L, margins, show_comp):
         """Bode magnitude plot: plant, compensator, open-loop."""
         traces = []
@@ -504,11 +580,7 @@ class LeadLagDesignerSimulator(BaseSimulator):
         })
 
         # 0 dB reference
-        traces.append({
-            "x": [float(w[0]), float(w[-1])], "y": [0, 0],
-            "type": "scatter", "mode": "lines", "showlegend": False,
-            "line": {"color": "rgba(148,163,184,0.3)", "width": 1, "dash": "dash"},
-        })
+        traces.append(self._hline_trace(w[0], w[-1], 0, "rgba(148,163,184,0.3)"))
 
         # Gain margin annotation
         if margins.get("wpc") is not None and margins.get("gm") is not None:
@@ -534,15 +606,8 @@ class LeadLagDesignerSimulator(BaseSimulator):
             "id": "bode_magnitude",
             "title": "Bode: Magnitude",
             "data": traces,
-            "layout": {
-                "xaxis": {"title": "Frequency (rad/s)", "type": "log",
-                          "gridcolor": "rgba(148,163,184,0.1)"},
-                "yaxis": {"title": "Magnitude (dB)",
-                          "gridcolor": "rgba(148,163,184,0.1)"},
-                "legend": {"x": 0.01, "y": 0.99, "bgcolor": "rgba(0,0,0,0)",
-                           "font": {"size": 10}},
-                "margin": {"t": 35, "r": 20, "b": 50, "l": 55},
-            },
+            "layout": self._axis_layout(
+                "Frequency (rad/s)", "Magnitude (dB)", (0.01, 0.99), x_log=True),
         }
 
     def _plot_bode_phase(self, w, H_G, H_C, H_L, margins, pm_target, show_comp):
@@ -574,11 +639,7 @@ class LeadLagDesignerSimulator(BaseSimulator):
         })
 
         # -180° reference
-        traces.append({
-            "x": [float(w[0]), float(w[-1])], "y": [-180, -180],
-            "type": "scatter", "mode": "lines", "showlegend": False,
-            "line": {"color": "rgba(148,163,184,0.3)", "width": 1, "dash": "dash"},
-        })
+        traces.append(self._hline_trace(w[0], w[-1], -180, "rgba(148,163,184,0.3)"))
 
         # PM target line
         if pm_target > 0:
@@ -606,36 +667,22 @@ class LeadLagDesignerSimulator(BaseSimulator):
             "id": "bode_phase",
             "title": "Bode: Phase",
             "data": traces,
-            "layout": {
-                "xaxis": {"title": "Frequency (rad/s)", "type": "log",
-                          "gridcolor": "rgba(148,163,184,0.1)"},
-                "yaxis": {"title": "Phase (deg)",
-                          "gridcolor": "rgba(148,163,184,0.1)"},
-                "legend": {"x": 0.01, "y": 0.01, "bgcolor": "rgba(0,0,0,0)",
-                           "font": {"size": 10}},
-                "margin": {"t": 35, "r": 20, "b": 50, "l": 55},
-            },
+            "layout": self._axis_layout(
+                "Frequency (rad/s)", "Phase (deg)", (0.01, 0.01), x_log=True),
         }
 
-    def _plot_step_response(self, num_T, den_T):
-        """Closed-loop step response with performance annotations."""
+    def _plot_step_response(self, num_T, den_T, step):
+        """Closed-loop step response with performance annotations.
+
+        Consumes the once-computed ``step`` dict from ``_step_response_data``
+        for the stable path (shared with the design-info step metrics).
+        """
         traces = []
-        cl_poles = np.roots(den_T)
-        is_stable = len(cl_poles) == 0 or np.all(np.real(cl_poles) < 0)
 
-        if is_stable and len(den_T) > 0:
-            try:
-                sys_cl = signal.TransferFunction(num_T, den_T)
-                if len(cl_poles) > 0:
-                    neg = np.real(cl_poles[np.real(cl_poles) < 0])
-                    slowest = np.min(np.abs(neg)) if len(neg) > 0 else 1.0
-                    t_end = min(50, max(5, 6.0 / max(slowest, 1e-6)))
-                else:
-                    t_end = 10
-                t = np.linspace(0, t_end, 500)
-                t_out, y = signal.step(sys_cl, T=t)
-
-                ss_val = float(y[-1]) if len(y) > 0 else 0
+        if step["is_stable"] and len(den_T) > 0:
+            if step["y"] is not None:
+                t_out, y = step["t"], step["y"]
+                ss_val = step["ss_val"]
 
                 traces.append({
                     "x": t_out.tolist(), "y": y.tolist(),
@@ -660,7 +707,7 @@ class LeadLagDesignerSimulator(BaseSimulator):
                         "line": {"color": "rgba(148,163,184,0.3)", "width": 1, "dash": "dot"},
                     })
                 title = "Closed-Loop Step Response"
-            except Exception:
+            else:
                 traces.append({
                     "x": [0], "y": [0], "type": "scatter", "mode": "markers",
                     "name": "Error", "marker": {"color": "#ef4444"},
@@ -689,15 +736,7 @@ class LeadLagDesignerSimulator(BaseSimulator):
             "id": "step_response",
             "title": title,
             "data": traces,
-            "layout": {
-                "xaxis": {"title": "Time (s)",
-                          "gridcolor": "rgba(148,163,184,0.1)"},
-                "yaxis": {"title": "Output y(t)",
-                          "gridcolor": "rgba(148,163,184,0.1)"},
-                "margin": {"t": 35, "r": 20, "b": 50, "l": 55},
-                "legend": {"x": 0.6, "y": 0.99, "bgcolor": "rgba(0,0,0,0)",
-                           "font": {"size": 10}},
-            },
+            "layout": self._axis_layout("Time (s)", "Output y(t)", (0.6, 0.99)),
         }
 
     def _plot_pole_zero(self, num_L, den_L, num_T, den_T):
@@ -772,14 +811,8 @@ class LeadLagDesignerSimulator(BaseSimulator):
             "id": "pole_zero_map",
             "title": "Pole-Zero Map",
             "data": traces,
-            "layout": {
-                "xaxis": {"title": "Real", "gridcolor": "rgba(148,163,184,0.1)",
-                          "scaleanchor": "y"},
-                "yaxis": {"title": "Imag", "gridcolor": "rgba(148,163,184,0.1)"},
-                "margin": {"t": 35, "r": 20, "b": 50, "l": 55},
-                "legend": {"x": 0.01, "y": 0.99, "bgcolor": "rgba(0,0,0,0)",
-                           "font": {"size": 10}},
-            },
+            "layout": self._axis_layout(
+                "Real", "Imag", (0.01, 0.99), x_scaleanchor="y"),
         }
 
     def _plot_comp_phase(self, w, H_lead, H_lag, H_C):
@@ -791,9 +824,9 @@ class LeadLagDesignerSimulator(BaseSimulator):
         phase_total = np.degrees(np.angle(H_C))
 
         if p.get("lead_enable"):
-            alpha = float(p["lead_alpha"])
-            wm = float(p["lead_wm"])
-            phi_max = float(np.degrees(np.arcsin((1 - alpha) / (1 + alpha))))
+            g = self._lead_geometry()
+            wm = g["wm"]
+            phi_max = g["phi_max"]
             traces.append({
                 "x": w.tolist(), "y": phase_lead.tolist(),
                 "type": "scatter", "mode": "lines",
@@ -811,9 +844,9 @@ class LeadLagDesignerSimulator(BaseSimulator):
             })
 
         if p.get("lag_enable"):
-            beta = float(p["lag_beta"])
-            wm_lag = float(p["lag_wm"])
-            phi_lag = float(-np.degrees(np.arcsin((1 - beta) / (1 + beta))))
+            g = self._lag_geometry()
+            wm_lag = g["wm"]
+            phi_lag = g["phi_max_lag"]
             traces.append({
                 "x": w.tolist(), "y": phase_lag.tolist(),
                 "type": "scatter", "mode": "lines",
@@ -839,25 +872,15 @@ class LeadLagDesignerSimulator(BaseSimulator):
             })
 
         # 0° reference
-        traces.append({
-            "x": [float(w[0]), float(w[-1])], "y": [0, 0],
-            "type": "scatter", "mode": "lines", "showlegend": False,
-            "line": {"color": "rgba(148,163,184,0.2)", "width": 1, "dash": "dot"},
-        })
+        traces.append(self._hline_trace(
+            w[0], w[-1], 0, "rgba(148,163,184,0.2)", dash="dot"))
 
         return {
             "id": "compensator_phase",
             "title": "Compensator Phase Breakdown",
             "data": traces,
-            "layout": {
-                "xaxis": {"title": "Frequency (rad/s)", "type": "log",
-                          "gridcolor": "rgba(148,163,184,0.1)"},
-                "yaxis": {"title": "Phase (deg)",
-                          "gridcolor": "rgba(148,163,184,0.1)"},
-                "margin": {"t": 35, "r": 20, "b": 50, "l": 55},
-                "legend": {"x": 0.01, "y": 0.99, "bgcolor": "rgba(0,0,0,0)",
-                           "font": {"size": 10}},
-            },
+            "layout": self._axis_layout(
+                "Frequency (rad/s)", "Phase (deg)", (0.01, 0.99), x_log=True),
         }
 
     def _plot_nichols(self, w, H_L, margins):
@@ -889,11 +912,7 @@ class LeadLagDesignerSimulator(BaseSimulator):
             "type": "scatter", "mode": "lines", "showlegend": False,
             "line": {"color": "rgba(239,68,68,0.2)", "width": 1, "dash": "dash"},
         })
-        traces.append({
-            "x": [x_min, x_max], "y": [0, 0],
-            "type": "scatter", "mode": "lines", "showlegend": False,
-            "line": {"color": "rgba(148,163,184,0.2)", "width": 1, "dash": "dash"},
-        })
+        traces.append(self._hline_trace(x_min, x_max, 0, "rgba(148,163,184,0.2)"))
 
         # PM marker on Nichols
         if margins.get("pm") is not None and margins.get("wgc") is not None:
@@ -912,13 +931,6 @@ class LeadLagDesignerSimulator(BaseSimulator):
             "id": "nichols_chart",
             "title": "Nichols Chart",
             "data": traces,
-            "layout": {
-                "xaxis": {"title": "Open-Loop Phase (deg)",
-                          "gridcolor": "rgba(148,163,184,0.1)"},
-                "yaxis": {"title": "Open-Loop Gain (dB)",
-                          "gridcolor": "rgba(148,163,184,0.1)"},
-                "margin": {"t": 35, "r": 20, "b": 50, "l": 55},
-                "legend": {"x": 0.01, "y": 0.99, "bgcolor": "rgba(0,0,0,0)",
-                           "font": {"size": 10}},
-            },
+            "layout": self._axis_layout(
+                "Open-Loop Phase (deg)", "Open-Loop Gain (dB)", (0.01, 0.99)),
         }

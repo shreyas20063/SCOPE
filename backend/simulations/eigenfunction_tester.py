@@ -186,7 +186,6 @@ class EigenfunctionTesterSimulator(BaseSimulator):
 
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
         if name in self.parameters:
-            old_val = self.parameters.get(name)
             self.parameters[name] = self._validate_param(name, value)
             new_val = self.parameters[name]
 
@@ -218,26 +217,20 @@ class EigenfunctionTesterSimulator(BaseSimulator):
             return self.reset()
         return self.get_state()
 
-    def get_plots(self) -> List[Dict[str, Any]]:
-        signal_data = self._compute_signal()
+    def _build_plots(self, signal_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         plots = [self._create_time_domain_plot(signal_data)]
-
         if bool(self.parameters.get("show_ratio", True)):
             plots.append(self._create_ratio_plot(signal_data))
-
         if bool(self.parameters.get("show_splane", True)):
             plots.append(self._create_splane_plot(signal_data))
-
         return plots
+
+    def get_plots(self) -> List[Dict[str, Any]]:
+        return self._build_plots(self._compute_signal())
 
     def get_state(self) -> Dict[str, Any]:
         signal_data = self._compute_signal()
-
-        plots = [self._create_time_domain_plot(signal_data)]
-        if bool(self.parameters.get("show_ratio", True)):
-            plots.append(self._create_ratio_plot(signal_data))
-        if bool(self.parameters.get("show_splane", True)):
-            plots.append(self._create_splane_plot(signal_data))
+        plots = self._build_plots(signal_data)
 
         test_signal = str(self.parameters["test_signal"])
         is_eigen = test_signal in self.EIGENFUNCTION_SIGNALS
@@ -373,6 +366,19 @@ class EigenfunctionTesterSimulator(BaseSimulator):
         else:
             return self._compute_non_eigenfunction_signal(test_signal, t)
 
+    def _clip_and_ratio(
+        self, x: np.ndarray, y: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Clip x/y to the display range and return (x, y, ratio=y/x) with the
+        ratio masked to NaN where |x| is too small and clipped for display."""
+        x = np.clip(x, -self.MAX_DISPLAY_VALUE, self.MAX_DISPLAY_VALUE)
+        y = np.clip(y, -self.MAX_DISPLAY_VALUE, self.MAX_DISPLAY_VALUE)
+        ratio = np.full_like(x, np.nan)
+        safe = np.abs(x) > self.RATIO_THRESHOLD
+        ratio[safe] = y[safe] / x[safe]
+        ratio = np.clip(ratio, -self.MAX_DISPLAY_VALUE, self.MAX_DISPLAY_VALUE)
+        return x, y, ratio
+
     def _compute_eigenfunction_signal(self, signal_key: str, t: np.ndarray) -> Dict[str, Any]:
         s = self._get_s_for_signal(signal_key)
         H_s, at_pole = self._evaluate_H(s)
@@ -396,15 +402,8 @@ class EigenfunctionTesterSimulator(BaseSimulator):
         y_complex = H_s * x_complex
         y_real = np.real(y_complex)
 
-        # Clip for display
-        x_real = np.clip(x_real, -self.MAX_DISPLAY_VALUE, self.MAX_DISPLAY_VALUE)
-        y_real = np.clip(y_real, -self.MAX_DISPLAY_VALUE, self.MAX_DISPLAY_VALUE)
-
-        # Ratio of real parts (for display)
-        ratio = np.full_like(t, np.nan)
-        safe = np.abs(x_real) > self.RATIO_THRESHOLD
-        ratio[safe] = y_real[safe] / x_real[safe]
-        ratio = np.clip(ratio, -self.MAX_DISPLAY_VALUE, self.MAX_DISPLAY_VALUE)
+        # Clip x/y for display and take the display ratio y/x
+        x_real, y_real, ratio = self._clip_and_ratio(x_real, y_real)
 
         return {
             "t": t, "x_real": x_real, "y_real": y_real,
@@ -433,15 +432,8 @@ class EigenfunctionTesterSimulator(BaseSimulator):
         except Exception:
             y_t = np.zeros_like(t)
 
-        # Clip for display
-        x_t = np.clip(x_t, -self.MAX_DISPLAY_VALUE, self.MAX_DISPLAY_VALUE)
-        y_t = np.clip(y_t, -self.MAX_DISPLAY_VALUE, self.MAX_DISPLAY_VALUE)
-
-        # Ratio y(t)/x(t) where |x(t)| is safe
-        ratio = np.full_like(t, np.nan)
-        safe = np.abs(x_t) > self.RATIO_THRESHOLD
-        ratio[safe] = y_t[safe] / x_t[safe]
-        ratio = np.clip(ratio, -self.MAX_DISPLAY_VALUE, self.MAX_DISPLAY_VALUE)
+        # Clip x/y for display and take the display ratio y/x
+        x_t, y_t, ratio = self._clip_and_ratio(x_t, y_t)
 
         return {
             "t": t, "x_real": x_t, "y_real": y_t,
@@ -539,10 +531,8 @@ class EigenfunctionTesterSimulator(BaseSimulator):
         layout = self._get_base_layout("t (seconds)", "Amplitude", "time_domain")
 
         title = "Input x(t) vs Output y(t)"
-        if data["is_eigenfunction"]:
-            ev = data["eigenvalue"]
-            if ev is not None:
-                title += f"  \u2014  y(t) = H(s)\u00b7x(t)"
+        if data["is_eigenfunction"] and data["eigenvalue"] is not None:
+            title += "  \u2014  y(t) = H(s)\u00b7x(t)"
 
         return {"id": "time_domain", "title": title, "data": traces, "layout": layout}
 
@@ -695,43 +685,17 @@ class EigenfunctionTesterSimulator(BaseSimulator):
                     "hoverinfo": "name",
                 })
 
-        preset = str(self.parameters.get("system_preset", ""))
-        signal = str(self.parameters.get("test_signal", ""))
-        sr_param = self.parameters.get("custom_s_real", 0)
-        si_param = self.parameters.get("custom_s_imag", 0)
-
-        layout = {
-            "xaxis": {
-                "title": {"text": "\u03c3 (Real)", "font": {"color": "#f1f5f9", "size": 13}},
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "color": "#94a3b8",
-                "range": [-axis_range, axis_range],
-                "constrain": "domain",
-            },
-            "yaxis": {
-                "title": {"text": "j\u03c9 (Imaginary)", "font": {"color": "#f1f5f9", "size": 13}},
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "color": "#94a3b8",
-                "scaleanchor": "x",
-                "scaleratio": 1,
-                "constrain": "domain",
-            },
-            "paper_bgcolor": "rgba(0,0,0,0)",
-            "plot_bgcolor": "rgba(0,0,0,0)",
-            "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
-            "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
-            "showlegend": True,
-            "legend": {
-                "font": {"color": "#94a3b8", "size": 10},
-                "bgcolor": "rgba(0,0,0,0)",
-                "x": 0.02, "y": 0.98,
-                "xanchor": "left", "yanchor": "top",
-            },
-            "datarevision": f"s_plane-{signal}-{sr_param}-{si_param}-{time.time()}",
-            "uirevision": f"s_plane-{preset}-{self._revision}",
-        }
+        # Reuse the shared styling, then override for the equal-scaled s-plane
+        layout = self._get_base_layout("\u03c3 (Real)", "j\u03c9 (Imaginary)", "s_plane")
+        layout["xaxis"]["range"] = [-axis_range, axis_range]
+        layout["xaxis"]["constrain"] = "domain"
+        layout["yaxis"].pop("autorange", None)
+        layout["yaxis"]["scaleanchor"] = "x"
+        layout["yaxis"]["scaleratio"] = 1
+        layout["yaxis"]["constrain"] = "domain"
+        layout["legend"]["font"]["size"] = 10
+        layout["legend"]["x"] = 0.02
+        layout["legend"]["xanchor"] = "left"
 
         title = "S-Plane: Poles, Zeros"
         if s_val is not None:
@@ -758,16 +722,10 @@ class EigenfunctionTesterSimulator(BaseSimulator):
         self._quiz_correct = None
         self._quiz_user_answer = None
 
-        # Load the quiz system so plots reflect it
-        p = self.PRESETS[self._quiz_system]
-        self._num = np.array(p["num"], dtype=float)
-        self._den = np.array(p["den"], dtype=float)
-        self._poles = np.roots(self._den) if len(self._den) > 1 else np.array([], dtype=complex)
-        self._zeros = np.roots(self._num) if len(self._num) > 1 else np.array([], dtype=complex)
-
-        # Update params to show the quiz signal
+        # Update params to show the quiz signal, then load the quiz system so plots reflect it
         self.parameters["test_signal"] = self._quiz_signal
         self.parameters["system_preset"] = self._quiz_system
+        self._load_system()
 
     def _reset_quiz(self) -> None:
         self._quiz_system = None

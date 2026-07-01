@@ -1,18 +1,10 @@
 """
-Laplace Properties Lab
+Laplace Properties Lab — Oppenheim §9.5.
 
-Interactive demonstration of the seven key Laplace transform properties:
-  1. Linearity:       ax₁(t) + bx₂(t)        ↔  aX₁(s) + bX₂(s)
-  2. Time Delay:      x(t−T)                  ↔  e⁻ˢᵀ X(s)
-  3. Multiply by t:   t·x(t)                  ↔  −dX(s)/ds
-  4. Frequency Shift: e⁻ᵅᵗ x(t)              ↔  X(s+α)
-  5. Differentiate:   dx/dt                   ↔  sX(s)
-  6. Integrate:       ∫x(τ)dτ                 ↔  X(s)/s
-  7. Convolution:     x₁(t)∗x₂(t)            ↔  X₁(s)·X₂(s)
-
-Users pick one or two signals from a library, apply a property, and see the
-operation in both time domain (continuous waveforms) and s-domain (pole-zero +
-ROC) simultaneously.
+Interactive demonstration of the seven key Laplace transform properties
+(see PROPERTY_FORMULAS for the transform pairs). Users pick one or two signals
+from a library, apply a property, and see the operation in both time domain
+(continuous waveforms) and s-domain (pole-zero + ROC) simultaneously.
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -26,45 +18,27 @@ from .base_simulator import BaseSimulator
 SIGNAL_LIBRARY = {
     "impulse": {
         "label": "δ(t)",
-        "s_expr": "1",
         "roc_type": "all",
-        "has_param": False,
     },
     "unit_step": {
         "label": "u(t)",
-        "s_expr": "1/s",
         "roc_type": "right_half",
-        "roc_boundary": 0.0,
-        "has_param": False,
     },
     "exponential": {
         "label": "e⁻ᵅᵗ u(t)",
-        "s_expr": "1/(s+α)",
         "roc_type": "right_half",
-        "has_param": True,
-        "param_name": "alpha",
     },
     "ramp_exp": {
         "label": "t·e⁻ᵅᵗ u(t)",
-        "s_expr": "1/(s+α)²",
         "roc_type": "right_half",
-        "has_param": True,
-        "param_name": "alpha",
     },
     "cosine": {
         "label": "cos(ω₀t) u(t)",
-        "s_expr": "s/(s²+ω₀²)",
         "roc_type": "right_half",
-        "roc_boundary": 0.0,
-        "has_param": True,
-        "param_name": "omega0",
     },
     "damped_cosine": {
         "label": "e⁻ᵅᵗcos(ω₀t) u(t)",
-        "s_expr": "(s+α)/((s+α)²+ω₀²)",
         "roc_type": "right_half",
-        "has_param": True,
-        "param_name": "both",
     },
 }
 
@@ -177,9 +151,9 @@ class LaplacePropertiesSimulator(BaseSimulator):
             "plots": data["plots"],
             "metadata": {
                 "simulation_type": "laplace_properties",
-            "hub_slots": self.HUB_SLOTS,
-            "hub_domain": self.HUB_DOMAIN,
-            "hub_dimensions": self.HUB_DIMENSIONS,
+                "hub_slots": self.HUB_SLOTS,
+                "hub_domain": self.HUB_DOMAIN,
+                "hub_dimensions": self.HUB_DIMENSIONS,
                 "property": prop,
                 "property_formula": PROPERTY_FORMULAS.get(prop, ""),
                 "signal_1_info": data["signal_1_info"],
@@ -221,27 +195,27 @@ class LaplacePropertiesSimulator(BaseSimulator):
         shifted_poles = None
 
         if prop == "linearity":
-            result, result_t, result_info, result_pz = self._apply_linearity(
-                x1, x2, sig1_info, sig2_info, pz_1, pz_2, t
+            result, result_info, result_pz = self._apply_linearity(
+                x1, x2, sig1_info, sig2_info, pz_1, pz_2
             )
         elif prop == "delay":
-            result, result_t, result_info, result_pz = self._apply_delay(x1, sig1_info, t, pz_1)
+            result, result_info, result_pz = self._apply_delay(x1, sig1_info, t, pz_1)
         elif prop == "multiply_t":
-            result, result_t, result_info, result_pz = self._apply_multiply_t(x1, sig1_info, t, pz_1)
+            result, result_info, result_pz = self._apply_multiply_t(x1, sig1_info, t, pz_1)
         elif prop == "freq_shift":
-            result, result_t, result_info, result_pz, original_poles, shifted_poles = (
+            result, result_info, result_pz, original_poles, shifted_poles = (
                 self._apply_freq_shift(x1, sig1_info, t, pz_1)
             )
         elif prop == "differentiate":
-            result, result_t, result_info, result_pz = self._apply_differentiate(
+            result, result_info, result_pz = self._apply_differentiate(
                 x1, sig1_info, t, pz_1
             )
         elif prop == "integrate":
-            result, result_t, result_info, result_pz = self._apply_integrate(
+            result, result_info, result_pz = self._apply_integrate(
                 x1, sig1_info, t, pz_1
             )
         else:  # convolution
-            result, result_t, result_info, result_pz = self._apply_convolution(
+            result, result_info, result_pz = self._apply_convolution(
                 x1, x2, sig1_info, sig2_info, t, dt, pz_1, pz_2
             )
 
@@ -249,7 +223,7 @@ class LaplacePropertiesSimulator(BaseSimulator):
 
         plots = self._build_plots(
             t, x1, sig1_info, x2, sig2_info,
-            result, result_t, result_info, needs_second,
+            result, result_info, needs_second,
             pz_1, pz_2, result_pz,
             roc_1, roc_2, roc_result,
             original_poles, shifted_poles,
@@ -336,8 +310,7 @@ class LaplacePropertiesSimulator(BaseSimulator):
         x1: np.ndarray, x2: np.ndarray,
         info1: Dict, info2: Dict,
         pz_1: Dict, pz_2: Dict,
-        t: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray, Dict, Dict]:
+    ) -> Tuple[np.ndarray, Dict, Dict]:
         a = float(self.parameters["alpha"])
         b = float(self.parameters["beta"])
         result = a * x1 + b * x2
@@ -351,13 +324,13 @@ class LaplacePropertiesSimulator(BaseSimulator):
             "poles": pz_1["poles"] + pz_2["poles"],
             "zeros": [],
         }
-        return result, t, result_info, result_pz
+        return result, result_info, result_pz
 
     def _apply_delay(
         self,
         x1: np.ndarray, info1: Dict, t: np.ndarray,
         pz_1: Dict,
-    ) -> Tuple[np.ndarray, np.ndarray, Dict, Dict]:
+    ) -> Tuple[np.ndarray, Dict, Dict]:
         T = float(self.parameters["delay_T"])
         # Shift signal by T: x(t-T) via interpolation
         result = np.interp(t - T, t, x1, left=0.0, right=0.0)
@@ -371,13 +344,13 @@ class LaplacePropertiesSimulator(BaseSimulator):
             "poles": list(pz_1["poles"]),
             "zeros": list(pz_1["zeros"]),
         }
-        return result, t, result_info, result_pz
+        return result, result_info, result_pz
 
     def _apply_multiply_t(
         self,
         x1: np.ndarray, info1: Dict, t: np.ndarray,
         pz_1: Dict,
-    ) -> Tuple[np.ndarray, np.ndarray, Dict, Dict]:
+    ) -> Tuple[np.ndarray, Dict, Dict]:
         result = t * x1
 
         result_info = {
@@ -389,13 +362,13 @@ class LaplacePropertiesSimulator(BaseSimulator):
             "poles": list(pz_1["poles"]) + list(pz_1["poles"]),
             "zeros": list(pz_1["zeros"]),
         }
-        return result, t, result_info, result_pz
+        return result, result_info, result_pz
 
     def _apply_freq_shift(
         self,
         x1: np.ndarray, info1: Dict, t: np.ndarray,
         pz_1: Dict,
-    ) -> Tuple[np.ndarray, np.ndarray, Dict, Dict, List, List]:
+    ) -> Tuple[np.ndarray, Dict, Dict, List, List]:
         a = float(self.parameters["freq_shift_alpha"])
         u = (t >= 0).astype(float)
         result = np.exp(-a * t) * x1 * u
@@ -420,7 +393,7 @@ class LaplacePropertiesSimulator(BaseSimulator):
 
         # Return original and shifted for arrow visualization
         return (
-            result, t, result_info, result_pz,
+            result, result_info, result_pz,
             [list(p) for p in original_poles],
             [list(p) for p in shifted_poles],
         )
@@ -429,7 +402,7 @@ class LaplacePropertiesSimulator(BaseSimulator):
         self,
         x1: np.ndarray, info1: Dict, t: np.ndarray,
         pz_1: Dict,
-    ) -> Tuple[np.ndarray, np.ndarray, Dict, Dict]:
+    ) -> Tuple[np.ndarray, Dict, Dict]:
         result = np.gradient(x1, t)
         # Clip spikes from discontinuities
         result = np.clip(result, -DISPLAY_CLIP, DISPLAY_CLIP)
@@ -452,13 +425,13 @@ class LaplacePropertiesSimulator(BaseSimulator):
             zeros = list(zeros) + [(0.0, 0.0)]
 
         result_pz = {"poles": poles, "zeros": zeros}
-        return result, t, result_info, result_pz
+        return result, result_info, result_pz
 
     def _apply_integrate(
         self,
         x1: np.ndarray, info1: Dict, t: np.ndarray,
         pz_1: Dict,
-    ) -> Tuple[np.ndarray, np.ndarray, Dict, Dict]:
+    ) -> Tuple[np.ndarray, Dict, Dict]:
         dt = t[1] - t[0]
         result = np.cumsum(x1) * dt
         # For t < 0, zero out (right-sided integral)
@@ -480,7 +453,7 @@ class LaplacePropertiesSimulator(BaseSimulator):
             poles = list(poles) + [(0.0, 0.0)]
 
         result_pz = {"poles": poles, "zeros": zeros}
-        return result, t, result_info, result_pz
+        return result, result_info, result_pz
 
     def _apply_convolution(
         self,
@@ -488,7 +461,7 @@ class LaplacePropertiesSimulator(BaseSimulator):
         info1: Dict, info2: Dict,
         t: np.ndarray, dt: float,
         pz_1: Dict, pz_2: Dict,
-    ) -> Tuple[np.ndarray, np.ndarray, Dict, Dict]:
+    ) -> Tuple[np.ndarray, Dict, Dict]:
         full_conv = np.convolve(x1, x2) * dt
         # Build time axis for full convolution
         t_full = np.linspace(2 * t[0], 2 * t[-1], len(full_conv))
@@ -511,7 +484,7 @@ class LaplacePropertiesSimulator(BaseSimulator):
             "poles": pz_1["poles"] + pz_2["poles"],
             "zeros": pz_1["zeros"] + pz_2["zeros"],
         }
-        return result, t, result_info, result_pz
+        return result, result_info, result_pz
 
     # ── ROC helpers ───────────────────────────────────────────────────
 
@@ -618,7 +591,7 @@ class LaplacePropertiesSimulator(BaseSimulator):
         t: np.ndarray,
         x1: np.ndarray, sig1_info: Dict,
         x2: Optional[np.ndarray], sig2_info: Optional[Dict],
-        result: np.ndarray, result_t: np.ndarray,
+        result: np.ndarray,
         result_info: Dict, needs_second: bool,
         pz_1: Dict, pz_2: Optional[Dict], result_pz: Dict,
         roc_1: Dict, roc_2: Optional[Dict], roc_result: Dict,
@@ -639,7 +612,7 @@ class LaplacePropertiesSimulator(BaseSimulator):
             )
         plots.append(
             self._line_plot(
-                result_t, result, result_info["label"], "result",
+                t, result, result_info["label"], "result",
                 f"Result: {result_info['label']}", "#14b8a6",
             )
         )
@@ -727,68 +700,26 @@ class LaplacePropertiesSimulator(BaseSimulator):
         max_im = max(abs(i) for i in all_im) if all_im else 1.0
         axis_lim = max(max(max_re, max_im) * 1.5, 2.5)
 
-        # ── ROC shading for signal 1 ──
-        if roc_1["type"] == "right_half" and roc_1.get("boundary") is not None:
-            sigma = roc_1["boundary"]
-            traces.append({
-                "x": [sigma, axis_lim, axis_lim, sigma, sigma],
-                "y": [-axis_lim, -axis_lim, axis_lim, axis_lim, -axis_lim],
-                "type": "scatter", "mode": "lines",
-                "fill": "toself",
-                "fillcolor": "rgba(59,130,246,0.06)",
-                "line": {"color": "rgba(0,0,0,0)", "width": 0},
-                "showlegend": False, "hoverinfo": "skip",
-            })
-            traces.append({
-                "x": [sigma, sigma],
-                "y": [-axis_lim, axis_lim],
-                "type": "scatter", "mode": "lines",
-                "line": {"color": "rgba(59,130,246,0.5)", "width": 1.5, "dash": "dash"},
-                "name": f"ROC₁: Re(s)>{sigma:.2g}",
-                "hoverinfo": "name",
-            })
-
-        # ── ROC shading for signal 2 ──
-        if needs_second and roc_2 and roc_2["type"] == "right_half" and roc_2.get("boundary") is not None:
-            sigma = roc_2["boundary"]
-            traces.append({
-                "x": [sigma, axis_lim, axis_lim, sigma, sigma],
-                "y": [-axis_lim, -axis_lim, axis_lim, axis_lim, -axis_lim],
-                "type": "scatter", "mode": "lines",
-                "fill": "toself",
-                "fillcolor": "rgba(239,68,68,0.06)",
-                "line": {"color": "rgba(0,0,0,0)", "width": 0},
-                "showlegend": False, "hoverinfo": "skip",
-            })
-            traces.append({
-                "x": [sigma, sigma],
-                "y": [-axis_lim, axis_lim],
-                "type": "scatter", "mode": "lines",
-                "line": {"color": "rgba(239,68,68,0.5)", "width": 1.5, "dash": "dash"},
-                "name": f"ROC₂: Re(s)>{sigma:.2g}",
-                "hoverinfo": "name",
-            })
-
-        # ── ROC for result ──
-        if roc_result["type"] == "right_half" and roc_result.get("boundary") is not None:
-            sigma = roc_result["boundary"]
-            traces.append({
-                "x": [sigma, axis_lim, axis_lim, sigma, sigma],
-                "y": [-axis_lim, -axis_lim, axis_lim, axis_lim, -axis_lim],
-                "type": "scatter", "mode": "lines",
-                "fill": "toself",
-                "fillcolor": "rgba(20,184,166,0.08)",
-                "line": {"color": "rgba(0,0,0,0)", "width": 0},
-                "showlegend": False, "hoverinfo": "skip",
-            })
-            traces.append({
-                "x": [sigma, sigma],
-                "y": [-axis_lim, axis_lim],
-                "type": "scatter", "mode": "lines",
-                "line": {"color": "rgba(20,184,166,0.7)", "width": 2.5},
-                "name": f"ROC result: Re(s)>{sigma:.2g}",
-                "hoverinfo": "name",
-            })
+        # ── ROC shading (signal 1, signal 2, result) ──
+        self._add_roc_trace(
+            traces, roc_1, axis_lim,
+            "rgba(59,130,246,0.06)",
+            {"color": "rgba(59,130,246,0.5)", "width": 1.5, "dash": "dash"},
+            "ROC₁",
+        )
+        if needs_second:
+            self._add_roc_trace(
+                traces, roc_2, axis_lim,
+                "rgba(239,68,68,0.06)",
+                {"color": "rgba(239,68,68,0.5)", "width": 1.5, "dash": "dash"},
+                "ROC₂",
+            )
+        self._add_roc_trace(
+            traces, roc_result, axis_lim,
+            "rgba(20,184,166,0.08)",
+            {"color": "rgba(20,184,166,0.7)", "width": 2.5},
+            "ROC result",
+        )
 
         # ── jω axis (imaginary axis) ──
         traces.append({
@@ -879,6 +810,32 @@ class LaplacePropertiesSimulator(BaseSimulator):
                 "uirevision": f"s_plane-{rev}",
             },
         }
+
+    @staticmethod
+    def _add_roc_trace(
+        traces: List[Dict], roc: Optional[Dict], axis_lim: float,
+        fillcolor: str, line: Dict, name_prefix: str,
+    ) -> None:
+        if not roc or roc["type"] != "right_half" or roc.get("boundary") is None:
+            return
+        sigma = roc["boundary"]
+        traces.append({
+            "x": [sigma, axis_lim, axis_lim, sigma, sigma],
+            "y": [-axis_lim, -axis_lim, axis_lim, axis_lim, -axis_lim],
+            "type": "scatter", "mode": "lines",
+            "fill": "toself",
+            "fillcolor": fillcolor,
+            "line": {"color": "rgba(0,0,0,0)", "width": 0},
+            "showlegend": False, "hoverinfo": "skip",
+        })
+        traces.append({
+            "x": [sigma, sigma],
+            "y": [-axis_lim, axis_lim],
+            "type": "scatter", "mode": "lines",
+            "line": line,
+            "name": f"{name_prefix}: Re(s)>{sigma:.2g}",
+            "hoverinfo": "name",
+        })
 
     @staticmethod
     def _add_pz_traces(

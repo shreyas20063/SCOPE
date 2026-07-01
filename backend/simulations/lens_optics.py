@@ -1,13 +1,7 @@
-"""
-Lens Optics Simulator - Web Version
-
-Exactly matches PyQt5 version (lens_optics/optics/lens_model.py and lens_optics/gui)
-Models optical systems using point spread functions (PSF).
-Demonstrates diffraction-limited imaging and atmospheric seeing effects.
-"""
+"""Lens Optics Simulator — PSF modeling of diffraction-limited imaging and atmospheric seeing."""
 
 import numpy as np
-from scipy.special import j1  # Bessel function of first kind
+from scipy.special import j1
 from scipy.signal import fftconvolve
 from typing import Any, Dict, List, Optional
 from .base_simulator import BaseSimulator
@@ -16,16 +10,11 @@ import io
 
 
 class LensOpticsSimulator(BaseSimulator):
-    """
-    Lens Optics simulation with PSF modeling.
-    Matches PyQt5 version exactly.
-    """
+    """Lens Optics simulation with PSF modeling."""
 
-    # Configuration (matching PyQt5)
-    IMAGE_SIZE = 256  # Larger for better quality
+    IMAGE_SIZE = 256
     PSF_GRID_SIZE = 256
 
-    # Colors (matching PyQt5)
     COLOR_ORIGINAL = "#00A0FF"
     COLOR_BLURRED = "#FF5733"
     COLOR_PSF = "Hot"
@@ -49,15 +38,14 @@ class LensOpticsSimulator(BaseSimulator):
         },
     }
 
-    # Parameter defaults (matching PyQt5 exactly)
     DEFAULT_PARAMS = {
-        "diameter": 100.0,        # mm (PyQt5: 100mm default)
-        "focal_length": 500.0,    # mm (PyQt5: 500mm default)
-        "wavelength": 550.0,      # nm (PyQt5: 550nm green light)
-        "pixel_size": 1.0,        # μm (PyQt5: 1μm default)
-        "psf_size": 256,          # grid size
+        "diameter": 100.0,        # mm
+        "focal_length": 500.0,    # mm
+        "wavelength": 550.0,      # nm
+        "pixel_size": 1.0,        # μm
+        "psf_size": 256,
         "enable_atmosphere": False,
-        "atmospheric_seeing": 1.5,  # arcsec (PyQt5: 1.5 default)
+        "atmospheric_seeing": 1.5,  # arcsec
         "test_pattern": "edge_target",
     }
 
@@ -80,6 +68,9 @@ class LensOpticsSimulator(BaseSimulator):
         self._lens_metrics = {}
         self._psf_extent = None
         self._airy_radius = None
+        self._psf_zoomed = None
+        self._mtf = None
+        self._mtf_freq = None
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         """Initialize simulation with parameters."""
@@ -107,20 +98,17 @@ class LensOpticsSimulator(BaseSimulator):
 
     def _compute(self) -> None:
         """Compute PSF, blur image, and calculate metrics."""
-        # Extract parameters (convert units to SI)
-        diameter_m = self.parameters["diameter"] * 1e-3  # mm to m
-        focal_length_m = self.parameters["focal_length"] * 1e-3  # mm to m
-        wavelength_m = self.parameters["wavelength"] * 1e-9  # nm to m
-        pixel_size_m = self.parameters["pixel_size"] * 1e-6  # μm to m
+        diameter_m = self.parameters["diameter"] * 1e-3
+        focal_length_m = self.parameters["focal_length"] * 1e-3
+        wavelength_m = self.parameters["wavelength"] * 1e-9
+        pixel_size_m = self.parameters["pixel_size"] * 1e-6
         psf_size = self.parameters["psf_size"]
         enable_atmosphere = self.parameters["enable_atmosphere"]
         seeing_arcsec = self.parameters["atmospheric_seeing"]
         pattern = self.parameters["test_pattern"]
 
-        # Generate test pattern
         self._original_image = self._generate_test_pattern(pattern, self.IMAGE_SIZE)
 
-        # Compute PSF
         if enable_atmosphere and seeing_arcsec > 0:
             self._psf, self._psf_extent = self._combined_psf(
                 diameter_m, focal_length_m, wavelength_m, pixel_size_m,
@@ -131,15 +119,11 @@ class LensOpticsSimulator(BaseSimulator):
                 diameter_m, focal_length_m, wavelength_m, pixel_size_m, psf_size
             )
 
-        # Resize PSF for convolution
         psf_resized = self._match_psf_size(self._psf, self.IMAGE_SIZE)
-
-        # Apply PSF (convolve)
         self._blurred_image = self._convolve_with_psf(
             self._original_image, psf_resized
         )
 
-        # Calculate all metrics
         self._psf_metrics = self._calculate_psf_metrics(self._psf, pixel_size_m)
         self._quality_metrics = self._calculate_quality_metrics(
             self._original_image, self._blurred_image
@@ -148,12 +132,21 @@ class LensOpticsSimulator(BaseSimulator):
             diameter_m, focal_length_m, wavelength_m
         )
 
+        center = self._psf.shape[0] // 2
+        zoom_size = self._psf.shape[0] // 4
+        self._psf_zoomed = self._psf[center-zoom_size:center+zoom_size,
+                                     center-zoom_size:center+zoom_size]
+
+        otf = np.fft.fftshift(np.fft.fft2(self._psf))
+        mtf = np.abs(otf)
+        mtf_profile = mtf[center, center:]
+        self._mtf = mtf_profile / mtf_profile[0]
+        freq_sampling = 1.0 / (pixel_size_m * self._psf.shape[0])
+        self._mtf_freq = np.arange(len(self._mtf)) * freq_sampling / 1000  # cycles/mm
+
     def _airy_disk_psf(self, diameter: float, focal_length: float,
                        wavelength: float, pixel_size: float, grid_size: int):
-        """
-        Generate Airy disk point spread function for circular aperture.
-        Matches PyQt5: lens_model.py:airy_disk_psf()
-        """
+        """Generate Airy disk point spread function for circular aperture."""
         x = np.linspace(-grid_size//2, grid_size//2-1, grid_size) * pixel_size
         y = np.linspace(-grid_size//2, grid_size//2-1, grid_size) * pixel_size
         X, Y = np.meshgrid(x, y)
@@ -167,9 +160,8 @@ class LensOpticsSimulator(BaseSimulator):
             beta = np.pi * diameter * R / (wavelength * focal_length)
             airy = np.where(beta == 0, 1.0, (2 * j1(beta) / beta)**2)
 
-        airy = airy / np.max(airy)  # Normalize to peak of 1
+        airy = airy / np.max(airy)
 
-        # Create extent in micrometers
         extent = [
             -grid_size//2 * pixel_size * 1e6,
             grid_size//2 * pixel_size * 1e6,
@@ -181,7 +173,6 @@ class LensOpticsSimulator(BaseSimulator):
 
     def _gaussian_psf(self, sigma_um: float, pixel_size: float, grid_size: int):
         """Generate Gaussian PSF (atmospheric seeing limited)."""
-        # Create coordinate grid in micrometers
         pixel_size_um = pixel_size * 1e6
         x_um = np.linspace(-grid_size//2, grid_size//2-1, grid_size) * pixel_size_um
         y_um = np.linspace(-grid_size//2, grid_size//2-1, grid_size) * pixel_size_um
@@ -189,7 +180,7 @@ class LensOpticsSimulator(BaseSimulator):
         R_squared = X**2 + Y**2
 
         psf = np.exp(-R_squared / (2 * sigma_um**2))
-        psf = psf / np.sum(psf)  # Normalize
+        psf = psf / np.sum(psf)
 
         extent = [
             -grid_size//2 * pixel_size_um,
@@ -202,37 +193,27 @@ class LensOpticsSimulator(BaseSimulator):
 
     def _combined_psf(self, diameter: float, focal_length: float, wavelength: float,
                       pixel_size: float, seeing_arcsec: float, grid_size: int):
-        """
-        Generate combined PSF including both diffraction and atmospheric seeing.
-        Matches PyQt5: lens_model.py:combined_psf()
-        """
-        # Diffraction-limited Airy disk
+        """Generate combined PSF including both diffraction and atmospheric seeing."""
         airy, extent, _ = self._airy_disk_psf(
             diameter, focal_length, wavelength, pixel_size, grid_size
         )
 
-        # Convert seeing from arcseconds to physical size
         seeing_rad = seeing_arcsec * (np.pi / 180) / 3600
-        seeing_physical = seeing_rad * focal_length  # meters
-        seeing_um = seeing_physical * 1e6  # micrometers
+        seeing_physical = seeing_rad * focal_length
+        seeing_um = seeing_physical * 1e6
 
-        # Convert FWHM to sigma
+        # FWHM to sigma
         sigma_um = seeing_um / (2 * np.sqrt(2 * np.log(2)))
 
-        # Generate atmospheric PSF
         atmo_psf, _ = self._gaussian_psf(sigma_um, pixel_size, grid_size)
 
-        # Convolve diffraction PSF with atmospheric PSF
         combined = fftconvolve(airy, atmo_psf, mode='same')
         combined = combined / np.sum(combined)
 
         return combined.astype(np.float32), extent
 
     def _generate_test_pattern(self, pattern_type: str, size: int) -> np.ndarray:
-        """
-        Generate test images for simulation.
-        Matches PyQt5: image_ops.py
-        """
+        """Generate test images for simulation."""
         if pattern_type == "resolution_chart":
             return self._generate_resolution_chart(size)
         elif pattern_type == "point_sources":
@@ -253,18 +234,14 @@ class LensOpticsSimulator(BaseSimulator):
         r = np.sqrt((x - center)**2 + (y - center)**2)
         r_norm = r / (size // 2)
 
-        # Radial frequency pattern
         freq = r_norm * 20
         radial_pattern = np.sin(2 * np.pi * freq)
 
-        # Angular patterns (spokes)
         theta = np.arctan2(y - center, x - center)
         angular_pattern = np.sin(8 * theta)
 
-        # Combine patterns
         img = 0.5 + 0.3 * radial_pattern + 0.2 * angular_pattern
 
-        # Add high-frequency details
         fine_pattern = np.sin(2 * np.pi * r_norm * 50) * np.exp(-r_norm * 2)
         img += 0.1 * fine_pattern
 
@@ -296,21 +273,15 @@ class LensOpticsSimulator(BaseSimulator):
         """Generate sharp edge target for MTF testing."""
         img = np.zeros((size, size))
 
-        # Vertical edge
         img[:, :size//2] = 0.3
         img[:, size//2:] = 0.7
-
-        # Horizontal edges
         img[:size//4, :] = 0.2
         img[3*size//4:, :] = 0.8
 
-        # Diagonal edges
-        for i in range(size):
-            for j in range(size):
-                if i + j > size:
-                    img[i, j] = max(img[i, j], 0.6)
-                if abs(i - j) < size // 10:
-                    img[i, j] = 0.9
+        ii, jj = np.indices((size, size))
+        upper = ii + jj > size
+        img[upper] = np.maximum(img[upper], 0.6)
+        img[np.abs(ii - jj) < size // 10] = 0.9
 
         return img.astype(np.float32)
 
@@ -343,11 +314,9 @@ class LensOpticsSimulator(BaseSimulator):
         if current_size == target_size:
             return psf
         elif current_size > target_size:
-            # Crop PSF
             start = (current_size - target_size) // 2
             return psf[start:start+target_size, start:start+target_size]
         else:
-            # Pad PSF
             pad_size = (target_size - current_size) // 2
             padded = np.pad(psf, pad_size, mode='constant', constant_values=0)
             if padded.shape[0] < target_size:
@@ -363,19 +332,13 @@ class LensOpticsSimulator(BaseSimulator):
         return np.clip(blurred, 0, 1).astype(np.float32)
 
     def _calculate_psf_metrics(self, psf: np.ndarray, pixel_size_m: float) -> Dict:
-        """
-        Calculate PSF quality metrics.
-        Matches PyQt5: lens_model.py:psf_metrics()
-        """
+        """Calculate PSF quality metrics."""
         metrics = {}
 
-        # Find PSF center
         center_y, center_x = np.unravel_index(np.argmax(psf), psf.shape)
 
-        # Peak intensity
         metrics['peak_intensity'] = float(np.max(psf))
 
-        # Calculate FWHM
         half_max = metrics['peak_intensity'] / 2
         h_profile = psf[center_y, :]
         v_profile = psf[:, center_x]
@@ -390,7 +353,6 @@ class LensOpticsSimulator(BaseSimulator):
         metrics['fwhm_pixels'] = float(fwhm_pixels)
         metrics['fwhm_um'] = float(fwhm_pixels * pixel_size_m * 1e6)
 
-        # Calculate encircled energy
         total_energy = np.sum(psf)
         y, x = np.ogrid[:psf.shape[0], :psf.shape[1]]
         distances = np.sqrt((x - center_x)**2 + (y - center_y)**2)
@@ -407,7 +369,6 @@ class LensOpticsSimulator(BaseSimulator):
 
         encircled_energies = np.array(encircled_energies)
 
-        # EE50 and EE80
         ee50_idx = np.argmax(encircled_energies >= 0.5) if np.any(encircled_energies >= 0.5) else len(radii) - 1
         ee80_idx = np.argmax(encircled_energies >= 0.8) if np.any(encircled_energies >= 0.8) else len(radii) - 1
 
@@ -416,14 +377,11 @@ class LensOpticsSimulator(BaseSimulator):
         metrics['ee80_radius_pixels'] = float(radii[ee80_idx]) if ee80_idx < len(radii) else float(max_radius)
         metrics['ee80_radius_um'] = float(metrics['ee80_radius_pixels'] * pixel_size_m * 1e6)
 
-        # Strehl ratio
         metrics['strehl_ratio'] = float(metrics['peak_intensity'])
 
-        # Store encircled energy curve data
-        metrics['ee_radii'] = radii.tolist()[:50]  # Limit for JSON
+        metrics['ee_radii'] = radii.tolist()[:50]
         metrics['ee_values'] = encircled_energies.tolist()[:50]
 
-        # Cross-section data
         center = psf.shape[0] // 2
         metrics['cross_section_h'] = psf[center, :].tolist()
         metrics['cross_section_v'] = psf[:, center].tolist()
@@ -432,20 +390,15 @@ class LensOpticsSimulator(BaseSimulator):
 
     def _calculate_quality_metrics(self, original: np.ndarray,
                                     blurred: np.ndarray) -> Dict:
-        """
-        Calculate image quality metrics.
-        Matches PyQt5: image_ops.py:calculate_image_quality_metrics()
-        """
-        # MSE
+        """Calculate image quality metrics."""
         mse = float(np.mean((original - blurred)**2))
 
-        # PSNR
         if mse > 0:
             psnr = float(20 * np.log10(1.0 / np.sqrt(mse)))
         else:
             psnr = float('inf')
 
-        # SSIM (simplified)
+        # SSIM (simplified global form)
         mu1, mu2 = np.mean(original), np.mean(blurred)
         sigma1, sigma2 = np.var(original), np.var(blurred)
         sigma12 = np.mean((original - mu1) * (blurred - mu2))
@@ -454,12 +407,11 @@ class LensOpticsSimulator(BaseSimulator):
         ssim = float(((2*mu1*mu2 + c1)*(2*sigma12 + c2)) /
                      ((mu1**2 + mu2**2 + c1)*(sigma1 + sigma2 + c2)))
 
-        # Contrast reduction
         orig_contrast = float(np.std(original))
         blur_contrast = float(np.std(blurred))
         contrast_reduction = float(1 - (blur_contrast / orig_contrast)) if orig_contrast > 0 else 0.0
 
-        # Edge preservation (using Sobel-like operator)
+        # Edge preservation via first-difference gradient magnitude correlation
         def simple_edges(img):
             gx = np.diff(img, axis=1, prepend=img[:, :1])
             gy = np.diff(img, axis=0, prepend=img[:1, :])
@@ -520,7 +472,6 @@ class LensOpticsSimulator(BaseSimulator):
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
 
-        # Zoom to central region
         center = psf.shape[0] // 2
         zoom_size = psf.shape[0] // 4
         psf_zoomed = psf[center-zoom_size:center+zoom_size, center-zoom_size:center+zoom_size]
@@ -539,9 +490,7 @@ class LensOpticsSimulator(BaseSimulator):
         b64 = base64.b64encode(buf.read()).decode('utf-8')
         return f"data:image/png;base64,{b64}"
 
-    # =========================================================================
-    # Plot generation
-    # =========================================================================
+    # ── PRESENT ── Plotly dicts only ──────────────────────────────────────
 
     def get_plots(self) -> List[Dict[str, Any]]:
         """Generate Plotly plot dictionaries."""
@@ -602,11 +551,7 @@ class LensOpticsSimulator(BaseSimulator):
 
     def _create_psf_plot(self) -> Dict[str, Any]:
         """Create PSF visualization (log scale)."""
-        # Zoom to central region
-        center = self._psf.shape[0] // 2
-        zoom_size = self._psf.shape[0] // 4
-        psf_zoomed = self._psf[center-zoom_size:center+zoom_size, center-zoom_size:center+zoom_size]
-
+        psf_zoomed = self._psf_zoomed
         airy_radius = self._lens_metrics.get('airy_radius_um', 0)
 
         return {
@@ -634,7 +579,6 @@ class LensOpticsSimulator(BaseSimulator):
         center = self._psf.shape[0] // 2
         pixel_size_um = self.parameters["pixel_size"]
 
-        # Create position axis in micrometers
         positions = (np.arange(self._psf.shape[0]) - center) * pixel_size_um
 
         h_profile = self._psf[center, :]
@@ -686,7 +630,6 @@ class LensOpticsSimulator(BaseSimulator):
         ee_values = self._psf_metrics.get('ee_values', [])
         pixel_size_um = self.parameters["pixel_size"]
 
-        # Convert to micrometers
         radii_um = [r * pixel_size_um for r in ee_radii]
 
         return {
@@ -703,7 +646,6 @@ class LensOpticsSimulator(BaseSimulator):
                     "fill": "tozeroy",
                     "fillcolor": "rgba(168, 85, 247, 0.2)",
                 },
-                # 50% line
                 {
                     "x": [0, radii_um[-1] if radii_um else 1],
                     "y": [0.5, 0.5],
@@ -712,7 +654,6 @@ class LensOpticsSimulator(BaseSimulator):
                     "name": "50%",
                     "line": {"color": "#fbbf24", "width": 1.5, "dash": "dash"},
                 },
-                # 80% line
                 {
                     "x": [0, radii_um[-1] if radii_um else 1],
                     "y": [0.8, 0.8],
@@ -744,19 +685,8 @@ class LensOpticsSimulator(BaseSimulator):
 
     def _create_mtf_plot(self) -> Dict[str, Any]:
         """Create MTF curve plot."""
-        # Compute MTF from PSF
-        otf = np.fft.fft2(self._psf)
-        otf = np.fft.fftshift(otf)
-        mtf = np.abs(otf)
-
-        center = self._psf.shape[0] // 2
-        mtf_profile = mtf[center, center:]
-        mtf_profile = mtf_profile / mtf_profile[0]
-
-        # Frequency axis in cycles/mm
-        pixel_size_m = self.parameters["pixel_size"] * 1e-6
-        freq_sampling = 1.0 / (pixel_size_m * self._psf.shape[0])
-        freq = np.arange(len(mtf_profile)) * freq_sampling / 1000  # cycles/mm
+        mtf_profile = self._mtf
+        freq = self._mtf_freq
 
         return {
             "id": "mtf",
@@ -803,7 +733,6 @@ class LensOpticsSimulator(BaseSimulator):
         """Get complete simulation state with enhanced metadata."""
         base_state = super().get_state()
 
-        # Pattern labels
         pattern_labels = {
             'resolution_chart': 'Resolution Chart',
             'point_sources': 'Point Sources',
@@ -811,14 +740,13 @@ class LensOpticsSimulator(BaseSimulator):
             'star_field': 'Star Field'
         }
 
-        # Generate image data URLs for display (optional, Plotly heatmaps are primary)
         images = {}
         try:
             images["original"] = self._image_to_base64(self._original_image)
             images["blurred"] = self._image_to_base64(self._blurred_image)
             images["psf"] = self._psf_to_base64(self._psf)
         except Exception:
-            pass  # Plotly heatmap plots serve as primary display
+            pass
 
         base_state["metadata"] = {
             "simulation_type": "lens_optics",
@@ -827,16 +755,13 @@ class LensOpticsSimulator(BaseSimulator):
             "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
 
-            # Images for display (fallback, Plotly heatmaps are primary)
             "images": images,
 
-            # Current test pattern
             "test_pattern": pattern_labels.get(
                 self.parameters["test_pattern"],
                 self.parameters["test_pattern"]
             ),
 
-            # Lens parameters (converted for display)
             "lens_info": {
                 "diameter_mm": self.parameters["diameter"],
                 "focal_length_mm": self.parameters["focal_length"],
@@ -847,7 +772,6 @@ class LensOpticsSimulator(BaseSimulator):
                 "rayleigh_limit_arcsec": round(self._lens_metrics.get("rayleigh_limit_arcsec", 0), 3),
             },
 
-            # PSF metrics
             "psf_metrics": {
                 "fwhm_um": round(self._psf_metrics.get("fwhm_um", 0), 2),
                 "ee50_um": round(self._psf_metrics.get("ee50_radius_um", 0), 2),
@@ -856,7 +780,6 @@ class LensOpticsSimulator(BaseSimulator):
                 "strehl_ratio": round(self._psf_metrics.get("strehl_ratio", 0), 4),
             },
 
-            # Image quality metrics
             "quality_metrics": {
                 "mse": round(self._quality_metrics.get("mse", 0), 6),
                 "psnr": round(self._quality_metrics.get("psnr", 0), 1) if self._quality_metrics.get("psnr", 0) < 100 else "∞",
@@ -865,11 +788,9 @@ class LensOpticsSimulator(BaseSimulator):
                 "edge_preservation": round(self._quality_metrics.get("edge_preservation", 0), 4),
             },
 
-            # Atmosphere status
             "atmosphere_enabled": self.parameters["enable_atmosphere"],
             "seeing_arcsec": self.parameters["atmospheric_seeing"] if self.parameters["enable_atmosphere"] else None,
 
-            # Quality assessment
             "quality_assessment": self._get_quality_assessment(),
         }
 
@@ -881,7 +802,6 @@ class LensOpticsSimulator(BaseSimulator):
         fwhm = self._psf_metrics.get("fwhm_um", 0)
         airy = self._lens_metrics.get("airy_radius_um", 0)
 
-        # Quality grade
         if ssim > 0.95:
             quality = "Excellent"
         elif ssim > 0.85:
@@ -891,7 +811,6 @@ class LensOpticsSimulator(BaseSimulator):
         else:
             quality = "Degraded"
 
-        # Diffraction status
         if fwhm <= airy * 2:
             diffraction = "Diffraction-limited"
         else:

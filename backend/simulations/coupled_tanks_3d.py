@@ -14,14 +14,15 @@ References: Johansson (2000) "The Quadruple-Tank Process", Åström & Murray Ch 
 """
 
 import numpy as np
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+from scipy.integrate import solve_ivp
 
 from .base_simulator import BaseSimulator
 from core.controllers import (
-    numerical_jacobian, controllability_matrix, observability_matrix,
+    numerical_jacobian, controllability_matrix,
     compute_lqr, compute_pole_placement, compute_lqg,
-    simulate_uncontrolled, simulate_state_feedback,
-    simulate_lqg, compute_performance_metrics, compute_energy,
+    simulate_uncontrolled, compute_performance_metrics, compute_energy,
 )
 
 
@@ -34,9 +35,6 @@ class CoupledTanks3DSimulator(BaseSimulator):
     # Simulation config
     SIM_TIME = 20.0
     DT = 0.02
-
-    # Default input saturation (overridden by pump_capacity parameter)
-    _DEFAULT_U_MAX = 5.0
 
     # Plot colors
     COLORS = {
@@ -246,6 +244,10 @@ class CoupledTanks3DSimulator(BaseSimulator):
     def _disturbance(self) -> float:
         return self.parameters.get("disturbance", 0.0) if hasattr(self, 'parameters') and self.parameters else 0.0
 
+    # ------------------------------------------------------------------ #
+    #  Lifecycle                                                          #
+    # ------------------------------------------------------------------ #
+
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = self.DEFAULT_PARAMS.copy()
         if params:
@@ -266,10 +268,6 @@ class CoupledTanks3DSimulator(BaseSimulator):
     # ------------------------------------------------------------------ #
     #  Physics                                                            #
     # ------------------------------------------------------------------ #
-
-    def _safe_sqrt(self, h: float) -> float:
-        """Protected sqrt for water level — avoids negative arguments."""
-        return np.sqrt(max(h, 0.001))
 
     def _equilibrium_inputs(self) -> np.ndarray:
         """Compute equilibrium flow rates for h₁_eq, h₂_eq.
@@ -319,6 +317,30 @@ class CoupledTanks3DSimulator(BaseSimulator):
 
         return np.array([dh1, dh2])
 
+    def _reconstruct_u_traj(
+        self, n_steps: int, u_at: Callable[[int], np.ndarray],
+    ) -> np.ndarray:
+        """Rebuild the applied flow trajectory by re-evaluating the (pre-clip)
+        control law at each solved timestep, then applying the [0, U_MAX] clamp."""
+        u_traj = np.zeros((n_steps, 2))
+        for i in range(n_steps):
+            u_traj[i] = np.clip(np.asarray(u_at(i)).flatten(), 0.0, self._u_max)
+        return u_traj
+
+    def _simulate_uncontrolled_eq(
+        self, x0: np.ndarray, t_span: Tuple[float, float],
+    ) -> Dict[str, np.ndarray]:
+        """Open-loop response holding the constant equilibrium inputs u_eq."""
+        u_eq = self._equilibrium_inputs()
+
+        def _dyn_eq(x, u):
+            return self._dynamics(x, u_eq)
+
+        result = simulate_uncontrolled(
+            _dyn_eq, x0, t_span, n_inputs=2, dt=self.DT)
+        result["u"][:] = u_eq
+        return result
+
     # ------------------------------------------------------------------ #
     #  Dual PID simulation (custom — 2 independent loops)                 #
     # ------------------------------------------------------------------ #
@@ -333,8 +355,6 @@ class CoupledTanks3DSimulator(BaseSimulator):
 
         Augmented state: [h₁, h₂, int_err₁, filt_d₁, int_err₂, filt_d₂]
         """
-        from scipy.integrate import solve_ivp
-
         p = self.parameters
         Kp1, Ki1, Kd1 = p["pid1_Kp"], p["pid1_Ki"], p["pid1_Kd"]
         Kp2, Ki2, Kd2 = p["pid2_Kp"], p["pid2_Ki"], p["pid2_Kd"]
@@ -383,15 +403,14 @@ class CoupledTanks3DSimulator(BaseSimulator):
         ie2_traj = sol.y[4, :]
         fd2_traj = sol.y[5, :]
 
-        # Reconstruct control signals
-        u_traj = np.zeros((len(sol.t), 2))
-        for i in range(len(sol.t)):
+        def _u_at(i: int) -> np.ndarray:
             e1 = self._h1_ref - x_traj[i, 0]
             e2 = self._h2_ref - x_traj[i, 1]
             u1 = u_eq[0] + Kp1 * e1 + Ki1 * ie1_traj[i] + Kd1 * N * (e1 - fd1_traj[i])
             u2 = u_eq[1] + Kp2 * e2 + Ki2 * ie2_traj[i] + Kd2 * N * (e2 - fd2_traj[i])
-            u_traj[i, 0] = np.clip(u1, 0.0, self._u_max)
-            u_traj[i, 1] = np.clip(u2, 0.0, self._u_max)
+            return np.array([u1, u2])
+
+        u_traj = self._reconstruct_u_traj(len(sol.t), _u_at)
 
         return {
             "t": sol.t,
@@ -442,12 +461,7 @@ class CoupledTanks3DSimulator(BaseSimulator):
         try:
             if ctrl == "none":
                 # Uncontrolled: apply constant equilibrium inputs
-                def _dyn_eq(x, u):
-                    return self._dynamics(x, u_eq)
-                result = simulate_uncontrolled(
-                    _dyn_eq, x0, t_span, n_inputs=2, dt=self.DT)
-                # Override u with equilibrium values
-                result["u"][:] = u_eq
+                result = self._simulate_uncontrolled_eq(x0, t_span)
                 controller_info["K"] = None
 
             elif ctrl == "pid":
@@ -497,20 +511,9 @@ class CoupledTanks3DSimulator(BaseSimulator):
                 controller_info["est_eigenvalues"] = np.linalg.eigvals(
                     A - L @ C).tolist()
 
-            else:
-                def _dyn_eq(x, u):
-                    return self._dynamics(x, u_eq)
-                result = simulate_uncontrolled(
-                    _dyn_eq, x0, t_span, n_inputs=2, dt=self.DT)
-                result["u"][:] = u_eq
-
         except Exception as e:
             # Fallback to uncontrolled
-            def _dyn_eq(x, u):
-                return self._dynamics(x, u_eq)
-            result = simulate_uncontrolled(
-                _dyn_eq, x0, t_span, n_inputs=2, dt=self.DT)
-            result["u"][:] = u_eq
+            result = self._simulate_uncontrolled_eq(x0, t_span)
             controller_info["error"] = str(e)
 
         # Check stability: did levels converge to targets?
@@ -529,53 +532,13 @@ class CoupledTanks3DSimulator(BaseSimulator):
         metrics["h1_ss_error"] = h1_err
         metrics["h2_ss_error"] = h2_err
 
-        # Subsample for 3D animation
-        skip = 2
-        t_anim = result["t"][::skip]
-        x_anim = result["x"][::skip]
-        u_anim = result["u"][::skip]
-
-        # Track overflow and saturation for frontend visual effects
-        h1_max = float(np.max(h1_traj))
-        h2_max = float(np.max(h2_traj))
-        u_traj_full = result["u"]
-        any_saturated = bool(
-            np.any(u_traj_full >= self._u_max - 0.01)
-            or np.any(u_traj_full <= 0.01)
-        )
-
         self._result = {
             "sim": result,
             "controller_info": controller_info,
             "metrics": metrics,
-            "animation": {
-                "t": t_anim.tolist(),
-                "h1": x_anim[:, 0].tolist(),
-                "h2": x_anim[:, 1].tolist(),
-                "q1": u_anim[:, 0].tolist(),
-                "q2": u_anim[:, 1].tolist(),
-                "dt": self.DT * skip,
-                "num_frames": len(t_anim),
-                "tank_area": self.parameters["tank_area"],
-                "orifice_area": self.parameters["orifice_area"],
-                "h1_ref": self._h1_ref,
-                "h2_ref": self._h2_ref,
-                "is_stable": is_stable,
-                "overflow_1": h1_max > 2.5,
-                "overflow_2": h2_max > 2.5,
-                "any_saturated": any_saturated,
-                "q2_eq": float(u_eq[1]),
-                "infeasible_equilibrium": bool(u_eq[1] < -1e-6),
-                "infeasible_warning": (
-                    f"Equilibrium requires negative pump flow q₂={u_eq[1]:.3f} L/s "
-                    f"(h₁_ref={self._h1_ref:.2f} > h₂_ref={self._h2_ref:.2f}). "
-                    "Physical pumps cannot extract fluid. Controller may not converge."
-                ) if u_eq[1] < -1e-6 else None,
-            },
+            "u_eq": u_eq,
+            "is_stable": is_stable,
         }
-        if ctrl == "lqg" and "x_hat" in result:
-            x_hat_anim = result["x_hat"][::skip]
-            self._result["animation"]["x_hat"] = x_hat_anim.tolist()
 
     # ------------------------------------------------------------------ #
     #  Clamped simulation helpers (flow rates must be ≥ 0)                #
@@ -586,8 +549,6 @@ class CoupledTanks3DSimulator(BaseSimulator):
         K: np.ndarray, x_eq: np.ndarray, u_eq: np.ndarray,
     ) -> Dict[str, np.ndarray]:
         """State feedback with non-negative flow rate clamping."""
-        from scipy.integrate import solve_ivp
-
         K = np.atleast_2d(K)
         t_eval = np.arange(t_span[0], t_span[1], self.DT)
 
@@ -601,11 +562,8 @@ class CoupledTanks3DSimulator(BaseSimulator):
                         t_eval=t_eval, max_step=self.DT, rtol=1e-8, atol=1e-10)
 
         x_traj = sol.y.T
-        u_traj = np.zeros((len(sol.t), 2))
-        for i in range(len(sol.t)):
-            dx = x_traj[i] - x_eq
-            u = u_eq - K @ dx
-            u_traj[i] = np.clip(u.flatten(), 0.0, self._u_max)
+        u_traj = self._reconstruct_u_traj(
+            len(sol.t), lambda i: u_eq - K @ (x_traj[i] - x_eq))
 
         return {"t": sol.t, "x": x_traj, "u": u_traj}
 
@@ -616,8 +574,6 @@ class CoupledTanks3DSimulator(BaseSimulator):
         x_eq: np.ndarray, u_eq: np.ndarray,
     ) -> Dict[str, np.ndarray]:
         """LQG simulation with non-negative flow rate clamping."""
-        from scipy.integrate import solve_ivp
-
         K = np.atleast_2d(K)
         L = np.atleast_2d(L)
         n = len(x_eq)
@@ -654,17 +610,68 @@ class CoupledTanks3DSimulator(BaseSimulator):
         x_traj = sol.y[:n, :].T
         x_hat_traj = sol.y[n:, :].T
 
-        u_traj = np.zeros((len(sol.t), 2))
-        for i in range(len(sol.t)):
-            dx_hat = x_hat_traj[i] - x_eq
-            u = u_eq - K @ dx_hat
-            u_traj[i] = np.clip(u.flatten(), 0.0, self._u_max)
+        u_traj = self._reconstruct_u_traj(
+            len(sol.t), lambda i: u_eq - K @ (x_hat_traj[i] - x_eq))
 
         return {"t": sol.t, "x": x_traj, "x_hat": x_hat_traj, "u": u_traj}
 
     # ------------------------------------------------------------------ #
     #  Plots                                                              #
     # ------------------------------------------------------------------ #
+
+    def _build_animation(self) -> Optional[Dict[str, Any]]:
+        """Assemble the Three.js animation payload: subsampled trajectories plus
+        frontend visual-effect flags (overflow, saturation, infeasibility)."""
+        if not self._result:
+            return None
+
+        result = self._result["sim"]
+        u_eq = self._result["u_eq"]
+        is_stable = self._result["is_stable"]
+
+        # Subsample for 3D animation
+        skip = 2
+        t_anim = result["t"][::skip]
+        x_anim = result["x"][::skip]
+        u_anim = result["u"][::skip]
+
+        # Track overflow and saturation for frontend visual effects
+        h1_max = float(np.max(result["x"][:, 0]))
+        h2_max = float(np.max(result["x"][:, 1]))
+        u_traj_full = result["u"]
+        any_saturated = bool(
+            np.any(u_traj_full >= self._u_max - 0.01)
+            or np.any(u_traj_full <= 0.01)
+        )
+
+        animation = {
+            "t": t_anim.tolist(),
+            "h1": x_anim[:, 0].tolist(),
+            "h2": x_anim[:, 1].tolist(),
+            "q1": u_anim[:, 0].tolist(),
+            "q2": u_anim[:, 1].tolist(),
+            "dt": self.DT * skip,
+            "num_frames": len(t_anim),
+            "tank_area": self.parameters["tank_area"],
+            "orifice_area": self.parameters["orifice_area"],
+            "h1_ref": self._h1_ref,
+            "h2_ref": self._h2_ref,
+            "is_stable": is_stable,
+            "overflow_1": h1_max > 2.5,
+            "overflow_2": h2_max > 2.5,
+            "any_saturated": any_saturated,
+            "q2_eq": float(u_eq[1]),
+            "infeasible_equilibrium": bool(u_eq[1] < -1e-6),
+            "infeasible_warning": (
+                f"Equilibrium requires negative pump flow q₂={u_eq[1]:.3f} m³/s "
+                f"(h₁_ref={self._h1_ref:.2f} > h₂_ref={self._h2_ref:.2f}). "
+                "Physical pumps cannot extract fluid. Controller may not converge."
+            ) if u_eq[1] < -1e-6 else None,
+        }
+        if "x_hat" in result:
+            x_hat_anim = result["x_hat"][::skip]
+            animation["x_hat"] = x_hat_anim.tolist()
+        return animation
 
     def get_plots(self) -> List[Dict[str, Any]]:
         if not self._result:
@@ -838,6 +845,10 @@ class CoupledTanks3DSimulator(BaseSimulator):
 
         return plots
 
+    # ------------------------------------------------------------------ #
+    #  State & hub                                                        #
+    # ------------------------------------------------------------------ #
+
     def to_hub_data(self):
         """Export linearized MIMO state-space model at equilibrium."""
         if not self._result:
@@ -873,7 +884,7 @@ class CoupledTanks3DSimulator(BaseSimulator):
                 "hub_slots": self.HUB_SLOTS,
                 "hub_domain": self.HUB_DOMAIN,
                 "hub_dimensions": self.HUB_DIMENSIONS,
-                "animation": self._result["animation"] if self._result else None,
+                "animation": self._build_animation(),
                 "controller_info": self._result["controller_info"] if self._result else {},
                 "metrics": self._result["metrics"] if self._result else {},
             },

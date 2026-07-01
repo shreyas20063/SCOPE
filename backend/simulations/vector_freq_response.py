@@ -7,12 +7,11 @@ The backend computes the full frequency response and per-factor contributions.
 The frontend custom viewer animates the ω sweep with synchronized vectors.
 """
 
-import re
 import numpy as np
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from .base_simulator import BaseSimulator
-from core.palette import RED, BLUE, TEAL, GREEN, VIOLET
+from core.palette import RED, BLUE, TEAL, VIOLET
 
 
 class VectorFreqResponseSimulator(BaseSimulator):
@@ -38,7 +37,6 @@ class VectorFreqResponseSimulator(BaseSimulator):
     PHASE_COLOR = RED
     MAG_COLOR = BLUE
     TEAL_COLOR = TEAL
-    GREEN_COLOR = GREEN
     GRID_COLOR = "rgba(148, 163, 184, 0.15)"
     ZEROLINE_COLOR = "rgba(148, 163, 184, 0.3)"
     LEGEND_BG = "rgba(15, 23, 42, 0.8)"
@@ -142,6 +140,7 @@ class VectorFreqResponseSimulator(BaseSimulator):
         self._individual_zero_phases: List[np.ndarray] = []
         self._individual_pole_mags: List[np.ndarray] = []
         self._individual_pole_phases: List[np.ndarray] = []
+        self._individual_pole_phases_neg: List[np.ndarray] = []
         self._error: Optional[str] = None
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
@@ -308,11 +307,14 @@ class VectorFreqResponseSimulator(BaseSimulator):
         # Per-pole contributions
         self._individual_pole_mags = []
         self._individual_pole_phases = []
+        self._individual_pole_phases_neg = []
         for p in self._poles:
             factor = s - p
             denominator *= factor
+            phase = np.angle(factor)
             self._individual_pole_mags.append(np.abs(factor))
-            self._individual_pole_phases.append(np.angle(factor))
+            self._individual_pole_phases.append(phase)
+            self._individual_pole_phases_neg.append(-phase)
 
         # Compute H(jω) with safeguard
         with np.errstate(divide='ignore', invalid='ignore'):
@@ -338,45 +340,53 @@ class VectorFreqResponseSimulator(BaseSimulator):
         return self._poly_to_latex(self._den)
 
     @staticmethod
-    def _poly_to_latex(coeffs: np.ndarray) -> str:
-        """Convert coefficient array to LaTeX polynomial string."""
+    def _poly_to_str(coeffs: np.ndarray, latex: bool) -> str:
+        """Convert a coefficient array to a polynomial string.
+
+        latex=True uses ``s^{n}`` superscripts and an ASCII minus sign;
+        latex=False uses the Unicode ``s²``/``s^n`` and minus glyph (−).
+        """
         n = len(coeffs) - 1
         if n < 0:
             return "0"
         if n == 0:
             return f"{coeffs[0]:.4g}"
 
+        minus = "-" if latex else "−"
         terms = []
         for i, c in enumerate(coeffs):
             power = n - i
             if abs(c) < 1e-10:
                 continue
 
-            # Coefficient display
-            if power == 0:
-                coeff_str = f"{abs(c):.4g}"
-            elif abs(abs(c) - 1.0) < 1e-10:
+            # Unit coefficients are hidden except on the constant term.
+            if power != 0 and abs(abs(c) - 1.0) < 1e-10:
                 coeff_str = ""
             else:
                 coeff_str = f"{abs(c):.4g}"
 
-            # Variable display
             if power == 0:
                 var_str = ""
             elif power == 1:
                 var_str = "s"
-            else:
+            elif latex:
                 var_str = f"s^{{{power}}}"
-
-            # Sign
-            if len(terms) == 0:
-                sign = "-" if c < 0 else ""
             else:
-                sign = " - " if c < 0 else " + "
+                var_str = "s²" if power == 2 else f"s^{power}"
+
+            if len(terms) == 0:
+                sign = minus if c < 0 else ""
+            else:
+                sign = f" {minus} " if c < 0 else " + "
 
             terms.append(f"{sign}{coeff_str}{var_str}")
 
         return "".join(terms) if terms else "0"
+
+    @staticmethod
+    def _poly_to_latex(coeffs: np.ndarray) -> str:
+        """Convert coefficient array to LaTeX polynomial string."""
+        return VectorFreqResponseSimulator._poly_to_str(coeffs, latex=True)
 
     def _format_hs_expression(self) -> str:
         """Format H(s) as a readable text string."""
@@ -396,40 +406,7 @@ class VectorFreqResponseSimulator(BaseSimulator):
     @staticmethod
     def _poly_to_text(coeffs: np.ndarray) -> str:
         """Convert coefficient array to readable text polynomial."""
-        n = len(coeffs) - 1
-        if n < 0:
-            return "0"
-        if n == 0:
-            return f"{coeffs[0]:.4g}"
-
-        terms = []
-        for i, c in enumerate(coeffs):
-            power = n - i
-            if abs(c) < 1e-10:
-                continue
-
-            if power == 0:
-                coeff_str = f"{abs(c):.4g}"
-            elif abs(abs(c) - 1.0) < 1e-10:
-                coeff_str = ""
-            else:
-                coeff_str = f"{abs(c):.4g}"
-
-            if power == 0:
-                var_str = ""
-            elif power == 1:
-                var_str = "s"
-            else:
-                var_str = f"s\u00b2" if power == 2 else f"s^{power}"
-
-            if len(terms) == 0:
-                sign = "\u2212" if c < 0 else ""
-            else:
-                sign = " \u2212 " if c < 0 else " + "
-
-            terms.append(f"{sign}{coeff_str}{var_str}")
-
-        return "".join(terms) if terms else "0"
+        return VectorFreqResponseSimulator._poly_to_str(coeffs, latex=False)
 
     @staticmethod
     def _format_complex(z: complex) -> str:
@@ -463,6 +440,16 @@ class VectorFreqResponseSimulator(BaseSimulator):
     # Plot generation
     # =========================================================================
 
+    def _ui_fingerprint(self, prefix: str, include_imag: bool = False) -> str:
+        """Build a uirevision fingerprint keyed on preset/gain/poles/zeros."""
+        if include_imag:
+            poles_str = ",".join(f"{p.real:.2f}{p.imag:.2f}" for p in self._poles)
+            zeros_str = ",".join(f"{z.real:.2f}{z.imag:.2f}" for z in self._zeros)
+        else:
+            poles_str = ",".join(f"{p.real:.2f}" for p in self._poles)
+            zeros_str = ",".join(f"{z.real:.2f}" for z in self._zeros)
+        return f"{prefix}-{self.parameters['preset']}-{self._gain}-{poles_str}-{zeros_str}"
+
     def get_plots(self) -> List[Dict[str, Any]]:
         """Generate all Plotly plot dictionaries."""
         if not self._initialized:
@@ -472,6 +459,78 @@ class VectorFreqResponseSimulator(BaseSimulator):
             self._create_magnitude_plot(),
             self._create_phase_plot(),
         ]
+
+    def _base_layout(self) -> Dict[str, Any]:
+        """Shared layout chrome (margin/backgrounds/font) common to every plot."""
+        return {
+            "margin": {"l": 55, "r": 25, "t": 40, "b": 50},
+            "plot_bgcolor": "rgba(0,0,0,0)",
+            "paper_bgcolor": "rgba(0,0,0,0)",
+            "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
+        }
+
+    def _legend(self, x: float, xanchor: str, font_size: int) -> Dict[str, Any]:
+        """Shared legend block; position/anchor/font-size vary per plot."""
+        return {
+            "x": x, "y": 0.98,
+            "xanchor": xanchor, "yanchor": "top",
+            "bgcolor": self.LEGEND_BG,
+            "bordercolor": self.LEGEND_BORDER,
+            "borderwidth": 1,
+            "font": {"size": font_size, "color": "#94a3b8"},
+        }
+
+    def _freq_axis(self, title: str, **extra: Any) -> Dict[str, Any]:
+        """Shared ω-domain axis style for the magnitude/phase plots."""
+        axis = {
+            "title": title,
+            "showgrid": True,
+            "gridcolor": self.GRID_COLOR,
+            "zeroline": True,
+            "zerolinecolor": self.ZEROLINE_COLOR,
+            "zerolinewidth": 1,
+            "autorange": True,
+            "fixedrange": False,
+            "color": "#f1f5f9",
+        }
+        axis.update(extra)
+        return axis
+
+    def _freq_layout(self, y_axis: Dict[str, Any], ui_fp: str) -> Dict[str, Any]:
+        """Assemble the shared magnitude/phase layout around an x/y axis pair."""
+        layout = self._base_layout()
+        layout.update({
+            "xaxis": self._freq_axis("ω (rad/s)"),
+            "yaxis": y_axis,
+            "legend": self._legend(0.98, "right", 10),
+            "showlegend": bool(self.parameters["show_individual"]),
+            "uirevision": ui_fp,
+        })
+        return layout
+
+    def _marker_trace(
+        self, root: complex, i: int, symbol: str, color: str, tag: str, kind: str
+    ) -> Dict[str, Any]:
+        """Build an s-plane marker trace for a single pole or zero."""
+        label = self._format_complex(root)
+        return {
+            "x": [float(root.real)],
+            "y": [float(root.imag)],
+            "type": "scatter",
+            "mode": "markers+text",
+            "marker": {
+                "symbol": symbol,
+                "size": 18,
+                "color": color,
+                "line": {"width": 3, "color": color},
+            },
+            "text": [f"{tag}{i + 1}"],
+            "textposition": "top right",
+            "textfont": {"color": color, "size": 11, "family": "Inter, sans-serif"},
+            "name": f"{kind}: {label}",
+            "showlegend": True,
+            "hovertemplate": f"{kind} {i + 1}<br>s = {label}<extra></extra>",
+        }
 
     def _create_s_plane_plot(self) -> Dict[str, Any]:
         """Create s-plane plot with poles and zeros."""
@@ -501,98 +560,47 @@ class VectorFreqResponseSimulator(BaseSimulator):
             "hoverinfo": "skip",
         })
 
-        # Zero markers (larger, with text labels)
+        # Zero markers, then pole markers (larger, with text labels)
         for i, z in enumerate(self._zeros):
-            label = self._format_complex(z)
-            traces.append({
-                "x": [float(z.real)],
-                "y": [float(z.imag)],
-                "type": "scatter",
-                "mode": "markers+text",
-                "marker": {
-                    "symbol": "circle-open",
-                    "size": 18,
-                    "color": self.ZERO_COLOR,
-                    "line": {"width": 3, "color": self.ZERO_COLOR},
-                },
-                "text": [f"z{i + 1}"],
-                "textposition": "top right",
-                "textfont": {"color": self.ZERO_COLOR, "size": 11, "family": "Inter, sans-serif"},
-                "name": f"Zero: {label}",
-                "showlegend": True,
-                "hovertemplate": f"Zero {i + 1}<br>s = {label}<extra></extra>",
-            })
-
-        # Pole markers (larger, with text labels)
+            traces.append(self._marker_trace(z, i, "circle-open", self.ZERO_COLOR, "z", "Zero"))
         for i, p in enumerate(self._poles):
-            label = self._format_complex(p)
-            traces.append({
-                "x": [float(p.real)],
-                "y": [float(p.imag)],
-                "type": "scatter",
-                "mode": "markers+text",
-                "marker": {
-                    "symbol": "x",
-                    "size": 18,
-                    "color": self.POLE_COLOR,
-                    "line": {"width": 3, "color": self.POLE_COLOR},
-                },
-                "text": [f"p{i + 1}"],
-                "textposition": "top right",
-                "textfont": {"color": self.POLE_COLOR, "size": 11, "family": "Inter, sans-serif"},
-                "name": f"Pole: {label}",
-                "showlegend": True,
-                "hovertemplate": f"Pole {i + 1}<br>s = {label}<extra></extra>",
-            })
+            traces.append(self._marker_trace(p, i, "x", self.POLE_COLOR, "p", "Pole"))
 
-        # UI revision fingerprint
-        preset = self.parameters["preset"]
-        gain = self._gain
-        poles_str = ",".join(f"{p.real:.2f}{p.imag:.2f}" for p in self._poles)
-        zeros_str = ",".join(f"{z.real:.2f}{z.imag:.2f}" for z in self._zeros)
-        ui_fp = f"splane-{preset}-{gain}-{poles_str}-{zeros_str}"
+        ui_fp = self._ui_fingerprint("splane", include_imag=True)
+
+        layout = self._base_layout()
+        layout.update({
+            "xaxis": {
+                "title": "\u03c3 (Real)",
+                "range": [-axis_range, axis_range],
+                "scaleanchor": "y",
+                "scaleratio": 1,
+                "constrain": "domain",
+                "showgrid": True,
+                "gridcolor": self.GRID_COLOR,
+                "zeroline": False,
+                "fixedrange": False,
+                "color": "#f1f5f9",
+            },
+            "yaxis": {
+                "title": "j\u03c9 (Imaginary)",
+                "range": [-axis_range, axis_range],
+                "constrain": "domain",
+                "showgrid": True,
+                "gridcolor": self.GRID_COLOR,
+                "zeroline": False,
+                "fixedrange": False,
+                "color": "#f1f5f9",
+            },
+            "legend": self._legend(0.02, "left", 11),
+            "uirevision": ui_fp,
+        })
 
         return {
             "id": "s_plane",
             "title": "s-Plane: Poles & Zeros",
             "data": traces,
-            "layout": {
-                "xaxis": {
-                    "title": "\u03c3 (Real)",
-                    "range": [-axis_range, axis_range],
-                    "scaleanchor": "y",
-                    "scaleratio": 1,
-                    "constrain": "domain",
-                    "showgrid": True,
-                    "gridcolor": self.GRID_COLOR,
-                    "zeroline": False,
-                    "fixedrange": False,
-                    "color": "#f1f5f9",
-                },
-                "yaxis": {
-                    "title": "j\u03c9 (Imaginary)",
-                    "range": [-axis_range, axis_range],
-                    "constrain": "domain",
-                    "showgrid": True,
-                    "gridcolor": self.GRID_COLOR,
-                    "zeroline": False,
-                    "fixedrange": False,
-                    "color": "#f1f5f9",
-                },
-                "legend": {
-                    "x": 0.02, "y": 0.98,
-                    "xanchor": "left", "yanchor": "top",
-                    "bgcolor": self.LEGEND_BG,
-                    "bordercolor": self.LEGEND_BORDER,
-                    "borderwidth": 1,
-                    "font": {"size": 11, "color": "#94a3b8"},
-                },
-                "margin": {"l": 55, "r": 25, "t": 40, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
-                "uirevision": ui_fp,
-            },
+            "layout": layout,
         }
 
     def _create_magnitude_plot(self) -> Dict[str, Any]:
@@ -631,55 +639,14 @@ class VectorFreqResponseSimulator(BaseSimulator):
                     "opacity": 0.6,
                 })
 
-        preset = self.parameters["preset"]
-        gain = self._gain
-        poles_str = ",".join(f"{p.real:.2f}" for p in self._poles)
-        zeros_str = ",".join(f"{z.real:.2f}" for z in self._zeros)
-        ui_fp = f"mag-{preset}-{gain}-{poles_str}-{zeros_str}"
+        ui_fp = self._ui_fingerprint("mag")
 
+        y_axis = self._freq_axis("|H(j\u03c9)|", rangemode="tozero")
         return {
             "id": "magnitude_response",
             "title": "|H(j\u03c9)| Magnitude Response",
             "data": traces,
-            "layout": {
-                "xaxis": {
-                    "title": "\u03c9 (rad/s)",
-                    "showgrid": True,
-                    "gridcolor": self.GRID_COLOR,
-                    "zeroline": True,
-                    "zerolinecolor": self.ZEROLINE_COLOR,
-                    "zerolinewidth": 1,
-                    "autorange": True,
-                    "fixedrange": False,
-                    "color": "#f1f5f9",
-                },
-                "yaxis": {
-                    "title": "|H(j\u03c9)|",
-                    "showgrid": True,
-                    "gridcolor": self.GRID_COLOR,
-                    "zeroline": True,
-                    "zerolinecolor": self.ZEROLINE_COLOR,
-                    "zerolinewidth": 1,
-                    "autorange": True,
-                    "fixedrange": False,
-                    "rangemode": "tozero",
-                    "color": "#f1f5f9",
-                },
-                "legend": {
-                    "x": 0.98, "y": 0.98,
-                    "xanchor": "right", "yanchor": "top",
-                    "bgcolor": self.LEGEND_BG,
-                    "bordercolor": self.LEGEND_BORDER,
-                    "borderwidth": 1,
-                    "font": {"size": 10, "color": "#94a3b8"},
-                },
-                "margin": {"l": 55, "r": 25, "t": 40, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
-                "showlegend": bool(self.parameters["show_individual"]),
-                "uirevision": ui_fp,
-            },
+            "layout": self._freq_layout(y_axis, ui_fp),
         }
 
     def _create_phase_plot(self) -> Dict[str, Any]:
@@ -707,10 +674,10 @@ class VectorFreqResponseSimulator(BaseSimulator):
                     "name": f"\u2220(j\u03c9 \u2212 z{i + 1})",
                     "opacity": 0.6,
                 })
-            for i, ph in enumerate(self._individual_pole_phases):
+            for i, ph in enumerate(self._individual_pole_phases_neg):
                 traces.append({
                     "x": self._omega.tolist(),
-                    "y": (-ph).tolist(),
+                    "y": ph.tolist(),
                     "type": "scatter",
                     "mode": "lines",
                     "line": {"color": self.POLE_COLOR, "width": 1.5, "dash": "dot"},
@@ -718,54 +685,14 @@ class VectorFreqResponseSimulator(BaseSimulator):
                     "opacity": 0.6,
                 })
 
-        preset = self.parameters["preset"]
-        gain = self._gain
-        poles_str = ",".join(f"{p.real:.2f}" for p in self._poles)
-        zeros_str = ",".join(f"{z.real:.2f}" for z in self._zeros)
-        ui_fp = f"phase-{preset}-{gain}-{poles_str}-{zeros_str}"
+        ui_fp = self._ui_fingerprint("phase")
 
+        y_axis = self._freq_axis("\u2220H(j\u03c9) [rad]")
         return {
             "id": "phase_response",
             "title": "\u2220H(j\u03c9) Phase Response",
             "data": traces,
-            "layout": {
-                "xaxis": {
-                    "title": "\u03c9 (rad/s)",
-                    "showgrid": True,
-                    "gridcolor": self.GRID_COLOR,
-                    "zeroline": True,
-                    "zerolinecolor": self.ZEROLINE_COLOR,
-                    "zerolinewidth": 1,
-                    "autorange": True,
-                    "fixedrange": False,
-                    "color": "#f1f5f9",
-                },
-                "yaxis": {
-                    "title": "\u2220H(j\u03c9) [rad]",
-                    "showgrid": True,
-                    "gridcolor": self.GRID_COLOR,
-                    "zeroline": True,
-                    "zerolinecolor": self.ZEROLINE_COLOR,
-                    "zerolinewidth": 1,
-                    "autorange": True,
-                    "fixedrange": False,
-                    "color": "#f1f5f9",
-                },
-                "legend": {
-                    "x": 0.98, "y": 0.98,
-                    "xanchor": "right", "yanchor": "top",
-                    "bgcolor": self.LEGEND_BG,
-                    "bordercolor": self.LEGEND_BORDER,
-                    "borderwidth": 1,
-                    "font": {"size": 10, "color": "#94a3b8"},
-                },
-                "margin": {"l": 55, "r": 25, "t": 40, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
-                "showlegend": bool(self.parameters["show_individual"]),
-                "uirevision": ui_fp,
-            },
+            "layout": self._freq_layout(y_axis, ui_fp),
         }
 
     # =========================================================================

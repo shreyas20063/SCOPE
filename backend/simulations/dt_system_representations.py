@@ -19,6 +19,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+from scipy import signal
 
 from .base_simulator import BaseSimulator
 
@@ -82,8 +83,12 @@ def _fmt_coeff(c: float) -> str:
     return f"{c:.4g}"
 
 
-def _format_r_polynomial(coeffs: List[float]) -> str:
-    """Format coefficient list as R-polynomial: c₀ + c₁R + c₂R² + ..."""
+def _format_delay_polynomial(coeffs: List[float], var_token) -> str:
+    """Format coefficient list as a delay-operator polynomial.
+
+    ``var_token(i)`` returns the variable string for power i (e.g. "R"/"Rⁱ"
+    for the R-operator, "z⁻¹"/"z⁻ⁱ" for the z-transform).
+    """
     if not coeffs or all(abs(c) < 1e-12 for c in coeffs):
         return "0"
     terms = []
@@ -99,51 +104,24 @@ def _format_r_polynomial(coeffs: List[float]) -> str:
         ac_str = _fmt_coeff(ac)
         if i == 0:
             terms.append(f"{sign}{ac_str}")
-        elif i == 1:
-            if ac == 1.0:
-                terms.append(f"{sign}R")
-            else:
-                terms.append(f"{sign}{ac_str}R")
         else:
-            sup = _superscript(i)
+            tok = var_token(i)
             if ac == 1.0:
-                terms.append(f"{sign}R{sup}")
+                terms.append(f"{sign}{tok}")
             else:
-                terms.append(f"{sign}{ac_str}R{sup}")
+                terms.append(f"{sign}{ac_str}{tok}")
         first = False
     return "".join(terms) if terms else "0"
+
+
+def _format_r_polynomial(coeffs: List[float]) -> str:
+    """Format coefficient list as R-polynomial: c₀ + c₁R + c₂R² + ..."""
+    return _format_delay_polynomial(coeffs, lambda i: "R" if i == 1 else f"R{_superscript(i)}")
 
 
 def _format_z_polynomial(coeffs: List[float]) -> str:
     """Format coefficient list as z-polynomial: c₀ + c₁z⁻¹ + c₂z⁻² + ..."""
-    if not coeffs or all(abs(c) < 1e-12 for c in coeffs):
-        return "0"
-    terms = []
-    first = True
-    for i, c in enumerate(coeffs):
-        if abs(c) < 1e-12:
-            continue
-        if first:
-            sign = "−" if c < 0 else ""
-        else:
-            sign = " − " if c < 0 else " + "
-        ac = abs(c)
-        ac_str = _fmt_coeff(ac)
-        if i == 0:
-            terms.append(f"{sign}{ac_str}")
-        elif i == 1:
-            if ac == 1.0:
-                terms.append(f"{sign}z⁻¹")
-            else:
-                terms.append(f"{sign}{ac_str}z⁻¹")
-        else:
-            sup = _superscript(-i)
-            if ac == 1.0:
-                terms.append(f"{sign}z{sup}")
-            else:
-                terms.append(f"{sign}{ac_str}z{sup}")
-        first = False
-    return "".join(terms) if terms else "0"
+    return _format_delay_polynomial(coeffs, lambda i: "z⁻¹" if i == 1 else f"z{_superscript(-i)}")
 
 
 def _superscript(n: int) -> str:
@@ -204,24 +182,10 @@ def _format_diff_eq(b: List[float], a: List[float]) -> str:
 
 
 def _compute_impulse_response(b: List[float], a: List[float], n_samples: int) -> np.ndarray:
-    """Compute impulse response h[n] by running the difference equation with x[n]=δ[n]."""
-    h = np.zeros(n_samples)
+    """Compute impulse response h[n] = lfilter(b, a, δ[n]) — the IIR recursion."""
     x = np.zeros(n_samples)
     x[0] = 1.0  # δ[n]
-
-    for n in range(n_samples):
-        # Feedforward: Σ bₖ x[n−k]
-        val = 0.0
-        for k, bk in enumerate(b):
-            if n - k >= 0:
-                val += bk * x[n - k]
-        # Feedback: −Σ aₖ y[n−k] for k≥1
-        for k in range(1, len(a)):
-            if n - k >= 0:
-                val -= a[k] * h[n - k]
-        h[n] = val
-
-    return h
+    return signal.lfilter(b, a, x)
 
 
 def _compute_poles_zeros(b: List[float], a: List[float]) -> Tuple[List, List]:
@@ -233,19 +197,15 @@ def _compute_poles_zeros(b: List[float], a: List[float]) -> Tuple[List, List]:
     poles: List[complex] = []
     zeros: List[complex] = []
 
-    # Zeros: roots of B(z) = b₀z^M + b₁z^(M-1) + ... + bₘ
+    # Zeros: roots of B(z) = b₀zᴹ + b₁z^(M-1) + ... + bₘ (np.roots: high→low power)
     if len(b) > 1:
-        # Coefficients of z^M, z^(M-1), ..., z^0
-        b_poly = list(b)  # already in descending power order for np.roots if reversed
-        # np.roots expects [highest power, ..., lowest power]
-        # b = [b₀, b₁, ...] corresponds to b₀ + b₁z⁻¹ + ... = z⁻ᴹ(b₀zᴹ + b₁z^(M-1) + ...)
         try:
-            z = np.roots(b_poly)
+            z = np.roots(list(b))
             zeros = [complex(round(r.real, 8), round(r.imag, 8)) for r in z]
         except Exception:
             pass
 
-    # Poles: roots of A(z) = 1 + a₁z⁻¹ + ... = z⁻ᴺ(zᴺ + a₁z^(N-1) + ...)
+    # Poles: roots of A(z) = zᴺ + a₁z^(N-1) + ... + aₙ
     if len(a) > 1:
         try:
             p = np.roots(a)
@@ -531,17 +491,8 @@ class SystemRepresentationSimulator(BaseSimulator):
             return list(p["b"]), list(p["a"])
 
         # Custom: parse comma-separated values
-        b_str = str(self.parameters.get("b_coefficients", "1"))
-        a_str = str(self.parameters.get("a_coefficients", "1"))
-
-        try:
-            b = [float(x.strip()) for x in b_str.split(",") if x.strip()]
-        except ValueError:
-            b = [1.0]
-        try:
-            a = [float(x.strip()) for x in a_str.split(",") if x.strip()]
-        except ValueError:
-            a = [1.0]
+        b = self._parse_coeffs(str(self.parameters.get("b_coefficients", "1")))
+        a = self._parse_coeffs(str(self.parameters.get("a_coefficients", "1")))
 
         if not b:
             b = [1.0]
@@ -587,11 +538,7 @@ class SystemRepresentationSimulator(BaseSimulator):
         # 2. H(R)
         hr_num = _format_r_polynomial(b)
         hr_den = _format_r_polynomial(a)
-        hr_display = f"H(R) = ({hr_num}) / ({hr_den})" if not is_fir or len(b) > 1 else f"H(R) = {hr_num}"
-        if is_fir and len(b) == 1:
-            hr_display = f"H(R) = {hr_num}"
-        elif hr_den == "1":
-            hr_display = f"H(R) = {hr_num}"
+        hr_display = f"H(R) = {hr_num}" if hr_den == "1" else f"H(R) = ({hr_num}) / ({hr_den})"
 
         # 3. H(z)
         hz_num = _format_z_polynomial(b)
@@ -712,10 +659,7 @@ class SystemRepresentationSimulator(BaseSimulator):
 
         return {
             "parameters": self.parameters.copy(),
-            "plots": [
-                self._create_impulse_plot(data),
-                self._create_pole_zero_plot(data),
-            ],
+            "plots": self.get_plots(),
             "metadata": metadata,
         }
 

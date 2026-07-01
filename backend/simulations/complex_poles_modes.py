@@ -40,8 +40,6 @@ class ComplexPolesModesSimulator(BaseSimulator):
     WHITE = "#f1f5f9"
     AMBER = "#f59e0b"
     PURPLE = "#a855f7"
-    CYAN = "#06b6d4"
-    PINK = "#ec4899"
 
     TAYLOR_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#a855f7",
                      "#06b6d4", "#ec4899", "#14b8a6", "#8b5cf6", "#f97316",
@@ -116,6 +114,7 @@ class ComplexPolesModesSimulator(BaseSimulator):
         self._pole_s1: complex = 0j
         self._pole_s2: complex = 0j
         self._t: Optional[np.ndarray] = None
+        self._modes: Dict[str, Any] = {}
         self._revision: int = 0
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
@@ -134,9 +133,11 @@ class ComplexPolesModesSimulator(BaseSimulator):
         return self.get_state()
 
     def _apply_preset(self, preset: str) -> None:
-        """Set K, M, b for textbook damping cases."""
-        # All use M=1, K=10 (omega_0 = sqrt(10) ~ 3.16 rad/s)
-        # Critical damping: b = 2*sqrt(M*K) = 2*sqrt(10) ~ 6.32
+        """Set K, M, b for textbook damping cases (all use M=1).
+
+        Critical damping requires b = 2·sqrt(M·K); the critically_damped preset
+        uses K=4 so that b=4 hits it exactly, while the others use K=10.
+        """
         if preset == "overdamped":
             self.parameters["K"] = 10.0
             self.parameters["M"] = 1.0
@@ -185,8 +186,6 @@ class ComplexPolesModesSimulator(BaseSimulator):
         self._sigma = b / (2.0 * M)
         self._zeta = b / (2.0 * np.sqrt(M * K))
 
-        discriminant = self._sigma**2 - self._omega_0**2
-
         if self._zeta < 1.0 - 1e-6:
             self._damping_type = "undamped" if self._zeta < 1e-6 else "underdamped"
             self._omega_d = np.sqrt(self._omega_0**2 - self._sigma**2)
@@ -200,13 +199,62 @@ class ComplexPolesModesSimulator(BaseSimulator):
         else:
             self._damping_type = "overdamped"
             self._omega_d = None
-            sqrt_term = np.sqrt(discriminant)
+            sqrt_term = np.sqrt(self._sigma**2 - self._omega_0**2)
             self._pole_s1 = complex(-self._sigma + sqrt_term, 0)
             self._pole_s2 = complex(-self._sigma - sqrt_term, 0)
 
         T = float(self.parameters["time_window"])
         self._t = np.linspace(0, T, self.NUM_SAMPLES)
+        self._modes = self._compute_modes(M)
         self._revision += 1
+
+    def _compute_modes(self, M: float) -> Dict[str, Any]:
+        """Time-domain modal arrays for the current damping type.
+
+        Cached so PRESENT (mode-decomposition and helix plots) reads arrays
+        instead of recomputing exp/trig. Closed forms per Ogata Sec. 3.5:
+          underdamped/undamped: e^(-σt)·cos/sin(ωd·t), h = (1/Mωd)·e^(-σt)·sin(ωd·t)
+          critically damped:     e^(-σt), t·e^(-σt),    h = (1/M)·t·e^(-σt)
+          overdamped:            e^(s1·t), e^(s2·t),     h = (1/(M·Δ))·(e^(s1·t) - e^(s2·t))
+        """
+        t = self._t
+
+        if self._damping_type in ("undamped", "underdamped"):
+            omega_d = self._omega_d
+            sigma = self._sigma
+            decay = np.exp(-sigma * t)
+            cos_part = decay * np.cos(omega_d * t)
+            sin_part = decay * np.sin(omega_d * t)
+            scale = 1.0 / (M * omega_d) if omega_d > 1e-10 else 0.0
+            return {
+                "decay": decay,
+                "cos_part": cos_part,
+                "sin_part": sin_part,
+                "scale": scale,
+                "h_t": scale * sin_part,
+            }
+
+        if self._damping_type == "critically_damped":
+            sigma = self._sigma
+            return {
+                "mode1": np.exp(-sigma * t),
+                "mode2": t * np.exp(-sigma * t),
+                "h_t": (1.0 / M) * t * np.exp(-sigma * t),
+            }
+
+        # overdamped
+        s1 = self._pole_s1.real
+        s2 = self._pole_s2.real
+        diff = s1 - s2 if abs(s1 - s2) > 1e-10 else 1.0
+        scale = 1.0 / (M * diff)
+        mode1 = np.exp(s1 * t)
+        mode2 = np.exp(s2 * t)
+        return {
+            "mode1": mode1,
+            "mode2": mode2,
+            "scale": scale,
+            "h_t": scale * (mode1 - mode2),
+        }
 
     # =========================================================================
     # Hub integration
@@ -445,41 +493,12 @@ class ComplexPolesModesSimulator(BaseSimulator):
         if self._damping_type in ("undamped", "underdamped"):
             omega_d = self._omega_d
             sigma = self._sigma
-            # c₁ = 1/(2j·M·ωd), c₂ = -1/(2j·M·ωd) = conj(c₁)
-            # Mode 1: Re{c₁·e^(s₁t)} = (1/(2Mωd))·e^(-σt)·sin(ωd·t)...
-            # Actually: c₁ = 1/(2j·M·ωd), e^(s₁t) = e^(-σt)·e^(jωd·t)
-            # c₁·e^(s₁t) = (1/(2j·M·ωd))·e^(-σt)·(cos(ωd·t) + j·sin(ωd·t))
-            # Re{c₁·e^(s₁t)} = (1/(2M·ωd))·e^(-σt)·sin(ωd·t)
-            # But let's show the full complex exponential modes more intuitively:
-            # e^(s₁t) = e^(-σt)·cos(ωd·t) + j·e^(-σt)·sin(ωd·t)
-            # Re{e^(s₁t)} = e^(-σt)·cos(ωd·t)
-            # Re{e^(s₂t)} = e^(-σt)·cos(ωd·t) (same real part for conjugate)
-            # Instead show the two complex exponential contributions to h(t):
-            # h(t) = (1/(Mωd))·e^(-σt)·sin(ωd·t)
-            #       = (1/(2jMωd))·e^(s₁t) + (-1/(2jMωd))·e^(s₂t)
-
-            decay = np.exp(-sigma * t)
-            cos_part = decay * np.cos(omega_d * t)
-            sin_part = decay * np.sin(omega_d * t)
-
-            scale = 1.0 / (M * omega_d) if omega_d > 1e-10 else 0.0
-
-            # Mode 1: Re{c₁·e^(s₁t)} = scale/2 · sin(ωd·t)·e^(-σt)
-            mode1 = (scale / 2.0) * sin_part
-            # Mode 2: Re{c₂·e^(s₂t)} = scale/2 · sin(ωd·t)·e^(-σt)
-            # Actually these are equal! Let's instead show the cosine and sine decomposition:
-            # Show Re{e^(s₁t)} and Re{e^(s₂t)} (which are both cos),
-            # and then show their combination with proper weights gives sin.
-
-            # Better approach: show the two complex exponentials directly
-            # Re{e^(s₁t)} = e^(-σt)·cos(ωd·t)
-            # Im{e^(s₁t)} = e^(-σt)·sin(ωd·t)
-            # h(t) = Im{e^(s₁t)} / (M·ωd) = the impulse response
-
-            # For pedagogical clarity, show:
-            # 1. e^(-σt)·cos(ωd·t) -- the real part of the mode
-            # 2. e^(-σt)·sin(ωd·t) -- the imaginary part of the mode
-            # 3. h(t) = (1/(Mωd))·e^(-σt)·sin(ωd·t) -- weighted sine = impulse response
+            # Real and imaginary parts of the mode e^(s₁t) plus the impulse response
+            # h(t) = (1/(Mωd))·e^(-σt)·sin(ωd·t) (see _compute_modes).
+            decay = self._modes["decay"]
+            cos_part = self._modes["cos_part"]
+            sin_part = self._modes["sin_part"]
+            scale = self._modes["scale"]
 
             traces.append({
                 "x": t.tolist(),
@@ -499,7 +518,7 @@ class ComplexPolesModesSimulator(BaseSimulator):
                 "line": {"color": self.RED, "width": 2},
             })
 
-            h_t = scale * sin_part
+            h_t = self._modes["h_t"]
             traces.append({
                 "x": t.tolist(),
                 "y": h_t.tolist(),
@@ -532,10 +551,9 @@ class ComplexPolesModesSimulator(BaseSimulator):
 
         elif self._damping_type == "critically_damped":
             sigma = self._sigma
-            # h(t) = (1/M)·t·e^(-σt)
-            h_t = (1.0 / M) * t * np.exp(-sigma * t)
-            mode1 = np.exp(-sigma * t)
-            mode2 = t * np.exp(-sigma * t)
+            mode1 = self._modes["mode1"]
+            mode2 = self._modes["mode2"]
+            h_t = self._modes["h_t"]
 
             traces.append({
                 "x": t.tolist(),
@@ -565,12 +583,10 @@ class ComplexPolesModesSimulator(BaseSimulator):
         else:  # overdamped
             s1 = self._pole_s1.real
             s2 = self._pole_s2.real
-            diff = s1 - s2 if abs(s1 - s2) > 1e-10 else 1.0
-            scale = 1.0 / (M * diff)
-
-            mode1 = np.exp(s1 * t)
-            mode2 = np.exp(s2 * t)
-            h_t = scale * (mode1 - mode2)
+            scale = self._modes["scale"]
+            mode1 = self._modes["mode1"]
+            mode2 = self._modes["mode2"]
+            h_t = self._modes["h_t"]
 
             traces.append({
                 "x": t.tolist(),
@@ -664,7 +680,7 @@ class ComplexPolesModesSimulator(BaseSimulator):
         partial_sum = np.zeros_like(t)
         for k in range(num_terms):
             power = 2 * k + 1
-            # Use log-space computation to avoid overflow for large arguments
+            # Maclaurin term for sin: (-1)^k · x^(2k+1) / (2k+1)!
             term = ((-1.0) ** k) * np.power(x, power) / float(math.factorial(power))
             partial_sum = partial_sum + term
 
@@ -730,12 +746,12 @@ class ComplexPolesModesSimulator(BaseSimulator):
         """3D helix: e^(jω₀t) in (t, Re, Im) space with projections."""
         omega = self._omega_d if self._omega_d is not None else self._omega_0
         sigma = self._sigma
-        T = float(self.parameters["time_window"])
 
-        t = np.linspace(0, T, self.NUM_SAMPLES)
-        decay = np.exp(-sigma * t)
-        re_part = decay * np.cos(omega * t)
-        im_part = decay * np.sin(omega * t)
+        # Helix is only generated for oscillatory systems (see get_plots), where the
+        # cached mode arrays are exactly e^(-σt)·cos/sin(ωd·t) — reuse them.
+        t = self._t
+        re_part = self._modes["cos_part"]
+        im_part = self._modes["sin_part"]
 
         traces = []
 

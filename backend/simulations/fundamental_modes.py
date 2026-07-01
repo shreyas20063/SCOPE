@@ -26,14 +26,9 @@ class FundamentalModesSimulator(BaseSimulator):
     - difficulty: Challenge difficulty for reconstruct mode
     """
 
-    # Maximum poles supported
-    MAX_ORDER = 4
-    NUM_SAMPLES_DEFAULT = 25
-
     # Colors for each mode (consistent between backend metadata and frontend)
     MODE_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b"]  # blue, red, green, amber
     TOTAL_COLOR = "#f1f5f9"
-    TARGET_COLOR = "#a855f7"
 
     # Stability threshold
     STABILITY_TOL = 1e-6
@@ -207,7 +202,6 @@ class FundamentalModesSimulator(BaseSimulator):
         self._n: Optional[np.ndarray] = None
         self._modes: Optional[np.ndarray] = None
         self._total: Optional[np.ndarray] = None
-        self._envelopes: Optional[np.ndarray] = None
         self._mode_info: List[Dict[str, Any]] = []
         # Reconstruct challenge state
         self._challenge_poles: Optional[np.ndarray] = None
@@ -286,7 +280,7 @@ class FundamentalModesSimulator(BaseSimulator):
         return order, poles, weights
 
     def _compute(self) -> None:
-        """Compute all modes, total response, and envelopes."""
+        """Compute all modes and the total response."""
         order, poles, weights = self._get_active_poles_weights()
         num_samples = int(self.parameters["num_samples"])
 
@@ -298,11 +292,6 @@ class FundamentalModesSimulator(BaseSimulator):
 
         # Total response
         self._total = np.sum(self._modes, axis=0)
-
-        # Amplitude envelopes: |A_k| * |p_k|^n
-        self._envelopes = np.abs(weights[:, None]) * np.power(
-            np.abs(poles[:, None]), self._n[None, :]
-        )
 
         # Mode analysis info
         self._mode_info = []
@@ -419,12 +408,22 @@ class FundamentalModesSimulator(BaseSimulator):
         """Create Plotly traces for a stem plot (markers + vertical lines)."""
         traces = []
 
-        # Vertical lines from 0 to y[n] using None separators
-        x_lines = []
-        y_lines = []
-        for i in range(len(n)):
-            x_lines.extend([float(n[i]), float(n[i]), None])
-            y_lines.extend([0.0, float(y[i]), None])
+        # Vertical lines from 0 to y[n]: interleave [n, n, None] / [0, y, None] per sample
+        count = len(n)
+        n_list = np.asarray(n, dtype=float).tolist()
+        y_list = np.asarray(y, dtype=float).tolist()
+
+        x_cols = np.empty((count, 3), dtype=object)
+        x_cols[:, 0] = n_list
+        x_cols[:, 1] = n_list
+        x_cols[:, 2] = None
+        x_lines = x_cols.reshape(-1).tolist()
+
+        y_cols = np.empty((count, 3), dtype=object)
+        y_cols[:, 0] = 0.0
+        y_cols[:, 1] = y_list
+        y_cols[:, 2] = None
+        y_lines = y_cols.reshape(-1).tolist()
 
         traces.append({
             "x": x_lines,
@@ -475,7 +474,7 @@ class FundamentalModesSimulator(BaseSimulator):
             traces.extend(self._create_stem_traces(
                 self._n[:compare_len],
                 self._challenge_target[:compare_len],
-                self.TARGET_COLOR,
+                self.UNIT_CIRCLE_COLOR,
                 "Target (mystery)",
                 width=2.0,
             ))

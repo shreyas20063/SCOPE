@@ -10,17 +10,15 @@ Equation of motion (base excitation):
     m * y'' + b * y' + k * y = b * x' + k * x
 """
 
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, List, Optional
 import numpy as np
 from scipy.integrate import solve_ivp
 
 from .base_simulator import BaseSimulator
 from core.controllers import (
-    numerical_jacobian, controllability_matrix,
+    controllability_matrix,
     compute_lqr, compute_pole_placement, compute_lqg,
     simulate_pid, simulate_state_feedback, simulate_lqg,
-    simulate_uncontrolled,
-    compute_performance_metrics, compute_energy,
 )
 
 
@@ -141,21 +139,8 @@ class MassSpringSimulator(BaseSimulator):
         },
     }
 
-    DEFAULT_PARAMS = {
-        "mass": 1.0,
-        "spring_constant": 10.0,
-        "damping": 0.5,
-        "input_type": "step",
-        "input_frequency": 1.0,
-        "input_amplitude": 1.0,
-        "simulation_time": 10.0,
-        "controller": "none",
-        "pid_Kp": 50, "pid_Ki": 10, "pid_Kd": 15,
-        "lqr_q_y": 10.0, "lqr_q_ydot": 1.0, "lqr_r": 0.1,
-        "pp_real": -5.0, "pp_spread": 1.5,
-        "lqg_q_y": 10.0, "lqg_q_ydot": 1.0, "lqg_r": 0.1,
-        "lqg_process_noise": 0.01, "lqg_sensor_noise": 0.01,
-    }
+    # Every default lives in PARAMETER_SCHEMA; derive to avoid drift.
+    DEFAULT_PARAMS = {name: spec["default"] for name, spec in PARAMETER_SCHEMA.items()}
 
     HUB_SLOTS = ['control']
     HUB_DOMAIN = "ct"
@@ -169,6 +154,11 @@ class MassSpringSimulator(BaseSimulator):
         self._y: Optional[np.ndarray] = None       # mass displacement
         self._y_dot: Optional[np.ndarray] = None   # mass velocity
         self._force: Optional[np.ndarray] = None   # control force (active controllers only)
+        # energy arrays (kinetic, potential, dissipated, total)
+        self._ke: Optional[np.ndarray] = None
+        self._pe: Optional[np.ndarray] = None
+        self._dissipated: Optional[np.ndarray] = None
+        self._total_e: Optional[np.ndarray] = None
         # derived quantities
         self._omega_n: float = 0.0
         self._f_n: float = 0.0
@@ -243,7 +233,7 @@ class MassSpringSimulator(BaseSimulator):
 
         elif input_type == "impulse":
             sigma = 0.02
-            # Normalize so the Gaussian area = A (matches unit impulse response)
+            # Gaussian scaled to full-line area A; realized area over t>=0 is ~A/2.
             scale = A / (sigma * np.sqrt(2.0 * np.pi))
 
             def x_func(t: float) -> float:
@@ -313,36 +303,56 @@ class MassSpringSimulator(BaseSimulator):
         self._controller_info = {"type": ctrl}
         self._force = None
 
+        ran_controlled = False
         if ctrl != "none":
             try:
                 self._run_controlled(ctrl, m, k, b, input_type, freq, amp, sim_time)
-                return
+                ran_controlled = True
             except Exception as e:
                 self._controller_info["error"] = str(e)
                 # Fall through to passive
 
-        # Passive base-excitation model (original behavior)
-        x_func, xdot_func = self._build_input_functions(input_type, amp, freq)
+        if not ran_controlled:
+            # Passive base-excitation model (original behavior)
+            x_func, xdot_func = self._build_input_functions(input_type, amp, freq)
 
-        if input_type == "none":
-            y0 = [amp, 0.0]
-        else:
-            y0 = [0.0, 0.0]
+            if input_type == "none":
+                y0 = [amp, 0.0]
+            else:
+                y0 = [0.0, 0.0]
 
-        def ode(t: float, q: np.ndarray) -> list:
-            y_val, y_dot_val = q
-            y_ddot = (b * xdot_func(t) + k * x_func(t)
-                      - b * y_dot_val - k * y_val) / m
-            return [y_dot_val, y_ddot]
+            def ode(t: float, q: np.ndarray) -> list:
+                y_val, y_dot_val = q
+                y_ddot = (b * xdot_func(t) + k * x_func(t)
+                          - b * y_dot_val - k * y_val) / m
+                return [y_dot_val, y_ddot]
 
-        t_eval = np.linspace(0.0, sim_time, self.NUM_POINTS)
-        sol = solve_ivp(ode, (0.0, sim_time), y0, method="RK45",
-                        t_eval=t_eval, rtol=1e-8, atol=1e-10, max_step=0.01)
+            t_eval = np.linspace(0.0, sim_time, self.NUM_POINTS)
+            sol = solve_ivp(ode, (0.0, sim_time), y0, method="RK45",
+                            t_eval=t_eval, rtol=1e-8, atol=1e-10, max_step=0.01)
 
-        self._time = sol.t
-        self._y = sol.y[0]
-        self._y_dot = sol.y[1]
-        self._x = np.array([x_func(ti) for ti in self._time])
+            self._time = sol.t
+            self._y = sol.y[0]
+            self._y_dot = sol.y[1]
+            self._x = np.array([x_func(ti) for ti in self._time])
+
+        self._compute_energy_arrays(m, k, b)
+
+    def _compute_energy_arrays(self, m: float, k: float, b: float) -> None:
+        """Kinetic, potential, dissipated, and total energy over the trajectory.
+
+        KE = 1/2 m v^2, PE = 1/2 k (y - x)^2 (spring deflection relative to base),
+        dissipated = cumulative integral of b (y' - x')^2 dt across the damper.
+        """
+        self._ke = 0.5 * m * self._y_dot ** 2
+        self._pe = 0.5 * k * (self._y - self._x) ** 2
+
+        x_dot = np.gradient(self._x, self._time)
+        rel_vel = self._y_dot - x_dot
+        dt_arr = np.gradient(self._time)
+        self._dissipated = np.cumsum(b * rel_vel ** 2 * dt_arr)
+
+        self._total_e = self._ke + self._pe + self._dissipated
 
     def _run_controlled(self, ctrl: str, m: float, k: float, b: float,
                         input_type: str, freq: float, amp: float,
@@ -458,6 +468,21 @@ class MassSpringSimulator(BaseSimulator):
             "font": {"color": "#e2e8f0", "family": "Inter, sans-serif", "size": 12},
         }
 
+    @staticmethod
+    def _axis(title: str, axis_range: Optional[list] = None,
+              zeroline: bool = True) -> Dict[str, Any]:
+        """Shared Plotly axis styling (grid + optional zero line and range)."""
+        ax: Dict[str, Any] = {
+            "title": title,
+            "showgrid": True,
+            "gridcolor": "rgba(148,163,184,0.1)",
+        }
+        if zeroline:
+            ax["zerolinecolor"] = "rgba(148,163,184,0.3)"
+        if axis_range is not None:
+            ax["range"] = axis_range
+        return ax
+
     def _create_response_plot(self) -> Dict[str, Any]:
         sim_time = self.parameters["simulation_time"]
         title = "System Response"
@@ -488,20 +513,8 @@ class MassSpringSimulator(BaseSimulator):
 
         layout = {
             **self._get_base_layout(),
-            "xaxis": {
-                "title": "Time (s)",
-                "showgrid": True,
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "range": [0, sim_time],
-            },
-            "yaxis": {
-                "title": "Displacement (m)",
-                "showgrid": True,
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "range": [ymin - pad, ymax + pad],
-            },
+            "xaxis": self._axis("Time (s)", axis_range=[0, sim_time]),
+            "yaxis": self._axis("Displacement (m)", axis_range=[ymin - pad, ymax + pad]),
             "legend": {"orientation": "h", "y": 1.12, "x": 0.5, "xanchor": "center"},
             "showlegend": True,
         }
@@ -538,18 +551,8 @@ class MassSpringSimulator(BaseSimulator):
 
         layout = {
             **self._get_base_layout(),
-            "xaxis": {
-                "title": "Displacement y (m)",
-                "showgrid": True,
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-            },
-            "yaxis": {
-                "title": "Velocity y\u2032 (m/s)",
-                "showgrid": True,
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-            },
+            "xaxis": self._axis("Displacement y (m)"),
+            "yaxis": self._axis("Velocity y\u2032 (m/s)"),
             "legend": {"x": 0.02, "y": 0.98, "xanchor": "left", "yanchor": "top"},
             "showlegend": True,
         }
@@ -558,20 +561,10 @@ class MassSpringSimulator(BaseSimulator):
 
     def _create_energy_plot(self) -> Dict[str, Any]:
         """Kinetic, potential, dissipated, and total energy over time."""
-        m = float(self.parameters["mass"])
-        k = float(self.parameters["spring_constant"])
-        b = float(self.parameters["damping"])
-
-        ke = 0.5 * m * self._y_dot ** 2
-        pe = 0.5 * k * (self._y - self._x) ** 2
-
-        # Dissipated energy: cumulative integral of b*(y' - x')^2 dt
-        x_dot = np.gradient(self._x, self._time)
-        rel_vel = self._y_dot - x_dot
-        dt_arr = np.gradient(self._time)
-        dissipated = np.cumsum(b * rel_vel ** 2 * dt_arr)
-
-        total_e = ke + pe + dissipated
+        ke = self._ke
+        pe = self._pe
+        dissipated = self._dissipated
+        total_e = self._total_e
 
         ymax = float(np.max(total_e)) if len(total_e) > 0 else 1.0
         pad = max(0.01, ymax * 0.1)
@@ -617,20 +610,8 @@ class MassSpringSimulator(BaseSimulator):
 
         layout = {
             **self._get_base_layout(),
-            "xaxis": {
-                "title": "Time (s)",
-                "showgrid": True,
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "range": [0, float(self.parameters["simulation_time"])],
-            },
-            "yaxis": {
-                "title": "Energy (J)",
-                "showgrid": True,
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "range": [0, ymax + pad],
-            },
+            "xaxis": self._axis("Time (s)", axis_range=[0, float(self.parameters["simulation_time"])]),
+            "yaxis": self._axis("Energy (J)", axis_range=[0, ymax + pad]),
             "legend": {"orientation": "h", "y": 1.12, "x": 0.5, "xanchor": "center"},
             "showlegend": True,
         }
@@ -665,14 +646,8 @@ class MassSpringSimulator(BaseSimulator):
 
         layout = {
             **self._get_base_layout(),
-            "xaxis": {
-                "title": "Time (s)", "range": [0, sim_time],
-                "showgrid": True, "gridcolor": "rgba(148,163,184,0.1)",
-            },
-            "yaxis": {
-                "title": "Force (N)", "range": [-y_max, y_max],
-                "showgrid": True, "gridcolor": "rgba(148,163,184,0.1)",
-            },
+            "xaxis": self._axis("Time (s)", axis_range=[0, sim_time], zeroline=False),
+            "yaxis": self._axis("Force (N)", axis_range=[-y_max, y_max], zeroline=False),
             "legend": {"orientation": "h", "y": 1.12, "x": 0.5, "xanchor": "center"},
             "showlegend": True,
         }

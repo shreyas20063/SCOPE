@@ -137,13 +137,6 @@ class FeedbackAmplifierSimulator(BaseSimulator):
             self._compute()
         return self.get_state()
 
-    def reset(self) -> Dict[str, Any]:
-        """Reset simulation to default parameters."""
-        self.parameters = self.DEFAULT_PARAMS.copy()
-        self._initialized = True
-        self._compute()
-        return self.get_state()
-
     def _compute(self) -> None:
         """Compute all responses."""
         K0 = self.parameters["K0"]
@@ -151,29 +144,20 @@ class FeedbackAmplifierSimulator(BaseSimulator):
         beta = self.parameters["beta"]
         input_amp = self.parameters["input_amp"]
 
-        # Calculate metrics
         self._metrics = self._calculate_metrics(K0, alpha, beta)
 
         # Time vector (matching PyQt5: 0 to 2.0 seconds, 1000 points)
         self._time = np.linspace(0, self.TIME_MAX, self.TIME_SAMPLES)
 
-        # Step response
         self._ol_step_response, self._cl_step_response = self._calculate_step_response(
-            K0, alpha, beta, input_amp, self._time
+            K0, alpha, input_amp, self._time
         )
 
         # Frequency vector (log scale, matching PyQt5: 10^-1 to 10^8, 800 points)
         self._omega = np.logspace(self.OMEGA_MIN, self.OMEGA_MAX, self.FREQ_SAMPLES)
 
-        # Bode magnitude
-        self._ol_bode_mag, self._cl_bode_mag = self._calculate_bode_magnitude(
-            K0, alpha, beta, self._omega
-        )
-
-        # Bode phase
-        self._ol_bode_phase, self._cl_bode_phase = self._calculate_bode_phase(
-            K0, alpha, beta, self._omega
-        )
+        (self._ol_bode_mag, self._cl_bode_mag,
+         self._ol_bode_phase, self._cl_bode_phase) = self._bode(K0, alpha, self._omega)
 
     def _calculate_metrics(self, K0: float, alpha: float, beta: float) -> Dict[str, float]:
         """Calculate key performance metrics matching PyQt5."""
@@ -196,7 +180,7 @@ class FeedbackAmplifierSimulator(BaseSimulator):
             "gain_reduction": K0 / closed_loop_gain if closed_loop_gain > 0 else float('inf'),
         }
 
-    def _calculate_step_response(self, K0: float, alpha: float, beta: float,
+    def _calculate_step_response(self, K0: float, alpha: float,
                                   input_amp: float, t: np.ndarray) -> tuple:
         """Calculate step responses matching PyQt5 formulas."""
         metrics = self._metrics
@@ -209,9 +193,8 @@ class FeedbackAmplifierSimulator(BaseSimulator):
 
         return ol_response, cl_response
 
-    def _calculate_bode_magnitude(self, K0: float, alpha: float, beta: float,
-                                   omega: np.ndarray) -> tuple:
-        """Calculate Bode magnitude responses."""
+    def _bode(self, K0: float, alpha: float, omega: np.ndarray) -> tuple:
+        """Bode magnitude (dB) and phase (deg) for open- and closed-loop TFs."""
         metrics = self._metrics
 
         # Open-loop: H_ol(jω) = (K₀ × α) / (jω + α)
@@ -222,24 +205,10 @@ class FeedbackAmplifierSimulator(BaseSimulator):
 
         mag_ol = 20 * np.log10(np.abs(H_ol))
         mag_cl = 20 * np.log10(np.abs(H_cl))
-
-        return mag_ol, mag_cl
-
-    def _calculate_bode_phase(self, K0: float, alpha: float, beta: float,
-                               omega: np.ndarray) -> tuple:
-        """Calculate Bode phase responses."""
-        metrics = self._metrics
-
-        # Open-loop phase
-        H_ol = (K0 * alpha) / (1j * omega + alpha)
-
-        # Closed-loop phase
-        H_cl = (metrics["cl_gain"] * metrics["cl_bw"]) / (1j * omega + metrics["cl_bw"])
-
         phase_ol = np.angle(H_ol, deg=True)
         phase_cl = np.angle(H_cl, deg=True)
 
-        return phase_ol, phase_cl
+        return mag_ol, mag_cl, phase_ol, phase_cl
 
     @staticmethod
     def _format_value(value: float, unit: str = "") -> str:
@@ -271,10 +240,10 @@ class FeedbackAmplifierSimulator(BaseSimulator):
             self.initialize()
 
         plots = [
-            self._create_s_plane_plot(),         # Pole position first
-            self._create_bode_magnitude_plot(),  # Then Bode plots
+            self._create_s_plane_plot(),
+            self._create_bode_magnitude_plot(),
             self._create_bode_phase_plot(),
-            self._create_step_response_plot(),   # Then step response
+            self._create_step_response_plot(),
         ]
         return plots
 
@@ -283,17 +252,14 @@ class FeedbackAmplifierSimulator(BaseSimulator):
 
     def _create_step_response_plot(self) -> Dict[str, Any]:
         """Create step response comparison plot (matching PyQt5 Response Tab)."""
-        # Calculate y-axis range based on actual data
         ol_max = float(np.max(self._ol_step_response))
         cl_max = float(np.max(self._cl_step_response))
-        data_max = max(ol_max, cl_max) * 1.1  # 10% padding
+        data_max = max(ol_max, cl_max) * 1.1
 
-        # Use default unless data exceeds it
         y_max = max(self.STEP_RESPONSE_DEFAULT_Y_MAX, data_max)
 
         traces = []
 
-        # Open-loop response (red, dashed)
         traces.append({
             "x": self._time.tolist(),
             "y": self._ol_step_response.tolist(),
@@ -305,7 +271,6 @@ class FeedbackAmplifierSimulator(BaseSimulator):
             "hovertemplate": "t = %{x:.3f}s<br>y = %{y:.2f}V<extra>Open-Loop</extra>",
         })
 
-        # Closed-loop response (cyan, solid)
         traces.append({
             "x": self._time.tolist(),
             "y": self._cl_step_response.tolist(),
@@ -364,19 +329,16 @@ class FeedbackAmplifierSimulator(BaseSimulator):
         ol_bw = self._metrics["ol_bw"]
         cl_bw = self._metrics["cl_bw"]
 
-        # Calculate y-axis range based on actual data
         ol_max = float(np.max(self._ol_bode_mag))
         cl_max = float(np.max(self._cl_bode_mag))
         ol_min = float(np.min(self._ol_bode_mag))
         cl_min = float(np.min(self._cl_bode_mag))
 
-        # Use defaults unless data exceeds bounds
         y_max = max(self.BODE_MAG_DEFAULT_Y_MAX, max(ol_max, cl_max) + 10)
         y_min = min(self.BODE_MAG_DEFAULT_Y_MIN, min(ol_min, cl_min) - 10)
 
         traces = []
 
-        # Open-loop magnitude (red, dashed)
         traces.append({
             "x": self._omega.tolist(),
             "y": self._ol_bode_mag.tolist(),
@@ -388,7 +350,6 @@ class FeedbackAmplifierSimulator(BaseSimulator):
             "hovertemplate": "ω = %{x:.2f} rad/s<br>|H| = %{y:.1f} dB<extra>Open-Loop</extra>",
         })
 
-        # Closed-loop magnitude (cyan, solid)
         traces.append({
             "x": self._omega.tolist(),
             "y": self._cl_bode_mag.tolist(),
@@ -399,9 +360,7 @@ class FeedbackAmplifierSimulator(BaseSimulator):
             "hovertemplate": "ω = %{x:.2f} rad/s<br>|H| = %{y:.1f} dB<extra>Closed-Loop</extra>",
         })
 
-        # Bandwidth markers (vertical dotted lines)
         shapes = [
-            # Open-loop bandwidth
             {
                 "type": "line",
                 "x0": ol_bw, "x1": ol_bw,
@@ -409,7 +368,6 @@ class FeedbackAmplifierSimulator(BaseSimulator):
                 "yref": "paper",
                 "line": {"color": self.COLORS["open_loop"], "width": 1.5, "dash": "dot"},
             },
-            # Closed-loop bandwidth
             {
                 "type": "line",
                 "x0": cl_bw, "x1": cl_bw,
@@ -462,7 +420,6 @@ class FeedbackAmplifierSimulator(BaseSimulator):
         """Create Bode phase plot (matching PyQt5)."""
         traces = []
 
-        # Open-loop phase (red, dashed)
         traces.append({
             "x": self._omega.tolist(),
             "y": self._ol_bode_phase.tolist(),
@@ -474,7 +431,6 @@ class FeedbackAmplifierSimulator(BaseSimulator):
             "hovertemplate": "ω = %{x:.2f} rad/s<br>∠H = %{y:.1f}°<extra>Open-Loop</extra>",
         })
 
-        # Closed-loop phase (cyan, solid)
         traces.append({
             "x": self._omega.tolist(),
             "y": self._cl_bode_phase.tolist(),
@@ -550,7 +506,6 @@ class FeedbackAmplifierSimulator(BaseSimulator):
 
         traces = []
 
-        # 1. Open-loop pole marker (X, red)
         traces.append({
             "x": [ol_pole],
             "y": [0],
@@ -566,7 +521,6 @@ class FeedbackAmplifierSimulator(BaseSimulator):
             "hovertemplate": f"Open-Loop Pole<br>s = {ol_pole:.1f}<extra></extra>",
         })
 
-        # 2. Closed-loop pole marker (circle, cyan)
         traces.append({
             "x": [cl_pole],
             "y": [0],
@@ -582,11 +536,10 @@ class FeedbackAmplifierSimulator(BaseSimulator):
             "hovertemplate": f"Closed-Loop Pole<br>s = {cl_pole:.1f}<extra></extra>",
         })
 
-        # 3. Arrow showing pole movement (from OL to CL) - only if significant movement
         if abs(ol_pole - cl_pole) > 10:
             traces.append({
                 "x": [ol_pole, cl_pole],
-                "y": [0, 0],  # On real axis
+                "y": [0, 0],
                 "type": "scatter",
                 "mode": "lines",
                 "line": {"color": self.COLORS["accent"], "width": 2, "dash": "dot"},

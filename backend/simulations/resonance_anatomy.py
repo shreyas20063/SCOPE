@@ -93,6 +93,9 @@ class ResonanceAnatomySimulator(BaseSimulator):
         self._pole_s2: complex = 0j
         self._t: np.ndarray = np.array([])
         self._omega: np.ndarray = np.array([])
+        self._magnitude: np.ndarray = np.array([])
+        self._h_t: np.ndarray = np.array([])
+        self._h_scale: float = 0.0
         self._revision: int = 0
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
@@ -153,60 +156,53 @@ class ResonanceAnatomySimulator(BaseSimulator):
             self._create_impulse_plot(),
         ]
 
-    def get_state(self) -> Dict[str, Any]:
-        if not self._initialized:
-            self.initialize()
+    def _axis(self, title: str, **overrides: Any) -> Dict[str, Any]:
+        """Shared axis styling (grid, zeroline, dark-theme color) + per-axis extras."""
+        axis = {
+            "title": title,
+            "showgrid": True,
+            "gridcolor": self.GRID_COLOR,
+            "zeroline": True,
+            "zerolinecolor": self.ZEROLINE_COLOR,
+            "color": self.WHITE,
+        }
+        axis.update(overrides)
+        return axis
 
-        K = float(self.parameters["K"])
-        M = float(self.parameters["M"])
-        B = float(self.parameters["B"])
+    def _base_layout(
+        self,
+        xaxis: Dict[str, Any],
+        yaxis: Dict[str, Any],
+        datarevision: str,
+        uirevision: str,
+        margin_r: int = 25,
+        legend_x: float = 1.0,
+        legend_anchor: str = "right",
+        legend_size: int = 11,
+    ) -> Dict[str, Any]:
+        """Common Plotly layout tail shared by all three plots.
 
-        # Format pole string
-        if self._damping_type in ("undamped", "underdamped"):
-            s1_r = round(self._pole_s1.real, 3)
-            s1_i = round(abs(self._pole_s1.imag), 3)
-            poles_str = f"s = {s1_r} \u00b1 j{s1_i}"
-        elif self._damping_type == "critically_damped":
-            poles_str = f"s = {round(self._pole_s1.real, 3)} (repeated)"
-        else:
-            poles_str = f"s\u2081 = {round(self._pole_s1.real, 3)}, s\u2082 = {round(self._pole_s2.real, 3)}"
-
-        tf_str = f"{K:.1f} / ({M:.1f}s\u00b2 + {B:.1f}s + {K:.1f})"
-
+        Only axis titles/ranges, legend anchor/size, right margin, and the
+        revision strings differ between plots; everything else is identical.
+        """
         return {
-            "parameters": self.parameters.copy(),
-            "plots": self.get_plots(),
-            "metadata": {
-                "simulation_type": "resonance_anatomy",
-                "hub_slots": self.HUB_SLOTS,
-                "hub_domain": self.HUB_DOMAIN,
-                "hub_dimensions": self.HUB_DIMENSIONS,
-                "sticky_controls": True,
-                "system_info": {
-                    "omega_0": round(self._omega_0, 4),
-                    "omega_d": round(self._omega_d, 4) if self._omega_d is not None else None,
-                    "omega_peak": round(self._omega_peak, 4) if self._omega_peak is not None else None,
-                    "sigma": round(self._sigma, 4) if abs(self._sigma) > 1e-10 else 0.0,
-                    "zeta": round(self._zeta, 4),
-                    "damping_type": self._damping_type,
-                    "peak_threshold": round(self.PEAK_THRESHOLD, 4),
-                    "omega_peak_exists": self._omega_peak is not None,
-                    "omega_d_exists": self._omega_d is not None,
-                    "pole_s1": {
-                        "real": round(self._pole_s1.real, 4),
-                        "imag": round(self._pole_s1.imag, 4),
-                    },
-                    "pole_s2": {
-                        "real": round(self._pole_s2.real, 4),
-                        "imag": round(self._pole_s2.imag, 4),
-                    },
-                    "K": K, "M": M, "B": B,
-                },
-                "equations": {
-                    "transfer_function": tf_str,
-                    "poles_str": poles_str,
-                },
+            "xaxis": xaxis,
+            "yaxis": yaxis,
+            "paper_bgcolor": "rgba(0,0,0,0)",
+            "plot_bgcolor": "rgba(0,0,0,0)",
+            "font": {"family": "Inter, sans-serif", "size": 12, "color": self.WHITE},
+            "margin": {"t": 50, "r": margin_r, "b": 55, "l": 60},
+            "showlegend": True,
+            "legend": {
+                "font": {"color": "#94a3b8", "size": legend_size},
+                "bgcolor": self.LEGEND_BG,
+                "bordercolor": "rgba(148,163,184,0.2)",
+                "borderwidth": 1,
+                "x": legend_x, "xanchor": legend_anchor,
+                "y": 1.0, "yanchor": "top",
             },
+            "datarevision": datarevision,
+            "uirevision": uirevision,
         }
 
     # ------------------------------------------------------------------
@@ -275,7 +271,50 @@ class ResonanceAnatomySimulator(BaseSimulator):
         omega_max = max(3.0 * self._omega_0, 10.0)
         self._omega = np.linspace(0.01, omega_max, self.NUM_FREQ_SAMPLES)
 
+        # Response arrays
+        self._magnitude = self._compute_magnitude(K, M)
+        self._h_t, self._h_scale = self._compute_impulse_response(M)
+
         self._revision += 1
+
+    def _compute_magnitude(self, K: float, M: float) -> np.ndarray:
+        """|H(jω)| for H(s) = K / (Ms² + Bs + K), capped for the undamped case."""
+        omega = self._omega
+        numerator = K / M
+        denom_sq = (self._omega_0 ** 2 - omega ** 2) ** 2 + (2.0 * self._sigma * omega) ** 2
+        denom_sq = np.maximum(denom_sq, 1e-20)
+        magnitude = numerator / np.sqrt(denom_sq)
+        return np.minimum(magnitude, self.MAG_CAP)
+
+    def _compute_impulse_response(self, M: float) -> tuple:
+        """h(t) for each damping regime.
+
+        Returns (h_t, scale). `scale` is the underdamped envelope amplitude
+        1/(M·ω_d) (0.0 for the other regimes, where no envelope is drawn).
+        """
+        t = self._t
+        sigma = self._sigma
+        scale = 0.0
+
+        if self._damping_type in ("undamped", "underdamped"):
+            omega_d = self._omega_d
+            if omega_d > 1e-10:
+                scale = 1.0 / (M * omega_d)
+                h_t = scale * np.exp(-sigma * t) * np.sin(omega_d * t)
+            else:
+                h_t = np.zeros_like(t)
+        elif self._damping_type == "critically_damped":
+            h_t = (1.0 / M) * t * np.exp(-sigma * t)
+        else:  # overdamped
+            s1 = self._pole_s1.real
+            s2 = self._pole_s2.real
+            diff = s1 - s2
+            if abs(diff) > 1e-10:
+                scale_od = 1.0 / (M * diff)
+                h_t = scale_od * (np.exp(s1 * t) - np.exp(s2 * t))
+            else:
+                h_t = (1.0 / M) * t * np.exp(s1 * t)
+        return h_t, scale
 
     # ------------------------------------------------------------------
     # Magnitude response plot
@@ -283,18 +322,9 @@ class ResonanceAnatomySimulator(BaseSimulator):
 
     def _create_magnitude_plot(self) -> Dict[str, Any]:
         """Build the magnitude response |H(jω)| with frequency markers."""
-        K = float(self.parameters["K"])
-        M = float(self.parameters["M"])
         omega = self._omega
         omega_0 = self._omega_0
-        sigma = self._sigma
-
-        # Compute |H(jω)|
-        numerator = K / M
-        denom_sq = (omega_0 ** 2 - omega ** 2) ** 2 + (2.0 * sigma * omega) ** 2
-        denom_sq = np.maximum(denom_sq, 1e-20)
-        magnitude = numerator / np.sqrt(denom_sq)
-        magnitude = np.minimum(magnitude, self.MAG_CAP)
+        magnitude = self._magnitude
 
         mag_max = float(np.max(magnitude))
         y_top = mag_max * 1.15
@@ -384,47 +414,19 @@ class ResonanceAnatomySimulator(BaseSimulator):
         omega_max = float(self._omega[-1])
         fingerprint = f"mag-{self._omega_0:.4f}-{self._sigma:.4f}-{self._zeta:.4f}"
 
+        layout = self._base_layout(
+            xaxis=self._axis("Frequency \u03c9 (rad/s)", range=[0, omega_max]),
+            yaxis=self._axis("|H(j\u03c9)|", rangemode="tozero", autorange=True),
+            datarevision=f"magnitude_response-{self._revision}-{fingerprint}",
+            uirevision=fingerprint,
+        )
+        layout["annotations"] = annotations
+
         return {
             "id": "magnitude_response",
             "title": "Magnitude Response |H(j\u03c9)|",
             "data": traces,
-            "layout": {
-                "xaxis": {
-                    "title": "Frequency \u03c9 (rad/s)",
-                    "showgrid": True,
-                    "gridcolor": self.GRID_COLOR,
-                    "zeroline": True,
-                    "zerolinecolor": self.ZEROLINE_COLOR,
-                    "range": [0, omega_max],
-                    "color": self.WHITE,
-                },
-                "yaxis": {
-                    "title": "|H(j\u03c9)|",
-                    "showgrid": True,
-                    "gridcolor": self.GRID_COLOR,
-                    "zeroline": True,
-                    "zerolinecolor": self.ZEROLINE_COLOR,
-                    "rangemode": "tozero",
-                    "autorange": True,
-                    "color": self.WHITE,
-                },
-                "annotations": annotations,
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "font": {"family": "Inter, sans-serif", "size": 12, "color": self.WHITE},
-                "margin": {"t": 50, "r": 25, "b": 55, "l": 60},
-                "showlegend": True,
-                "legend": {
-                    "font": {"color": "#94a3b8", "size": 11},
-                    "bgcolor": self.LEGEND_BG,
-                    "bordercolor": "rgba(148,163,184,0.2)",
-                    "borderwidth": 1,
-                    "x": 1.0, "xanchor": "right",
-                    "y": 1.0, "yanchor": "top",
-                },
-                "datarevision": f"magnitude_response-{self._revision}-{fingerprint}",
-                "uirevision": fingerprint,
-            },
+            "layout": layout,
         }
 
     # ------------------------------------------------------------------
@@ -519,8 +521,6 @@ class ResonanceAnatomySimulator(BaseSimulator):
                 "line": {"color": "#94a3b8", "width": 1.5, "dash": "dot"},
                 "hoverinfo": "name",
             })
-            # σ label at midpoint
-            mid_x = p_re / 2.0
 
             # Vertical line: pole → real axis (shows ω_d)
             traces.append({
@@ -566,50 +566,26 @@ class ResonanceAnatomySimulator(BaseSimulator):
                 "font": {"color": "#94a3b8", "size": 13, "family": "Fira Code, monospace"},
             })
 
+        layout = self._base_layout(
+            xaxis=self._axis("Re(s)", range=axis_range, constrain="domain"),
+            yaxis=self._axis(
+                "Im(s)", range=y_range, scaleanchor="x", scaleratio=1,
+                constrain="domain",
+            ),
+            datarevision=f"s_plane-{self._revision}-{fingerprint}",
+            uirevision=fingerprint,
+            margin_r=30,
+            legend_x=0.0,
+            legend_anchor="left",
+            legend_size=10,
+        )
+        layout["annotations"] = plot_annotations
+
         return {
             "id": "s_plane",
             "title": "S-Plane: Pole Geometry",
             "data": traces,
-            "layout": {
-                "xaxis": {
-                    "title": "Re(s)",
-                    "showgrid": True,
-                    "gridcolor": self.GRID_COLOR,
-                    "zeroline": True,
-                    "zerolinecolor": self.ZEROLINE_COLOR,
-                    "range": axis_range,
-                    "color": self.WHITE,
-                    "constrain": "domain",
-                },
-                "yaxis": {
-                    "title": "Im(s)",
-                    "showgrid": True,
-                    "gridcolor": self.GRID_COLOR,
-                    "zeroline": True,
-                    "zerolinecolor": self.ZEROLINE_COLOR,
-                    "range": y_range,
-                    "scaleanchor": "x",
-                    "scaleratio": 1,
-                    "color": self.WHITE,
-                    "constrain": "domain",
-                },
-                "annotations": plot_annotations,
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "font": {"family": "Inter, sans-serif", "size": 12, "color": self.WHITE},
-                "margin": {"t": 50, "r": 30, "b": 55, "l": 60},
-                "showlegend": True,
-                "legend": {
-                    "font": {"color": "#94a3b8", "size": 10},
-                    "bgcolor": self.LEGEND_BG,
-                    "bordercolor": "rgba(148,163,184,0.2)",
-                    "borderwidth": 1,
-                    "x": 0.0, "xanchor": "left",
-                    "y": 1.0, "yanchor": "top",
-                },
-                "datarevision": f"s_plane-{self._revision}-{fingerprint}",
-                "uirevision": fingerprint,
-            },
+            "layout": layout,
         }
 
     # ------------------------------------------------------------------
@@ -619,17 +595,14 @@ class ResonanceAnatomySimulator(BaseSimulator):
     def _create_impulse_plot(self) -> Dict[str, Any]:
         """Build the impulse response h(t) with envelope and period markers."""
         t = self._t
-        M = float(self.parameters["M"])
         sigma = self._sigma
+        h_t = self._h_t
 
         traces = []
 
         if self._damping_type in ("undamped", "underdamped"):
             omega_d = self._omega_d
             if omega_d > 1e-10:
-                scale = 1.0 / (M * omega_d)
-                h_t = scale * np.exp(-sigma * t) * np.sin(omega_d * t)
-
                 traces.append({
                     "x": t.tolist(),
                     "y": h_t.tolist(),
@@ -641,7 +614,7 @@ class ResonanceAnatomySimulator(BaseSimulator):
 
                 # Envelope (only if there's damping)
                 if sigma > 1e-10:
-                    env_pos = scale * np.exp(-sigma * t)
+                    env_pos = self._h_scale * np.exp(-sigma * t)
                     env_neg = -env_pos
                     traces.append({
                         "x": t.tolist(),
@@ -681,7 +654,6 @@ class ResonanceAnatomySimulator(BaseSimulator):
                         })
             else:
                 # ω_d effectively zero
-                h_t = np.zeros_like(t)
                 traces.append({
                     "x": t.tolist(),
                     "y": h_t.tolist(),
@@ -692,7 +664,6 @@ class ResonanceAnatomySimulator(BaseSimulator):
                 })
 
         elif self._damping_type == "critically_damped":
-            h_t = (1.0 / M) * t * np.exp(-sigma * t)
             traces.append({
                 "x": t.tolist(),
                 "y": h_t.tolist(),
@@ -703,14 +674,6 @@ class ResonanceAnatomySimulator(BaseSimulator):
             })
 
         else:  # overdamped
-            s1 = self._pole_s1.real
-            s2 = self._pole_s2.real
-            diff = s1 - s2
-            if abs(diff) > 1e-10:
-                scale_od = 1.0 / (M * diff)
-                h_t = scale_od * (np.exp(s1 * t) - np.exp(s2 * t))
-            else:
-                h_t = (1.0 / M) * t * np.exp(s1 * t)
             traces.append({
                 "x": t.tolist(),
                 "y": h_t.tolist(),
@@ -722,43 +685,78 @@ class ResonanceAnatomySimulator(BaseSimulator):
 
         fingerprint = f"impulse-{self._omega_0:.4f}-{self._sigma:.4f}"
 
+        layout = self._base_layout(
+            xaxis=self._axis(
+                "Time t (s)", range=[0, float(self.parameters["time_window"])],
+            ),
+            yaxis=self._axis("h(t)", autorange=True),
+            datarevision=f"impulse_response-{self._revision}-{fingerprint}",
+            uirevision=fingerprint,
+        )
+
         return {
             "id": "impulse_response",
             "title": "Impulse Response h(t)",
             "data": traces,
-            "layout": {
-                "xaxis": {
-                    "title": "Time t (s)",
-                    "showgrid": True,
-                    "gridcolor": self.GRID_COLOR,
-                    "zeroline": True,
-                    "zerolinecolor": self.ZEROLINE_COLOR,
-                    "range": [0, float(self.parameters["time_window"])],
-                    "color": self.WHITE,
+            "layout": layout,
+        }
+
+    # ------------------------------------------------------------------
+    # State
+    # ------------------------------------------------------------------
+
+    def get_state(self) -> Dict[str, Any]:
+        if not self._initialized:
+            self.initialize()
+
+        K = float(self.parameters["K"])
+        M = float(self.parameters["M"])
+        B = float(self.parameters["B"])
+
+        # Format pole string
+        if self._damping_type in ("undamped", "underdamped"):
+            s1_r = round(self._pole_s1.real, 3)
+            s1_i = round(abs(self._pole_s1.imag), 3)
+            poles_str = f"s = {s1_r} ± j{s1_i}"
+        elif self._damping_type == "critically_damped":
+            poles_str = f"s = {round(self._pole_s1.real, 3)} (repeated)"
+        else:
+            poles_str = f"s₁ = {round(self._pole_s1.real, 3)}, s₂ = {round(self._pole_s2.real, 3)}"
+
+        tf_str = f"{K:.1f} / ({M:.1f}s² + {B:.1f}s + {K:.1f})"
+
+        return {
+            "parameters": self.parameters.copy(),
+            "plots": self.get_plots(),
+            "metadata": {
+                "simulation_type": "resonance_anatomy",
+                "hub_slots": self.HUB_SLOTS,
+                "hub_domain": self.HUB_DOMAIN,
+                "hub_dimensions": self.HUB_DIMENSIONS,
+                "sticky_controls": True,
+                "system_info": {
+                    "omega_0": round(self._omega_0, 4),
+                    "omega_d": round(self._omega_d, 4) if self._omega_d is not None else None,
+                    "omega_peak": round(self._omega_peak, 4) if self._omega_peak is not None else None,
+                    "sigma": round(self._sigma, 4) if abs(self._sigma) > 1e-10 else 0.0,
+                    "zeta": round(self._zeta, 4),
+                    "damping_type": self._damping_type,
+                    "peak_threshold": round(self.PEAK_THRESHOLD, 4),
+                    "omega_peak_exists": self._omega_peak is not None,
+                    "omega_d_exists": self._omega_d is not None,
+                    "pole_s1": {
+                        "real": round(self._pole_s1.real, 4),
+                        "imag": round(self._pole_s1.imag, 4),
+                    },
+                    "pole_s2": {
+                        "real": round(self._pole_s2.real, 4),
+                        "imag": round(self._pole_s2.imag, 4),
+                    },
+                    "K": K, "M": M, "B": B,
                 },
-                "yaxis": {
-                    "title": "h(t)",
-                    "showgrid": True,
-                    "gridcolor": self.GRID_COLOR,
-                    "zeroline": True,
-                    "zerolinecolor": self.ZEROLINE_COLOR,
-                    "autorange": True,
-                    "color": self.WHITE,
+                "equations": {
+                    "transfer_function": tf_str,
+                    "poles_str": poles_str,
                 },
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "font": {"family": "Inter, sans-serif", "size": 12, "color": self.WHITE},
-                "margin": {"t": 50, "r": 25, "b": 55, "l": 60},
-                "showlegend": True,
-                "legend": {
-                    "font": {"color": "#94a3b8", "size": 11},
-                    "bgcolor": self.LEGEND_BG,
-                    "bordercolor": "rgba(148,163,184,0.2)",
-                    "borderwidth": 1,
-                    "x": 1.0, "xanchor": "right",
-                    "y": 1.0, "yanchor": "top",
-                },
-                "datarevision": f"impulse_response-{self._revision}-{fingerprint}",
-                "uirevision": fingerprint,
             },
         }
