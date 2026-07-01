@@ -23,6 +23,8 @@ _trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz
 class IVTFVTSimulator(BaseSimulator):
     """Simulator for Initial and Final Value Theorem visualization."""
 
+    # ── 1. DEFINE ──────────────────────────────────────────────────────
+
     NUM_SAMPLES_PER_SEGMENT = 500
     MAX_DISPLAY_VALUE = 100.0
 
@@ -55,7 +57,6 @@ class IVTFVTSimulator(BaseSimulator):
         "log_s": 0.0,
     }
 
-
     # Maps each normal signal to its failure counterpart
     FAILURE_MAP = {
         "decaying_exp": "unstable_exp",
@@ -66,6 +67,8 @@ class IVTFVTSimulator(BaseSimulator):
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._revision: int = 0
+
+    # ── 2. LIFECYCLE ───────────────────────────────────────────────────
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
@@ -88,94 +91,14 @@ class IVTFVTSimulator(BaseSimulator):
             self._revision += 1
         return self.get_state()
 
-    def get_plots(self) -> List[Dict[str, Any]]:
-        data = self._compute()
-        return [
-            self._create_signal_plot(data),
-            self._create_kernel_plot(data),
-            self._create_product_plot(data),
-        ]
-
-    def get_state(self) -> Dict[str, Any]:
-        data = self._compute()
-        config = data["config"]
-        s = data["s"]
-
-        plots = [
-            self._create_signal_plot(data),
-            self._create_kernel_plot(data),
-            self._create_product_plot(data),
-        ]
-
-        # Compute IVT limit: sX(s) at large s
-        ivt_limit = None
-        if config["ivt_valid"]:
-            try:
-                ivt_limit = round(float(config["sXs_func"](100.0)), 4)
-            except (ValueError, ZeroDivisionError):
-                ivt_limit = None
-
-        # Compute FVT limit: sX(s) at small s
-        fvt_limit = None
-        if config["fvt_valid"]:
-            try:
-                fvt_limit = round(float(config["sXs_func"](0.01)), 4)
-            except (ValueError, ZeroDivisionError):
-                fvt_limit = None
-
-        sXs_analytical = data["sXs_analytical"]
-
-        return {
-            "parameters": self.parameters.copy(),
-            "plots": plots,
-            "metadata": {
-                "simulation_type": "ivt_fvt_visualizer",
-            "hub_slots": self.HUB_SLOTS,
-            "hub_domain": self.HUB_DOMAIN,
-            "hub_dimensions": self.HUB_DIMENSIONS,
-                "sticky_controls": True,
-
-                # Current signal info
-                "active_signal_id": data["active_id"],
-                "active_signal_label": config["label"],
-                "is_failure_mode": bool(self.parameters["failure_mode"]),
-
-                # Current s value
-                "s_value": round(s, 6),
-                "log_s": float(self.parameters["log_s"]),
-
-                # Computed values
-                "sXs_numerical": round(data["sXs_numerical"], 6),
-                "sXs_analytical": round(sXs_analytical, 6) if not np.isnan(sXs_analytical) else None,
-                "sXs_formula": config["sXs_formula"],
-                "Xs_formula": config["Xs_formula"],
-
-                # Analytical reference values
-                "x_0_plus": config["x_0_plus"],
-                "x_inf": config["x_inf"],
-                "x_inf_display": str(config["x_inf"]) if config["x_inf"] is not None else "DNE",
-
-                # Theorem validity
-                "ivt_valid": config["ivt_valid"],
-                "fvt_valid": config["fvt_valid"],
-                "fvt_reason": config["fvt_reason"],
-
-                # Limiting values
-                "ivt_limit": ivt_limit,
-                "fvt_limit": fvt_limit,
-
-                "revision": self._revision,
-            },
-        }
-
-    # -- Signal configurations -------------------------------------------
+    # ── 3. MATH ────────────────────────────────────────────────────────
 
     @staticmethod
     def _get_signal_config(signal_id: str) -> Dict[str, Any]:
         """Return signal configuration by ID."""
         configs = {
             "decaying_exp": {
-                "label": "e\u207b\u00b9\u1d57 u(t)",
+                "label": "e⁻¹ᵗ u(t)",
                 "x_0_plus": 1.0,
                 "x_inf": 0.0,
                 "sXs_formula": "s / (s + 1)",
@@ -185,7 +108,7 @@ class IVTFVTSimulator(BaseSimulator):
                 "fvt_reason": None,
             },
             "step_response": {
-                "label": "(1 \u2212 e\u207b\u00b2\u1d57) u(t)",
+                "label": "(1 − e⁻²ᵗ) u(t)",
                 "x_0_plus": 0.0,
                 "x_inf": 1.0,
                 "sXs_formula": "2 / (s + 2)",
@@ -195,41 +118,39 @@ class IVTFVTSimulator(BaseSimulator):
                 "fvt_reason": None,
             },
             "oscillatory_decay": {
-                "label": "e\u207b\u2070\u00b7\u2075\u1d57 cos(3t) u(t)",
+                "label": "e⁻⁰·⁵ᵗ cos(3t) u(t)",
                 "x_0_plus": 1.0,
                 "x_inf": 0.0,
-                "sXs_formula": "s(s+0.5) / [(s+0.5)\u00b2+9]",
-                "Xs_formula": "(s+0.5) / [(s+0.5)\u00b2+9]",
+                "sXs_formula": "s(s+0.5) / [(s+0.5)²+9]",
+                "Xs_formula": "(s+0.5) / [(s+0.5)²+9]",
                 "ivt_valid": True,
                 "fvt_valid": True,
                 "fvt_reason": None,
             },
             "unstable_exp": {
-                "label": "e\u1d57 u(t)  [UNSTABLE]",
+                "label": "eᵗ u(t)  [UNSTABLE]",
                 "x_0_plus": 1.0,
                 "x_inf": None,
-                "sXs_formula": "s / (s \u2212 1)  [Re(s)>1]",
-                "Xs_formula": "1 / (s \u2212 1)",
+                "sXs_formula": "s / (s − 1)  [Re(s)>1]",
+                "Xs_formula": "1 / (s − 1)",
                 "ivt_valid": True,
                 "fvt_valid": False,
-                "fvt_reason": "Pole at s=1 (RHP) \u2014 x(t) diverges to \u221e, no finite limit exists",
+                "fvt_reason": "Pole at s=1 (RHP) — x(t) diverges to ∞, no finite limit exists",
             },
             "pure_oscillation": {
                 "label": "cos(3t) u(t)  [OSCILLATES]",
                 "x_0_plus": 1.0,
                 "x_inf": None,
-                "sXs_formula": "s\u00b2 / (s\u00b2 + 9)",
-                "Xs_formula": "s / (s\u00b2 + 9)",
+                "sXs_formula": "s² / (s² + 9)",
+                "Xs_formula": "s / (s² + 9)",
                 "ivt_valid": True,
                 "fvt_valid": False,
-                "fvt_reason": "Poles on j\u03c9 axis (s=\u00b13j) \u2014 x(t) oscillates forever, no limit",
+                "fvt_reason": "Poles on jω axis (s=±3j) — x(t) oscillates forever, no limit",
             },
         }
 
         config = configs[signal_id]
 
-        # Attach callables (can't store lambdas in a dict returned from staticmethod cleanly,
-        # so we add them here)
         x_funcs = {
             "decaying_exp": lambda t: np.exp(-t),
             "step_response": lambda t: 1.0 - np.exp(-2.0 * t),
@@ -248,8 +169,6 @@ class IVTFVTSimulator(BaseSimulator):
         config["x_func"] = x_funcs[signal_id]
         config["sXs_func"] = sXs_funcs[signal_id]
         return config
-
-    # -- Core computation ------------------------------------------------
 
     def _compute(self) -> Dict[str, Any]:
         """Core computation: generate x(t), kernel, product, and integral."""
@@ -312,6 +231,21 @@ class IVTFVTSimulator(BaseSimulator):
         except (ValueError, ZeroDivisionError):
             sXs_analytical = float("nan")
 
+        # IVT limit: sX(s) at large s.  FVT limit: sX(s) at small s.
+        ivt_limit = None
+        if config["ivt_valid"]:
+            try:
+                ivt_limit = round(float(config["sXs_func"](100.0)), 4)
+            except (ValueError, ZeroDivisionError):
+                ivt_limit = None
+
+        fvt_limit = None
+        if config["fvt_valid"]:
+            try:
+                fvt_limit = round(float(config["sXs_func"](0.01)), 4)
+            except (ValueError, ZeroDivisionError):
+                fvt_limit = None
+
         return {
             "t": t,
             "x": x_clipped,
@@ -324,9 +258,19 @@ class IVTFVTSimulator(BaseSimulator):
             "active_id": active_id,
             "config": config,
             "t_display_max": t_display_max,
+            "ivt_limit": ivt_limit,
+            "fvt_limit": fvt_limit,
         }
 
-    # -- Plot construction -----------------------------------------------
+    # ── 4. PRESENT ─────────────────────────────────────────────────────
+
+    def get_plots(self) -> List[Dict[str, Any]]:
+        data = self._compute()
+        return [
+            self._create_signal_plot(data),
+            self._create_kernel_plot(data),
+            self._create_product_plot(data),
+        ]
 
     def _get_base_layout(
         self, xtitle: str, ytitle: str, plot_id: str
@@ -370,6 +314,28 @@ class IVTFVTSimulator(BaseSimulator):
             "uirevision": f"{plot_id}-{signal_type}-{failure}-{self._revision}",
         }
 
+    def _build_plot(
+        self,
+        data: Dict[str, Any],
+        plot_id: str,
+        title: str,
+        xtitle: str,
+        ytitle: str,
+        traces: List[Dict[str, Any]],
+        annotation: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Assemble a single plot dict: base layout + x-range clamp + optional corner annotation."""
+        layout = self._get_base_layout(xtitle, ytitle, plot_id)
+        layout["xaxis"]["range"] = [0, min(data["t_display_max"], 15.0)]
+        if annotation is not None:
+            layout["annotations"] = [annotation]
+        return {
+            "id": plot_id,
+            "title": title,
+            "data": traces,
+            "layout": layout,
+        }
+
     def _create_signal_plot(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Plot 1: x(t) with reference lines for x(0+) and x(inf)."""
         t = data["t"]
@@ -404,7 +370,7 @@ class IVTFVTSimulator(BaseSimulator):
                 "y": [x0, x0],
                 "type": "scatter",
                 "mode": "lines",
-                "name": f"x(0\u207a) = {x0}",
+                "name": f"x(0⁺) = {x0}",
                 "line": {"color": "#10b981", "width": 1.5, "dash": "dot"},
                 "showlegend": True,
                 "hoverinfo": "name",
@@ -418,22 +384,16 @@ class IVTFVTSimulator(BaseSimulator):
                 "y": [xinf, xinf],
                 "type": "scatter",
                 "mode": "lines",
-                "name": f"x(\u221e) = {xinf}",
+                "name": f"x(∞) = {xinf}",
                 "line": {"color": "#14b8a6", "width": 1.5, "dash": "dashdot"},
                 "showlegend": True,
                 "hoverinfo": "name",
             })
 
-        layout = self._get_base_layout("t (seconds)", "x(t)", "signal_xt")
-        # Limit x-axis for readability on the signal plot
-        layout["xaxis"]["range"] = [0, min(data["t_display_max"], 15.0)]
-
-        return {
-            "id": "signal_xt",
-            "title": f"Signal: {config['label']}",
-            "data": traces,
-            "layout": layout,
-        }
+        return self._build_plot(
+            data, "signal_xt", f"Signal: {config['label']}",
+            "t (seconds)", "x(t)", traces,
+        )
 
     def _create_kernel_plot(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Plot 2: se^{-st} with filled area."""
@@ -449,16 +409,13 @@ class IVTFVTSimulator(BaseSimulator):
             "mode": "lines",
             "fill": "tozeroy",
             "fillcolor": "rgba(239, 68, 68, 0.12)",
-            "name": f"s\u00b7e\u207b\u02e2\u1d57, s={s:.3g}",
+            "name": f"s·e⁻ˢᵗ, s={s:.3g}",
             "line": {"color": "#ef4444", "width": 2.5},
             "hovertemplate": "t=%{x:.3f}<br>kernel=%{y:.4f}<extra></extra>",
         }]
 
-        layout = self._get_base_layout("t (seconds)", "s e\u207b\u02e2\u1d57", "kernel_set")
-        layout["xaxis"]["range"] = [0, min(data["t_display_max"], 15.0)]
-
         # Annotation: area is always 1 for t >= 0
-        layout["annotations"] = [{
+        annotation = {
             "text": "Area = 1 (always)",
             "xref": "paper",
             "yref": "paper",
@@ -472,14 +429,13 @@ class IVTFVTSimulator(BaseSimulator):
             "bordercolor": "rgba(239,68,68,0.3)",
             "borderwidth": 1,
             "borderpad": 5,
-        }]
-
-        return {
-            "id": "kernel_set",
-            "title": f"Laplace Kernel: s\u00b7exp(\u2212st),  s = {s:.3g}",
-            "data": traces,
-            "layout": layout,
         }
+
+        return self._build_plot(
+            data, "kernel_set",
+            f"Laplace Kernel: s·exp(−st),  s = {s:.3g}",
+            "t (seconds)", "s e⁻ˢᵗ", traces, annotation,
+        )
 
     def _create_product_plot(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Plot 3: x(t)*se^{-st} with filled area = sX(s)."""
@@ -496,18 +452,13 @@ class IVTFVTSimulator(BaseSimulator):
             "mode": "lines",
             "fill": "tozeroy",
             "fillcolor": "rgba(16, 185, 129, 0.15)",
-            "name": "x(t) \u00b7 s\u00b7e\u207b\u02e2\u1d57",
+            "name": "x(t) · s·e⁻ˢᵗ",
             "line": {"color": "#10b981", "width": 2},
             "hovertemplate": "t=%{x:.3f}<br>product=%{y:.4f}<extra></extra>",
         }]
 
-        layout = self._get_base_layout(
-            "t (seconds)", "x(t) \u00b7 s e\u207b\u02e2\u1d57", "product_integral"
-        )
-        layout["xaxis"]["range"] = [0, min(data["t_display_max"], 15.0)]
-
         # Annotation showing integral value
-        layout["annotations"] = [{
+        annotation = {
             "text": f"Area = sX(s) = {sXs_num:.4f}",
             "xref": "paper",
             "yref": "paper",
@@ -521,11 +472,68 @@ class IVTFVTSimulator(BaseSimulator):
             "bordercolor": "rgba(16,185,129,0.3)",
             "borderwidth": 1,
             "borderpad": 6,
-        }]
+        }
+
+        return self._build_plot(
+            data, "product_integral",
+            f"Product & Integral:  sX(s) = {sXs_num:.4f}",
+            "t (seconds)", "x(t) · s e⁻ˢᵗ", traces, annotation,
+        )
+
+    # ── 5. STATE ───────────────────────────────────────────────────────
+
+    def get_state(self) -> Dict[str, Any]:
+        data = self._compute()
+        config = data["config"]
+        s = data["s"]
+
+        plots = [
+            self._create_signal_plot(data),
+            self._create_kernel_plot(data),
+            self._create_product_plot(data),
+        ]
+
+        sXs_analytical = data["sXs_analytical"]
 
         return {
-            "id": "product_integral",
-            "title": f"Product & Integral:  sX(s) = {sXs_num:.4f}",
-            "data": traces,
-            "layout": layout,
+            "parameters": self.parameters.copy(),
+            "plots": plots,
+            "metadata": {
+                "simulation_type": "ivt_fvt_visualizer",
+                "hub_slots": self.HUB_SLOTS,
+                "hub_domain": self.HUB_DOMAIN,
+                "hub_dimensions": self.HUB_DIMENSIONS,
+                "sticky_controls": True,
+
+                # Current signal info
+                "active_signal_id": data["active_id"],
+                "active_signal_label": config["label"],
+                "is_failure_mode": bool(self.parameters["failure_mode"]),
+
+                # Current s value
+                "s_value": round(s, 6),
+                "log_s": float(self.parameters["log_s"]),
+
+                # Computed values
+                "sXs_numerical": round(data["sXs_numerical"], 6),
+                "sXs_analytical": round(sXs_analytical, 6) if not np.isnan(sXs_analytical) else None,
+                "sXs_formula": config["sXs_formula"],
+                "Xs_formula": config["Xs_formula"],
+
+                # Analytical reference values
+                "x_0_plus": config["x_0_plus"],
+                "x_inf": config["x_inf"],
+                "x_inf_display": str(config["x_inf"]) if config["x_inf"] is not None else "DNE",
+
+                # Theorem validity
+                "ivt_valid": config["ivt_valid"],
+                "fvt_valid": config["fvt_valid"],
+                "fvt_reason": config["fvt_reason"],
+
+                # Limiting values
+                "ivt_limit": data["ivt_limit"],
+                "fvt_limit": data["fvt_limit"],
+
+                "revision": self._revision,
+            },
         }

@@ -108,14 +108,18 @@ class FeedbackConvergenceSimulator(BaseSimulator):
                 self._animation_active = False
         return self.get_state()
 
-    def advance_frame(self) -> Dict[str, Any]:
-        """Advance animation by one frame (called by Play/Pause loop)."""
+    def _advance(self) -> None:
+        """Advance the animation step, looping back to 1 at the end."""
         num_samples = int(self.parameters["num_samples"])
         self._animation_active = True
         if self._animation_step < num_samples:
             self._animation_step += 1
         else:
-            self._animation_step = 1  # loop back
+            self._animation_step = 1
+
+    def advance_frame(self) -> Dict[str, Any]:
+        """Advance animation by one frame (called by Play/Pause loop)."""
+        self._advance()
         return self.get_state()
 
     def step_forward(self) -> Dict[str, Any]:
@@ -136,14 +140,8 @@ class FeedbackConvergenceSimulator(BaseSimulator):
 
     def handle_action(self, action: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle custom actions for animation."""
-        num_samples = int(self.parameters["num_samples"])
-
         if action == "animate_cycles":
-            self._animation_active = True
-            if self._animation_step < num_samples:
-                self._animation_step += 1
-            else:
-                self._animation_step = 1
+            self._advance()
         elif action == "reset_animation":
             self._animation_step = 0
             self._animation_active = False
@@ -152,7 +150,6 @@ class FeedbackConvergenceSimulator(BaseSimulator):
         elif action == "step_backward":
             return self.step_backward()
         elif action == "apply_preset":
-            # Apply preset params without resetting other params
             preset_params = params or {}
             for name, value in preset_params.items():
                 if name in self.parameters:
@@ -169,49 +166,22 @@ class FeedbackConvergenceSimulator(BaseSimulator):
             self._create_geometric_sum_plot(data),
         ]
 
-    def get_state(self) -> Dict[str, Any]:
-        p0 = float(self.parameters["p0"])
-        abs_p0 = abs(p0)
-        num_samples = int(self.parameters["num_samples"])
-
-        # Convergence classification
-        if abs_p0 < 1.0 - self.MARGINAL_EPSILON:
-            convergence = "converging"
-        elif abs_p0 > 1.0 + self.MARGINAL_EPSILON:
-            convergence = "diverging"
-        else:
-            convergence = "marginal"
-
-        # Geometric sum limit
-        geometric_sum_limit = None
-        if abs_p0 < 1.0 - self.MARGINAL_EPSILON:
-            geometric_sum_limit = 1.0 / (1.0 - p0)
-
-        # Current sample value at animation step
-        step = self._animation_step if self._animation_active else num_samples - 1
-        current_sample_value = p0 ** step if step >= 0 else 0.0
-
-        return {
-            "parameters": self.parameters.copy(),
-            "plots": self.get_plots(),
-            "metadata": {
-                "simulation_type": "feedback_convergence",
-            "hub_slots": self.HUB_SLOTS,
-            "hub_domain": self.HUB_DOMAIN,
-            "hub_dimensions": self.HUB_DIMENSIONS,
-                "p0": p0,
-                "convergence": convergence,
-                "abs_p0": abs_p0,
-                "geometric_sum_limit": geometric_sum_limit,
-                "animation_step": self._animation_step,
-                "animation_active": self._animation_active,
-                "current_sample_value": float(current_sample_value),
-                "num_samples": num_samples,
-                "presets": self.PRESETS,
-            },
-        }
-
     # ── Computation ──────────────────────────────────────────────
+
+    CONVERGENCE_COLORS = {
+        "converging": "#10b981",  # green
+        "diverging": "#ef4444",   # red
+        "marginal": "#f59e0b",    # amber
+    }
+
+    def _convergence_class(self, p0: float) -> str:
+        """Classify the mode |p₀|<1 (converging), |p₀|>1 (diverging), else marginal."""
+        abs_p0 = abs(p0)
+        if abs_p0 < 1.0 - self.MARGINAL_EPSILON:
+            return "converging"
+        elif abs_p0 > 1.0 + self.MARGINAL_EPSILON:
+            return "diverging"
+        return "marginal"
 
     def _compute(self) -> Dict[str, Any]:
         """Compute impulse response and partial sums."""
@@ -294,13 +264,8 @@ class FeedbackConvergenceSimulator(BaseSimulator):
 
     def _get_stem_color(self) -> str:
         """Get color based on convergence status."""
-        abs_p0 = abs(float(self.parameters["p0"]))
-        if abs_p0 < 1.0 - self.MARGINAL_EPSILON:
-            return "#10b981"  # green — converging
-        elif abs_p0 > 1.0 + self.MARGINAL_EPSILON:
-            return "#ef4444"  # red — diverging
-        else:
-            return "#f59e0b"  # amber — marginal
+        p0 = float(self.parameters["p0"])
+        return self.CONVERGENCE_COLORS[self._convergence_class(p0)]
 
     def _compute_y_range(self, values: List[float], extra_values: Optional[List[float]] = None) -> List[float]:
         """Compute robust y-axis range from data values with padding."""
@@ -326,6 +291,30 @@ class FeedbackConvergenceSimulator(BaseSimulator):
         pad = span * 0.15
         return [y_min - pad, y_max + pad]
 
+    def _visible_count(self) -> int:
+        """Number of samples to show; limited to the animation step while animating."""
+        if self._animation_active and self._animation_step > 0:
+            return self._animation_step
+        return int(self.parameters["num_samples"])
+
+    def _stem_traces(self, n_visible: List[Any], values_visible: List[Any], color: str) -> List[Dict[str, Any]]:
+        """Vertical stem lines from y=0 to each sample value."""
+        stem_x: List[Any] = []
+        stem_y: List[Any] = []
+        for xi, vi in zip(n_visible, values_visible):
+            stem_x.extend([xi, xi, None])
+            stem_y.extend([0, vi, None])
+        return [{
+            "x": stem_x,
+            "y": stem_y,
+            "type": "scatter",
+            "mode": "lines",
+            "name": "Stems",
+            "line": {"color": color, "width": 2},
+            "showlegend": False,
+            "hoverinfo": "skip",
+        }]
+
     def _create_impulse_response_plot(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Build stem plot for y[n] = p₀ⁿ."""
         n = data["n"]
@@ -338,35 +327,11 @@ class FeedbackConvergenceSimulator(BaseSimulator):
         show_unit_circle = bool(self.parameters["show_unit_circle"])
         color = self._get_stem_color()
 
-        traces = []
-
-        # Determine which samples to show based on animation state
-        if self._animation_active and self._animation_step > 0:
-            visible_count = self._animation_step
-        else:
-            visible_count = num_samples
-
+        visible_count = self._visible_count()
         n_visible = n[:visible_count].tolist()
         y_visible = y[:visible_count].tolist()
 
-        # Build stem plot: vertical lines from y=0 to y[n]
-        stem_x = []
-        stem_y = []
-        for i in range(len(n_visible)):
-            stem_x.extend([n_visible[i], n_visible[i], None])
-            stem_y.extend([0, y_visible[i], None])
-
-        # Stem lines
-        traces.append({
-            "x": stem_x,
-            "y": stem_y,
-            "type": "scatter",
-            "mode": "lines",
-            "name": "Stems",
-            "line": {"color": color, "width": 2},
-            "showlegend": False,
-            "hoverinfo": "skip",
-        })
+        traces = self._stem_traces(n_visible, y_visible, color)
 
         # Stem markers (dots at tips)
         traces.append({
@@ -393,7 +358,6 @@ class FeedbackConvergenceSimulator(BaseSimulator):
                 "hoverinfo": "skip",
             })
 
-        # Collect all y-values for range computation
         all_y_for_range = list(y_visible)
 
         # Envelope traces
@@ -466,34 +430,11 @@ class FeedbackConvergenceSimulator(BaseSimulator):
         num_samples = int(self.parameters["num_samples"])
         color = self._get_stem_color()
 
-        traces = []
-
-        # Determine visible count
-        if self._animation_active and self._animation_step > 0:
-            visible_count = self._animation_step
-        else:
-            visible_count = num_samples
-
+        visible_count = self._visible_count()
         n_visible = n[:visible_count].tolist()
         sums_visible = partial_sums[:visible_count].tolist()
 
-        # Build stem plot for partial sums
-        stem_x = []
-        stem_y = []
-        for i in range(len(n_visible)):
-            stem_x.extend([n_visible[i], n_visible[i], None])
-            stem_y.extend([0, sums_visible[i], None])
-
-        traces.append({
-            "x": stem_x,
-            "y": stem_y,
-            "type": "scatter",
-            "mode": "lines",
-            "name": "Stems",
-            "line": {"color": color, "width": 2},
-            "showlegend": False,
-            "hoverinfo": "skip",
-        })
+        traces = self._stem_traces(n_visible, sums_visible, color)
 
         traces.append({
             "x": n_visible,
@@ -506,7 +447,6 @@ class FeedbackConvergenceSimulator(BaseSimulator):
             "hovertemplate": "n=%{x}<br>S[n]=%{y:.4f}<extra></extra>",
         })
 
-        # Collect all y-values for range computation
         all_y_for_range = list(sums_visible)
 
         # Show convergence limit line when |p₀| < 1
@@ -531,4 +471,40 @@ class FeedbackConvergenceSimulator(BaseSimulator):
             "title": "Partial Sum: S[n] = \u03a3 p\u2080\u1d4f (Geometric Series)",
             "data": traces,
             "layout": layout,
+        }
+
+    # \u2500\u2500 State \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+    def get_state(self) -> Dict[str, Any]:
+        p0 = float(self.parameters["p0"])
+        abs_p0 = abs(p0)
+        num_samples = int(self.parameters["num_samples"])
+
+        convergence = self._convergence_class(p0)
+
+        geometric_sum_limit = None
+        if convergence == "converging":
+            geometric_sum_limit = 1.0 / (1.0 - p0)
+
+        step = self._animation_step if self._animation_active else num_samples - 1
+        current_sample_value = p0 ** step if step >= 0 else 0.0
+
+        return {
+            "parameters": self.parameters.copy(),
+            "plots": self.get_plots(),
+            "metadata": {
+                "simulation_type": "feedback_convergence",
+                "hub_slots": self.HUB_SLOTS,
+                "hub_domain": self.HUB_DOMAIN,
+                "hub_dimensions": self.HUB_DIMENSIONS,
+                "p0": p0,
+                "convergence": convergence,
+                "abs_p0": abs_p0,
+                "geometric_sum_limit": geometric_sum_limit,
+                "animation_step": self._animation_step,
+                "animation_active": self._animation_active,
+                "current_sample_value": float(current_sample_value),
+                "num_samples": num_samples,
+                "presets": self.PRESETS,
+            },
         }

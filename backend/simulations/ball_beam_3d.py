@@ -18,11 +18,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .base_simulator import BaseSimulator
 from core.controllers import (
-    numerical_jacobian, controllability_matrix, observability_matrix,
+    numerical_jacobian, controllability_matrix,
     compute_lqr, compute_pole_placement, compute_lqg, compute_pid_gains,
     simulate_uncontrolled, simulate_pid, simulate_state_feedback,
     simulate_lqg, compute_performance_metrics, compute_energy,
-    ss2tf_siso, auto_tune_zn_closed, auto_tune_itae, auto_tune_lqr_itae,
+    auto_tune_lqr_itae,
 )
 
 
@@ -35,6 +35,7 @@ class BallBeam3DSimulator(BaseSimulator):
     # Simulation config
     SIM_TIME = 10.0
     DT = 0.01
+    U_MAX = 50.0  # actuator torque saturation (N·m)
 
     # Plot colors
     COLORS = {
@@ -232,6 +233,13 @@ class BallBeam3DSimulator(BaseSimulator):
 
         return np.array([r_dot, r_ddot, alpha_dot, alpha_ddot])
 
+    @staticmethod
+    def _lqr_design(A: np.ndarray, B: np.ndarray, Q: np.ndarray,
+                    R: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """LQR gain K and closed-loop eigenvalues for (A, B, Q, R)."""
+        K, _P, cl_eigs = compute_lqr(A, B, Q, R)
+        return K, cl_eigs
+
     # ------------------------------------------------------------------ #
     #  Main computation                                                   #
     # ------------------------------------------------------------------ #
@@ -271,6 +279,11 @@ class BallBeam3DSimulator(BaseSimulator):
         }
 
         try:
+            # State-feedback branches share one simulate_state_feedback call;
+            # each only chooses K_sf and stages its own controller_info fields.
+            K_sf: Optional[np.ndarray] = None
+            sf_info: Dict[str, Any] = {}
+
             if ctrl == "none":
                 result = simulate_uncontrolled(
                     self._dynamics, x0, t_span, n_inputs=1, dt=self.DT)
@@ -281,61 +294,48 @@ class BallBeam3DSimulator(BaseSimulator):
                 result = simulate_pid(
                     self._dynamics, x0, t_span, gains,
                     output_index=0, x_ref=0.0,  # track r = 0 (ball at center)
-                    n_inputs=1, u_max=50.0, dt=self.DT)
+                    n_inputs=1, u_max=self.U_MAX, dt=self.DT)
                 controller_info["gains"] = gains
 
             elif ctrl == "lqr":
                 Q = np.diag([p["lqr_q_r"], 1.0, p["lqr_q_alpha"], 1.0])
                 R = np.array([[p["lqr_r"]]])
-                K, P, cl_eigs = compute_lqr(A, B, Q, R)
-                result = simulate_state_feedback(
-                    self._dynamics, x0, t_span, K, x_eq, u_eq,
-                    u_max=50.0, dt=self.DT)
-                controller_info["K"] = K.tolist()
-                controller_info["cl_eigenvalues"] = cl_eigs.tolist()
-                controller_info["Q"] = Q.tolist()
-                controller_info["R"] = R.tolist()
+                K_sf, cl_eigs = self._lqr_design(A, B, Q, R)
+                sf_info["K"] = K_sf.tolist()
+                sf_info["cl_eigenvalues"] = cl_eigs.tolist()
+                sf_info["Q"] = Q.tolist()
+                sf_info["R"] = R.tolist()
 
             elif ctrl == "pole_placement":
                 s = p["pp_real"]
                 spread = p["pp_spread"]
                 poles = np.array([s, s * spread, s * spread**2, s * spread**3])
-                K, cl_eigs = compute_pole_placement(A, B, poles)
-                result = simulate_state_feedback(
-                    self._dynamics, x0, t_span, K, x_eq, u_eq,
-                    u_max=50.0, dt=self.DT)
-                controller_info["K"] = K.tolist()
-                controller_info["cl_eigenvalues"] = cl_eigs.tolist()
-                controller_info["desired_poles"] = poles.tolist()
+                K_sf, cl_eigs = compute_pole_placement(A, B, poles)
+                sf_info["K"] = K_sf.tolist()
+                sf_info["cl_eigenvalues"] = cl_eigs.tolist()
+                sf_info["desired_poles"] = poles.tolist()
 
             elif ctrl in ("zn_closed", "itae_optimal"):
                 # Auto-tune: optimize LQR Q/R weights to minimize ITAE
                 tuned = auto_tune_lqr_itae(
                     self._dynamics, x0, A, B, x_eq, u_eq,
                     output_index=0, x_ref=0.0,
-                    u_max=50.0, duration=5.0, dt=self.DT)
+                    u_max=self.U_MAX, duration=5.0, dt=self.DT)
                 if tuned is not None:
-                    K_auto, q_diag, r_val = tuned
-                    result = simulate_state_feedback(
-                        self._dynamics, x0, t_span, K_auto, x_eq, u_eq,
-                        u_max=50.0, dt=self.DT)
-                    controller_info["K"] = K_auto.tolist()
-                    controller_info["cl_eigenvalues"] = np.linalg.eigvals(
-                        A - B @ K_auto).tolist()
-                    controller_info["Q"] = np.diag(q_diag).tolist()
-                    controller_info["R"] = [[r_val]]
+                    K_sf, q_diag, r_val = tuned
+                    sf_info["K"] = K_sf.tolist()
+                    sf_info["cl_eigenvalues"] = np.linalg.eigvals(
+                        A - B @ K_sf).tolist()
+                    sf_info["Q"] = np.diag(q_diag).tolist()
+                    sf_info["R"] = [[r_val]]
                 else:
                     # Fallback to default LQR
-                    Q = np.diag([10.0, 1.0, 1.0, 1.0])
-                    R = np.array([[0.1]])
-                    K_auto, _, cl_eigs = compute_lqr(A, B, Q, R)
-                    result = simulate_state_feedback(
-                        self._dynamics, x0, t_span, K_auto, x_eq, u_eq,
-                        u_max=50.0, dt=self.DT)
-                    controller_info["K"] = K_auto.tolist()
-                    controller_info["cl_eigenvalues"] = cl_eigs.tolist()
-                    controller_info["auto_tune_fallback"] = True
-                controller_info["auto_tune_method"] = ctrl
+                    K_sf, cl_eigs = self._lqr_design(
+                        A, B, np.diag([10.0, 1.0, 1.0, 1.0]), np.array([[0.1]]))
+                    sf_info["K"] = K_sf.tolist()
+                    sf_info["cl_eigenvalues"] = cl_eigs.tolist()
+                    sf_info["auto_tune_fallback"] = True
+                sf_info["auto_tune_method"] = ctrl
 
             elif ctrl == "lqg":
                 Q_lqr = np.diag([p["lqg_q_r"], 1.0, p["lqg_q_alpha"], 1.0])
@@ -347,7 +347,7 @@ class BallBeam3DSimulator(BaseSimulator):
                     A, B, C, Q_lqr, R_lqr, Q_kalman, R_kalman)
                 result = simulate_lqg(
                     self._dynamics, x0, t_span, K, L, A, B, C,
-                    x_eq, u_eq, u_max=50.0, dt=self.DT)
+                    x_eq, u_eq, u_max=self.U_MAX, dt=self.DT)
                 controller_info["K"] = K.tolist()
                 controller_info["L"] = L.tolist()
                 controller_info["cl_eigenvalues"] = np.linalg.eigvals(
@@ -358,6 +358,12 @@ class BallBeam3DSimulator(BaseSimulator):
             else:
                 result = simulate_uncontrolled(
                     self._dynamics, x0, t_span, n_inputs=1, dt=self.DT)
+
+            if K_sf is not None:
+                result = simulate_state_feedback(
+                    self._dynamics, x0, t_span, K_sf, x_eq, u_eq,
+                    u_max=self.U_MAX, dt=self.DT)
+                controller_info.update(sf_info)
 
         except Exception as e:
             # Fallback to uncontrolled on any numerical failure
@@ -420,14 +426,17 @@ class BallBeam3DSimulator(BaseSimulator):
     def get_plots(self) -> List[Dict[str, Any]]:
         if not self._result:
             return []
+        return [
+            self._plot_ball_pos(),
+            self._plot_beam_angle(),
+            self._plot_control(),
+            self._plot_phase(),
+            self._plot_poles(),
+        ]
 
-        r = self._result["sim"]
-        t = r["t"]
-        x = r["x"]
-        u = r["u"]
+    def _layout_base(self) -> Dict[str, Any]:
         C = self.COLORS
-
-        layout_base = {
+        return {
             "paper_bgcolor": "#0a0e27",
             "plot_bgcolor": "#131b2e",
             "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
@@ -438,10 +447,12 @@ class BallBeam3DSimulator(BaseSimulator):
                        "bordercolor": "rgba(148, 163, 184, 0.2)"},
         }
 
-        plots = []
-
-        # 1. Ball position
-        ball_plot = {
+    def _plot_ball_pos(self) -> Dict[str, Any]:
+        C = self.COLORS
+        layout_base = self._layout_base()
+        t = self._result["sim"]["t"]
+        x = self._result["sim"]["x"]
+        return {
             "id": "ball_pos",
             "title": "Ball Position r(t)",
             "data": [
@@ -465,11 +476,14 @@ class BallBeam3DSimulator(BaseSimulator):
                 "uirevision": "ball_pos",
             },
         }
-        plots.append(ball_plot)
 
-        # 2. Beam angle
+    def _plot_beam_angle(self) -> Dict[str, Any]:
+        C = self.COLORS
+        layout_base = self._layout_base()
+        t = self._result["sim"]["t"]
+        x = self._result["sim"]["x"]
         alpha_deg = np.degrees(x[:, 2])
-        angle_plot = {
+        return {
             "id": "beam_angle",
             "title": "Beam Angle \u03b1(t)",
             "data": [
@@ -493,10 +507,13 @@ class BallBeam3DSimulator(BaseSimulator):
                 "uirevision": "beam_angle",
             },
         }
-        plots.append(angle_plot)
 
-        # 3. Control torque
-        ctrl_plot = {
+    def _plot_control(self) -> Dict[str, Any]:
+        C = self.COLORS
+        layout_base = self._layout_base()
+        t = self._result["sim"]["t"]
+        u = self._result["sim"]["u"]
+        return {
             "id": "control",
             "title": "Control Torque \u03c4(t)",
             "data": [
@@ -514,10 +531,12 @@ class BallBeam3DSimulator(BaseSimulator):
                 "uirevision": "control",
             },
         }
-        plots.append(ctrl_plot)
 
-        # 4. Phase portrait (r vs r_dot)
-        phase_plot = {
+    def _plot_phase(self) -> Dict[str, Any]:
+        C = self.COLORS
+        layout_base = self._layout_base()
+        x = self._result["sim"]["x"]
+        return {
             "id": "phase",
             "title": "Phase Portrait (r, \u1e59)",
             "data": [
@@ -543,9 +562,10 @@ class BallBeam3DSimulator(BaseSimulator):
                 "uirevision": "phase",
             },
         }
-        plots.append(phase_plot)
 
-        # 5. Pole map
+    def _plot_poles(self) -> Dict[str, Any]:
+        C = self.COLORS
+        layout_base = self._layout_base()
         ci = self._result["controller_info"]
         ol_eigs = np.array(ci["ol_eigenvalues"])
         pz_data = [
@@ -574,7 +594,7 @@ class BallBeam3DSimulator(BaseSimulator):
                            "symbol": "diamond"},
             })
 
-        pz_plot = {
+        return {
             "id": "poles",
             "title": "Pole Map",
             "data": pz_data,
@@ -592,9 +612,6 @@ class BallBeam3DSimulator(BaseSimulator):
                 "uirevision": "poles",
             },
         }
-        plots.append(pz_plot)
-
-        return plots
 
     def to_hub_data(self):
         """Export linearized state-space model at equilibrium."""

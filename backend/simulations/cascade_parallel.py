@@ -1,14 +1,4 @@
-"""
-Cascade ↔ Parallel Decomposition Workbench
-
-Decomposes a second-order DT system into three equivalent forms:
-  - Original (direct form): y[n] = a₁·y[n-1] + a₂·y[n-2] + x[n]
-  - Cascade (series): H(z) = H₁(z)·H₂(z)
-  - Parallel (partial fractions): H(z) = A₁/(1-p₁z⁻¹) + A₂/(1-p₂z⁻¹)
-
-Step-by-step factoring animation shows the algebra, and all three
-impulse responses overlay to prove equivalence.
-"""
+"""Cascade ↔ parallel decomposition of a 2nd-order DT system.   Textbook: Oppenheim DTSP §6.3 (cascade/parallel structures)."""
 
 from typing import Any, Dict, List, Optional
 
@@ -147,7 +137,6 @@ class CascadeParallelSimulator(BaseSimulator):
 
         # Partial fraction coefficients
         if self._poles_are_repeated:
-            p = self._p1
             self._A1 = complex(1.0, 0.0)
             self._A2 = complex(1.0, 0.0)
         else:
@@ -163,24 +152,12 @@ class CascadeParallelSimulator(BaseSimulator):
             h[i] = a1 * h[i - 1] + (a2 * h[i - 2] if i >= 2 else 0.0)
         self._h_original = self._clamp(h)
 
-        # 2) Cascade form (convolve two first-order impulse responses)
+        # 2) Cascade form: h[n] = h₁[n] * h₂[n], h_i[n] = p_iⁿ.
+        # Complex convolution then real part; real poles give zero imaginary part.
         n = self._n
-        if self._poles_are_complex:
-            h1 = np.real(self._p1 ** n)
-            h2 = np.real(self._p2 ** n)
-            h_cascade_full = np.convolve(
-                np.real(self._p1 ** np.arange(N)),
-                np.real(self._p2 ** np.arange(N)),
-            )[:N]
-            # For complex poles, direct convolution of real parts doesn't work.
-            # Use the full complex convolution and take the real part.
-            h1c = self._p1 ** np.arange(N)
-            h2c = self._p2 ** np.arange(N)
-            h_cascade_full = np.real(np.convolve(h1c, h2c))[:N]
-        else:
-            h1 = np.real(self._p1 ** n)
-            h2 = np.real(self._p2 ** n)
-            h_cascade_full = np.convolve(h1, h2)[:N]
+        h1c = self._p1 ** np.arange(N)
+        h2c = self._p2 ** np.arange(N)
+        h_cascade_full = np.real(np.convolve(h1c, h2c))[:N]
         self._h_cascade = self._clamp(h_cascade_full)
 
         # 3) Parallel form (analytical)
@@ -199,15 +176,219 @@ class CascadeParallelSimulator(BaseSimulator):
             self._mode1 = self._clamp(np.real(self._A1 * self._p1 ** n))
             self._mode2 = self._clamp(np.real(self._A2 * self._p2 ** n))
 
-        # Build factoring steps
-        self._build_factoring_steps(a1, a2)
-
     def _clamp(self, arr: np.ndarray) -> np.ndarray:
         """Clamp values to prevent display explosion for unstable systems."""
         return np.clip(arr, -self.CLAMP_VALUE, self.CLAMP_VALUE)
 
+    # ── Plot generation ──────────────────────────────────────────
+
+    def get_plots(self) -> List[Dict[str, Any]]:
+        """Return plots appropriate for the current decomposition step."""
+        if self._n is None:
+            self._compute()
+
+        plots: List[Dict[str, Any]] = []
+        step = self._decomposition_step
+
+        # Always show original
+        plots.append(self._make_stem_plot(
+            "original_response",
+            "Original Form — h[n]",
+            self._h_original,
+            "#3b82f6",
+            "h[n] (direct)",
+        ))
+
+        # Cascade at step >= 2
+        if step >= 2:
+            plots.append(self._make_stem_plot(
+                "cascade_response",
+                "Cascade Form — h₁[n] * h₂[n]",
+                self._h_cascade,
+                "#14b8a6",
+                "h[n] (cascade)",
+                ghost=self._h_original,
+                ghost_label="h[n] (original)",
+            ))
+
+        # Parallel at step >= 3
+        if step >= 3:
+            plots.append(self._make_stem_plot(
+                "parallel_response",
+                "Parallel Form — A₁p₁ⁿ + A₂p₂ⁿ",
+                self._h_parallel,
+                "#22d3ee",
+                "h[n] (parallel)",
+                ghost=self._h_original,
+                ghost_label="h[n] (original)",
+            ))
+
+        # Individual modes at step 4
+        if step >= 4:
+            plots.append(self._make_modes_plot())
+
+        return plots
+
+    def _stem_traces(
+        self,
+        h: np.ndarray,
+        name: str,
+        line: Dict[str, Any],
+        marker: Dict[str, Any],
+        hovertemplate: str,
+    ) -> List[Dict[str, Any]]:
+        """One stem curve: N vertical lines (no legend) + one marker trace."""
+        n = self._n
+        traces: List[Dict[str, Any]] = [
+            {
+                "x": [int(n[i]), int(n[i])],
+                "y": [0, float(h[i])],
+                "type": "scatter",
+                "mode": "lines",
+                "line": line,
+                "showlegend": False,
+                "hoverinfo": "skip",
+            }
+            for i in range(len(n))
+        ]
+        traces.append({
+            "x": n.tolist(),
+            "y": h.tolist(),
+            "type": "scatter",
+            "mode": "markers",
+            "marker": marker,
+            "name": name,
+            "hovertemplate": hovertemplate,
+        })
+        return traces
+
+    def _stem_layout(self, prefix: str, title: str) -> Dict[str, Any]:
+        """Layout with title, x-range, dtick, uirevision fingerprint, and zero line."""
+        N = len(self._n)
+        a1 = self.parameters["a1"]
+        a2 = self.parameters["a2"]
+
+        layout = self._base_layout("n", "h[n]")
+        layout["title"] = {"text": title, "font": {"size": 14, "color": "#f1f5f9"}}
+        layout["yaxis"]["autorange"] = True
+        layout["xaxis"]["range"] = [-0.5, N - 0.5]
+        layout["xaxis"]["dtick"] = max(1, N // 20)
+        layout["uirevision"] = f"{prefix}-a1={a1}-a2={a2}-step={self._decomposition_step}"
+        layout["shapes"] = [{
+            "type": "line",
+            "x0": -0.5, "x1": N - 0.5,
+            "y0": 0, "y1": 0,
+            "line": {"color": "rgba(148,163,184,0.4)", "width": 1, "dash": "dash"},
+        }]
+        return layout
+
+    def _make_stem_plot(
+        self,
+        plot_id: str,
+        title: str,
+        h: np.ndarray,
+        color: str,
+        name: str,
+        ghost: Optional[np.ndarray] = None,
+        ghost_label: str = "original",
+    ) -> Dict[str, Any]:
+        """Build a stem plot with optional ghost overlay."""
+        traces: List[Dict[str, Any]] = []
+
+        if ghost is not None:
+            traces.extend(self._stem_traces(
+                ghost,
+                ghost_label,
+                line={"color": "rgba(148,163,184,0.25)", "width": 1},
+                marker={"color": "rgba(148,163,184,0.35)", "size": 6},
+                hovertemplate="n=%{x}<br>h[n]=%{y:.4g}<extra></extra>",
+            ))
+
+        traces.extend(self._stem_traces(
+            h,
+            name,
+            line={"color": color, "width": 2},
+            marker={
+                "color": color,
+                "size": 9,
+                "line": {"color": "rgba(0,0,0,0.3)", "width": 1},
+            },
+            hovertemplate="n=%{x}<br>h[n]=%{y:.4g}<extra></extra>",
+        ))
+
+        layout = self._stem_layout(plot_id, title)
+        return {"id": plot_id, "title": title, "data": traces, "layout": layout}
+
+    def _make_modes_plot(self) -> Dict[str, Any]:
+        """Build the individual-modes plot with separate colored curves."""
+        traces: List[Dict[str, Any]] = []
+
+        mode_configs = [
+            (self._mode1, "#fbbf24", "Mode 1: A₁p₁ⁿ" if not self._poles_are_repeated else "Mode 1: pⁿ"),
+            (self._mode2, "#f472b6", "Mode 2: A₂p₂ⁿ" if not self._poles_are_repeated else "Mode 2: n·pⁿ"),
+        ]
+
+        for mode, color, mode_name in mode_configs:
+            traces.extend(self._stem_traces(
+                mode,
+                mode_name,
+                line={"color": color, "width": 1.5, "dash": "dot"},
+                marker={"color": color, "size": 7},
+                hovertemplate="n=%{x}<br>%{y:.4g}<extra></extra>",
+            ))
+
+        # Sum (total response) as solid stems
+        traces.extend(self._stem_traces(
+            self._h_parallel,
+            "Sum (total h[n])",
+            line={"color": "#22d3ee", "width": 2},
+            marker={
+                "color": "#22d3ee",
+                "size": 9,
+                "line": {"color": "rgba(0,0,0,0.3)", "width": 1},
+            },
+            hovertemplate="n=%{x}<br>h[n]=%{y:.4g}<extra></extra>",
+        ))
+
+        layout = self._stem_layout("modes", "Individual Modes")
+        return {
+            "id": "individual_modes",
+            "title": "Individual Modes",
+            "data": traces,
+            "layout": layout,
+        }
+
+    def _base_layout(self, xtitle: str, ytitle: str) -> Dict[str, Any]:
+        """Standard Plotly layout template."""
+        return {
+            "xaxis": {
+                "title": xtitle,
+                "gridcolor": "rgba(148,163,184,0.1)",
+                "zerolinecolor": "rgba(148,163,184,0.3)",
+                "showgrid": True,
+            },
+            "yaxis": {
+                "title": ytitle,
+                "gridcolor": "rgba(148,163,184,0.1)",
+                "zerolinecolor": "rgba(148,163,184,0.3)",
+                "showgrid": True,
+            },
+            "paper_bgcolor": "rgba(0,0,0,0)",
+            "plot_bgcolor": "rgba(0,0,0,0)",
+            "font": {"family": "Inter, sans-serif", "size": 12},
+            "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
+            "legend": {
+                "x": 1, "xanchor": "right",
+                "y": 1, "yanchor": "top",
+                "bgcolor": "rgba(0,0,0,0.3)",
+                "font": {"size": 11, "color": "#f1f5f9"},
+            },
+        }
+
+    # ── State ────────────────────────────────────────────────────
+
     def _build_factoring_steps(self, a1: float, a2: float) -> None:
-        """Build the step-by-step factoring description list."""
+        """Build the step-by-step factoring description strings (display only)."""
         p1, p2 = self._p1, self._p2
 
         def fmt_complex(z: complex) -> str:
@@ -275,261 +456,14 @@ class CascadeParallelSimulator(BaseSimulator):
             },
         ]
 
-    # ── Plot generation ──────────────────────────────────────────
-
-    def get_plots(self) -> List[Dict[str, Any]]:
-        """Return plots appropriate for the current decomposition step."""
-        if self._n is None:
-            self._compute()
-
-        plots: List[Dict[str, Any]] = []
-        step = self._decomposition_step
-
-        # Always show original
-        plots.append(self._make_stem_plot(
-            "original_response",
-            "Original Form — h[n]",
-            self._h_original,
-            "#3b82f6",
-            "h[n] (direct)",
-        ))
-
-        # Cascade at step >= 2
-        if step >= 2:
-            plots.append(self._make_stem_plot(
-                "cascade_response",
-                "Cascade Form — h₁[n] * h₂[n]",
-                self._h_cascade,
-                "#14b8a6",
-                "h[n] (cascade)",
-                ghost=self._h_original,
-                ghost_label="h[n] (original)",
-            ))
-
-        # Parallel at step >= 3
-        if step >= 3:
-            plots.append(self._make_stem_plot(
-                "parallel_response",
-                "Parallel Form — A₁p₁ⁿ + A₂p₂ⁿ",
-                self._h_parallel,
-                "#22d3ee",
-                "h[n] (parallel)",
-                ghost=self._h_original,
-                ghost_label="h[n] (original)",
-            ))
-
-        # Individual modes at step 4
-        if step >= 4:
-            plots.append(self._make_modes_plot())
-
-        return plots
-
-    def _make_stem_plot(
-        self,
-        plot_id: str,
-        title: str,
-        h: np.ndarray,
-        color: str,
-        name: str,
-        ghost: Optional[np.ndarray] = None,
-        ghost_label: str = "original",
-    ) -> Dict[str, Any]:
-        """Build a stem plot with optional ghost overlay."""
-        n = self._n
-        N = len(n)
-        traces: List[Dict[str, Any]] = []
-
-        # Ghost trace (original as faded overlay)
-        if ghost is not None:
-            for i in range(N):
-                traces.append({
-                    "x": [int(n[i]), int(n[i])],
-                    "y": [0, float(ghost[i])],
-                    "type": "scatter",
-                    "mode": "lines",
-                    "line": {"color": "rgba(148,163,184,0.25)", "width": 1},
-                    "showlegend": False,
-                    "hoverinfo": "skip",
-                })
-            traces.append({
-                "x": n.tolist(),
-                "y": ghost.tolist(),
-                "type": "scatter",
-                "mode": "markers",
-                "marker": {"color": "rgba(148,163,184,0.35)", "size": 6},
-                "name": ghost_label,
-                "hovertemplate": "n=%{x}<br>h[n]=%{y:.4g}<extra></extra>",
-            })
-
-        # Main stem lines
-        for i in range(N):
-            traces.append({
-                "x": [int(n[i]), int(n[i])],
-                "y": [0, float(h[i])],
-                "type": "scatter",
-                "mode": "lines",
-                "line": {"color": color, "width": 2},
-                "showlegend": False,
-                "hoverinfo": "skip",
-            })
-
-        # Main markers
-        traces.append({
-            "x": n.tolist(),
-            "y": h.tolist(),
-            "type": "scatter",
-            "mode": "markers",
-            "marker": {
-                "color": color,
-                "size": 9,
-                "line": {"color": "rgba(0,0,0,0.3)", "width": 1},
-            },
-            "name": name,
-            "hovertemplate": "n=%{x}<br>h[n]=%{y:.4g}<extra></extra>",
-        })
-
-        # Fingerprint for uirevision: when params or step change, reset zoom
-        a1 = self.parameters["a1"]
-        a2 = self.parameters["a2"]
-        revision_key = f"{plot_id}-a1={a1}-a2={a2}-step={self._decomposition_step}"
-
-        layout = self._base_layout("n", "h[n]")
-        layout["title"] = {"text": title, "font": {"size": 14, "color": "#f1f5f9"}}
-        layout["yaxis"]["autorange"] = True
-        layout["xaxis"]["range"] = [-0.5, N - 0.5]
-        layout["xaxis"]["dtick"] = max(1, N // 20)
-        layout["uirevision"] = revision_key
-
-        # Zero line
-        layout["shapes"] = [{
-            "type": "line",
-            "x0": -0.5, "x1": N - 0.5,
-            "y0": 0, "y1": 0,
-            "line": {"color": "rgba(148,163,184,0.4)", "width": 1, "dash": "dash"},
-        }]
-
-        return {"id": plot_id, "title": title, "data": traces, "layout": layout}
-
-    def _make_modes_plot(self) -> Dict[str, Any]:
-        """Build the individual-modes plot with separate colored curves."""
-        n = self._n
-        N = len(n)
-        traces: List[Dict[str, Any]] = []
-
-        mode_configs = [
-            (self._mode1, "#fbbf24", "Mode 1: A₁p₁ⁿ" if not self._poles_are_repeated else "Mode 1: pⁿ"),
-            (self._mode2, "#f472b6", "Mode 2: A₂p₂ⁿ" if not self._poles_are_repeated else "Mode 2: n·pⁿ"),
-        ]
-
-        for mode, color, mode_name in mode_configs:
-            # Mode stem lines
-            for i in range(N):
-                traces.append({
-                    "x": [int(n[i]), int(n[i])],
-                    "y": [0, float(mode[i])],
-                    "type": "scatter",
-                    "mode": "lines",
-                    "line": {"color": color, "width": 1.5, "dash": "dot"},
-                    "showlegend": False,
-                    "hoverinfo": "skip",
-                })
-            traces.append({
-                "x": n.tolist(),
-                "y": mode.tolist(),
-                "type": "scatter",
-                "mode": "markers",
-                "marker": {"color": color, "size": 7},
-                "name": mode_name,
-                "hovertemplate": "n=%{x}<br>%{y:.4g}<extra></extra>",
-            })
-
-        # Sum (total response) as solid stems
-        h_sum = self._h_parallel
-        for i in range(N):
-            traces.append({
-                "x": [int(n[i]), int(n[i])],
-                "y": [0, float(h_sum[i])],
-                "type": "scatter",
-                "mode": "lines",
-                "line": {"color": "#22d3ee", "width": 2},
-                "showlegend": False,
-                "hoverinfo": "skip",
-            })
-        traces.append({
-            "x": n.tolist(),
-            "y": h_sum.tolist(),
-            "type": "scatter",
-            "mode": "markers",
-            "marker": {
-                "color": "#22d3ee",
-                "size": 9,
-                "line": {"color": "rgba(0,0,0,0.3)", "width": 1},
-            },
-            "name": "Sum (total h[n])",
-            "hovertemplate": "n=%{x}<br>h[n]=%{y:.4g}<extra></extra>",
-        })
-
-        a1 = self.parameters["a1"]
-        a2 = self.parameters["a2"]
-        revision_key = f"modes-a1={a1}-a2={a2}-step={self._decomposition_step}"
-
-        layout = self._base_layout("n", "h[n]")
-        layout["title"] = {
-            "text": "Individual Modes",
-            "font": {"size": 14, "color": "#f1f5f9"},
-        }
-        layout["yaxis"]["autorange"] = True
-        layout["xaxis"]["range"] = [-0.5, N - 0.5]
-        layout["xaxis"]["dtick"] = max(1, N // 20)
-        layout["uirevision"] = revision_key
-
-        layout["shapes"] = [{
-            "type": "line",
-            "x0": -0.5, "x1": N - 0.5,
-            "y0": 0, "y1": 0,
-            "line": {"color": "rgba(148,163,184,0.4)", "width": 1, "dash": "dash"},
-        }]
-
-        return {
-            "id": "individual_modes",
-            "title": "Individual Modes",
-            "data": traces,
-            "layout": layout,
-        }
-
-    def _base_layout(self, xtitle: str, ytitle: str) -> Dict[str, Any]:
-        """Standard Plotly layout template."""
-        return {
-            "xaxis": {
-                "title": xtitle,
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "showgrid": True,
-            },
-            "yaxis": {
-                "title": ytitle,
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "showgrid": True,
-            },
-            "paper_bgcolor": "rgba(0,0,0,0)",
-            "plot_bgcolor": "rgba(0,0,0,0)",
-            "font": {"family": "Inter, sans-serif", "size": 12},
-            "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
-            "legend": {
-                "x": 1, "xanchor": "right",
-                "y": 1, "yanchor": "top",
-                "bgcolor": "rgba(0,0,0,0.3)",
-                "font": {"size": 11, "color": "#f1f5f9"},
-            },
-        }
-
-    # ── State ────────────────────────────────────────────────────
-
     def get_state(self) -> Dict[str, Any]:
         """Return full state including metadata for the custom viewer."""
         if self._n is None:
             self._compute()
+
+        self._build_factoring_steps(
+            float(self.parameters["a1"]), float(self.parameters["a2"])
+        )
 
         state = super().get_state()
         state["metadata"] = {

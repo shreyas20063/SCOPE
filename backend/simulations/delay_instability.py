@@ -20,9 +20,22 @@ from .base_simulator import BaseSimulator
 class DelayInstabilitySimulator(BaseSimulator):
     """Simulator for delay-induced instability in feedback control."""
 
+    # ── 1. DEFINE ──────────────
     # System constants
     T_STEP = 0.1  # Time step duration (locomotion period)
     MAX_POSITION = 50.0  # Clamp to prevent overflow
+
+    # Three-case color scheme (shared by both plot builders)
+    CASE_COLORS = {
+        "no_delay": "#10b981",
+        "one_step": "#f59e0b",
+        "two_step": "#ef4444",
+    }
+    CASE_LABELS = {
+        "no_delay": "No Delay",
+        "one_step": "1-Step Delay",
+        "two_step": "2-Step Delay",
+    }
 
     PARAMETER_SCHEMA = {
         "kt_product": {
@@ -93,6 +106,7 @@ class DelayInstabilitySimulator(BaseSimulator):
         self._poles: Dict[str, List[complex]] = {}
         self._crash_step: Optional[int] = None
 
+    # ── 2. LIFECYCLE ───────────
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
         for name, value in self.parameters.items():
@@ -121,6 +135,7 @@ class DelayInstabilitySimulator(BaseSimulator):
         self._compute()
         return self.get_state()
 
+    # ── 3. ACTIONS ─────────────
     def handle_action(self, action: str, params: Dict[str, Any]) -> Dict[str, Any]:
         N = int(self.parameters["num_steps"])
 
@@ -147,6 +162,7 @@ class DelayInstabilitySimulator(BaseSimulator):
 
         return self.get_state()
 
+    # ── 4. MATH ────────────────
     def _compute(self) -> None:
         """Compute step responses for all three delay cases.
 
@@ -203,7 +219,6 @@ class DelayInstabilitySimulator(BaseSimulator):
             3. Next position: d_o[n+1] = d_o[n] - T * v[n]
         """
         d_o = [0.0] * N
-        v = [0.0] * N
         d_o[0] = d_initial
 
         for n in range(N):
@@ -214,12 +229,10 @@ class DelayInstabilitySimulator(BaseSimulator):
             else:
                 d_s = d_o[past_idx]
 
-            # Controller command
-            v[n] = K * (d_target - d_s)
-
-            # Update position for next step
+            # Controller command, then update position for next step
+            v = K * (d_target - d_s)
             if n + 1 < N:
-                d_new = d_o[n] - T * v[n]
+                d_new = d_o[n] - T * v
                 d_o[n + 1] = max(-self.MAX_POSITION, min(self.MAX_POSITION, d_new))
 
         return d_o
@@ -228,8 +241,7 @@ class DelayInstabilitySimulator(BaseSimulator):
         """Compute closed-loop poles for each delay case."""
         poles = {}
 
-        # No delay: H(z) = -KTR / (1 - (1+KT)R)
-        # Pole at z = 1 + KT
+        # No delay: z - (1 + KT) = 0, single pole at z = 1 + KT
         poles["no_delay"] = [complex(1 + KT, 0)]
 
         # 1-step delay: z² - z - KT = 0
@@ -244,10 +256,26 @@ class DelayInstabilitySimulator(BaseSimulator):
 
         return poles
 
+    # ── 5. PRESENT ─────────────
     def get_plots(self) -> List[Dict[str, Any]]:
         if not self._positions:
             self._compute()
         return [self._create_position_plot(), self._create_pole_plot()]
+
+    @staticmethod
+    def _base_layout() -> Dict[str, Any]:
+        """Shared Plotly layout boilerplate (bg/font/margin/legend)."""
+        return {
+            "paper_bgcolor": "rgba(0,0,0,0)",
+            "plot_bgcolor": "rgba(0,0,0,0)",
+            "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
+            "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
+            "showlegend": True,
+            "legend": {
+                "font": {"color": "#94a3b8", "size": 11},
+                "bgcolor": "rgba(0,0,0,0)",
+            },
+        }
 
     def _create_position_plot(self) -> Dict[str, Any]:
         """Create the position vs time step stem plot."""
@@ -258,22 +286,10 @@ class DelayInstabilitySimulator(BaseSimulator):
 
         traces = []
 
-        # Color mapping
-        colors = {
-            "no_delay": "#10b981",
-            "one_step": "#f59e0b",
-            "two_step": "#ef4444",
-        }
-        labels = {
-            "no_delay": "No Delay",
-            "one_step": "1-Step Delay",
-            "two_step": "2-Step Delay",
-        }
-
         for key in ("no_delay", "one_step", "two_step"):
             pos = self._positions.get(key, [])
-            color = colors[key]
-            label = labels[key]
+            color = self.CASE_COLORS[key]
+            label = self.CASE_LABELS[key]
 
             # Stem lines
             stem_x: List = []
@@ -349,15 +365,7 @@ class DelayInstabilitySimulator(BaseSimulator):
                     "color": "#94a3b8",
                     "autorange": True,
                 },
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
-                "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
-                "showlegend": True,
-                "legend": {
-                    "font": {"color": "#94a3b8", "size": 11},
-                    "bgcolor": "rgba(0,0,0,0)",
-                },
+                **self._base_layout(),
                 "datarevision": f"pos-{time.time()}",
                 "uirevision": fingerprint,
             },
@@ -385,29 +393,12 @@ class DelayInstabilitySimulator(BaseSimulator):
             }
         ]
 
-        colors = {
-            "no_delay": "#10b981",
-            "one_step": "#f59e0b",
-            "two_step": "#ef4444",
-        }
-        labels = {
-            "no_delay": "No Delay",
-            "one_step": "1-Step Delay",
-            "two_step": "2-Step Delay",
-        }
-        symbols = {
-            "no_delay": "x",
-            "one_step": "x",
-            "two_step": "x",
-        }
-
         for key in ("no_delay", "one_step", "two_step"):
             pole_list = self._poles.get(key, [])
             real_parts = [p.real for p in pole_list]
             imag_parts = [p.imag for p in pole_list]
-            magnitudes = [abs(p) for p in pole_list]
             hover_text = [
-                f"{labels[key]}<br>z = {p.real:.3f} + {p.imag:.3f}j<br>|z| = {abs(p):.3f}"
+                f"{self.CASE_LABELS[key]}<br>z = {p.real:.3f} + {p.imag:.3f}j<br>|z| = {abs(p):.3f}"
                 for p in pole_list
             ]
 
@@ -416,12 +407,12 @@ class DelayInstabilitySimulator(BaseSimulator):
                 "y": imag_parts,
                 "type": "scatter",
                 "mode": "markers",
-                "name": labels[key],
+                "name": self.CASE_LABELS[key],
                 "marker": {
-                    "color": colors[key],
+                    "color": self.CASE_COLORS[key],
                     "size": 12,
                     "symbol": "x",
-                    "line": {"color": colors[key], "width": 2},
+                    "line": {"color": self.CASE_COLORS[key], "width": 2},
                 },
                 "text": hover_text,
                 "hoverinfo": "text",
@@ -451,20 +442,13 @@ class DelayInstabilitySimulator(BaseSimulator):
                     "range": [-2, 2],
                     "constrain": "domain",
                 },
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "font": {"family": "Inter, sans-serif", "size": 12, "color": "#f1f5f9"},
-                "margin": {"t": 45, "r": 25, "b": 55, "l": 60},
-                "showlegend": True,
-                "legend": {
-                    "font": {"color": "#94a3b8", "size": 11},
-                    "bgcolor": "rgba(0,0,0,0)",
-                },
+                **self._base_layout(),
                 "datarevision": f"poles-{time.time()}",
                 "uirevision": fingerprint,
             },
         }
 
+    # ── 6. STATE ───────────────
     def get_state(self) -> Dict[str, Any]:
         if not self._positions:
             self._compute()

@@ -7,21 +7,21 @@ Frontend receives trajectory arrays for Three.js 3D animation + Plotly plots.
 Physics (Lagrangian-derived):
     State: [x, ẋ, θ, θ̇] where θ measured from downward vertical (π = upright)
     (M+m)ẍ + ml(θ̈ cosθ − θ̇² sinθ) = F
-    l θ̈ + ẍ cosθ − g sinθ = 0
+    l θ̈ + ẍ cosθ + g sinθ = 0
 
 References: Ogata Ch 12, Khalil Ch 12.4, Åström & Murray Ch 3.
 """
 
 import numpy as np
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from .base_simulator import BaseSimulator
 from core.controllers import (
-    numerical_jacobian, controllability_matrix, observability_matrix,
+    numerical_jacobian, controllability_matrix,
     compute_lqr, compute_pole_placement, compute_lqg, compute_pid_gains,
     simulate_uncontrolled, simulate_pid, simulate_state_feedback,
     simulate_lqg, compute_performance_metrics, compute_energy,
-    ss2tf_siso, auto_tune_zn_closed, auto_tune_itae, auto_tune_lqr_itae,
+    auto_tune_lqr_itae,
 )
 
 
@@ -223,6 +223,20 @@ class InvertedPendulum3DSimulator(BaseSimulator):
 
         return np.array([x_dot, x_ddot, theta_dot, theta_ddot])
 
+    def _run_state_feedback(self, K, cl_eigs, x0, t_span, x_eq, u_eq,
+                            controller_info):
+        """Simulate u = -K(x - x_eq), record K and closed-loop eigenvalues.
+
+        Shared by the lqr / pole_placement / auto-tune (success and fallback)
+        branches, which differ only in how K and cl_eigs are obtained.
+        """
+        result = simulate_state_feedback(
+            self._dynamics, x0, t_span, K, x_eq, u_eq,
+            u_max=200.0, dt=self.DT)
+        controller_info["K"] = K.tolist()
+        controller_info["cl_eigenvalues"] = cl_eigs.tolist()
+        return result
+
     # ------------------------------------------------------------------ #
     #  Main computation                                                   #
     # ------------------------------------------------------------------ #
@@ -279,11 +293,8 @@ class InvertedPendulum3DSimulator(BaseSimulator):
                 Q = np.diag([p["lqr_q_x"], 1.0, p["lqr_q_theta"], 1.0])
                 R = np.array([[p["lqr_r"]]])
                 K, P, cl_eigs = compute_lqr(A, B, Q, R)
-                result = simulate_state_feedback(
-                    self._dynamics, x0, t_span, K, x_eq, u_eq,
-                    u_max=200.0, dt=self.DT)
-                controller_info["K"] = K.tolist()
-                controller_info["cl_eigenvalues"] = cl_eigs.tolist()
+                result = self._run_state_feedback(
+                    K, cl_eigs, x0, t_span, x_eq, u_eq, controller_info)
                 controller_info["Q"] = Q.tolist()
                 controller_info["R"] = R.tolist()
 
@@ -292,11 +303,8 @@ class InvertedPendulum3DSimulator(BaseSimulator):
                 spread = p["pp_spread"]
                 poles = np.array([s, s * spread, s * spread**2, s * spread**3])
                 K, cl_eigs = compute_pole_placement(A, B, poles)
-                result = simulate_state_feedback(
-                    self._dynamics, x0, t_span, K, x_eq, u_eq,
-                    u_max=200.0, dt=self.DT)
-                controller_info["K"] = K.tolist()
-                controller_info["cl_eigenvalues"] = cl_eigs.tolist()
+                result = self._run_state_feedback(
+                    K, cl_eigs, x0, t_span, x_eq, u_eq, controller_info)
                 controller_info["desired_poles"] = poles.tolist()
 
             elif ctrl in ("zn_closed", "itae_optimal"):
@@ -307,12 +315,10 @@ class InvertedPendulum3DSimulator(BaseSimulator):
                     u_max=200.0, duration=5.0, dt=self.DT)
                 if tuned is not None:
                     K_auto, q_diag, r_val = tuned
-                    result = simulate_state_feedback(
-                        self._dynamics, x0, t_span, K_auto, x_eq, u_eq,
-                        u_max=200.0, dt=self.DT)
-                    controller_info["K"] = K_auto.tolist()
-                    controller_info["cl_eigenvalues"] = np.linalg.eigvals(
-                        A - B @ K_auto).tolist()
+                    cl_eigs = np.linalg.eigvals(A - B @ K_auto)
+                    result = self._run_state_feedback(
+                        K_auto, cl_eigs, x0, t_span, x_eq, u_eq,
+                        controller_info)
                     controller_info["Q"] = np.diag(q_diag).tolist()
                     controller_info["R"] = [[r_val]]
                 else:
@@ -320,11 +326,9 @@ class InvertedPendulum3DSimulator(BaseSimulator):
                     Q = np.diag([1.0, 1.0, 10.0, 1.0])
                     R = np.array([[0.1]])
                     K_auto, _, cl_eigs = compute_lqr(A, B, Q, R)
-                    result = simulate_state_feedback(
-                        self._dynamics, x0, t_span, K_auto, x_eq, u_eq,
-                        u_max=200.0, dt=self.DT)
-                    controller_info["K"] = K_auto.tolist()
-                    controller_info["cl_eigenvalues"] = cl_eigs.tolist()
+                    result = self._run_state_feedback(
+                        K_auto, cl_eigs, x0, t_span, x_eq, u_eq,
+                        controller_info)
                     controller_info["auto_tune_fallback"] = True
                 controller_info["auto_tune_method"] = ctrl
 
@@ -341,10 +345,6 @@ class InvertedPendulum3DSimulator(BaseSimulator):
                     x_eq, u_eq, u_max=200.0, dt=self.DT)
                 controller_info["K"] = K.tolist()
                 controller_info["L"] = L.tolist()
-                cl_A = np.block([
-                    [A - B @ K, B @ K],
-                    [L @ C, A - B @ K - L @ C],
-                ])
                 controller_info["cl_eigenvalues"] = np.linalg.eigvals(
                     A - B @ K).tolist()
                 controller_info["est_eigenvalues"] = np.linalg.eigvals(
@@ -611,9 +611,9 @@ class InvertedPendulum3DSimulator(BaseSimulator):
             "plots": self.get_plots(),
             "metadata": {
                 "simulation_type": "inverted_pendulum_3d",
-            "hub_slots": self.HUB_SLOTS,
-            "hub_domain": self.HUB_DOMAIN,
-            "hub_dimensions": self.HUB_DIMENSIONS,
+                "hub_slots": self.HUB_SLOTS,
+                "hub_domain": self.HUB_DOMAIN,
+                "hub_dimensions": self.HUB_DIMENSIONS,
                 "animation": self._result["animation"] if self._result else None,
                 "controller_info": self._result["controller_info"] if self._result else {},
                 "metrics": self._result["metrics"] if self._result else {},

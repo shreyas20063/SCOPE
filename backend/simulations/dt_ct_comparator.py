@@ -1,9 +1,8 @@
-"""
-DT ↔ CT Side-by-Side Comparator
+"""DT ↔ CT Side-by-Side Comparator — same pole p, different stability regions.
 
-Shows how the same pole value p produces pⁿu[n] in DT vs eᵖᵗu(t) in CT,
-with fundamentally different stability regions: unit circle (DT) vs left
-half-plane (CT).
+Shows how the same pole value p produces pⁿu[n] in DT vs eᵖᵗu(t) in CT, with
+fundamentally different stability regions: unit circle (DT) vs left half-plane (CT).
+Textbook: Oppenheim §2.4 (first-order LTI response), Ogata §5-4 (stability).
 """
 
 import random
@@ -18,9 +17,12 @@ from .base_simulator import BaseSimulator
 class DTCTComparatorSimulator(BaseSimulator):
     """Simulator comparing first-order DT and CT system responses."""
 
-    # Constants
+    # ── 1. DEFINE ──────────────────────────────────────────────────────────
     CT_NUM_POINTS = 500
     Y_CLIP = 50.0  # Clip extreme values to prevent Plotly overflow
+
+    # Quiz candidate poles; correct answer is derived from _classify_stability.
+    QUIZ_POLES = [-1.5, -1.2, -1.0, -0.8, -0.5, -0.3, 0.3, 0.5, 0.8, 0.9, 1.2, 1.5]
 
     PARAMETER_SCHEMA = {
         "p": {
@@ -66,19 +68,25 @@ class DTCTComparatorSimulator(BaseSimulator):
         "mode": "explore",
     }
 
-
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)
         # Monotonic revision counter — forces Plotly to reset axis state
         self._revision: int = 0
-        # Quiz state
-        self._quiz_p: Optional[float] = None
-        self._quiz_answer: Optional[str] = None
-        self._quiz_generated: bool = False
-        self._quiz_user_answer: Optional[str] = None
-        self._quiz_answered: bool = False
-        self._quiz_correct: Optional[bool] = None
+        self._quiz: Dict[str, Any] = self._empty_quiz()
 
+    @staticmethod
+    def _empty_quiz() -> Dict[str, Any]:
+        """Fresh quiz state (no question generated yet)."""
+        return {
+            "generated": False,
+            "p": None,
+            "answer": None,
+            "answered": False,
+            "correct": None,
+            "user_answer": None,
+        }
+
+    # ── 2. LIFECYCLE ───────────────────────────────────────────────────────
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
         for name, value in self.parameters.items():
@@ -89,7 +97,6 @@ class DTCTComparatorSimulator(BaseSimulator):
 
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
         if name in self.parameters:
-            old_value = self.parameters.get(name)
             self.parameters[name] = self._validate_param(name, value)
             # Mode change → full reset of quiz state
             if name == "mode":
@@ -110,12 +117,7 @@ class DTCTComparatorSimulator(BaseSimulator):
 
     def _reset_quiz_state(self) -> None:
         """Clear all quiz-related internal state."""
-        self._quiz_generated = False
-        self._quiz_answered = False
-        self._quiz_correct = None
-        self._quiz_user_answer = None
-        self._quiz_p = None
-        self._quiz_answer = None
+        self._quiz = self._empty_quiz()
 
     def handle_action(self, action: str, params: Dict[str, Any]) -> Dict[str, Any]:
         if action == "new_quiz":
@@ -124,13 +126,25 @@ class DTCTComparatorSimulator(BaseSimulator):
             self._revision += 1
         elif action == "check_quiz":
             user_answer = params.get("answer", "")
-            self._quiz_user_answer = user_answer
-            self._quiz_answered = True
-            self._quiz_correct = (user_answer == self._quiz_answer)
+            self._quiz["user_answer"] = user_answer
+            self._quiz["answered"] = True
+            self._quiz["correct"] = (user_answer == self._quiz["answer"])
             self._revision += 1
         return self.get_state()
 
-    # ── Computation ──────────────────────────────────────────────────────
+    def _generate_quiz(self) -> None:
+        """Generate a quiz question with a random pole value."""
+        quiz_p = random.choice(self.QUIZ_POLES)
+        self._quiz = {
+            "generated": True,
+            "p": quiz_p,
+            "answer": self._classify_stability(quiz_p)["agreement"],
+            "answered": False,
+            "correct": None,
+            "user_answer": None,
+        }
+
+    # ── 3. MATH ────────────────────────────────────────────────────────────
 
     def _compute_dt(self, p: float, N: int) -> Dict[str, np.ndarray]:
         """Compute DT response y[n] = pⁿ u[n]."""
@@ -237,32 +251,13 @@ class DTCTComparatorSimulator(BaseSimulator):
             "abs_pole": round(abs_p, 4),
         }
 
-    # ── Quiz ─────────────────────────────────────────────────────────────
+    def _get_active_pole(self) -> float:
+        """Return the pole value to use for plots — quiz pole in quiz mode, slider pole otherwise."""
+        if self.parameters["mode"] == "quiz" and self._quiz["generated"]:
+            return float(self._quiz["p"])
+        return float(self.parameters["p"])
 
-    def _generate_quiz(self) -> None:
-        """Generate a quiz question with a random pole value."""
-        candidates = [
-            (-1.5, "ct_only"),
-            (-1.2, "ct_only"),
-            (-1.0, "ct_only"),
-            (-0.8, "both_stable"),
-            (-0.5, "both_stable"),
-            (-0.3, "both_stable"),
-            (0.3, "dt_only"),
-            (0.5, "dt_only"),
-            (0.8, "dt_only"),
-            (0.9, "dt_only"),
-            (1.2, "neither_stable"),
-            (1.5, "neither_stable"),
-        ]
-
-        self._quiz_p, self._quiz_answer = random.choice(candidates)
-        self._quiz_generated = True
-        self._quiz_answered = False
-        self._quiz_correct = None
-        self._quiz_user_answer = None
-
-    # ── Plot Builders ────────────────────────────────────────────────────
+    # ── 4. PRESENT ─────────────────────────────────────────────────────────
 
     def _base_layout(self) -> Dict[str, Any]:
         """Shared layout fields for both plots."""
@@ -273,6 +268,30 @@ class DTCTComparatorSimulator(BaseSimulator):
             "margin": {"t": 45, "r": 20, "b": 55, "l": 55},
             "showlegend": True,
             "legend": {"font": {"color": "#94a3b8", "size": 10}, "bgcolor": "rgba(0,0,0,0)"},
+        }
+
+    @staticmethod
+    def _axis(title: str, **extra: Any) -> Dict[str, Any]:
+        """Shared axis-styling dict; `extra` overrides/augments (e.g. dtick, range)."""
+        axis = {
+            "title": {"text": title, "font": {"color": "#f1f5f9", "size": 13}},
+            "gridcolor": "rgba(148,163,184,0.1)",
+            "zerolinecolor": "rgba(148,163,184,0.3)",
+            "zerolinewidth": 2,
+            "color": "#94a3b8",
+        }
+        axis.update(extra)
+        return axis
+
+    def _plot_layout(self, prefix: str, xaxis: Dict[str, Any], yaxis: Dict[str, Any]) -> Dict[str, Any]:
+        """Assemble a full plot layout with shared base + revision-tagged axis state."""
+        rev = self._revision
+        return {
+            **self._base_layout(),
+            "xaxis": xaxis,
+            "yaxis": yaxis,
+            "datarevision": f"{prefix}-{rev}-{time.time()}",
+            "uirevision": f"{prefix}-{rev}",
         }
 
     def _build_dt_plot(self, dt_data: Dict, stability: Dict, show_envelope: bool) -> Dict[str, Any]:
@@ -344,28 +363,11 @@ class DTCTComparatorSimulator(BaseSimulator):
             all_y.extend((-dt_data["envelope"]).tolist())
         y_range = self._smart_y_range(np.array(all_y))
 
-        rev = self._revision
-        layout = {
-            **self._base_layout(),
-            "xaxis": {
-                "title": {"text": "n (samples)", "font": {"color": "#f1f5f9", "size": 13}},
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "zerolinewidth": 2,
-                "color": "#94a3b8",
-                "dtick": 1 if len(n) <= 25 else 5,
-            },
-            "yaxis": {
-                "title": {"text": "y[n]", "font": {"color": "#f1f5f9", "size": 13}},
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "zerolinewidth": 2,
-                "color": "#94a3b8",
-                "range": y_range,
-            },
-            "datarevision": f"dt-{rev}-{time.time()}",
-            "uirevision": f"dt-{rev}",
-        }
+        layout = self._plot_layout(
+            "dt",
+            self._axis("n (samples)", dtick=1 if len(n) <= 25 else 5),
+            self._axis("y[n]", range=y_range),
+        )
 
         return {
             "id": "dt_response",
@@ -411,27 +413,11 @@ class DTCTComparatorSimulator(BaseSimulator):
             all_y.extend(ct_data["envelope"].tolist())
         y_range = self._smart_y_range(np.array(all_y))
 
-        rev = self._revision
-        layout = {
-            **self._base_layout(),
-            "xaxis": {
-                "title": {"text": "t (seconds)", "font": {"color": "#f1f5f9", "size": 13}},
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "zerolinewidth": 2,
-                "color": "#94a3b8",
-            },
-            "yaxis": {
-                "title": {"text": "y(t)", "font": {"color": "#f1f5f9", "size": 13}},
-                "gridcolor": "rgba(148,163,184,0.1)",
-                "zerolinecolor": "rgba(148,163,184,0.3)",
-                "zerolinewidth": 2,
-                "color": "#94a3b8",
-                "range": y_range,
-            },
-            "datarevision": f"ct-{rev}-{time.time()}",
-            "uirevision": f"ct-{rev}",
-        }
+        layout = self._plot_layout(
+            "ct",
+            self._axis("t (seconds)"),
+            self._axis("y(t)", range=y_range),
+        )
 
         return {
             "id": "ct_response",
@@ -439,14 +425,6 @@ class DTCTComparatorSimulator(BaseSimulator):
             "data": traces,
             "layout": layout,
         }
-
-    # ── Public Interface ─────────────────────────────────────────────────
-
-    def _get_active_pole(self) -> float:
-        """Return the pole value to use for plots — quiz pole in quiz mode, slider pole otherwise."""
-        if self.parameters["mode"] == "quiz" and self._quiz_generated:
-            return float(self._quiz_p)
-        return float(self.parameters["p"])
 
     def get_plots(self) -> List[Dict[str, Any]]:
         p = self._get_active_pole()
@@ -463,16 +441,17 @@ class DTCTComparatorSimulator(BaseSimulator):
             self._build_ct_plot(ct_data, stability, show_envelope),
         ]
 
+    # ── 5. STATE ───────────────────────────────────────────────────────────
+
     def get_state(self) -> Dict[str, Any]:
-        p_explore = float(self.parameters["p"])
         p_active = self._get_active_pole()
         stability = self._classify_stability(p_active)
 
         # Auto-generate quiz on first access in quiz mode
-        if self.parameters["mode"] == "quiz" and not self._quiz_generated:
+        if self.parameters["mode"] == "quiz" and not self._quiz["generated"]:
             self._generate_quiz()
             # Recompute stability for the quiz pole
-            p_active = float(self._quiz_p)
+            p_active = float(self._quiz["p"])
             stability = self._classify_stability(p_active)
 
         state = super().get_state()
@@ -486,13 +465,14 @@ class DTCTComparatorSimulator(BaseSimulator):
             "revision": self._revision,
         }
 
-        if self.parameters["mode"] == "quiz" and self._quiz_generated:
+        if self.parameters["mode"] == "quiz" and self._quiz["generated"]:
+            answered = self._quiz["answered"]
             state["metadata"]["quiz"] = {
-                "quiz_p": self._quiz_p,
-                "answered": self._quiz_answered,
-                "correct": self._quiz_correct,
-                "correct_answer": self._quiz_answer if self._quiz_answered else None,
-                "user_answer": self._quiz_user_answer if self._quiz_answered else None,
+                "quiz_p": self._quiz["p"],
+                "answered": answered,
+                "correct": self._quiz["correct"],
+                "correct_answer": self._quiz["answer"] if answered else None,
+                "user_answer": self._quiz["user_answer"] if answered else None,
             }
 
         return state

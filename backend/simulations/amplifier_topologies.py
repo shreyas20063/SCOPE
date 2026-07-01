@@ -25,6 +25,7 @@ class AmplifierSimulator(BaseSimulator):
     - amplifier_type: simple, feedback, crossover, compensated
     """
 
+    # ── 1. DEFINE ──────────────────────────────────────────────────────────
     # Configuration (matching PyQt5)
     SAMPLE_RATE = 44100
     DEFAULT_DURATION = 1.0
@@ -33,6 +34,8 @@ class AmplifierSimulator(BaseSimulator):
     PLOT_WINDOW_SIZE = 4410  # ~100ms window to show clear waveforms
     INPUT_YLIM = (-0.15, 0.15)
     INITIAL_OUTPUT_LIMIT = 0.1
+    GAIN_F0_MIN = 8   # F0 sweep range for the gain-vs-F0 curve (matching PyQt5)
+    GAIN_F0_MAX = 12
 
     # Colors (matching PyQt5)
     COLOR_INPUT = "#00A0FF"
@@ -42,6 +45,28 @@ class AmplifierSimulator(BaseSimulator):
     COLOR_IDEAL_GAIN = "#a855f7"  # purple
     COLOR_CURRENT_F0 = "#ef4444"  # red
     COLOR_XY_PLOT = "#FFC300"  # amber
+
+    # Shared Plotly styling
+    GRID_COLOR = "rgba(148, 163, 184, 0.2)"
+    ZEROLINE_COLOR = "rgba(148, 163, 184, 0.3)"
+    LEGEND_H = {
+        "orientation": "h",
+        "yanchor": "bottom",
+        "y": 1.02,
+        "xanchor": "right",
+        "x": 1,
+    }
+    LEGEND_V = {
+        "orientation": "v",
+        "yanchor": "top",
+        "y": 0.98,
+        "xanchor": "left",
+        "x": 0.02,
+        "bgcolor": "rgba(15, 23, 42, 0.8)",
+        "bordercolor": "rgba(148, 163, 184, 0.2)",
+        "borderwidth": 1,
+        "font": {"size": 10},
+    }
 
     # Parameter schema (matching PyQt5 ranges exactly)
     PARAMETER_SCHEMA = {
@@ -112,6 +137,31 @@ class AmplifierSimulator(BaseSimulator):
     # Fixed threshold voltage (matching PyQt5)
     VT = 0.7
 
+    # Static lookup tables for info-panel metadata
+    INPUT_LABELS = {
+        'pure_sine': 'Pure Sine Wave',
+        'rich_sine': 'Rich Sine (Harmonics)',
+    }
+    MODE_LABELS = {
+        'simple': 'Simple Amplifier',
+        'feedback': 'Feedback System',
+        'crossover': 'Crossover Distortion',
+        'compensated': 'Compensated System',
+    }
+    MODE_DESCRIPTIONS = {
+        'simple': 'Open-loop amplifier with gain = F₀',
+        'feedback': 'Negative feedback reduces gain but improves linearity',
+        'crossover': 'Push-pull output stage with dead zone (VT = 0.7V)',
+        'compensated': 'Feedback + compensation reduces effective dead zone',
+    }
+    CIRCUIT_IMAGES = {
+        'simple': '/assets/amplifier_topologies/simple.png',
+        'feedback': '/assets/amplifier_topologies/feedback.png',
+        'crossover': '/assets/amplifier_topologies/crossover.png',
+        'compensated': '/assets/amplifier_topologies/compensated.png',
+    }
+
+    # ── 2. LIFECYCLE ───────────────────────────────────────────────────────
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._time = None
@@ -119,6 +169,10 @@ class AmplifierSimulator(BaseSimulator):
         self._output_signal = None
         self._audio_data = None
         self._output_audio = None
+        # Cached closed-loop gain results (computed in _compute)
+        self._effective_gain = None
+        self._gain_formula = None
+        self._ideal_gain = None
         # Dynamic axis limits - only update when out of bounds
         self._output_y_limit = self.INITIAL_OUTPUT_LIMIT
         self._xy_plot_limit = 0.15
@@ -154,6 +208,7 @@ class AmplifierSimulator(BaseSimulator):
         self._compute()
         return self.get_state()
 
+    # ── 3. MATH ────────────────────────────────────────────────────────────
     def _generate_test_signal(self, sig_type: str = 'pure_sine') -> np.ndarray:
         """Generate demo test signals (matching PyQt5)."""
         t = np.linspace(0, self.DEFAULT_DURATION,
@@ -218,7 +273,30 @@ class AmplifierSimulator(BaseSimulator):
         self._output_signal = output[start_index:end_index]
         self._time = np.arange(len(self._input_signal)) / self.SAMPLE_RATE
 
-        # Smart axis scaling - only update when data goes OUT OF BOUNDS
+        # Cache the closed-loop gain and its textbook formula for the info panel
+        if amp_type == 'simple':
+            self._effective_gain = F0_val
+            self._gain_formula = f"G = F₀ = {F0_val:.1f}"
+        elif amp_type == 'feedback':
+            self._effective_gain = (K_val * F0_val) / (1 + beta_val * K_val * F0_val)
+            self._gain_formula = f"G = KF₀/(1+βKF₀) = {self._effective_gain:.2f}"
+        elif amp_type == 'crossover':
+            self._effective_gain = K_val
+            self._gain_formula = f"G = K = {K_val} (with crossover distortion)"
+        else:  # compensated
+            self._effective_gain = (K_val * F0_val) / (1 + beta_val * K_val * F0_val)
+            self._gain_formula = f"G = KF₀/(1+βKF₀) = {self._effective_gain:.2f} (compensated)"
+        self._ideal_gain = 1 / beta_val if beta_val > 0 else float('inf')
+
+        self._update_axis_limits(K_val, beta_val)
+
+    def _update_axis_limits(self, K_val: float, beta_val: float) -> None:
+        """Smart axis-limit hysteresis (presentation state, not physics).
+
+        Limits only expand when data goes out of bounds and shrink when data
+        is much smaller, so user zoom (uirevision) is preserved across updates.
+        """
+        # Output-signal y limit
         if len(self._output_signal) > 0:
             max_output_amp = np.max(np.abs(self._output_signal))
             # Only expand if data exceeds current limit
@@ -228,13 +306,31 @@ class AmplifierSimulator(BaseSimulator):
             elif max_output_amp < self._output_y_limit * 0.3 and self._output_y_limit > 0.2:
                 self._output_y_limit = max(max_output_amp * 2.0, 0.1)
 
-        # Update XY plot limits - only when out of bounds
+        # XY plot limit - only when out of bounds
         if len(self._input_signal) > 0 and len(self._output_signal) > 0:
             max_xy = max(np.max(np.abs(self._input_signal)), np.max(np.abs(self._output_signal)))
             if max_xy > self._xy_plot_limit * 0.95:
                 self._xy_plot_limit = max_xy * 1.2
             elif max_xy < self._xy_plot_limit * 0.3 and self._xy_plot_limit > 0.02:
                 self._xy_plot_limit = max(max_xy * 2.0, 0.015)
+
+        # Gain-curve y limits (over the F0 grid used by the gain-curve plot)
+        F0_range = np.linspace(self.GAIN_F0_MIN, self.GAIN_F0_MAX, 100)
+        gain_simple, gain_feedback, ideal_gain = self._calculate_gains(
+            K_val, beta_val, F0_range
+        )
+        data_y_min = min(min(gain_feedback), min(gain_simple)) * 0.9
+        data_y_max = max(max(gain_simple), ideal_gain) * 1.1
+        # Expand limits if data goes out of bounds
+        if data_y_min < self._gain_y_min:
+            self._gain_y_min = data_y_min
+        if data_y_max > self._gain_y_max:
+            self._gain_y_max = data_y_max
+        # Shrink only if data is much smaller
+        if data_y_max < self._gain_y_max * 0.4:
+            self._gain_y_max = data_y_max * 1.5
+        if data_y_min > self._gain_y_min * 2 and self._gain_y_min > 0:
+            self._gain_y_min = data_y_min * 0.5
 
     def _calculate_gains(self, K_val: float, beta_val: float, F0_range: np.ndarray):
         """Calculate gain curves (matching PyQt5 GainCalculator)."""
@@ -243,9 +339,35 @@ class AmplifierSimulator(BaseSimulator):
         ideal_gain = 1 / beta_val if beta_val > 0 else float('inf')
         return gain_simple, gain_feedback, ideal_gain
 
-    # =========================================================================
-    # Plot generation (4 plots matching PyQt5)
-    # =========================================================================
+    # ── 4. PRESENT ─────────────────────────────────────────────────────────
+    # Plot generation (4 plots matching PyQt5); never computes physics here.
+    def _axis(self, title, axis_range, extra=None):
+        """Build a standard axis dict (grid + zeroline + range)."""
+        axis = {
+            "title": title,
+            "range": axis_range,
+            "showgrid": True,
+            "gridcolor": self.GRID_COLOR,
+            "zeroline": True,
+            "zerolinecolor": self.ZEROLINE_COLOR,
+            "fixedrange": False,
+        }
+        if extra:
+            axis.update(extra)
+        return axis
+
+    def _base_layout(self, x_title, x_range, y_title, y_range,
+                     legend=None, xaxis_extra=None):
+        """Standard Plotly layout shared by all four plots."""
+        return {
+            "xaxis": self._axis(x_title, x_range, xaxis_extra),
+            "yaxis": self._axis(y_title, y_range),
+            "legend": dict(self.LEGEND_H if legend is None else legend),
+            "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
+            "plot_bgcolor": "rgba(0,0,0,0)",
+            "paper_bgcolor": "rgba(0,0,0,0)",
+            "uirevision": "constant",
+        }
 
     def get_plots(self) -> List[Dict[str, Any]]:
         """Generate Plotly plot dictionaries matching PyQt5 layout."""
@@ -279,37 +401,10 @@ class AmplifierSimulator(BaseSimulator):
                     "line": {"color": self.COLOR_INPUT, "width": 2},
                 },
             ],
-            "layout": {
-                "xaxis": {
-                    "title": "Time (ms)",
-                    "range": [0, x_max],
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.2)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "fixedrange": False,
-                },
-                "yaxis": {
-                    "title": "Amplitude",
-                    "range": list(self.INPUT_YLIM),
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.2)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "fixedrange": False,
-                },
-                "legend": {
-                    "orientation": "h",
-                    "yanchor": "bottom",
-                    "y": 1.02,
-                    "xanchor": "right",
-                    "x": 1,
-                },
-                "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "constant",
-            },
+            "layout": self._base_layout(
+                "Time (ms)", [0, x_max],
+                "Amplitude", list(self.INPUT_YLIM),
+            ),
         }
 
     def _create_output_plot(self) -> Dict[str, Any]:
@@ -331,37 +426,10 @@ class AmplifierSimulator(BaseSimulator):
                     "line": {"color": self.COLOR_OUTPUT, "width": 2},
                 },
             ],
-            "layout": {
-                "xaxis": {
-                    "title": "Time (ms)",
-                    "range": [0, x_max],
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.2)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "fixedrange": False,
-                },
-                "yaxis": {
-                    "title": "Amplitude",
-                    "range": [-self._output_y_limit, self._output_y_limit],
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.2)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "fixedrange": False,
-                },
-                "legend": {
-                    "orientation": "h",
-                    "yanchor": "bottom",
-                    "y": 1.02,
-                    "xanchor": "right",
-                    "x": 1,
-                },
-                "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "constant",
-            },
+            "layout": self._base_layout(
+                "Time (ms)", [0, x_max],
+                "Amplitude", [-self._output_y_limit, self._output_y_limit],
+            ),
         }
 
     def _create_gain_curve_plot(self) -> Dict[str, Any]:
@@ -371,28 +439,14 @@ class AmplifierSimulator(BaseSimulator):
         beta_val = self.parameters["beta"]
 
         # F0 range matching PyQt5
-        F0_min, F0_max = 8, 12
+        F0_min, F0_max = self.GAIN_F0_MIN, self.GAIN_F0_MAX
         F0_range = np.linspace(F0_min, F0_max, 100)
 
         gain_simple, gain_feedback, ideal_gain = self._calculate_gains(
             K_val, beta_val, F0_range
         )
 
-        # Smart Y-axis scaling - only update when out of bounds
-        data_y_min = min(min(gain_feedback), min(gain_simple)) * 0.9
-        data_y_max = max(max(gain_simple), ideal_gain) * 1.1
-
-        # Expand limits if data goes out of bounds
-        if data_y_min < self._gain_y_min:
-            self._gain_y_min = data_y_min
-        if data_y_max > self._gain_y_max:
-            self._gain_y_max = data_y_max
-        # Shrink only if data is much smaller
-        if data_y_max < self._gain_y_max * 0.4:
-            self._gain_y_max = data_y_max * 1.5
-        if data_y_min > self._gain_y_min * 2 and self._gain_y_min > 0:
-            self._gain_y_min = data_y_min * 0.5
-
+        # Y-axis limits (hysteresis computed in _update_axis_limits)
         traces = [
             # Simple gain curve
             {
@@ -436,41 +490,11 @@ class AmplifierSimulator(BaseSimulator):
             "id": "gain_curve",
             "title": "Gain vs. F₀ Variation",
             "data": traces,
-            "layout": {
-                "xaxis": {
-                    "title": "F₀",
-                    "range": [F0_min, F0_max],
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.2)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "fixedrange": False,
-                },
-                "yaxis": {
-                    "title": "Gain",
-                    "range": [self._gain_y_min, self._gain_y_max],
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.2)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "fixedrange": False,
-                },
-                "legend": {
-                    "orientation": "v",
-                    "yanchor": "top",
-                    "y": 0.98,
-                    "xanchor": "left",
-                    "x": 0.02,
-                    "bgcolor": "rgba(15, 23, 42, 0.8)",
-                    "bordercolor": "rgba(148, 163, 184, 0.2)",
-                    "borderwidth": 1,
-                    "font": {"size": 10},
-                },
-                "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "constant",
-            },
+            "layout": self._base_layout(
+                "F₀", [F0_min, F0_max],
+                "Gain", [self._gain_y_min, self._gain_y_max],
+                legend=self.LEGEND_V,
+            ),
         }
 
     def _create_xy_plot(self) -> Dict[str, Any]:
@@ -501,41 +525,29 @@ class AmplifierSimulator(BaseSimulator):
                     "line": {"color": self.COLOR_XY_PLOT, "width": 2},
                 },
             ],
-            "layout": {
-                "xaxis": {
-                    "title": "Input Amplitude",
-                    "range": [-plot_limit, plot_limit],
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.2)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "fixedrange": False,
-                    "scaleanchor": "y",
-                    "scaleratio": 1,
-                },
-                "yaxis": {
-                    "title": "Output Amplitude",
-                    "range": [-plot_limit, plot_limit],
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.2)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "fixedrange": False,
-                },
-                "legend": {
-                    "orientation": "h",
-                    "yanchor": "bottom",
-                    "y": 1.02,
-                    "xanchor": "right",
-                    "x": 1,
-                },
-                "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "constant",
-            },
+            "layout": self._base_layout(
+                "Input Amplitude", [-plot_limit, plot_limit],
+                "Output Amplitude", [-plot_limit, plot_limit],
+                xaxis_extra={"scaleanchor": "y", "scaleratio": 1},
+            ),
         }
 
+    def _normalize_audio(self, signal: Optional[np.ndarray]) -> Optional[Dict[str, Any]]:
+        """Package a signal for audio playback, normalized to peak 0.8."""
+        if signal is None:
+            return None
+        max_val = np.max(np.abs(signal))
+        if max_val > 0:
+            data = (signal / max_val * 0.8).tolist()
+        else:
+            data = signal.tolist()
+        return {
+            "data": data,
+            "sample_rate": self.SAMPLE_RATE,
+            "duration": len(signal) / self.SAMPLE_RATE,
+        }
+
+    # ── 5. STATE ───────────────────────────────────────────────────────────
     def get_state(self) -> Dict[str, Any]:
         """Return current simulation state with extra info for info panel."""
         base_state = super().get_state()
@@ -546,80 +558,14 @@ class AmplifierSimulator(BaseSimulator):
         amp_type = self.parameters["amplifier_type"]
         input_source = self.parameters["input_source"]
 
-        # Calculate effective gain based on mode
-        if amp_type == 'simple':
-            effective_gain = F0_val
-            gain_formula = f"G = F₀ = {F0_val:.1f}"
-        elif amp_type == 'feedback':
-            effective_gain = (K_val * F0_val) / (1 + beta_val * K_val * F0_val)
-            gain_formula = f"G = KF₀/(1+βKF₀) = {effective_gain:.2f}"
-        elif amp_type == 'crossover':
-            effective_gain = K_val
-            gain_formula = f"G = K = {K_val} (with crossover distortion)"
-        else:  # compensated
-            effective_gain = (K_val * F0_val) / (1 + beta_val * K_val * F0_val)
-            gain_formula = f"G = KF₀/(1+βKF₀) = {effective_gain:.2f} (compensated)"
-
-        # Ideal gain
-        ideal_gain = 1 / beta_val if beta_val > 0 else float('inf')
-
-        # Input source label
-        input_labels = {
-            'pure_sine': 'Pure Sine Wave',
-            'rich_sine': 'Rich Sine (Harmonics)'
-        }
-
-        # Amplifier mode labels with descriptions
-        mode_labels = {
-            'simple': 'Simple Amplifier',
-            'feedback': 'Feedback System',
-            'crossover': 'Crossover Distortion',
-            'compensated': 'Compensated System'
-        }
-
-        mode_descriptions = {
-            'simple': 'Open-loop amplifier with gain = F₀',
-            'feedback': 'Negative feedback reduces gain but improves linearity',
-            'crossover': 'Push-pull output stage with dead zone (VT = 0.7V)',
-            'compensated': 'Feedback + compensation reduces effective dead zone'
-        }
-
-        # Circuit diagram image path
-        circuit_images = {
-            'simple': '/assets/amplifier_topologies/simple.png',
-            'feedback': '/assets/amplifier_topologies/feedback.png',
-            'crossover': '/assets/amplifier_topologies/crossover.png',
-            'compensated': '/assets/amplifier_topologies/compensated.png'
-        }
+        # Closed-loop gain results cached in _compute
+        effective_gain = self._effective_gain
+        gain_formula = self._gain_formula
+        ideal_gain = self._ideal_gain
 
         # Prepare audio data for playback (normalized to [-1, 1])
-        # Input audio (original signal)
-        audio_input = None
-        if self._audio_data is not None:
-            max_val_in = np.max(np.abs(self._audio_data))
-            if max_val_in > 0:
-                normalized_input = (self._audio_data / max_val_in * 0.8).tolist()
-            else:
-                normalized_input = self._audio_data.tolist()
-            audio_input = {
-                "data": normalized_input,
-                "sample_rate": self.SAMPLE_RATE,
-                "duration": len(self._audio_data) / self.SAMPLE_RATE
-            }
-
-        # Output audio (processed signal)
-        audio_output = None
-        if self._output_audio is not None:
-            max_val = np.max(np.abs(self._output_audio))
-            if max_val > 0:
-                normalized_audio = (self._output_audio / max_val * 0.8).tolist()
-            else:
-                normalized_audio = self._output_audio.tolist()
-            audio_output = {
-                "data": normalized_audio,
-                "sample_rate": self.SAMPLE_RATE,
-                "duration": len(self._output_audio) / self.SAMPLE_RATE
-            }
+        audio_input = self._normalize_audio(self._audio_data)
+        audio_output = self._normalize_audio(self._output_audio)
 
         base_state["metadata"] = {
             "simulation_type": "amplifier_topologies",
@@ -627,13 +573,13 @@ class AmplifierSimulator(BaseSimulator):
             "hub_domain": self.HUB_DOMAIN,
             "hub_dimensions": self.HUB_DIMENSIONS,
             "sticky_controls": True,
-            "circuit_image": circuit_images.get(amp_type, ''),
+            "circuit_image": self.CIRCUIT_IMAGES.get(amp_type, ''),
             "has_audio": True,
             "audio_input": audio_input,
             "audio_output": audio_output,
             "system_info": {
-                "mode": mode_labels.get(amp_type, amp_type),
-                "mode_description": mode_descriptions.get(amp_type, ''),
+                "mode": self.MODE_LABELS.get(amp_type, amp_type),
+                "mode_description": self.MODE_DESCRIPTIONS.get(amp_type, ''),
                 "effective_gain": round(effective_gain, 2),
                 "gain_formula": gain_formula,
                 "ideal_gain": round(ideal_gain, 2) if ideal_gain != float('inf') else "∞",
@@ -641,7 +587,7 @@ class AmplifierSimulator(BaseSimulator):
                 "F0": F0_val,
                 "beta": beta_val,
                 "VT": self.VT,
-                "input_source": input_labels.get(input_source, input_source),
+                "input_source": self.INPUT_LABELS.get(input_source, input_source),
             },
             "current_params": {
                 "K": K_val,

@@ -164,9 +164,9 @@ class ZTransformPropertiesSimulator(BaseSimulator):
             "plots": data["plots"],
             "metadata": {
                 "simulation_type": "z_transform_properties",
-            "hub_slots": self.HUB_SLOTS,
-            "hub_domain": self.HUB_DOMAIN,
-            "hub_dimensions": self.HUB_DIMENSIONS,
+                "hub_slots": self.HUB_SLOTS,
+                "hub_domain": self.HUB_DOMAIN,
+                "hub_dimensions": self.HUB_DIMENSIONS,
                 "property": prop,
                 "property_formula": PROPERTY_FORMULAS.get(prop, ""),
                 "signal_1_info": data["signal_1_info"],
@@ -279,9 +279,6 @@ class ZTransformPropertiesSimulator(BaseSimulator):
             x = np.zeros(N)
             x[0], x[1], x[2] = 1.0, 2.0, 1.0
             info = {"label": "[1, 2, 1]", "z_expr": "1+2z\u207b\u00b9+z\u207b\u00b2", "signal_key": sig_key}
-        else:
-            x = np.zeros(N)
-            info = {"label": "?", "z_expr": "?", "signal_key": sig_key}
         return x, info
 
     # ── Property operations ───────────────────────────────────────────
@@ -396,16 +393,13 @@ class ZTransformPropertiesSimulator(BaseSimulator):
     def _compute_result_roc(
         self, prop: str, roc_1: Dict, roc_2: Optional[Dict]
     ) -> Dict[str, Any]:
-        if prop == "linearity":
+        if prop in ("linearity", "convolution"):
             r = max(roc_1["radius"], roc_2["radius"]) if roc_2 else roc_1["radius"]
             return {"type": "outside", "radius": r, "note": "ROC \u2287 ROC\u2081 \u2229 ROC\u2082"}
         if prop == "delay":
             return {"type": roc_1["type"], "radius": roc_1["radius"], "note": "Same ROC (except z=0 or \u221e)"}
-        if prop == "multiply_n":
-            return {"type": roc_1["type"], "radius": roc_1["radius"], "note": "Same ROC"}
-        # convolution
-        r = max(roc_1["radius"], roc_2["radius"]) if roc_2 else roc_1["radius"]
-        return {"type": "outside", "radius": r, "note": "ROC \u2287 ROC\u2081 \u2229 ROC\u2082"}
+        # multiply_n
+        return {"type": roc_1["type"], "radius": roc_1["radius"], "note": "Same ROC"}
 
     # ── Pole / zero helpers ───────────────────────────────────────────
 
@@ -527,6 +521,21 @@ class ZTransformPropertiesSimulator(BaseSimulator):
             },
         }
 
+    @staticmethod
+    def _roc_circle_trace(
+        radius: float, theta: np.ndarray, fillcolor: str, line: Dict[str, Any], name: str
+    ) -> Dict[str, Any]:
+        return {
+            "x": (radius * np.cos(theta)).tolist(),
+            "y": (radius * np.sin(theta)).tolist(),
+            "type": "scatter", "mode": "lines",
+            "fill": "toself",
+            "fillcolor": fillcolor,
+            "line": line,
+            "name": name,
+            "hoverinfo": "name",
+        }
+
     def _z_plane_plot(
         self,
         pz_1: Dict, pz_2: Optional[Dict], result_pz: Dict,
@@ -543,46 +552,34 @@ class ZTransformPropertiesSimulator(BaseSimulator):
         if roc_1["type"] == "outside" and roc_1["radius"] > 0:
             r = roc_1["radius"]
             all_radii.append(r)
-            traces.append({
-                "x": (r * np.cos(theta)).tolist(),
-                "y": (r * np.sin(theta)).tolist(),
-                "type": "scatter", "mode": "lines",
-                "fill": "toself",
-                "fillcolor": "rgba(59,130,246,0.08)",
-                "line": {"color": "rgba(59,130,246,0.4)", "width": 1.5, "dash": "dash"},
-                "name": f"ROC\u2081: |z|>{r:.2g}",
-                "hoverinfo": "name",
-            })
+            traces.append(self._roc_circle_trace(
+                r, theta,
+                "rgba(59,130,246,0.08)",
+                {"color": "rgba(59,130,246,0.4)", "width": 1.5, "dash": "dash"},
+                f"ROC\u2081: |z|>{r:.2g}",
+            ))
 
         # ROC shading for signal 2
         if needs_second and roc_2 and roc_2["type"] == "outside" and roc_2["radius"] > 0:
             r = roc_2["radius"]
             all_radii.append(r)
-            traces.append({
-                "x": (r * np.cos(theta)).tolist(),
-                "y": (r * np.sin(theta)).tolist(),
-                "type": "scatter", "mode": "lines",
-                "fill": "toself",
-                "fillcolor": "rgba(239,68,68,0.08)",
-                "line": {"color": "rgba(239,68,68,0.4)", "width": 1.5, "dash": "dash"},
-                "name": f"ROC\u2082: |z|>{r:.2g}",
-                "hoverinfo": "name",
-            })
+            traces.append(self._roc_circle_trace(
+                r, theta,
+                "rgba(239,68,68,0.08)",
+                {"color": "rgba(239,68,68,0.4)", "width": 1.5, "dash": "dash"},
+                f"ROC\u2082: |z|>{r:.2g}",
+            ))
 
         # Result ROC
         if roc_result["type"] == "outside" and roc_result["radius"] > 0:
             r = roc_result["radius"]
             all_radii.append(r)
-            traces.append({
-                "x": (r * np.cos(theta)).tolist(),
-                "y": (r * np.sin(theta)).tolist(),
-                "type": "scatter", "mode": "lines",
-                "fill": "toself",
-                "fillcolor": "rgba(20,184,166,0.1)",
-                "line": {"color": "rgba(20,184,166,0.6)", "width": 2},
-                "name": f"ROC result: |z|>{r:.2g}",
-                "hoverinfo": "name",
-            })
+            traces.append(self._roc_circle_trace(
+                r, theta,
+                "rgba(20,184,166,0.1)",
+                {"color": "rgba(20,184,166,0.6)", "width": 2},
+                f"ROC result: |z|>{r:.2g}",
+            ))
 
         # Unit circle
         traces.append({

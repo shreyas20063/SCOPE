@@ -71,10 +71,7 @@ class _PolyWrapper:
             raise ValueError("Exponent must be a non-negative integer")
         if exp > 20:
             raise ValueError("Exponent too large (max 20)")
-        result = _PolyWrapper([1.0])
-        for _ in range(exp):
-            result = result * self
-        return result._trim()
+        return _PolyWrapper(P.polypow(self.c, exp))._trim()
 
     def __neg__(self):
         return _PolyWrapper(-self.c)
@@ -158,8 +155,6 @@ def _normalize_expression(expr: str) -> str:
     # Insert implicit multiplication:
     # digit before R:  2R  → 2*R
     s = re.sub(r"(\d)\s*([R])", r"\1*\2", s)
-    # R before digit that's NOT after **: R2 → error? No, treat as R*2 (unlikely but safe)
-    # Actually R2 is ambiguous. Skip this — users should write R^2 or R**2.
     # ) before ( or R or digit:  )(  → )*(,   )R → )*R,   )2 → )*2
     s = re.sub(r"\)\s*\(", r")*(", s)
     s = re.sub(r"\)\s*([R\d])", r")*\1", s)
@@ -167,7 +162,6 @@ def _normalize_expression(expr: str) -> str:
     s = re.sub(r"([R])\s*\(", r"\1*(", s)
     # digit before (:  2(  → 2*(
     s = re.sub(r"(\d)\s*\(", r"\1*(", s)
-    # ) before R:  already handled above
 
     return s
 

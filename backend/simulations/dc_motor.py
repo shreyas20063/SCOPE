@@ -38,6 +38,10 @@ class DCMotorSimulator(BaseSimulator):
     ENVELOPE_COLOR = "#fbbf24"       # Amber - envelope curves (warm contrast)
     POLE_COLOR = "#f87171"           # Coral red - poles marker
     STABLE_REGION_COLOR = "#34d399"  # Emerald - stable region shading
+    STABLE_REGION_FILL = "rgba(52, 211, 153, 0.08)"  # Emerald fill (STABLE_REGION_COLOR @ 0.08)
+    STABLE_REGION_LINE = "rgba(52, 211, 153, 0.4)"   # Emerald line (STABLE_REGION_COLOR @ 0.4)
+    JW_AXIS_COLOR = "#a855f7"        # Purple - jω axis / stability boundary
+    NATURAL_FREQ_COLOR = "#fbbf24"   # Amber - ωn circle through complex poles
 
     # Parameter schema - ranges expanded to include PyQt5 defaults
     # PyQt5 defaults: alpha=10.0, beta=0.5, gamma=1.0, p=10.0
@@ -151,14 +155,12 @@ class DCMotorSimulator(BaseSimulator):
 
         Reference: Ogata, Modern Control Engineering, Sec. 3.3-3.4 (DC motor models).
         """
-        # Extract parameters
         alpha = self.parameters["alpha"]
         beta = self.parameters["beta"]
         gamma = self.parameters["gamma"]
         p = self.parameters["p"]
         model_type = self.parameters["model_type"]
 
-        # Calculate transfer function and poles
         if model_type == "first_order":
             self._transfer_function, self._poles, self._zeros = self._first_order_system(
                 alpha, beta, gamma
@@ -168,18 +170,31 @@ class DCMotorSimulator(BaseSimulator):
                 alpha, beta, gamma, p
             )
 
-        # Calculate step response (fixed time span as in PyQt5)
         self._time = np.linspace(0, self.SIMULATION_TIME, self.NUM_SAMPLES)
         t_step, y_step = signal.step(self._transfer_function, T=self._time)
         self._step_response = y_step
+
+    @staticmethod
+    def _transfer_coeffs(model_type, alpha, beta, gamma, p):
+        """Closed-loop numerator/denominator coefficients (single source of truth).
+
+        First-Order:  H(s) = αγ / (s + αβγ)
+        Second-Order: H(s) = αγp / (s² + ps + αβγp)
+        """
+        if model_type == "first_order":
+            num = [alpha * gamma]
+            den = [1, alpha * beta * gamma]
+        else:
+            num = [alpha * gamma * p]
+            den = [1, p, alpha * beta * gamma * p]
+        return num, den
 
     def _first_order_system(self, alpha, beta, gamma):
         """
         Calculate first-order closed-loop system.
         Transfer function: H(s) = αγ/(s + αβγ)
         """
-        num = [alpha * gamma]
-        den = [1, alpha * beta * gamma]
+        num, den = self._transfer_coeffs("first_order", alpha, beta, gamma, None)
         poles = np.array([-alpha * beta * gamma])
         zeros = np.array([])
         return signal.TransferFunction(num, den), poles, zeros
@@ -189,8 +204,7 @@ class DCMotorSimulator(BaseSimulator):
         Calculate second-order closed-loop system.
         Transfer function: H(s) = αγp/(s² + ps + αβγp)
         """
-        num = [alpha * gamma * p]
-        den = [1, p, alpha * beta * gamma * p]
+        num, den = self._transfer_coeffs("second_order", alpha, beta, gamma, p)
 
         # Calculate poles: s = -p/2 ± sqrt((p/2)² - αβγp)
         discriminant = (p / 2) ** 2 - alpha * beta * gamma * p
@@ -212,6 +226,20 @@ class DCMotorSimulator(BaseSimulator):
 
         zeros = np.array([])
         return signal.TransferFunction(num, den), poles, zeros
+
+    @staticmethod
+    def _expand_lower(default_low, value, margin=0.15):
+        """Expand a lower bound downward to fit value (never shrink)."""
+        if value < default_low:
+            return value * (1 + margin) if value < 0 else value - abs(value) * margin
+        return default_low
+
+    @staticmethod
+    def _expand_upper(default_high, value, margin=0.15):
+        """Expand an upper bound upward to fit value (never shrink)."""
+        if value > default_high:
+            return value * (1 + margin)
+        return default_high
 
     # =========================================================================
     # Plot generation
@@ -236,12 +264,8 @@ class DCMotorSimulator(BaseSimulator):
         p = float(self.parameters.get("p", 10.0))
         model_type = self.parameters.get("model_type", "first_order")
 
-        if model_type == "first_order":
-            num = [alpha * gamma]
-            den = [1.0, alpha * beta * gamma]
-        else:
-            num = [alpha * gamma * p]
-            den = [1.0, p, alpha * beta * gamma * p]
+        num, den = self._transfer_coeffs(model_type, alpha, beta, gamma, p)
+        den = [float(c) for c in den]
 
         return {
             "source": "tf",
@@ -262,23 +286,23 @@ class DCMotorSimulator(BaseSimulator):
         """Return current simulation state with extra info."""
         base_state = super().get_state()
 
-        # Add system information
         alpha = self.parameters["alpha"]
         beta = self.parameters["beta"]
         gamma = self.parameters["gamma"]
         p = self.parameters["p"]
         model_type = self.parameters["model_type"]
 
-        # Calculate transfer function strings
+        num, den = self._transfer_coeffs(model_type, alpha, beta, gamma, p)
+
         if model_type == "first_order":
-            tf_num = f"{alpha * gamma:.1f}"
-            tf_den = f"s + {alpha * beta * gamma:.2f}"
+            tf_num = f"{num[0]:.1f}"
+            tf_den = f"s + {den[1]:.2f}"
             pole_str = f"s = {self._poles[0]:.2f}"
             pole_type = "Real → Stable"
             tf_symbolic = "αγ / (s + αβγ)"
         else:
-            tf_num = f"{alpha * gamma * p:.1f}"
-            tf_den = f"s² + {p:.1f}s + {alpha * beta * gamma * p:.2f}"
+            tf_num = f"{num[0]:.1f}"
+            tf_den = f"s² + {den[1]:.1f}s + {den[2]:.2f}"
             tf_symbolic = "αγp / (s² + ps + αβγp)"
             if np.iscomplex(self._poles[0]):
                 pole_str = f"s = {self._poles[0].real:.2f} ± {abs(self._poles[0].imag):.2f}j"
@@ -327,11 +351,9 @@ class DCMotorSimulator(BaseSimulator):
 
     def _create_pole_zero_plot(self) -> Dict[str, Any]:
         """Create pole-zero map with auto-adjusting axis limits."""
-        # Default fixed axis limits
         default_xlim = [-60, 10]
         default_ylim = [-35, 35]
 
-        # Calculate actual pole bounds
         pole_x_values = []
         pole_y_values = []
         for pole in self._poles:
@@ -341,59 +363,51 @@ class DCMotorSimulator(BaseSimulator):
             else:
                 pole_x_values.append(float(pole))
 
-        # Determine if we need to expand axes (only expand, never shrink)
-        margin = 0.15  # 15% margin when expanding
         xlim = list(default_xlim)
         ylim = list(default_ylim)
 
         if pole_x_values:
-            min_x = min(pole_x_values)
-            if min_x < default_xlim[0]:
-                xlim[0] = min_x * (1 + margin) if min_x < 0 else min_x - abs(min_x) * margin
+            xlim[0] = self._expand_lower(default_xlim[0], min(pole_x_values))
 
         if pole_y_values:
             max_y = max(pole_y_values)
             if max_y > default_ylim[1]:
-                ylim[1] = max_y * (1 + margin)
-                ylim[0] = -ylim[1]  # Keep symmetric
+                ylim[1] = max_y * (1 + 0.15)
+                ylim[0] = -ylim[1]
 
         traces = []
 
-        # Shade stable region (left half-plane) with emerald green
         traces.append({
             "x": [xlim[0], 0, 0, xlim[0], xlim[0]],
             "y": [ylim[0], ylim[0], ylim[1], ylim[1], ylim[0]],
             "type": "scatter",
             "mode": "lines",
             "fill": "toself",
-            "fillcolor": "rgba(52, 211, 153, 0.08)",
-            "line": {"color": "rgba(52, 211, 153, 0.4)", "width": 1.5},
+            "fillcolor": self.STABLE_REGION_FILL,
+            "line": {"color": self.STABLE_REGION_LINE, "width": 1.5},
             "name": "Stable Region (Re < 0)",
             "showlegend": True,
             "hoverinfo": "skip",
         })
 
-        # Add imaginary axis (jω axis) - the stability boundary
+        # Imaginary axis (jω axis) — the stability boundary
         traces.append({
             "x": [0, 0],
             "y": [ylim[0], ylim[1]],
             "type": "scatter",
             "mode": "lines",
-            "line": {"color": "#a855f7", "width": 2.5, "dash": "solid"},  # Purple - stability boundary
+            "line": {"color": self.JW_AXIS_COLOR, "width": 2.5, "dash": "solid"},
             "name": "jω axis (Stability Boundary)",
             "showlegend": True,
             "hoverinfo": "name",
         })
 
-        # Add circle around complex conjugate poles (when they exist)
-        # The circle has radius ωn (natural frequency) = |pole|
+        # Circle of radius ωn (natural frequency) = |pole| through the complex poles
         has_complex_poles = len(self._poles) > 0 and np.iscomplex(self._poles[0])
         if has_complex_poles:
-            # Calculate natural frequency (radius of circle through poles)
             pole = self._poles[0]
-            omega_n = np.abs(pole)  # Natural frequency = |pole|
+            omega_n = np.abs(pole)
 
-            # Generate circle points
             theta_circle = np.linspace(0, 2 * np.pi, 100)
             x_circle = omega_n * np.cos(theta_circle)
             y_circle = omega_n * np.sin(theta_circle)
@@ -403,13 +417,12 @@ class DCMotorSimulator(BaseSimulator):
                 "y": y_circle.tolist(),
                 "type": "scatter",
                 "mode": "lines",
-                "line": {"color": "#fbbf24", "width": 2, "dash": "dash"},  # Amber
+                "line": {"color": self.NATURAL_FREQ_COLOR, "width": 2, "dash": "dash"},
                 "name": f"ωn = {omega_n:.2f} (Natural Freq.)",
                 "showlegend": True,
                 "hovertemplate": f"ωn = {omega_n:.2f}<extra></extra>",
             })
 
-        # Plot poles with improved styling
         for i, pole in enumerate(self._poles):
             if np.iscomplex(pole):
                 traces.append({
@@ -494,30 +507,18 @@ class DCMotorSimulator(BaseSimulator):
         beta = self.parameters["beta"]
         model_type = self.parameters["model_type"]
 
-        # Default fixed y-axis limits
         default_ylim = [-0.5, 3.5]
 
-        # Calculate actual response bounds
         response_min = float(np.min(self._step_response))
         response_max = float(np.max(self._step_response))
         final_value = 1.0 / beta if beta > 0 else 0
 
-        # Determine if we need to expand y-axis (only expand, never shrink)
-        margin = 0.15  # 15% margin when expanding
         ylim = list(default_ylim)
-
-        # Check if response goes below default min
-        if response_min < default_ylim[0]:
-            ylim[0] = response_min * (1 + margin) if response_min < 0 else response_min - abs(response_min) * margin
-
-        # Check if response or final value goes above default max
-        max_val = max(response_max, final_value)
-        if max_val > default_ylim[1]:
-            ylim[1] = max_val * (1 + margin)
+        ylim[0] = self._expand_lower(default_ylim[0], response_min)
+        ylim[1] = self._expand_upper(default_ylim[1], max(response_max, final_value))
 
         traces = []
 
-        # Step response with improved styling
         traces.append({
             "x": self._time.tolist(),
             "y": self._step_response.tolist(),

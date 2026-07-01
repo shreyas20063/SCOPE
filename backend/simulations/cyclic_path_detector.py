@@ -1,15 +1,15 @@
-"""
-Cyclic Path Detector Simulator
+"""Cyclic Path Detector — feedback-loop structure & FIR/IIR classification of block diagrams.
 
 Detect cyclic signal paths in block diagrams. Identify feedback loops,
 classify systems as FIR (acyclic) or IIR (cyclic), and quiz students
-on their understanding.
+on their understanding.   Textbook: Oppenheim DSP (difference equations / block diagrams).
 """
 
 import random
 import time
 import numpy as np
 from typing import Any, Dict, List, Optional, Set, Tuple
+from scipy.signal import lfilter
 from .base_simulator import BaseSimulator
 
 
@@ -25,6 +25,8 @@ class CyclicPathDetectorSimulator(BaseSimulator):
     and an interactive quiz mode.
     """
 
+    # ── 1. DEFINE ───────────────────────────────────────────────
+
     # Cycle highlight colors from project palette
     CYCLE_COLORS = ["#ef4444", "#10b981", "#8b5cf6", "#f59e0b"]
 
@@ -36,6 +38,9 @@ class CyclicPathDetectorSimulator(BaseSimulator):
         "annotation_fir": "#10b981",
         "annotation_iir": "#f59e0b",
     }
+
+    # Fixed set of quiz answer choices (number of cycles: 0–3)
+    QUIZ_OPTIONS = [0, 1, 2, 3]
 
     PARAMETER_SCHEMA = {
         "preset": {
@@ -79,8 +84,85 @@ class CyclicPathDetectorSimulator(BaseSimulator):
         "impulse_steps": 15,
     }
 
+    def __init__(self, simulation_id: str):
+        super().__init__(simulation_id)
+        self._presets = self._build_presets()
+        # Quiz state
+        self._quiz_preset: Optional[str] = None
+        self._quiz_answered: bool = False
+        self._quiz_correct: Optional[bool] = None
+        self._quiz_correct_answer: int = 0
 
-    # ── Preset Definitions ──────────────────────────────────────
+    # ── 2. LIFECYCLE ────────────────────────────────────────────
+
+    def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
+        self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
+        for name, value in self.parameters.items():
+            self.parameters[name] = self._validate_param(name, value)
+        self._reset_quiz_state()
+        # Direct quiz-mode initialization must produce a question up front;
+        # get_state stays side-effect-free.
+        if self.parameters["mode"] == "quiz":
+            self._generate_quiz()
+        self._initialized = True
+
+    def reset(self) -> Dict[str, Any]:
+        """Reset ALL state — parameters AND quiz."""
+        self._reset_quiz_state()
+        return super().reset()
+
+    def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
+        if name in self.parameters:
+            self.parameters[name] = self._validate_param(name, value)
+        # When switching TO quiz mode, generate a fresh quiz
+        if name == "mode" and value == "quiz":
+            self._generate_quiz()
+        # When switching FROM quiz to explore, clear quiz state
+        if name == "mode" and value == "explore":
+            self._reset_quiz_state()
+        # When changing preset in explore mode, no special action needed
+        # (get_state() reads the current preset each time)
+        return self.get_state()
+
+    def _reset_quiz_state(self) -> None:
+        """Clear all quiz state back to defaults."""
+        self._quiz_preset = None
+        self._quiz_answered = False
+        self._quiz_correct = None
+        self._quiz_correct_answer = 0
+
+    # ── ACTIONS ─────────────────────────────────────────────────
+
+    def _generate_quiz(self) -> None:
+        """Generate a new quiz question by picking a random preset."""
+        preset_keys = list(self._presets.keys())
+        self._quiz_preset = random.choice(preset_keys)
+        self._quiz_answered = False
+        self._quiz_correct = None
+
+        # Compute correct answer (number of cycles)
+        preset = self._presets[self._quiz_preset]
+        cycles = self._find_cycles(preset["nodes"], preset["edges"])
+        self._quiz_correct_answer = len(cycles)
+
+    def handle_action(self, action: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle custom actions for quiz mode."""
+        if action == "new_quiz":
+            self._generate_quiz()
+        elif action == "check_answer":
+            answer_index = params.get("answer_index", -1)
+            self._quiz_answered = True
+            self._quiz_correct = (answer_index == self._quiz_correct_answer)
+        return self.get_state()
+
+    # ── 3. MATH ─────────────────────────────────────────────────
+
+    def _active_preset_key(self) -> str:
+        """Resolve which preset is active given the current mode."""
+        mode = self.parameters["mode"]
+        if mode == "quiz" and self._quiz_preset:
+            return self._quiz_preset
+        return self.parameters["preset"]
 
     @staticmethod
     def _build_presets() -> Dict[str, Dict]:
@@ -311,8 +393,6 @@ class CyclicPathDetectorSimulator(BaseSimulator):
 
         return presets
 
-    # ── Cycle Detection ─────────────────────────────────────────
-
     @staticmethod
     def _find_cycles(nodes: List[Dict], edges: List[Dict]) -> List[List[str]]:
         """
@@ -330,10 +410,10 @@ class CyclicPathDetectorSimulator(BaseSimulator):
         internal = {n["id"] for n in nodes if n["type"] not in ("input", "output")}
 
         cycles: List[List[str]] = []
-        visited_global: Set[str] = set()
+        seen_cycles: Set[Tuple[str, ...]] = set()
 
         def dfs(start: str, current: str, path_edges: List[str],
-                path_nodes: List[str], visited: Set[str]) -> None:
+                visited: Set[str]) -> None:
             """DFS to find cycles starting from 'start'."""
             for neighbor, edge_id in adj.get(current, []):
                 if neighbor not in internal:
@@ -349,137 +429,40 @@ class CyclicPathDetectorSimulator(BaseSimulator):
                     continue
                 if neighbor not in visited:
                     visited.add(neighbor)
-                    path_nodes.append(neighbor)
                     path_edges.append(edge_id)
-                    dfs(start, neighbor, path_edges, path_nodes, visited)
+                    dfs(start, neighbor, path_edges, visited)
                     path_edges.pop()
-                    path_nodes.pop()
                     visited.discard(neighbor)
-
-        seen_cycles: Set[Tuple[str, ...]] = set()
 
         for node in nodes:
             if node["id"] not in internal:
                 continue
-            if node["id"] in visited_global:
-                continue
             visited = {node["id"]}
-            dfs(node["id"], node["id"], [], [node["id"]], visited)
+            dfs(node["id"], node["id"], [], visited)
 
         return cycles
-
-    # ── Impulse Response ────────────────────────────────────────
 
     @staticmethod
     def _compute_impulse_response(coeffs: Dict, n_steps: int) -> np.ndarray:
         """
-        Compute impulse response h[n] via step-by-step difference equation.
+        Compute impulse response h[n] for the difference equation
+        y[n] = sum(b[j]·x[n−j]) + sum(a[i]·y[n−i]).
 
-        coeffs: {"b": [b0, b1, ...], "a": [a1, a2, ...]}
-        Equation: y[n] = sum(b[j]*x[n-j]) + sum(a[i]*y[n-i])
-        where i is 1-indexed for a (feedback) and j is 0-indexed for b (feedforward).
+        coeffs: {"b": [b0, b1, ...], "a": [a1, a2, ...]}, with a 1-indexed
+        (feedback) and b 0-indexed (feedforward). The feedback terms move to
+        the denominator as y[n] − sum(a[i]·y[n−i]) = ..., i.e. den = [1, −a1, ...].
         """
         b = coeffs.get("b", [1.0])
         a = coeffs.get("a", [])
+        den = [1.0] + [-ai for ai in a]
+        impulse = np.zeros(n_steps)
+        impulse[0] = 1.0
+        return lfilter(b, den, impulse)
 
-        x = np.zeros(n_steps + max(len(b), 1))
-        y = np.zeros(n_steps + max(len(a) + 1, 1))
-        x[0] = 1.0  # impulse
-
-        for n in range(n_steps):
-            val = 0.0
-            # Feedforward: sum of b[j] * x[n - j]
-            for j, bj in enumerate(b):
-                idx = n - j
-                if 0 <= idx < len(x):
-                    val += bj * x[idx]
-            # Feedback: sum of a[i] * y[n - 1 - i + 1] = a[i] * y[n - i]
-            for i, ai in enumerate(a):
-                idx = n - (i + 1)
-                if 0 <= idx < len(y):
-                    val += ai * y[idx]
-            y[n] = val
-
-        return y[:n_steps]
-
-    # ── Initialization ──────────────────────────────────────────
-
-    def __init__(self, simulation_id: str):
-        super().__init__(simulation_id)
-        self._presets = self._build_presets()
-        # Quiz state
-        self._quiz_preset: Optional[str] = None
-        self._quiz_answered: bool = False
-        self._quiz_correct: Optional[bool] = None
-        self._quiz_correct_answer: int = 0
-        self._quiz_options: List[int] = [0, 1, 2, 3]
-
-    def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
-        self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
-        for name, value in self.parameters.items():
-            self.parameters[name] = self._validate_param(name, value)
-        self._reset_quiz_state()
-        self._initialized = True
-
-    def reset(self) -> Dict[str, Any]:
-        """Reset ALL state — parameters AND quiz."""
-        self._reset_quiz_state()
-        return super().reset()
-
-    def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
-        if name in self.parameters:
-            self.parameters[name] = self._validate_param(name, value)
-        # When switching TO quiz mode, generate a fresh quiz
-        if name == "mode" and value == "quiz":
-            self._generate_quiz()
-        # When switching FROM quiz to explore, clear quiz state
-        if name == "mode" and value == "explore":
-            self._reset_quiz_state()
-        # When changing preset in explore mode, no special action needed
-        # (get_state() reads the current preset each time)
-        return self.get_state()
-
-    def _reset_quiz_state(self) -> None:
-        """Clear all quiz state back to defaults."""
-        self._quiz_preset = None
-        self._quiz_answered = False
-        self._quiz_correct = None
-        self._quiz_correct_answer = 0
-
-    # ── Quiz Logic ──────────────────────────────────────────────
-
-    def _generate_quiz(self) -> None:
-        """Generate a new quiz question by picking a random preset."""
-        preset_keys = list(self._presets.keys())
-        self._quiz_preset = random.choice(preset_keys)
-        self._quiz_answered = False
-        self._quiz_correct = None
-
-        # Compute correct answer (number of cycles)
-        preset = self._presets[self._quiz_preset]
-        cycles = self._find_cycles(preset["nodes"], preset["edges"])
-        self._quiz_correct_answer = len(cycles)
-        self._quiz_options = [0, 1, 2, 3]
-
-    def handle_action(self, action: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle custom actions for quiz mode."""
-        if action == "new_quiz":
-            self._generate_quiz()
-        elif action == "check_answer":
-            answer_index = params.get("answer_index", -1)
-            self._quiz_answered = True
-            self._quiz_correct = (answer_index == self._quiz_correct_answer)
-        return self.get_state()
-
-    # ── State & Plots ───────────────────────────────────────────
+    # ── 4. PRESENT ──────────────────────────────────────────────
 
     def get_plots(self) -> List[Dict[str, Any]]:
-        mode = self.parameters["mode"]
-        if mode == "quiz" and self._quiz_preset:
-            preset_key = self._quiz_preset
-        else:
-            preset_key = self.parameters["preset"]
-
+        preset_key = self._active_preset_key()
         preset = self._presets.get(preset_key, self._presets["difference"])
         n_steps = int(self.parameters["impulse_steps"])
         h = self._compute_impulse_response(preset["coeffs"], n_steps)
@@ -487,69 +470,6 @@ class CyclicPathDetectorSimulator(BaseSimulator):
         is_cyclic = len(cycles) > 0
 
         return [self._create_impulse_plot(h, n_steps, is_cyclic, preset_key)]
-
-    def get_state(self) -> Dict[str, Any]:
-        state = super().get_state()
-        mode = self.parameters["mode"]
-
-        if mode == "quiz" and self._quiz_preset:
-            preset_key = self._quiz_preset
-        else:
-            preset_key = self.parameters["preset"]
-
-        preset = self._presets.get(preset_key, self._presets["difference"])
-        cycles = self._find_cycles(preset["nodes"], preset["edges"])
-        is_cyclic = len(cycles) > 0
-
-        # Build cycle data with colors
-        cycle_data = []
-        for i, cycle_edges in enumerate(cycles):
-            cycle_data.append({
-                "edge_ids": cycle_edges,
-                "color": self.CYCLE_COLORS[i % len(self.CYCLE_COLORS)],
-            })
-
-        # In quiz mode, hide cycles until answered
-        show_cycles_in_response = True
-        if mode == "quiz" and not self._quiz_answered:
-            show_cycles_in_response = False
-
-        state["metadata"] = {
-            "simulation_type": "cyclic_path_detector",
-            "hub_slots": self.HUB_SLOTS,
-            "hub_domain": self.HUB_DOMAIN,
-            "hub_dimensions": self.HUB_DIMENSIONS,
-            "mode": mode,
-            "preset_key": preset_key,
-            "preset_name": preset["name"],
-            "equation": preset["equation"],
-            "operator_form": preset["operator_form"],
-            "nodes": preset["nodes"],
-            "edges": preset["edges"],
-            "cycles": cycle_data if show_cycles_in_response else [],
-            "num_cycles": len(cycles),
-            "classification": "IIR" if is_cyclic else "FIR",
-            "is_cyclic": is_cyclic,
-            "show_cycles": self.parameters.get("show_cycles", True),
-        }
-
-        # Quiz metadata
-        if mode == "quiz":
-            if not self._quiz_preset:
-                self._generate_quiz()
-                # Re-fetch after generating
-                return self.get_state()
-
-            state["metadata"]["quiz"] = {
-                "options": self._quiz_options,
-                "answered": self._quiz_answered,
-                "correct": self._quiz_correct,
-                "correct_answer": self._quiz_correct_answer if self._quiz_answered else None,
-            }
-
-        return state
-
-    # ── Plot Builders ───────────────────────────────────────────
 
     def _create_impulse_plot(self, h: np.ndarray, n_steps: int,
                              is_cyclic: bool, preset_key: str) -> Dict:
@@ -656,3 +576,57 @@ class CyclicPathDetectorSimulator(BaseSimulator):
                 ],
             },
         }
+
+    # ── 5. STATE ────────────────────────────────────────────────
+
+    def get_state(self) -> Dict[str, Any]:
+        state = super().get_state()
+        mode = self.parameters["mode"]
+
+        preset_key = self._active_preset_key()
+        preset = self._presets.get(preset_key, self._presets["difference"])
+        cycles = self._find_cycles(preset["nodes"], preset["edges"])
+        is_cyclic = len(cycles) > 0
+
+        # Build cycle data with colors
+        cycle_data = []
+        for i, cycle_edges in enumerate(cycles):
+            cycle_data.append({
+                "edge_ids": cycle_edges,
+                "color": self.CYCLE_COLORS[i % len(self.CYCLE_COLORS)],
+            })
+
+        # In quiz mode, hide cycles until answered
+        show_cycles_in_response = True
+        if mode == "quiz" and not self._quiz_answered:
+            show_cycles_in_response = False
+
+        state["metadata"] = {
+            "simulation_type": "cyclic_path_detector",
+            "hub_slots": self.HUB_SLOTS,
+            "hub_domain": self.HUB_DOMAIN,
+            "hub_dimensions": self.HUB_DIMENSIONS,
+            "mode": mode,
+            "preset_key": preset_key,
+            "preset_name": preset["name"],
+            "equation": preset["equation"],
+            "operator_form": preset["operator_form"],
+            "nodes": preset["nodes"],
+            "edges": preset["edges"],
+            "cycles": cycle_data if show_cycles_in_response else [],
+            "num_cycles": len(cycles),
+            "classification": "IIR" if is_cyclic else "FIR",
+            "is_cyclic": is_cyclic,
+            "show_cycles": self.parameters.get("show_cycles", True),
+        }
+
+        # Quiz metadata
+        if mode == "quiz":
+            state["metadata"]["quiz"] = {
+                "options": self.QUIZ_OPTIONS,
+                "answered": self._quiz_answered,
+                "correct": self._quiz_correct,
+                "correct_answer": self._quiz_correct_answer if self._quiz_answered else None,
+            }
+
+        return state
