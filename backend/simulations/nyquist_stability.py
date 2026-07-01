@@ -315,15 +315,15 @@ class NyquistStabilitySimulator(BaseSimulator):
         Uses the formula: Padé[n/n] of e^{-x} where x = sT.
         """
         from math import factorial, comb
-        # Padé [n/n] approximation of e^{-x}:
-        # num(x) = sum_{k=0}^{n} C(n,k) * (2n-k)! / (2n)! * (-x)^k / k!  ... simplified:
-        # a_k = (-1)^k * C(n,k) * factorial(2n-k) / factorial(2n)
-        # den has same coefficients but without (-1)^k
+        # Padé [n/n] approximation of e^{-x} (matches control.pade):
+        # a_k = (-1)^k * C(n,k) * (2n-k)! / (2n)!   — den has the same |a_k|.
+        # An extra /k! here was BUG-096: magnitude is all-pass so Bode |H| looked
+        # fine, but the phase lagged the true delay, corrupting the time_delay preset.
         n = order
         num_coeffs = []  # coefficients of x^0, x^1, ..., x^n
         den_coeffs = []
         for k in range(n + 1):
-            c = comb(n, k) * factorial(2 * n - k) / (factorial(2 * n) * factorial(k))
+            c = comb(n, k) * factorial(2 * n - k) / factorial(2 * n)
             # Scale by T^k for substitution x = sT
             c_scaled = c * (T ** k)
             den_coeffs.append(c_scaled)
