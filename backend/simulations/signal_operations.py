@@ -226,7 +226,11 @@ class SignalOperationsSimulator(BaseSimulator):
                 if t0 != 0.0:
                     inner = f"{a:g}({base})"
                 else:
-                    inner = f"{a:g}{t_var}"
+                    # Fold the reversal sign into the coefficient: f(a·(-t)) = f(-at).
+                    # Concatenating "{a}{-t}" rendered "f(2-t)" for f(-2t) (BUG-097).
+                    # Fold the reversal sign into the coefficient: f(a·(-t)) = f(-at).
+                    # Concatenating "{a}{-t}" rendered "f(2-t)" for f(-2t) (BUG-097).
+                    inner = f"{-a:g}t" if reverse else f"{a:g}t"
 
         if A == 0.0:
             return f"{dc:g}" if dc != 0.0 else "0"
