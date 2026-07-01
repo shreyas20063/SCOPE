@@ -2,3 +2,5 @@
 pytest>=8.0,<9.0
 pytest-timeout>=2.4
 control>=0.10.2
+# TestClient (FastAPI 0.109 / Starlette) needs httpx; 0.28 dropped the app= transport shortcut
+httpx>=0.26,<0.28

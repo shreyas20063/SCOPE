@@ -28,16 +28,14 @@ class FourierSeriesSimulator(BaseSimulator):
     # Configuration constants (from original visualizer.py)
     TIME_POINTS = 3000
     TIME_RANGE = (0, 4)  # Fixed time window in seconds
-    MAX_HARMONICS = 50
 
     # Fixed axis ranges
     AMPLITUDE_RANGE = [-1.5, 1.5]
     HARMONIC_AMPLITUDE_RANGE = [-1.4, 1.4]
 
     # Colors matching original
-    ORIGINAL_COLOR = "#3b82f6"  # Blue
-    FOURIER_COLOR = "#ef4444"   # Red
-    COMPONENT_COLORS = None  # Will use viridis colormap
+    ORIGINAL_COLOR = "#3b82f6"
+    FOURIER_COLOR = "#ef4444"
 
     # Parameter schema
     PARAMETER_SCHEMA = {
@@ -116,10 +114,9 @@ class FourierSeriesSimulator(BaseSimulator):
         # Generate fixed time vector (axis stays constant)
         self._t = np.linspace(
             self.TIME_RANGE[0],
-            self.TIME_RANGE[1],  # Fixed time range
+            self.TIME_RANGE[1],
             self.TIME_POINTS
         )
-        # Time scaled by frequency - waveform moves within fixed axis
         t_scaled = self._t * freq
 
         # Generate original waveform
@@ -128,20 +125,18 @@ class FourierSeriesSimulator(BaseSimulator):
         else:
             self._original = self._triangle_wave(t_scaled)
 
-        # Compute Fourier series approximation
-        self._approximation = self._fourier_series(t_scaled, n, waveform)
+        # Odd-harmonic index array: basis = 1, 3, 5, ... for k = 1..n
+        basis = 2 * np.arange(1, n + 1) - 1
 
-        # Compute individual harmonics
-        self._harmonics_data = []
-        for k in range(1, n + 1):
-            if waveform == "square":
-                harmonic = self._square_wave_harmonic(t_scaled, k)
-            else:
-                harmonic = self._triangle_wave_harmonic(t_scaled, k)
-            self._harmonics_data.append(harmonic)
+        # Individual harmonic contributions, one row per odd harmonic
+        harmonics = self._harmonics(t_scaled, basis, waveform)
+        self._harmonics_data = list(harmonics)
 
-        # Compute coefficients for spectrum
-        self._coefficients = self._compute_coefficients(n, waveform)
+        # Fourier series approximation is the sum of all harmonics
+        self._approximation = harmonics.sum(axis=0)
+
+        # Coefficients for spectrum (magnitudes shared with the harmonics)
+        self._coefficients = self._compute_coefficients(basis, waveform)
 
         # Compute error metrics
         self._mse = np.mean((self._original - self._approximation) ** 2)
@@ -164,41 +159,38 @@ class FourierSeriesSimulator(BaseSimulator):
         return np.where(t_mod < 0.5, -1 + 4 * t_mod, 3 - 4 * t_mod)
 
     @staticmethod
-    def _square_wave_harmonic(t: np.ndarray, k: int) -> np.ndarray:
-        """k-th harmonic contribution for the square wave Fourier series."""
-        basis = 2 * k - 1  # Only odd harmonics
-        return (4 / np.pi) * np.sin(basis * 2 * np.pi * t) / basis
+    def _amplitude(basis: np.ndarray, waveform: str) -> np.ndarray:
+        """Coefficient magnitude |a_n| for each odd harmonic number `basis`.
 
-    @staticmethod
-    def _triangle_wave_harmonic(t: np.ndarray, k: int) -> np.ndarray:
-        """k-th harmonic contribution for the triangle wave Fourier series."""
-        basis = 2 * k - 1  # Only odd harmonics
-        return -(8 / np.pi**2) * np.cos(basis * 2 * np.pi * t) / (basis**2)
+        Square wave: |a_n| = 4/(n*pi); triangle wave: |a_n| = 8/(n^2*pi^2).
+        Single source of truth shared by the harmonics and the spectrum.
+        """
+        if waveform == "square":
+            return 4 / (np.pi * basis)
+        return 8 / (np.pi**2 * basis**2)
 
-    def _fourier_series(self, t: np.ndarray, n: int, waveform: str) -> np.ndarray:
-        """Return the truncated Fourier series approximation."""
-        result = np.zeros_like(t)
-        for k in range(1, n + 1):
-            if waveform == "square":
-                result += self._square_wave_harmonic(t, k)
-            else:
-                result += self._triangle_wave_harmonic(t, k)
-        return result
+    @classmethod
+    def _harmonics(cls, t: np.ndarray, basis: np.ndarray, waveform: str) -> np.ndarray:
+        """Return one harmonic contribution per odd harmonic, as rows.
 
-    @staticmethod
-    def _compute_coefficients(n: int, waveform: str) -> List[Dict]:
-        """Compute Fourier coefficients for each harmonic."""
+        Square wave uses sine harmonics; triangle wave uses (negated) cosine
+        harmonics. Amplitudes come from `_amplitude` so they stay consistent
+        with the spectrum coefficients.
+        """
+        amp = cls._amplitude(basis, waveform)[:, None]
+        angle = basis[:, None] * 2 * np.pi * t[None, :]
+        if waveform == "square":
+            return amp * np.sin(angle)
+        return -amp * np.cos(angle)
+
+    @classmethod
+    def _compute_coefficients(cls, basis: np.ndarray, waveform: str) -> List[Dict]:
+        """Compute Fourier coefficient magnitudes for each odd harmonic."""
+        amplitudes = cls._amplitude(basis, waveform)
         coefficients = []
-        for k in range(1, n + 1):
-            basis = 2 * k - 1  # Harmonic number
-            if waveform == "square":
-                # Square wave: a_n = 4/(n*pi) for odd n
-                amplitude = 4 / (np.pi * basis)
-            else:
-                # Triangle wave: a_n = 8/(n^2*pi^2) for odd n
-                amplitude = 8 / (np.pi**2 * basis**2)
+        for harmonic, amplitude in zip(basis, amplitudes):
             coefficients.append({
-                "harmonic": basis,
+                "harmonic": int(harmonic),
                 "amplitude": amplitude,
                 "amplitude_db": 20 * np.log10(amplitude) if amplitude > 0 else -100,
             })
@@ -207,6 +199,41 @@ class FourierSeriesSimulator(BaseSimulator):
     # =========================================================================
     # Plot generation
     # =========================================================================
+
+    # Axis styling shared by every plot (grid + zeroline + interactive range).
+    _AXIS_STYLE = {
+        "showgrid": True,
+        "gridcolor": "rgba(148, 163, 184, 0.1)",
+        "zeroline": True,
+        "zerolinecolor": "rgba(148, 163, 184, 0.3)",
+        "fixedrange": False,
+    }
+    _LEGEND_STYLE = {
+        "bgcolor": "rgba(30, 41, 59, 0.8)",
+        "bordercolor": "rgba(148, 163, 184, 0.2)",
+        "borderwidth": 1,
+    }
+
+    @classmethod
+    def _base_layout(
+        cls,
+        x_title: str,
+        x_range: List,
+        y_title: str,
+        y_range: List,
+        legend: Dict[str, Any],
+        uirevision: str,
+    ) -> Dict[str, Any]:
+        """Assemble the Plotly layout shared by all three plots."""
+        return {
+            "xaxis": {"title": x_title, **cls._AXIS_STYLE, "range": x_range},
+            "yaxis": {"title": y_title, **cls._AXIS_STYLE, "range": y_range},
+            "legend": {**legend, **cls._LEGEND_STYLE},
+            "margin": {"l": 60, "r": 30, "t": 40, "b": 50},
+            "plot_bgcolor": "rgba(0,0,0,0)",
+            "paper_bgcolor": "rgba(0,0,0,0)",
+            "uirevision": uirevision,
+        }
 
     def get_plots(self) -> List[Dict[str, Any]]:
         """Generate Plotly plot dictionaries."""
@@ -247,6 +274,31 @@ class FourierSeriesSimulator(BaseSimulator):
         n = int(self.parameters["harmonics"])
         waveform = self.parameters["waveform"].capitalize()
 
+        layout = self._base_layout(
+            x_title="Time (s)",
+            x_range=[self.TIME_RANGE[0], self.TIME_RANGE[1]],
+            y_title="Amplitude",
+            y_range=self.AMPLITUDE_RANGE,
+            legend={"orientation": "h", "yanchor": "top", "y": 0.99,
+                    "xanchor": "right", "x": 0.99},
+            uirevision="approximation",
+        )
+        layout["annotations"] = [
+            {
+                "x": 0.02,
+                "y": 0.98,
+                "xref": "paper",
+                "yref": "paper",
+                "text": f"MSE: {self._mse:.5f}<br>Max Error: {self._max_error:.4f}",
+                "showarrow": False,
+                "font": {"size": 10, "color": "#94a3b8"},
+                "bgcolor": "rgba(30, 41, 59, 0.8)",
+                "bordercolor": "rgba(148, 163, 184, 0.2)",
+                "borderwidth": 1,
+                "borderpad": 4,
+            }
+        ]
+
         return {
             "id": "approximation",
             "title": f"Fourier Approximation (n={n})",
@@ -268,66 +320,15 @@ class FourierSeriesSimulator(BaseSimulator):
                     "line": {"color": self.FOURIER_COLOR, "width": 2.5},
                 },
             ],
-            "layout": {
-                "xaxis": {
-                    "title": "Time (s)",
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.1)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": [self.TIME_RANGE[0], self.TIME_RANGE[1]],
-                    "fixedrange": False,
-                },
-                "yaxis": {
-                    "title": "Amplitude",
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.1)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": self.AMPLITUDE_RANGE,
-                    "fixedrange": False,
-                },
-                "legend": {
-                    "orientation": "h",
-                    "yanchor": "top",
-                    "y": 0.99,
-                    "xanchor": "right",
-                    "x": 0.99,
-                    "bgcolor": "rgba(30, 41, 59, 0.8)",
-                    "bordercolor": "rgba(148, 163, 184, 0.2)",
-                    "borderwidth": 1,
-                },
-                "margin": {"l": 60, "r": 30, "t": 40, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "annotations": [
-                    {
-                        "x": 0.02,
-                        "y": 0.98,
-                        "xref": "paper",
-                        "yref": "paper",
-                        "text": f"MSE: {self._mse:.5f}<br>Max Error: {self._max_error:.4f}",
-                        "showarrow": False,
-                        "font": {"size": 10, "color": "#94a3b8"},
-                        "bgcolor": "rgba(30, 41, 59, 0.8)",
-                        "bordercolor": "rgba(148, 163, 184, 0.2)",
-                        "borderwidth": 1,
-                        "borderpad": 4,
-                    }
-                ],
-                "uirevision": "approximation",
-            },
+            "layout": layout,
         }
 
     def _create_components_plot(self) -> Dict[str, Any]:
         """Create plot showing individual Fourier components."""
         n = int(self.parameters["harmonics"])
-
-        # Generate colors using viridis-like palette
         colors = self._generate_colors(n)
 
         data = []
-        # Always show individual components (limit display for performance)
         display_n = min(n, 20)
         for k in range(display_n):
             harmonic = self._harmonics_data[k]
@@ -345,40 +346,15 @@ class FourierSeriesSimulator(BaseSimulator):
             "id": "components",
             "title": f"Individual Fourier Components (showing {display_n} of {n})",
             "data": data,
-            "layout": {
-                "xaxis": {
-                    "title": "Time (s)",
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.1)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": [self.TIME_RANGE[0], self.TIME_RANGE[1]],
-                    "fixedrange": False,
-                },
-                "yaxis": {
-                    "title": "Amplitude",
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.1)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": self.HARMONIC_AMPLITUDE_RANGE,
-                    "fixedrange": False,
-                },
-                "legend": {
-                    "orientation": "v",
-                    "yanchor": "top",
-                    "y": 0.98,
-                    "xanchor": "right",
-                    "x": 0.98,
-                    "bgcolor": "rgba(30, 41, 59, 0.8)",
-                    "bordercolor": "rgba(148, 163, 184, 0.2)",
-                    "borderwidth": 1,
-                },
-                "margin": {"l": 60, "r": 30, "t": 40, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "components",
-            },
+            "layout": self._base_layout(
+                x_title="Time (s)",
+                x_range=[self.TIME_RANGE[0], self.TIME_RANGE[1]],
+                y_title="Amplitude",
+                y_range=self.HARMONIC_AMPLITUDE_RANGE,
+                legend={"orientation": "v", "yanchor": "top", "y": 0.98,
+                        "xanchor": "right", "x": 0.98},
+                uirevision="components",
+            ),
         }
 
     def _create_spectrum_plot(self) -> Dict[str, Any]:
@@ -418,40 +394,15 @@ class FourierSeriesSimulator(BaseSimulator):
                     "hovertemplate": "n=%{x}<br>|a<sub>n</sub>|=%{y:.4f}<extra></extra>",
                 },
             ],
-            "layout": {
-                "xaxis": {
-                    "title": "Harmonic Number (n)",
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.1)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": [0, max_harmonic + 2],
-                    "fixedrange": False,
-                },
-                "yaxis": {
-                    "title": "Coefficient Magnitude |aₙ|",
-                    "showgrid": True,
-                    "gridcolor": "rgba(148, 163, 184, 0.1)",
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": [0, 1.5],
-                    "fixedrange": False,
-                },
-                "legend": {
-                    "orientation": "h",
-                    "yanchor": "top",
-                    "y": 0.99,
-                    "xanchor": "right",
-                    "x": 0.99,
-                    "bgcolor": "rgba(30, 41, 59, 0.8)",
-                    "bordercolor": "rgba(148, 163, 184, 0.2)",
-                    "borderwidth": 1,
-                },
-                "margin": {"l": 60, "r": 30, "t": 40, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "spectrum",
-            },
+            "layout": self._base_layout(
+                x_title="Harmonic Number (n)",
+                x_range=[0, max_harmonic + 2],
+                y_title="Coefficient Magnitude |aₙ|",
+                y_range=[0, 1.5],
+                legend={"orientation": "h", "yanchor": "top", "y": 0.99,
+                        "xanchor": "right", "x": 0.99},
+                uirevision="spectrum",
+            ),
         }
 
     @staticmethod

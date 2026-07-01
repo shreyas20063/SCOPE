@@ -1,21 +1,5 @@
-"""
-Routh-Hurwitz Stability Criterion Tool
-
-Standalone educational tool for learning the Routh-Hurwitz stability criterion.
-Users enter a characteristic polynomial, optionally with parametric gain K,
-and the tool builds the Routh array step-by-step with visual sign-change
-highlighting and stability range analysis.
-
-Features:
-- Step-by-step Routh array construction
-- Sign change highlighting for RHP pole identification
-- Special case handling (zero pivot → epsilon, all-zero row → auxiliary polynomial)
-- Parametric K analysis with stability ranges
-- Pole-zero map showing root locations
-- Educational presets covering common cases
-
-References: Nise Ch.6, Ogata Ch.5, Dorf & Bishop Ch.6
-"""
+"""Routh-Hurwitz Stability Criterion Tool — build the Routh array and analyze
+stability ranges for a characteristic polynomial.   Textbook: Nise Ch.6, Ogata Ch.5, Dorf & Bishop Ch.6."""
 
 import numpy as np
 from typing import Any, Dict, List, Optional
@@ -120,6 +104,7 @@ class RouthHurwitzSimulator(BaseSimulator):
         super().__init__(simulation_id)
         self._routh_result: Dict[str, Any] = {}
         self._roots: List[complex] = []
+        self._roots_info: List[Dict[str, Any]] = []
         self._char_poly: np.ndarray = np.array([1, 6, 11, 6], dtype=float)
         self._stability_ranges: Dict[str, Any] = {}
 
@@ -223,11 +208,12 @@ class RouthHurwitzSimulator(BaseSimulator):
         # Compute Routh array
         self._routh_result = compute_routh_array(self._char_poly)
 
-        # Compute roots
+        # Compute roots and classify each once (LHP / RHP / jω axis)
         try:
             self._roots = np.roots(self._char_poly).tolist()
         except Exception:
             self._roots = []
+        self._roots_info = [self._classify_root(root) for root in self._roots]
 
         # Compute K stability ranges if parametric K enabled
         if use_k:
@@ -237,6 +223,27 @@ class RouthHurwitzSimulator(BaseSimulator):
             )
         else:
             self._stability_ranges = {"ranges": [], "critical_k_values": []}
+
+    @staticmethod
+    def _classify_root(root: complex) -> Dict[str, Any]:
+        """Classify a single root by half-plane (RHP σ>0 / LHP σ<0 / jω axis)."""
+        r = complex(root)
+        re, im = r.real, r.imag
+        if abs(re) < 1e-8:
+            region = "jw"
+        elif re < 0:
+            region = "stable"
+        else:
+            region = "unstable"
+        return {
+            "re": re,
+            "im": im,
+            "re_round": round(re, 6),
+            "im_round": round(im, 6),
+            "region": region,
+            "stable": re < -1e-8,
+            "marginal": abs(re) < 1e-8,
+        }
 
     def get_plots(self) -> List[Dict[str, Any]]:
         """Generate Plotly plot data."""
@@ -256,59 +263,35 @@ class RouthHurwitzSimulator(BaseSimulator):
 
     def _build_pole_zero_plot(self) -> Dict[str, Any]:
         """Build s-plane pole map showing root locations."""
-        stable_re, stable_im = [], []
-        unstable_re, unstable_im = [], []
-        jw_re, jw_im = [], []
-
-        for root in self._roots:
-            r = complex(root)
-            re, im = r.real, r.imag
-            if abs(re) < 1e-8:
-                jw_re.append(re)
-                jw_im.append(im)
-            elif re < 0:
-                stable_re.append(re)
-                stable_im.append(im)
-            else:
-                unstable_re.append(re)
-                unstable_im.append(im)
+        # (region, legend name, color) for the three half-plane buckets
+        bucket_styles = [
+            ("stable", "Stable (LHP)", "#10b981"),
+            ("unstable", "Unstable (RHP)", "#ef4444"),
+            ("jw", "Marginal (jω)", "#f59e0b"),
+        ]
 
         data = []
+        for region, name, color in bucket_styles:
+            re_vals = [info["re"] for info in self._roots_info if info["region"] == region]
+            im_vals = [info["im"] for info in self._roots_info if info["region"] == region]
+            if re_vals:
+                data.append({
+                    "x": re_vals, "y": im_vals,
+                    "type": "scatter", "mode": "markers",
+                    "name": name,
+                    "marker": {"symbol": "x", "size": 14, "color": color,
+                               "line": {"width": 2, "color": color}},
+                })
 
-        # Stable poles (LHP)
-        if stable_re:
-            data.append({
-                "x": stable_re, "y": stable_im,
-                "type": "scatter", "mode": "markers",
-                "name": "Stable (LHP)",
-                "marker": {"symbol": "x", "size": 14, "color": "#10b981",
-                           "line": {"width": 2, "color": "#10b981"}},
-            })
-
-        # Unstable poles (RHP)
-        if unstable_re:
-            data.append({
-                "x": unstable_re, "y": unstable_im,
-                "type": "scatter", "mode": "markers",
-                "name": "Unstable (RHP)",
-                "marker": {"symbol": "x", "size": 14, "color": "#ef4444",
-                           "line": {"width": 2, "color": "#ef4444"}},
-            })
-
-        # jω-axis poles
-        if jw_re:
-            data.append({
-                "x": jw_re, "y": jw_im,
-                "type": "scatter", "mode": "markers",
-                "name": "Marginal (jω)",
-                "marker": {"symbol": "x", "size": 14, "color": "#f59e0b",
-                           "line": {"width": 2, "color": "#f59e0b"}},
-            })
-
-        # Imaginary axis reference
-        all_im = stable_im + unstable_im + jw_im
+        # Axis bounds from all pole coordinates
+        all_re = [info["re"] for info in self._roots_info]
+        all_im = [info["im"] for info in self._roots_info]
         im_range = max(abs(v) for v in all_im) if all_im else 2
         im_range = max(im_range, 2) * 1.3
+        re_range = max(abs(v) for v in all_re) if all_re else 2
+        re_range = max(re_range, 2) * 1.3
+
+        # Imaginary axis reference
         data.append({
             "x": [0, 0], "y": [-im_range, im_range],
             "type": "scatter", "mode": "lines",
@@ -316,10 +299,6 @@ class RouthHurwitzSimulator(BaseSimulator):
             "line": {"color": "rgba(148,163,184,0.4)", "width": 1, "dash": "dash"},
             "showlegend": False,
         })
-
-        all_re = stable_re + unstable_re + jw_re
-        re_range = max(abs(v) for v in all_re) if all_re else 2
-        re_range = max(re_range, 2) * 1.3
 
         return {
             "id": "pole_zero_map",
@@ -357,6 +336,9 @@ class RouthHurwitzSimulator(BaseSimulator):
         k_vals = self._stability_ranges.get("k_values", [])
         rhp_counts = self._stability_ranges.get("rhp_counts", [])
 
+        # Stable-region markers: single pass keeps x/y lengths in lock-step
+        stable_k = [k for k, c in zip(k_vals, rhp_counts) if c == 0]
+
         data = [
             # RHP pole count trace
             {
@@ -369,8 +351,8 @@ class RouthHurwitzSimulator(BaseSimulator):
             },
             # Stable region shading (y=0)
             {
-                "x": [k for k, c in zip(k_vals, rhp_counts) if c == 0],
-                "y": [0 for c in rhp_counts if c == 0],
+                "x": stable_k,
+                "y": [0] * len(stable_k),
                 "type": "scatter", "mode": "markers",
                 "name": "Stable region",
                 "marker": {"color": "#10b981", "size": 3, "symbol": "line-ns"},
@@ -440,16 +422,16 @@ class RouthHurwitzSimulator(BaseSimulator):
 
         base_state = super().get_state()
 
-        # Build roots info for frontend
-        roots_info = []
-        for root in self._roots:
-            r = complex(root)
-            roots_info.append({
-                "re": round(r.real, 6),
-                "im": round(r.imag, 6),
-                "stable": r.real < -1e-8,
-                "marginal": abs(r.real) < 1e-8,
-            })
+        # Build roots info for frontend from the cached classification
+        roots_info = [
+            {
+                "re": info["re_round"],
+                "im": info["im_round"],
+                "stable": info["stable"],
+                "marginal": info["marginal"],
+            }
+            for info in self._roots_info
+        ]
 
         # Polynomial display strings
         poly_display = self._format_polynomial(self._char_poly)

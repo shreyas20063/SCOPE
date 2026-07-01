@@ -78,6 +78,10 @@ class PolynomialMultiplicationSimulator(BaseSimulator):
         "view_mode": "tabular",
     }
 
+    def __init__(self, simulation_id: str) -> None:
+        super().__init__(simulation_id)
+        self._data: Optional[Dict[str, Any]] = None
+        self._data_key: Optional[tuple] = None
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
@@ -92,11 +96,10 @@ class PolynomialMultiplicationSimulator(BaseSimulator):
         return self.get_state()
 
     def get_plots(self) -> List[Dict[str, Any]]:
-        data = self._compute()
-        return self._build_plots(data)
+        return self._build_plots(self._get_data())
 
     def get_state(self) -> Dict[str, Any]:
-        data = self._compute()
+        data = self._get_data()
         a = data["a"]
         b = data["b"]
         N = data["N"]
@@ -135,34 +138,40 @@ class PolynomialMultiplicationSimulator(BaseSimulator):
 
     # ── Computation ──────────────────────────────────────────────
 
+    def _get_data(self) -> Dict[str, Any]:
+        """Return _compute() output, cached until the parameters change."""
+        key = (
+            float(self.parameters["pole_a"]),
+            float(self.parameters["pole_b"]),
+            int(self.parameters["num_terms"]),
+        )
+        if self._data is None or self._data_key != key:
+            self._data = self._compute()
+            self._data_key = key
+        return self._data
+
+    @staticmethod
+    def _combined_closed_form(a: float, b: float, n_array: np.ndarray) -> np.ndarray:
+        """Coefficient of Rⁿ for the product of two geometric series with poles a, b."""
+        if abs(a - b) > 1e-10:
+            return (a ** (n_array + 1) - b ** (n_array + 1)) / (a - b)
+        return (n_array + 1) * (a ** n_array)
+
     def _compute(self) -> Dict[str, Any]:
         """Compute the multiplication table and anti-diagonal sums."""
         a = float(self.parameters["pole_a"])
         b = float(self.parameters["pole_b"])
         N = int(self.parameters["num_terms"])
 
-        # Powers of a and b
         indices = np.arange(N)
-        a_powers = a ** indices  # [1, a, a², ..., a^(N-1)]
-        b_powers = b ** indices  # [1, b, b², ..., b^(N-1)]
+        a_powers = a ** indices
+        b_powers = b ** indices
 
-        # Multiplication table: table[i][j] = a^i * b^j
         table = np.outer(a_powers, b_powers)
 
-        # Anti-diagonal sums: coefficient of R^n
-        # For an N×N table, anti-diagonals go from 0 to 2(N-1)
+        # Anti-diagonal sums are the Cauchy product coefficients (coefficient of Rⁿ)
+        anti_diag_sums = np.convolve(a_powers, b_powers)
         num_diags = 2 * N - 1
-        anti_diag_sums = np.zeros(num_diags)
-        for n in range(num_diags):
-            for k in range(max(0, n - N + 1), min(n + 1, N)):
-                anti_diag_sums[n] += a_powers[k] * b_powers[n - k]
-
-        # Also compute exact coefficients for the full (infinite) series
-        full_n = np.arange(num_diags)
-        if abs(a - b) > 1e-10:
-            exact_coeffs = (a ** (full_n + 1) - b ** (full_n + 1)) / (a - b)
-        else:
-            exact_coeffs = (full_n + 1) * (a ** full_n)
 
         return {
             "a": a,
@@ -172,7 +181,6 @@ class PolynomialMultiplicationSimulator(BaseSimulator):
             "b_powers": b_powers,
             "table": table,
             "anti_diag_sums": anti_diag_sums,
-            "exact_coeffs": exact_coeffs,
             "num_diags": num_diags,
         }
 
@@ -201,7 +209,7 @@ class PolynomialMultiplicationSimulator(BaseSimulator):
                 "gridcolor": "rgba(148,163,184,0.1)",
                 "zerolinecolor": "rgba(148,163,184,0.3)",
                 "color": "#94a3b8",
-                "autorange": True,
+                "autorange": False,
             },
             "paper_bgcolor": "rgba(0,0,0,0)",
             "plot_bgcolor": "rgba(0,0,0,0)",
@@ -286,7 +294,6 @@ class PolynomialMultiplicationSimulator(BaseSimulator):
         layout = self._get_base_layout("n", "h₁[n]")
         layout["xaxis"]["range"] = [-0.5, N - 0.5]
         layout["yaxis"]["range"] = self._auto_y_range(h1)
-        layout["yaxis"]["autorange"] = False
 
         return {
             "id": "h1_response",
@@ -307,7 +314,6 @@ class PolynomialMultiplicationSimulator(BaseSimulator):
         layout = self._get_base_layout("n", "h₂[n]")
         layout["xaxis"]["range"] = [-0.5, N - 0.5]
         layout["yaxis"]["range"] = self._auto_y_range(h2)
-        layout["yaxis"]["autorange"] = False
 
         return {
             "id": "h2_response",
@@ -324,17 +330,13 @@ class PolynomialMultiplicationSimulator(BaseSimulator):
         coeffs = data["anti_diag_sums"]
         n = np.arange(num_diags)
 
-        # Combined response stems
         traces = self._make_stem_traces(
             n, coeffs, "cₙ (table sum)", "#14b8a6", marker_size=10
         )
 
         # Overlay exact closed-form at integer points (safe for negative poles)
         n_exact = np.arange(num_diags)
-        if abs(a - b) > 1e-10:
-            exact_vals = (a ** (n_exact + 1) - b ** (n_exact + 1)) / (a - b)
-        else:
-            exact_vals = (n_exact + 1) * (a ** n_exact)
+        exact_vals = self._combined_closed_form(a, b, n_exact)
 
         traces.append({
             "x": n_exact.tolist(),
@@ -351,7 +353,6 @@ class PolynomialMultiplicationSimulator(BaseSimulator):
         layout = self._get_base_layout("n", "cₙ")
         layout["xaxis"]["range"] = [-0.5, num_diags - 0.5]
         layout["yaxis"]["range"] = self._auto_y_range(all_vals)
-        layout["yaxis"]["autorange"] = False
 
         return {
             "id": "combined_response",

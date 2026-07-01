@@ -4,8 +4,6 @@ RC Lowpass Filter Simulator
 Implements an interactive RC lowpass filter simulation with:
 - Time domain view: Square wave input vs filtered output
 - Frequency domain: Bode plot with harmonic markers
-
-Math extracted from: rc_lowpass_filter/rc_lowpass/core/signals.py
 """
 
 import numpy as np
@@ -23,15 +21,15 @@ class RCLowpassSimulator(BaseSimulator):
     - amplitude: Input signal amplitude (V)
     """
 
-    # Configuration constants (from original settings.py)
+    # Configuration constants
     TIME_WINDOW_SECONDS = 0.05
     TIME_SAMPLES = 1000
     BODE_FREQUENCY_DECADES = (-1, 5)  # 0.1 Hz to 100 kHz
     MAX_HARMONIC_ORDER = 39
 
-    # Fixed axis ranges (matching PyQt5 version)
+    # Fixed axis ranges
     TIME_Y_RANGE = [-11, 11]  # Voltage range
-    BODE_X_RANGE = [-1, 5]    # Log scale: 0.1 Hz to 100 kHz
+    BODE_X_RANGE = list(BODE_FREQUENCY_DECADES)  # Log scale: 0.1 Hz to 100 kHz
     BODE_Y_RANGE = [-80, 30]  # dB range
 
     # Parameter schema matching catalog.py
@@ -97,13 +95,6 @@ class RCLowpassSimulator(BaseSimulator):
             self._compute()
         return self.get_state()
 
-    def reset(self) -> Dict[str, Any]:
-        """Reset simulation to default parameters."""
-        self.parameters = self.DEFAULT_PARAMS.copy()
-        self._initialized = True
-        self._compute()
-        return self.get_state()
-
     def _compute(self) -> None:
         """Compute all signals based on current parameters."""
         frequency = self.parameters["frequency"]
@@ -121,7 +112,7 @@ class RCLowpassSimulator(BaseSimulator):
         self._cutoff_freq = self._cutoff_frequency(rc_seconds)
 
     # =========================================================================
-    # Math functions (extracted from rc_lowpass_filter/rc_lowpass/core/signals.py)
+    # Math functions
     # =========================================================================
 
     @staticmethod
@@ -167,8 +158,6 @@ class RCLowpassSimulator(BaseSimulator):
         Transfer function: H(jw) = 1 / (1 + jwRC)
         |H(jw)| = 1 / sqrt(1 + (wRC)^2)
         """
-        f_min = 10 ** self.BODE_FREQUENCY_DECADES[0]
-        f_max = 10 ** self.BODE_FREQUENCY_DECADES[1]
         frequencies = np.logspace(
             self.BODE_FREQUENCY_DECADES[0],
             self.BODE_FREQUENCY_DECADES[1],
@@ -243,30 +232,21 @@ class RCLowpassSimulator(BaseSimulator):
         return base_state
 
     def _get_status(self) -> Dict[str, Any]:
-        """Calculate filter status like PyQt5 version."""
+        """Classify the filter regime from the input-to-cutoff frequency ratio."""
         frequency = self.parameters["frequency"]
         ratio = frequency / self._cutoff_freq if self._cutoff_freq > 0 else 0
 
-        # Thresholds from original: passing=0.3, transitioning=1.5
+        # Thresholds: passing < 0.3, transitioning < 1.5, filtering otherwise
         if ratio < 0.3:
             status = "PASSING"
-            status_color = "#10b981"  # Green
-            desc = "Input < Cutoff"
         elif ratio < 1.5:
             status = "TRANSITIONING"
-            status_color = "#f59e0b"  # Amber
-            desc = "Input ≈ Cutoff"
         else:
             status = "FILTERING"
-            status_color = "#ef4444"  # Red
-            desc = "Input > Cutoff"
 
         return {
             "status": status,
-            "color": status_color,
-            "description": desc,
             "ratio": ratio,
-            "cutoff_freq": self._cutoff_freq,
         }
 
     def _create_time_domain_plot(self) -> Dict[str, Any]:
@@ -330,8 +310,7 @@ class RCLowpassSimulator(BaseSimulator):
         }
 
     def _create_bode_plot(self) -> Dict[str, Any]:
-        """Create Bode magnitude plot with harmonic markers (stem plot style like PyQt5)."""
-        # Filter harmonics to only show those in plot range
+        """Create Bode magnitude plot with harmonic stem markers."""
         f_min = 10 ** self.BODE_FREQUENCY_DECADES[0]
         f_max = 10 ** self.BODE_FREQUENCY_DECADES[1]
 
@@ -339,10 +318,8 @@ class RCLowpassSimulator(BaseSimulator):
         visible_harmonic_freqs = self._harmonic_freqs[visible_mask]
         visible_harmonic_db = self._harmonic_db[visible_mask]
 
-        # Build stem plot data (vertical lines for each harmonic like PyQt5)
         stem_data = []
         for freq, mag_db in zip(visible_harmonic_freqs, visible_harmonic_db):
-            # Vertical line from bottom to harmonic magnitude
             stem_data.append({
                 "x": [freq, freq],
                 "y": [self.BODE_Y_RANGE[0], mag_db],
@@ -357,7 +334,6 @@ class RCLowpassSimulator(BaseSimulator):
             "id": "bode",
             "title": "Frequency Response (Bode Plot)",
             "data": [
-                # Filter transfer function (blue line like PyQt5)
                 {
                     "x": self._bode_freqs.tolist(),
                     "y": self._bode_magnitude.tolist(),
@@ -366,7 +342,6 @@ class RCLowpassSimulator(BaseSimulator):
                     "name": "Filter Response",
                     "line": {"color": "#3b82f6", "width": 2.5},
                 },
-                # Cutoff frequency vertical line (as trace so it updates properly)
                 {
                     "x": [self._cutoff_freq, self._cutoff_freq],
                     "y": [self.BODE_Y_RANGE[0], self.BODE_Y_RANGE[1]],
@@ -375,9 +350,7 @@ class RCLowpassSimulator(BaseSimulator):
                     "name": f"Cutoff fc={self._cutoff_freq:.0f}Hz",
                     "line": {"color": "#10b981", "width": 2.5, "dash": "dash"},
                 },
-                # Stem lines for harmonics
                 *stem_data,
-                # Harmonic markers (red dots at top of stems)
                 {
                     "x": visible_harmonic_freqs.tolist(),
                     "y": visible_harmonic_db.tolist(),
