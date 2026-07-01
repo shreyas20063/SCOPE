@@ -12,21 +12,19 @@ Core theory (Khalil Ch 3-4, Slotine & Li Ch 3-4):
 - Validity: linearization accurate near equilibrium; nonlinear sim shows actual ROA
 """
 
-import re
 import time
 import numpy as np
 from typing import Any, Dict, List, Optional, Tuple
 from scipy.integrate import solve_ivp
 from scipy.linalg import expm, solve_continuous_are
 from scipy.signal import place_poles
-import concurrent.futures
 
 from .base_simulator import BaseSimulator
 
 # Try sympy — needed for symbolic Jacobian
 try:
     import sympy as sp
-    from sympy import Matrix, symbols, sympify, cos, sin, sqrt, pi
+    from sympy import symbols, sympify
     from sympy import lambdify as sp_lambdify
     _HAS_SYMPY = True
 except ImportError:
@@ -37,7 +35,7 @@ except ImportError:
 #  Safe expression validation (delegated to core.expr_validator)      #
 # ------------------------------------------------------------------ #
 
-from core.expr_validator import validate_expr as _validate_expr, DANGEROUS_PATTERNS as _DANGEROUS_PATTERNS
+from core.expr_validator import validate_expr as _validate_expr
 
 # ------------------------------------------------------------------ #
 #  Extracted core utilities                                           #
@@ -53,16 +51,7 @@ from core.roa import estimate_roa as _estimate_roa_core
 # ------------------------------------------------------------------ #
 
 def _get_preset_plants() -> Dict[str, Dict[str, Any]]:
-    """Return preset nonlinear plant definitions.
-
-    Each preset defines:
-        n_states, n_inputs: dimensions
-        state_names, input_names: display labels
-        f_exprs: list of SymPy expression strings for ẋᵢ
-        equilibria: list of (x_eq, u_eq) tuples
-        params: dict of physical parameter symbols and values
-        description: short text
-    """
+    """Preset nonlinear plant definitions (dims, names, params, equilibria)."""
     return {
         "inverted_pendulum": {
             "n_states": 4,
@@ -136,17 +125,8 @@ def _get_preset_plants() -> Dict[str, Dict[str, Any]]:
 
 def _build_symbolic_dynamics(preset_name: str,
                              params: Dict[str, float]
-                             ) -> Tuple[List, List, List, sp.Matrix]:
-    """Build SymPy symbolic state equations for a preset plant.
-
-    Args:
-        preset_name: Key into preset definitions.
-        params: Physical parameter values.
-
-    Returns:
-        (x_syms, u_syms, param_syms, f_vector) where f_vector is a SymPy Matrix
-        of expressions for ẋ = f(x, u).
-    """
+                             ) -> Tuple[List, List, sp.Matrix]:
+    """Build SymPy symbolic state equations ẋ = f(x, u) for a preset plant."""
     if preset_name == "inverted_pendulum":
         x1, x2, x3, x4 = symbols('x1 x2 x3 x4')
         u1 = symbols('u1')
@@ -168,7 +148,7 @@ def _build_symbolic_dynamics(preset_name: str,
         f4 = (-u1 * sp.cos(x3) - m_val * l_val * x4**2 * sp.sin(x3) * sp.cos(x3)
                - (M_val + m_val) * g_val * sp.sin(x3)) / (l_val * denom)
 
-        return ([x1, x2, x3, x4], [u1], [],
+        return ([x1, x2, x3, x4], [u1],
                 sp.Matrix([f1, f2, f3, f4]))
 
     elif preset_name == "ball_and_beam":
@@ -188,7 +168,7 @@ def _build_symbolic_dynamics(preset_name: str,
         f4 = (u1 - 2 * m_val * x1 * x2 * x4
                - m_val * g_val * x1 * sp.cos(x3)) / (J_b + m_val * x1**2)
 
-        return ([x1, x2, x3, x4], [u1], [],
+        return ([x1, x2, x3, x4], [u1],
                 sp.Matrix([f1, f2, f3, f4]))
 
     elif preset_name == "coupled_tanks":
@@ -209,7 +189,7 @@ def _build_symbolic_dynamics(preset_name: str,
         f2 = (u2 + a1_v * c * sp.sqrt(x1)
                - a2_v * c * sp.sqrt(x2)) / A2_v
 
-        return ([x1, x2], [u1, u2], [],
+        return ([x1, x2], [u1, u2],
                 sp.Matrix([f1, f2]))
 
     elif preset_name == "van_der_pol":
@@ -220,7 +200,7 @@ def _build_symbolic_dynamics(preset_name: str,
         f1 = x2
         f2 = mu_val * (1 - x1**2) * x2 - x1 + u1
 
-        return ([x1, x2], [u1], [],
+        return ([x1, x2], [u1],
                 sp.Matrix([f1, f2]))
 
     else:
@@ -231,16 +211,7 @@ def _build_custom_symbolic(f_exprs: List[str],
                            n_states: int,
                            n_inputs: int
                            ) -> Tuple[List, List, sp.Matrix, Optional[str]]:
-    """Build SymPy symbolic dynamics from user-entered expressions.
-
-    Args:
-        f_exprs: List of expression strings for each ẋᵢ.
-        n_states: Number of state variables.
-        n_inputs: Number of inputs.
-
-    Returns:
-        (x_syms, u_syms, f_vector, error_string). error_string is None on success.
-    """
+    """Build SymPy dynamics from user expressions → (x_syms, u_syms, f_vector, err)."""
     x_syms = symbols(' '.join(f'x{i+1}' for i in range(n_states)))
     if isinstance(x_syms, sp.Symbol):
         x_syms = [x_syms]
@@ -293,18 +264,7 @@ def _design_lqr(A: np.ndarray,
                 Q: np.ndarray,
                 R: np.ndarray
                 ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], str]:
-    """Design LQR controller via continuous Riccati equation.
-
-    Args:
-        A: System matrix (n x n).
-        B: Input matrix (n x m).
-        Q: State weight matrix (n x n, positive semi-definite).
-        R: Input weight matrix (m x m, positive definite).
-
-    Returns:
-        (K, P, error_message). K is m x n gain matrix, P is Riccati solution.
-        On failure, K and P are None and error_message describes the issue.
-    """
+    """LQR via continuous Riccati: K = R⁻¹BᵀP → (K, P, err). Ogata §10-8."""
     if B.ndim == 1:
         B = B.reshape(-1, 1)
     try:
@@ -327,18 +287,7 @@ def _design_pole_placement(A: np.ndarray,
                            B: np.ndarray,
                            desired_poles: np.ndarray
                            ) -> Tuple[Optional[np.ndarray], str]:
-    """Design controller via pole placement.
-
-    Ensures conjugate pairs for real K matrix.
-
-    Args:
-        A: System matrix (n x n).
-        B: Input matrix (n x m).
-        desired_poles: Array of desired CL eigenvalues.
-
-    Returns:
-        (K, error_message). K is m x n gain matrix.
-    """
+    """Pole placement (scipy place_poles) → (K, err). Ogata §10-2."""
     if B.ndim == 1:
         B = B.reshape(-1, 1)
     try:
@@ -350,18 +299,7 @@ def _design_pole_placement(A: np.ndarray,
 
 
 def _ensure_conjugate_pairs(poles: List[complex], n: int) -> np.ndarray:
-    """Ensure complex poles come in conjugate pairs for real K.
-
-    If the user specifies a complex pole without its conjugate, add it.
-    If both a pole and its conjugate are already present, keep both.
-
-    Args:
-        poles: List of desired poles.
-        n: Required number of poles.
-
-    Returns:
-        Array of n poles with conjugate pairs enforced.
-    """
+    """Enforce conjugate pairs (real K); add a missing conjugate when needed."""
     result = []
     used = set()
 
@@ -400,6 +338,11 @@ def _ensure_conjugate_pairs(poles: List[complex], n: int) -> np.ndarray:
 #  Simulation engine                                                  #
 # ------------------------------------------------------------------ #
 
+def _feedback_law(K: np.ndarray, dx: np.ndarray, u_eq: np.ndarray) -> np.ndarray:
+    """State-feedback control u = -K·δx + u_eq (unclipped; callers clip as needed)."""
+    return -K @ dx + u_eq.reshape(-1)
+
+
 def _simulate_nonlinear(f_numeric: callable,
                         K: np.ndarray,
                         x_eq: np.ndarray,
@@ -408,21 +351,7 @@ def _simulate_nonlinear(f_numeric: callable,
                         t_span: Tuple[float, float],
                         n_points: int = 500
                         ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, bool]:
-    """Simulate nonlinear system with state feedback u = -K(x - x_eq) + u_eq.
-
-    Args:
-        f_numeric: Callable f(x, u) -> dx/dt (numpy arrays).
-        K: Gain matrix (m x n).
-        x_eq: Equilibrium state.
-        u_eq: Equilibrium input.
-        x0: Initial state.
-        t_span: (t_start, t_end).
-        n_points: Number of output time points.
-
-    Returns:
-        (t, x_traj, u_traj, diverged) where x_traj is (n_points, n),
-        u_traj is (n_points, m), diverged is bool.
-    """
+    """Integrate nonlinear ẋ=f(x,u) under u=-K(x-x_eq)+u_eq → (t, x, u, diverged)."""
     n = len(x_eq)
     m = len(u_eq)
     if K.ndim == 1:
@@ -432,7 +361,7 @@ def _simulate_nonlinear(f_numeric: callable,
 
     def rhs(t: float, x: np.ndarray) -> np.ndarray:
         dx = x - x_eq
-        u = -K @ dx + u_eq.reshape(-1)
+        u = _feedback_law(K, dx, u_eq)
         # Clamp control effort to avoid numerical blowup
         u = np.clip(u, -1000, 1000)
         try:
@@ -484,7 +413,7 @@ def _simulate_nonlinear(f_numeric: callable,
     # Compute control at each point
     for i in range(n_points):
         dx = x_out[i] - x_eq
-        u_out[i] = (-K @ dx + u_eq.reshape(-1)).flatten()
+        u_out[i] = _feedback_law(K, dx, u_eq).flatten()
 
     u_out = np.clip(u_out, -1000, 1000)
 
@@ -500,24 +429,7 @@ def _simulate_linear(A: np.ndarray,
                      t_span: Tuple[float, float],
                      n_points: int = 500
                      ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Simulate linearized system via matrix exponential.
-
-    δẋ = (A - BK)δx, δx(0) = x0 - x_eq
-    x(t) = expm((A-BK)*t) @ δx0 + x_eq
-
-    Args:
-        A: System matrix.
-        B: Input matrix.
-        K: Gain matrix.
-        x_eq: Equilibrium state.
-        u_eq: Equilibrium input.
-        x0: Initial state.
-        t_span: (t_start, t_end).
-        n_points: Number of output points.
-
-    Returns:
-        (t, x_traj, u_traj) arrays.
-    """
+    """Linearized response x(t)=expm((A-BK)t)·δx0+x_eq → (t, x, u). δx0=x0-x_eq."""
     if B.ndim == 1:
         B = B.reshape(-1, 1)
     if K.ndim == 1:
@@ -540,7 +452,7 @@ def _simulate_linear(A: np.ndarray,
             if np.any(np.abs(dx) > 1e6):
                 dx = np.clip(dx, -1e6, 1e6)
             x_out[i] = dx + x_eq
-            u_out[i] = (-K @ dx + u_eq.reshape(-1)).flatten()
+            u_out[i] = _feedback_law(K, dx, u_eq).flatten()
     except Exception:
         x_out[:] = x_eq
         u_out[:] = u_eq.reshape(-1)
@@ -562,25 +474,8 @@ def _compute_vector_field(f_numeric: callable,
                           grid_size: int = 20,
                           extent: float = 3.0
                           ) -> Dict[str, Any]:
-    """Compute 2D projected vector field of controlled dynamics.
-
-    Projects the full n-dimensional dynamics onto a 2D plane defined by
-    proj_x and proj_y state indices.  States not on axes are held at equilibrium.
-
-    Args:
-        f_numeric: Callable f(x, u) -> dxdt.
-        K: Gain matrix (m x n).
-        x_eq: Equilibrium state.
-        u_eq: Equilibrium input.
-        n_states: Total number of states.
-        proj_x: State index for x-axis.
-        proj_y: State index for y-axis.
-        grid_size: Number of grid points per axis.
-        extent: Range around equilibrium for the grid.
-
-    Returns:
-        Dict with x_grid, y_grid, dx, dy arrays (as lists).
-    """
+    """2D vector field of controlled dynamics on the (proj_x, proj_y) plane;
+    off-axis states held at equilibrium. Returns normalized dx/dy grids."""
     if K.ndim == 1:
         K = K.reshape(1, -1)
 
@@ -600,7 +495,7 @@ def _compute_vector_field(f_numeric: callable,
             state[proj_y] = Y[i, j]
 
             dx = state - x_eq
-            u = (-K @ dx + u_eq.reshape(-1)).flatten()
+            u = _feedback_law(K, dx, u_eq).flatten()
             u = np.clip(u, -1000, 1000)
 
             try:
@@ -643,23 +538,7 @@ def _compute_streamlines(f_numeric: callable,
                          extent: float = 3.0,
                          t_stream: float = 5.0
                          ) -> List[Dict[str, List]]:
-    """Compute streamlines via forward integration from seed points.
-
-    Args:
-        f_numeric: Callable f(x, u) -> dxdt.
-        K: Gain matrix.
-        x_eq: Equilibrium state.
-        u_eq: Equilibrium input.
-        n_states: Number of states.
-        proj_x: x-axis state index.
-        proj_y: y-axis state index.
-        n_seeds: Number of seed points.
-        extent: Spatial extent around equilibrium.
-        t_stream: Integration time.
-
-    Returns:
-        List of dicts with 'x' and 'y' keys (list of floats for each streamline).
-    """
+    """Forward-integrate streamlines from a ring of seed points around x_eq."""
     if K.ndim == 1:
         K = K.reshape(1, -1)
 
@@ -675,7 +554,7 @@ def _compute_streamlines(f_numeric: callable,
 
         def rhs(t: float, x: np.ndarray) -> np.ndarray:
             dx = x - x_eq
-            u = (-K @ dx + u_eq.reshape(-1)).flatten()
+            u = _feedback_law(K, dx, u_eq).flatten()
             u = np.clip(u, -1000, 1000)
             try:
                 dxdt = np.array(f_numeric(x, u)).flatten()
@@ -717,16 +596,7 @@ _compute_roa = _estimate_roa_core
 # ------------------------------------------------------------------ #
 
 def _matrix_to_latex(mat: np.ndarray, name: str, fmt: str = ".3g") -> str:
-    """Format a numpy matrix as KaTeX LaTeX string.
-
-    Args:
-        mat: 2D numpy array.
-        name: Matrix name (e.g., "A", "K").
-        fmt: Number format string.
-
-    Returns:
-        LaTeX string.
-    """
+    """Format a numpy matrix as a KaTeX bmatrix string 'name = [...]'."""
     if mat.ndim == 1:
         mat = mat.reshape(1, -1)
     rows = mat.shape[0]
@@ -742,16 +612,7 @@ def _matrix_to_latex(mat: np.ndarray, name: str, fmt: str = ".3g") -> str:
 def _ode_to_latex(f_vector: 'sp.Matrix',
                   x_syms: List,
                   u_syms: List) -> str:
-    """Convert SymPy ODE to LaTeX string for display.
-
-    Args:
-        f_vector: SymPy Matrix of expressions.
-        x_syms: State symbols.
-        u_syms: Input symbols.
-
-    Returns:
-        LaTeX string of the ODE system.
-    """
+    """Render the SymPy ODE system ẋᵢ = fᵢ as a LaTeX string."""
     if not _HAS_SYMPY:
         return ""
     lines = []
@@ -921,20 +782,13 @@ class NonlinearControlLabSimulator(BaseSimulator):
     }
 
     HUB_SLOTS = ['control']
+    HUB_DOMAIN = "ct"
 
     HUB_PRODUCER_ONLY = True  # exports only; from_hub_data always returns False
     HUB_DIMENSIONS = {'n': None, 'm': None, 'p': None}
 
     def to_hub_data(self) -> Optional[Dict[str, Any]]:
-        """Export the linearized state-space system to the Hub.
-
-        Uses full-state observation (C = I, D = 0) since the nonlinear
-        ODE only defines state dynamics, not an explicit output equation.
-
-        Returns:
-            Hub-format dict with A, B, C, D matrices, or None if the
-            system has not been linearized yet.
-        """
+        """Export the linearized SS (full-state C=I, D=0) to the Hub, or None."""
         if self._A is None or self._B is None:
             return None
         A = self._A.tolist() if hasattr(self._A, 'tolist') else self._A
@@ -962,11 +816,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
         return False
 
     def __init__(self, simulation_id: str):
-        """Initialize the Nonlinear Control Lab simulator.
-
-        Args:
-            simulation_id: Unique identifier for this simulation instance.
-        """
+        """Declare result caches (all None/empty until _compute_all runs)."""
         super().__init__(simulation_id)
         self._error: Optional[str] = None
         self._roa_result: Optional[Dict[str, Any]] = None
@@ -993,11 +843,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
         self._eq_warning: Optional[str] = None
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
-        """Initialize with given or default parameters.
-
-        Args:
-            params: Optional parameter overrides.
-        """
+        """Merge defaults with params, validate, and clear caches."""
         self.parameters = {**self.DEFAULT_PARAMS, **(params or {})}
         for name, value in self.parameters.items():
             self.parameters[name] = self._validate_param(name, value)
@@ -1008,15 +854,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
         self._initialized = True
 
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
-        """Update a single parameter and return updated state.
-
-        Args:
-            name: Parameter name.
-            value: New value.
-
-        Returns:
-            Updated state dict.
-        """
+        """Validate one parameter, clear ROA cache (unless view-only), re-derive state."""
         if name in self.parameters:
             self.parameters[name] = self._validate_param(name, value)
         # Clear ROA cache on parameter change (except when just
@@ -1030,48 +868,12 @@ class NonlinearControlLabSimulator(BaseSimulator):
     #  Core computation pipeline                                       #
     # ================================================================ #
 
-    def _build_plant(self) -> Tuple[bool, str]:
-        """Build the plant model from current parameters.
+    def _make_numeric_and_check_eq(self) -> Tuple[bool, str]:
+        """Lambdify self._f_vector into self._f_numeric and flag non-equilibria.
 
-        Sets self._f_vector, self._f_numeric, self._x_syms, self._u_syms,
-        self._n_states, self._n_inputs, self._x_eq, self._u_eq, self._state_names,
-        self._input_names.
-
-        Returns:
-            (success, error_message).
+        Reads self._x_syms/_u_syms/_f_vector/_x_eq/_u_eq; sets self._f_numeric
+        and self._eq_warning (norm ‖f(x*,u*)‖ > 0.01 → warning).
         """
-        if not _HAS_SYMPY:
-            return False, "SymPy not available"
-
-        preset = str(self.parameters["plant_preset"])
-        presets = _get_preset_plants()
-
-        if preset == "custom":
-            return self._build_custom_plant()
-
-        if preset not in presets:
-            return False, f"Unknown preset: {preset}"
-
-        pdef = presets[preset]
-        self._n_states = pdef["n_states"]
-        self._n_inputs = pdef["n_inputs"]
-        self._state_names = pdef["state_names"]
-        self._input_names = pdef["input_names"]
-
-        # Build symbolic dynamics
-        try:
-            self._x_syms, self._u_syms, _, self._f_vector = \
-                _build_symbolic_dynamics(preset, pdef["params"])
-        except Exception as exc:
-            return False, f"Symbolic dynamics error: {exc}"
-
-        # Select equilibrium
-        eq_idx = int(self.parameters.get("equilibrium_idx", "0"))
-        eq_idx = min(eq_idx, len(pdef["equilibria"]) - 1)
-        eq = pdef["equilibria"][eq_idx]
-        self._x_eq = np.array(eq["x_eq"], dtype=float)
-        self._u_eq = np.array(eq["u_eq"], dtype=float)
-
         # Build numeric callable via lambdify
         try:
             all_syms = list(self._x_syms) + list(self._u_syms)
@@ -1105,12 +907,48 @@ class NonlinearControlLabSimulator(BaseSimulator):
 
         return True, ""
 
-    def _build_custom_plant(self) -> Tuple[bool, str]:
-        """Build plant from user-entered custom ODE expressions.
+    def _build_plant(self) -> Tuple[bool, str]:
+        """Build symbolic + numeric plant and equilibrium from the chosen preset."""
+        if not _HAS_SYMPY:
+            return False, "SymPy not available"
 
-        Returns:
-            (success, error_message).
-        """
+        preset = str(self.parameters["plant_preset"])
+        presets = _get_preset_plants()
+
+        if preset == "custom":
+            return self._build_custom_plant()
+
+        if preset not in presets:
+            return False, f"Unknown preset: {preset}"
+
+        pdef = presets[preset]
+        self._n_states = pdef["n_states"]
+        self._n_inputs = pdef["n_inputs"]
+        self._state_names = pdef["state_names"]
+        self._input_names = pdef["input_names"]
+
+        # Build symbolic dynamics
+        try:
+            self._x_syms, self._u_syms, self._f_vector = \
+                _build_symbolic_dynamics(preset, pdef["params"])
+        except Exception as exc:
+            return False, f"Symbolic dynamics error: {exc}"
+
+        # Select equilibrium
+        eq_idx = int(self.parameters.get("equilibrium_idx", "0"))
+        eq_idx = min(eq_idx, len(pdef["equilibria"]) - 1)
+        eq = pdef["equilibria"][eq_idx]
+        self._x_eq = np.array(eq["x_eq"], dtype=float)
+        self._u_eq = np.array(eq["u_eq"], dtype=float)
+
+        ok, err = self._make_numeric_and_check_eq()
+        if not ok:
+            return False, err
+
+        return True, ""
+
+    def _build_custom_plant(self) -> Tuple[bool, str]:
+        """Build plant from user-entered custom ODE expressions and eq sliders."""
         n_states = int(self.parameters.get("n_states_custom", "2"))
         n_inputs = int(self.parameters.get("n_inputs_custom", "1"))
         self._n_states = n_states
@@ -1149,46 +987,14 @@ class NonlinearControlLabSimulator(BaseSimulator):
             dtype=float
         )
 
-        # Build numeric callable
-        try:
-            all_syms = list(x_syms) + list(u_syms)
-            safe_modules = [{"sqrt": lambda x: np.sqrt(np.maximum(x, 0.0))}, "numpy"]
-            f_lamb = sp_lambdify(all_syms, f_vector, modules=safe_modules)
-
-            def f_numeric(x: np.ndarray, u: np.ndarray) -> np.ndarray:
-                args = list(x) + list(u.flatten())
-                result = np.array(f_lamb(*args), dtype=float).flatten()
-                return result
-
-            self._f_numeric = f_numeric
-        except Exception as exc:
-            return False, f"Lambdify error: {exc}"
-
-        # Verify equilibrium: f(x_eq, u_eq) should be near zero
-        try:
-            f_at_eq = self._f_numeric(self._x_eq, self._u_eq)
-            eq_residual = float(np.linalg.norm(f_at_eq))
-            if eq_residual > 0.01:
-                self._eq_warning = (
-                    f"f(x*, u*) has norm {eq_residual:.4f} "
-                    f"— may not be a true equilibrium"
-                )
-            else:
-                self._eq_warning = None
-        except Exception:
-            self._eq_warning = None
+        ok, err = self._make_numeric_and_check_eq()
+        if not ok:
+            return False, err
 
         return True, ""
 
     def _linearize(self) -> Tuple[bool, str]:
-        """Perform Jacobian linearization at current equilibrium.
-
-        Sets self._A, self._B, self._is_controllable, self._ctrl_rank,
-        self._ol_eigenvalues.
-
-        Returns:
-            (success, error_message).
-        """
+        """Jacobian linearization: set A=∂f/∂x, B=∂f/∂u, controllability, OL poles."""
         try:
             self._A, self._B = _compute_jacobians(
                 self._f_vector, self._x_syms, self._u_syms,
@@ -1215,13 +1021,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
         return True, ""
 
     def _design_controller(self) -> Tuple[bool, str]:
-        """Design controller based on current method selection.
-
-        Sets self._K, self._cl_eigenvalues, self._design_error.
-
-        Returns:
-            (success, error_message).
-        """
+        """Design K via LQR or pole placement; set self._K and CL eigenvalues."""
         method = str(self.parameters["controller_method"])
         n = self._n_states
         m = self._n_inputs
@@ -1290,11 +1090,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
         return True, ""
 
     def _run_simulations(self) -> Dict[str, Any]:
-        """Run both linear and nonlinear simulations.
-
-        Returns:
-            Dict with time series data for both simulations.
-        """
+        """Run nonlinear (and, if enabled, linear) sims from x_eq + ic offsets."""
         t_end = float(self.parameters.get("sim_time", 10.0))
         n = self._n_states
 
@@ -1351,14 +1147,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
     def _compute_performance_metrics(self,
                                      sim_data: Dict[str, Any]
                                      ) -> Dict[str, Any]:
-        """Compute performance metrics from simulation results.
-
-        Args:
-            sim_data: Dict from _run_simulations().
-
-        Returns:
-            Dict with convergence_time, max_deviation, final_error, is_stable.
-        """
+        """Convergence time, max deviation, final error, and stability from the NL sim."""
         t = np.array(sim_data["t"])
         x_nl = np.array(sim_data["x_nonlinear"])
 
@@ -1404,11 +1193,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
 
     def _compute_all(self) -> Tuple[Dict[str, Any],
                                      List[Dict[str, Any]]]:
-        """Run the full pipeline: build → linearize → design → simulate.
-
-        Returns:
-            (metadata, plots) tuple.
-        """
+        """Full pipeline (build → linearize → design → simulate) → (metadata, plots)."""
         self._error = None
 
         # Cache key for plant-affecting parameters — skip expensive SymPy
@@ -1494,14 +1279,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
 
     def _error_state(self, error_msg: str) -> Tuple[Dict[str, Any],
                                                       List[Dict[str, Any]]]:
-        """Return a minimal state when an error occurs.
-
-        Args:
-            error_msg: Description of the error.
-
-        Returns:
-            (metadata, plots) with error information.
-        """
+        """Minimal (metadata, empty plots) when the pipeline fails."""
         self._error = error_msg
         metadata = {
             "simulation_type": "nonlinear_control_lab",
@@ -1525,15 +1303,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
         return metadata, plots
 
     def _empty_plot(self, plot_id: str, title: str) -> Dict[str, Any]:
-        """Generate an empty plot placeholder.
-
-        Args:
-            plot_id: Unique plot identifier.
-            title: Plot title.
-
-        Returns:
-            Plotly plot dict.
-        """
+        """Empty Plotly plot placeholder."""
         return {
             "id": plot_id,
             "title": title,
@@ -1546,15 +1316,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
     # ================================================================ #
 
     def _base_layout(self, title: str, **kwargs: Any) -> Dict[str, Any]:
-        """Standard Plotly layout.
-
-        Args:
-            title: Plot title.
-            **kwargs: Additional layout overrides.
-
-        Returns:
-            Plotly layout dict.
-        """
+        """Standard dark Plotly layout; kwargs override top-level keys."""
         layout = {
             "title": {"text": title, "font": {"size": 14}},
             "paper_bgcolor": "#0a0e27",
@@ -1581,16 +1343,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
                      proj_x: int,
                      proj_y: int
                      ) -> List[Dict[str, Any]]:
-        """Build all Plotly plots.
-
-        Args:
-            sim_data: Simulation results dict.
-            proj_x: x-axis projection state index.
-            proj_y: y-axis projection state index.
-
-        Returns:
-            List of Plotly plot dicts.
-        """
+        """Time response, control effort, eigenvalue map (+ ROA when computed)."""
         plots = [
             self._build_time_response_plot(sim_data),
             self._build_control_effort_plot(sim_data),
@@ -1606,16 +1359,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
     def _build_time_response_plot(self,
                                    sim_data: Dict[str, Any]
                                    ) -> Dict[str, Any]:
-        """Build time response plot with all state traces.
-
-        Nonlinear = solid lines, Linear = dashed lines.
-
-        Args:
-            sim_data: Simulation data dict.
-
-        Returns:
-            Plotly plot dict.
-        """
+        """State trajectories vs time: nonlinear solid, linear dashed, eq dotted."""
         t = sim_data.get("t", [])
         x_nl = sim_data.get("x_nonlinear", [])
         x_lin = sim_data.get("x_linear", [])
@@ -1686,14 +1430,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
     def _build_control_effort_plot(self,
                                     sim_data: Dict[str, Any]
                                     ) -> Dict[str, Any]:
-        """Build control effort u(t) plot.
-
-        Args:
-            sim_data: Simulation data dict.
-
-        Returns:
-            Plotly plot dict.
-        """
+        """Control input u(t): nonlinear solid, linear dashed."""
         t = sim_data.get("t", [])
         u_nl = sim_data.get("u_nonlinear", [])
         u_lin = sim_data.get("u_linear", [])
@@ -1747,11 +1484,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
         }
 
     def _build_eigenvalue_plot(self) -> Dict[str, Any]:
-        """Build eigenvalue map showing OL and CL poles on complex plane.
-
-        Returns:
-            Plotly plot dict.
-        """
+        """Open-loop vs closed-loop poles on the complex plane with LHP shading."""
         traces = []
 
         # Open-loop eigenvalues
@@ -1848,15 +1581,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
         }
 
     def _build_roa_plot(self, proj_x: int, proj_y: int) -> Dict[str, Any]:
-        """Build Region of Attraction heatmap.
-
-        Args:
-            proj_x: x-axis state index.
-            proj_y: y-axis state index.
-
-        Returns:
-            Plotly plot dict.
-        """
+        """Region-of-attraction heatmap on the (proj_x, proj_y) slice."""
         roa = self._roa_result
         if roa is None:
             return self._empty_plot("roa_heatmap",
@@ -1930,19 +1655,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
                         proj_x: int,
                         proj_y: int
                         ) -> Dict[str, Any]:
-        """Build rich metadata for the frontend viewer.
-
-        Args:
-            sim_data: Simulation results.
-            perf: Performance metrics dict.
-            vf_data: Vector field data (or None).
-            sl_data: Streamline data (or None).
-            proj_x: x-axis projection index.
-            proj_y: y-axis projection index.
-
-        Returns:
-            Metadata dict for get_state().
-        """
+        """Assemble the metadata dict (plant, linearization, controller, viz) for get_state()."""
         n = self._n_states
         m = self._n_inputs
         preset = str(self.parameters["plant_preset"])
@@ -2080,22 +1793,14 @@ class NonlinearControlLabSimulator(BaseSimulator):
     # ================================================================ #
 
     def get_plots(self) -> List[Dict[str, Any]]:
-        """Generate and return current plots.
-
-        Returns:
-            List of Plotly plot dicts.
-        """
+        """Current Plotly plots (runs the full pipeline)."""
         if not self._initialized:
             self.initialize()
         _, plots = self._compute_all()
         return plots
 
     def get_state(self) -> Dict[str, Any]:
-        """Return full simulation state with plots and metadata.
-
-        Returns:
-            Dict with parameters, plots, and metadata.
-        """
+        """Full state: {parameters, plots, metadata}."""
         if not self._initialized:
             self.initialize()
 
@@ -2110,17 +1815,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
     def handle_action(self, action: str,
                       params: Optional[Dict[str, Any]] = None
                       ) -> Dict[str, Any]:
-        """Handle execute endpoint actions.
-
-        Supported actions: init, update, run, reset, compute_roa.
-
-        Args:
-            action: Action name string.
-            params: Optional parameters for the action.
-
-        Returns:
-            Updated state dict.
-        """
+        """Dispatch execute actions: init, update, run, reset, compute_roa."""
         if action == "init":
             self.initialize(params)
         elif action == "update" and params:
@@ -2142,11 +1837,7 @@ class NonlinearControlLabSimulator(BaseSimulator):
         return self.get_state()
 
     def _compute_roa_action(self) -> None:
-        """Execute the ROA computation.
-
-        Builds plant and controller if needed, then runs the grid-based
-        ROA analysis.
-        """
+        """Rebuild plant + controller, then run the grid-based ROA analysis."""
         # Ensure plant and controller are built
         ok, err = self._build_plant()
         if not ok:

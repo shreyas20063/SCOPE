@@ -23,7 +23,6 @@ from itertools import combinations
 from typing import Any, Dict, List, Optional, Tuple
 from .base_simulator import BaseSimulator
 import re
-import uuid
 
 
 class BlockDiagramSimulator(BaseSimulator):
@@ -2069,28 +2068,10 @@ class BlockDiagramSimulator(BaseSimulator):
     def _operator_to_s(self, num: np.ndarray, den: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Convert from A-domain (A = 1/s) to s-domain.
-        Same logic as R→z but with A = 1/s.
+        Same clear-negative-powers math as R→z (A = 1/s plays the role of R = z^{-1}).
         Returns HIGH-power-first arrays.
         """
-        den_order = len(den) - 1
-        num_order = len(num) - 1
-        k = max(den_order, num_order)
-
-        s_num = np.zeros(k + 1)
-        s_den = np.zeros(k + 1)
-        s_num[:len(num)] = num
-        s_den[:len(den)] = den
-
-        # Strip leading zeros for np.roots and scipy.signal compatibility
-        s_num = np.trim_zeros(s_num, 'f')
-        s_den = np.trim_zeros(s_den, 'f')
-
-        if len(s_num) == 0:
-            s_num = np.array([0.0])
-        if len(s_den) == 0:
-            s_den = np.array([1.0])
-
-        return s_num, s_den
+        return self._operator_to_z(num, den)
 
     def _poly_ratio_to_string(self, num: np.ndarray, den: np.ndarray, var: str) -> str:
         """Convert polynomial ratio to readable string.
@@ -2108,6 +2089,24 @@ class BlockDiagramSimulator(BaseSimulator):
 
         For R and A: low-power-first (coeffs[i] = coeff of var^i)
         For z and s: high-power-first (coeffs[0] = coeff of var^(n-1))
+        """
+        return self._poly_to_display(coeffs, var, latex=False)
+
+    def _format_coeff(self, c: float) -> str:
+        """Format a coefficient nicely."""
+        if abs(c - round(c)) < 1e-10:
+            return str(int(round(c)))
+        return f"{c:.4g}"
+
+    def _poly_to_latex(self, coeffs: np.ndarray, var: str) -> str:
+        """Convert polynomial coefficients to LaTeX string."""
+        return self._poly_to_display(coeffs, var, latex=True)
+
+    def _poly_to_display(self, coeffs: np.ndarray, var: str, latex: bool) -> str:
+        """Shared term generator for polynomial rendering.
+
+        Plain and LaTeX renderings differ only in how a var^power (power>=2) term
+        is written (``var^2`` vs ``var^{2}``); everything else is identical.
         """
         if len(coeffs) == 0:
             return "0"
@@ -2137,65 +2136,18 @@ class BlockDiagramSimulator(BaseSimulator):
                 else:
                     term = f"{self._format_coeff(c)}{var}"
             else:
+                pow_var = f"{var}^{{{power}}}" if latex else f"{var}^{power}"
                 if abs(c - 1.0) < 1e-10:
-                    term = f"{var}^{power}"
+                    term = pow_var
                 elif abs(c + 1.0) < 1e-10:
-                    term = f"-{var}^{power}"
+                    term = f"-{pow_var}"
                 else:
-                    term = f"{self._format_coeff(c)}{var}^{power}"
+                    term = f"{self._format_coeff(c)}{pow_var}"
             terms.append(term)
 
         if not terms:
             return "0"
 
-        result = terms[0]
-        for t in terms[1:]:
-            if t.startswith("-"):
-                result += f" - {t[1:]}"
-            else:
-                result += f" + {t}"
-        return result if result else "0"
-
-    def _format_coeff(self, c: float) -> str:
-        """Format a coefficient nicely."""
-        if abs(c - round(c)) < 1e-10:
-            return str(int(round(c)))
-        return f"{c:.4g}"
-
-    def _poly_to_latex(self, coeffs: np.ndarray, var: str) -> str:
-        """Convert polynomial coefficients to LaTeX string."""
-        if len(coeffs) == 0:
-            return "0"
-        if len(coeffs) == 1:
-            return self._format_coeff(coeffs[0])
-
-        high_power_first = var in ("z", "s")
-        terms = []
-        for i, c in enumerate(coeffs):
-            if abs(c) < 1e-10:
-                continue
-            power = (len(coeffs) - 1 - i) if high_power_first else i
-
-            if power == 0:
-                term = self._format_coeff(c)
-            elif power == 1:
-                if abs(c - 1.0) < 1e-10:
-                    term = var
-                elif abs(c + 1.0) < 1e-10:
-                    term = f"-{var}"
-                else:
-                    term = f"{self._format_coeff(c)}{var}"
-            else:
-                if abs(c - 1.0) < 1e-10:
-                    term = f"{var}^{{{power}}}"
-                elif abs(c + 1.0) < 1e-10:
-                    term = f"-{var}^{{{power}}}"
-                else:
-                    term = f"{self._format_coeff(c)}{var}^{{{power}}}"
-            terms.append(term)
-
-        if not terms:
-            return "0"
         result = terms[0]
         for t in terms[1:]:
             if t.startswith("-"):
@@ -2340,17 +2292,9 @@ class BlockDiagramSimulator(BaseSimulator):
         Multiply by R^k: n0*R^k + n1*R^(k-1) + ... + nk
         Low-power-first in R: [nk, ..., n1, n0]
 
-        This is the same reversal as s-to-A.
+        This is the same reciprocal-substitution reversal as s-to-A.
         """
-        k = max(len(num_z) - 1, len(den_z) - 1)
-
-        nz = list(num_z) + [0.0] * (k + 1 - len(num_z))
-        dz = list(den_z) + [0.0] * (k + 1 - len(den_z))
-
-        num_r = list(reversed(nz[:k + 1]))
-        den_r = list(reversed(dz[:k + 1]))
-
-        return num_r, den_r
+        return BlockDiagramSimulator._s_to_a_coeffs(num_z, den_z)
 
     @staticmethod
     def _strip_outer_parens(s: str) -> str:
@@ -3137,13 +3081,6 @@ class BlockDiagramSimulator(BaseSimulator):
             return [self._generate_response_plot_from(np.array(num), np.array(den))]
         except Exception:
             return []
-
-    def _generate_response_plot(self) -> Dict[str, Any]:
-        """Legacy method — delegates to _generate_response_plot_from."""
-        tf = self._tf_result
-        return self._generate_response_plot_from(
-            np.array(tf["numerator"]), np.array(tf["denominator"])
-        )
 
     def _generate_response_plot_from(self, num: np.ndarray, den: np.ndarray) -> Dict[str, Any]:
         """Generate step and impulse response plot from num/den arrays."""
