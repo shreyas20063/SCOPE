@@ -37,6 +37,8 @@ class CascadeParallelSimulator(BaseSimulator):
     }
 
 
+    HUB_DOMAIN = "dt"  # discrete-time system (BUG-098; was inheriting "ct")
+
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)
         self._decomposition_step: int = 0

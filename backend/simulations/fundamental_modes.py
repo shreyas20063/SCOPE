@@ -196,6 +196,8 @@ class FundamentalModesSimulator(BaseSimulator):
     FILL_STABLE = "rgba(52, 211, 153, 0.08)"
     UNIT_CIRCLE_COLOR = "#a855f7"
 
+    HUB_DOMAIN = "dt"  # discrete-time system (BUG-098; was inheriting "ct")
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         # Computed data

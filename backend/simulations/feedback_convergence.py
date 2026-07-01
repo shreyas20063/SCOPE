@@ -77,6 +77,8 @@ class FeedbackConvergenceSimulator(BaseSimulator):
         {"label": "Zero Gain (p₀=0)", "params": {"p0": 0.0}},
     ]
 
+    HUB_DOMAIN = "dt"  # discrete-time system (BUG-098; was inheriting "ct")
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._animation_step: int = 0

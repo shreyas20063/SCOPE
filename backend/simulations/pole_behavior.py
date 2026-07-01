@@ -58,6 +58,8 @@ class PoleBehaviorSimulator(BaseSimulator):
         0.0, 0.3, 0.5, 0.7, 0.8, 0.9, 1.0, 1.2, 1.5,
     ]
 
+    HUB_DOMAIN = "dt"  # discrete-time system (BUG-098; was inheriting "ct")
+
     def __init__(self, simulation_id: str) -> None:
         super().__init__(simulation_id)
         self._n: Optional[np.ndarray] = None

@@ -84,6 +84,8 @@ class CyclicPathDetectorSimulator(BaseSimulator):
         "impulse_steps": 15,
     }
 
+    HUB_DOMAIN = "dt"  # discrete-time system (BUG-098; was inheriting "ct")
+
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
         self._presets = self._build_presets()

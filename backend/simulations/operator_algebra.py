@@ -465,6 +465,8 @@ class OperatorAlgebraSimulator(BaseSimulator):
 
     MAX_DEGREE = 20
 
+    HUB_DOMAIN = "dt"  # discrete-time system (BUG-098; was inheriting "ct")
+
     PRESETS = {
         "first_diff": {"label": "(1 - R)", "expression": "(1-R)"},
         "second_diff": {"label": "(1 - R)^2", "expression": "(1-R)^2"},
