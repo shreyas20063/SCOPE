@@ -1,7 +1,6 @@
 # SCOPE
 
-> This work is submitted to the IEEE Conference on Decision and Control (CDC)
-> and is undergoing peer review. Citations and academic discussion welcome.
+
 
 A browser-native platform for control systems analysis and design. No installation, no programming, no license key — open a browser and go.
 
