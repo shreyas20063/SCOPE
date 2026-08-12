@@ -1,3 +1,12 @@
+# SCOPE backend — Python runtime dependencies. Requires Python 3.11.
+#   pip install -r requirements.txt
+#
+# NOTE: this file only covers the backend. The frontend is a separate Node.js
+# app and needs Node.js >= 18 and npm (cd frontend && npm install && npm run dev).
+# See the "Prerequisites" section of the root README.md for the full list.
+# Dev/test-only Python deps (pytest, python-control, httpx) live in
+# ../requirements-dev.txt.
+
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
 # Explicit WS protocol dep: uvicorn[standard] bundles it, but a bare-uvicorn
