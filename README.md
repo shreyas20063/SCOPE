@@ -7,6 +7,21 @@ A browser-native platform for control systems analysis and design. No installati
 
 SCOPE covers the complete control workflow — plant specification, system analysis, controller design, and closed-loop validation — for SISO and MIMO, linear and nonlinear systems. It includes 54 interactive tools and simulations, a drag-and-drop block diagram editor, real-time 3D animations of five canonical plants, and a shared data hub that propagates plant data between tools automatically so you never re-enter it.
 
+## Prerequisites
+
+| Requirement | Version | Used for |
+|---|---|---|
+| [Python](https://www.python.org/downloads/) | 3.11 | Backend (FastAPI, NumPy/SciPy/SymPy) |
+| pip | ships with Python | Installing backend dependencies |
+| [Node.js](https://nodejs.org/) | ≥ 18 | Frontend build tooling (Vite 5) |
+| npm | ≥ 9 (ships with Node 18+) | Installing and running the frontend |
+
+That's the whole stack — no database, no Docker, no API keys. Verify with:
+
+```bash
+python --version && node --version && npm --version
+```
+
 ## Quick Start
 
 ```bash
@@ -21,6 +36,8 @@ npm install && npm run dev
 ```
 
 Open **http://localhost:3001**. That's it — no API keys, no accounts, no configuration.
+
+To run the backend test suite, also install the dev extras from the repo root: `pip install -r requirements-dev.txt`.
 
 ## Features
 
