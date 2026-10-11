@@ -1742,13 +1742,23 @@ function SFGEdge({ edge, nodesMap, edgeIndex, parallelOffset, allNodes }) {
   );
 }
 
+// Tag for the exact variable change the backend applied to a custom TF:
+// z→R (R = z⁻¹) in DT mode, s→A (A = 1/s) in CT mode. Any other pairing
+// (e.g. a CT block restored into DT mode by undo) is not a conversion the
+// builder performs, so no tag is shown; there is no s→R map without a sampling period.
+function customTfConversionTag(convertedFrom, systemType) {
+  if (systemType === 'dt' && convertedFrom === 'z') return 'z→R';
+  if (systemType === 'ct' && convertedFrom === 's') return 's→A';
+  return null;
+}
+
 function CustomTfBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPortMouseUp, onTfDoubleClick, flowDir = 'ltr', systemType = 'dt' }) {
   const { x, y } = block.position;
   const flipped = flowDir === 'rtl';
   const hw = BLOCK_SIZES.custom_tf.width / 2, hh = BLOCK_SIZES.custom_tf.height / 2;
   const expression = block.expression || '1';
   const label = block.label || (systemType === 'ct' ? 'H(s)' : 'H(z)');
-  const convertedFrom = block.converted_from;
+  const conversionTag = customTfConversionTag(block.converted_from, systemType);
   const latexStr = tfExprToLatex(expression, systemType);
 
   // Render KaTeX to HTML string
@@ -1775,11 +1785,11 @@ function CustomTfBlock({ block, isSelected, onMouseDown, onPortMouseDown, onPort
         {label}
       </text>
       {/* Conversion badge */}
-      {convertedFrom && (
+      {conversionTag && (
         <g transform={`translate(${hw - 2}, ${-hh + 2})`}>
           <rect x={-14} y={-8} width={28} height={14} rx={4} className="bd-custom-tf-converted-badge" />
           <text x={0} y={0} textAnchor="middle" dominantBaseline="middle" className="bd-custom-tf-converted-text">
-            {convertedFrom}→{systemType === 'dt' ? 'R' : 'A'}
+            {conversionTag}
           </text>
         </g>
       )}
@@ -2065,7 +2075,7 @@ function MimoTfDisplay({ tfResult, systemType }) {
           <div className="bd-mimo-detail">
             <strong>G<sub>{selectedCell.i + 1},{selectedCell.j + 1}</sub>({varName})</strong>
             {' \u2014 '}
-            <span>{input_labels[selectedCell.j]} \u2192 {output_labels[selectedCell.i]}</span>
+            <span>{input_labels[selectedCell.j]}{' \u2192 '}{output_labels[selectedCell.i]}</span>
             {!isZero && entry.domain_latex && <LaTeX math={`= ${entry.domain_latex}`} className="bd-mimo-detail-expr" />}
             <span className={`bd-tf-bar-stability ${entry.stability}`}>
               {entry.stability === 'stable' ? '\u2713 Stable'
@@ -2097,7 +2107,13 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   const [wireStart, setWireStart] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [tfResult, setTfResult] = useState(null);
+  // `error` is flashed for 5 s after a request (metadata.error). `tfError`
+  // is why the current diagram has no TF (metadata.tf_error); it stays until
+  // the diagram changes, so the reason is still visible after the flash.
   const [error, setError] = useState(null);
+  const [tfError, setTfError] = useState(null);
+  const [tfErrorKind, setTfErrorKind] = useState(null);
+  const [domainError, setDomainError] = useState(null);
   const [mode, setMode] = useState('build');
   const [systemType, setSystemType] = useState('dt');
   const [tfInput, setTfInput] = useState('');
@@ -2151,19 +2167,44 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
   useEffect(() => { draggingRef.current = dragging; }, [dragging]);
   useEffect(() => { blocksRef.current = blocks; }, [blocks]);
 
+  // Flash a request error for 5 s. One timer at a time, so an older timer
+  // cannot cut a newer message short.
+  const errorTimerRef = useRef(null);
+  const flashError = useCallback((message) => {
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+    errorTimerRef.current = null;
+    setError(message || null);
+    if (message) {
+      errorTimerRef.current = setTimeout(() => {
+        errorTimerRef.current = null;
+        setError(null);
+      }, 5000);
+    }
+  }, []);
+  useEffect(() => () => { if (errorTimerRef.current) clearTimeout(errorTimerRef.current); }, []);
+
+  // Diagram state that every backend response carries. system_type is
+  // included: undo/redo can return the diagram to the other domain.
+  const applyDiagramMeta = useCallback((meta) => {
+    if (meta.blocks !== undefined) setBlocks(meta.blocks);
+    if (meta.connections !== undefined) setConnections(meta.connections);
+    if (meta.transfer_function !== undefined) setTfResult(meta.transfer_function);
+    if (meta.error !== undefined) flashError(meta.error);
+    if (meta.tf_error !== undefined) setTfError(meta.tf_error);
+    if (meta.tf_error_kind !== undefined) setTfErrorKind(meta.tf_error_kind);
+    if (meta.domain_error !== undefined) setDomainError(meta.domain_error);
+    if (meta.mode) setMode(meta.mode);
+    if (meta.system_type) setSystemType(meta.system_type);
+  }, [flashError]);
+
   // Sync state from metadata
   useEffect(() => {
     if (metadata) {
-      if (metadata.blocks !== undefined) setBlocks(metadata.blocks);
-      if (metadata.connections !== undefined) setConnections(metadata.connections);
-      if (metadata.transfer_function !== undefined) setTfResult(metadata.transfer_function);
-      if (metadata.error !== undefined) setError(metadata.error);
-      if (metadata.mode) setMode(metadata.mode);
-      if (metadata.system_type) setSystemType(metadata.system_type);
+      applyDiagramMeta(metadata);
       if (metadata.presets) setPresets(metadata.presets);
       if (metadata.tf_input !== undefined) setTfInput(metadata.tf_input);
     }
-  }, [metadata]);
+  }, [metadata, applyDiagramMeta]);
 
   // Close preset dropdown on outside click
   useEffect(() => {
@@ -2225,28 +2266,18 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       if (result.success && result.data) {
         const meta = result.data.metadata || result.metadata;
         if (meta) {
-          if (meta.blocks !== undefined) setBlocks(meta.blocks);
-          if (meta.connections !== undefined) setConnections(meta.connections);
-          if (meta.transfer_function !== undefined) setTfResult(meta.transfer_function);
-          if (meta.error !== undefined) {
-            setError(meta.error);
-            if (meta.error) setTimeout(() => setError(null), 5000);
-          }
-          if (meta.mode) setMode(meta.mode);
-          if (meta.system_type) setSystemType(meta.system_type);
+          applyDiagramMeta(meta);
           if (onMetadataChange) onMetadataChange(meta);
         }
       } else if (result.error) {
-        setError(result.error);
-        setTimeout(() => setError(null), 5000);
+        flashError(result.error);
       }
     } catch (err) {
-      setError(err.message);
-      setTimeout(() => setError(null), 5000);
+      flashError(err.message);
     } finally {
       setIsLoading(false);
     }
-  }, [simId, onMetadataChange]);
+  }, [simId, onMetadataChange, applyDiagramMeta, flashError]);
 
   const mutatingAction = useCallback(async (action, params = {}) => {
     saveUndoSnapshot();
@@ -2495,15 +2526,18 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       if (result.success && result.data) {
         const meta = result.data.metadata || result.metadata;
         if (meta) {
-          // Check if backend returned an error (parse failure)
-          if (meta.error) {
-            setTfDialogError(meta.error);
+          // Only a rejection of the edit itself keeps the dialog open.
+          // meta.error can also be a later recompute failure of an accepted
+          // edit (e.g. 'No input block found' on an unwired block): then the
+          // edit is stored, so close and show the reason in the TF bar.
+          const editError = meta.last_action_error !== undefined
+            ? meta.last_action_error
+            : meta.error;
+          if (editError) {
+            setTfDialogError(editError);
             return; // keep dialog open
           }
-          if (meta.blocks !== undefined) setBlocks(meta.blocks);
-          if (meta.connections !== undefined) setConnections(meta.connections);
-          if (meta.transfer_function !== undefined) setTfResult(meta.transfer_function);
-          if (meta.error !== undefined) setError(meta.error);
+          applyDiagramMeta(meta);
           if (onMetadataChange) onMetadataChange(meta);
         }
         setTfDialogOpen(false);
@@ -2516,7 +2550,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     } finally {
       setIsLoading(false);
     }
-  }, [tfDialogBlockId, tfDialogValue, tfDialogLabel, simId, saveUndoSnapshot, onMetadataChange]);
+  }, [tfDialogBlockId, tfDialogValue, tfDialogLabel, simId, saveUndoSnapshot, onMetadataChange, applyDiagramMeta]);
 
   const handleTfDialogCancel = useCallback(() => {
     setTfDialogOpen(false);
@@ -2557,30 +2591,39 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
     // Reset UI state on mode switch
     setSelectedBlock(null); setSelectedWire(null);
     setGainEditBlock(null); setTfDialogOpen(false);
-    setError(null); setZoom(1.0); setPanOffset({ x: 0, y: 0 });
+    flashError(null); setZoom(1.0); setPanOffset({ x: 0, y: 0 });
     if (onParamChange) onParamChange('mode', newMode);
-  }, [callAction, onParamChange]);
+  }, [callAction, onParamChange, flashError]);
 
   const handleSystemTypeChange = useCallback((newType) => {
     setSystemType(newType);
     callAction('set_system_type', { system_type: newType });
     setBlocks({}); setConnections([]); setSelectedBlock(null); setSelectedWire(null);
-    setTfResult(null); setError(null); setZoom(1.0); setPanOffset({ x: 0, y: 0 });
+    setTfResult(null); flashError(null); setTfError(null); setTfErrorKind(null); setDomainError(null);
+    setZoom(1.0); setPanOffset({ x: 0, y: 0 });
     setViewMode('block'); setGainEditBlock(null); setTfDialogOpen(false); setTfInput('');
-    if (onParamChange) onParamChange('system_type', newType);
-  }, [callAction, onParamChange]);
+    // No onParamChange('system_type') here. set_system_type already sets the
+    // backend's parameters['system_type'], and onParamChange would queue a
+    // debounced /update (~150 ms). If the user presses Undo inside that
+    // window, the late /update lands after the undo has put the diagram back
+    // in its original domain, switches the domain again and clears it
+    // (update_parameter('system_type') must clear on a real domain change).
+    // The backend is the source of truth for the domain; the viewer follows
+    // it through meta.system_type on every response.
+  }, [callAction, flashError]);
 
   const handleClear = useCallback(() => {
     mutatingAction('clear', {});
     setZoom(1.0); setPanOffset({ x: 0, y: 0 }); setSelectedBlock(null);
-    setSelectedWire(null); setTfResult(null); setError(null); setTfInput('');
-  }, [mutatingAction]);
+    setSelectedWire(null); setTfResult(null); flashError(null); setTfInput('');
+    setTfError(null); setTfErrorKind(null); setDomainError(null);
+  }, [mutatingAction, flashError]);
 
   const handleLoadPreset = useCallback((presetName) => {
     callAction('load_preset', { preset: presetName });
     setZoom(1.0); setPanOffset({ x: 0, y: 0 }); setPresetOpen(false);
-    setSelectedBlock(null); setSelectedWire(null); setError(null);
-  }, [callAction]);
+    setSelectedBlock(null); setSelectedWire(null); flashError(null);
+  }, [callAction, flashError]);
 
   const handleParseTf = useCallback(() => {
     if (tfInput.trim()) callAction('parse_tf', { tf_string: tfInput });
@@ -2947,6 +2990,13 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       setTimeout(() => setToastMessage(null), 3000);
       return;
     }
+    // A block from the other CT/DT domain would be exported under the wrong
+    // system_type tag (Signal Flow Scope reads R vs A from it).
+    if (domainError) {
+      setToastMessage(`Export blocked: ${domainError}`);
+      setTimeout(() => setToastMessage(null), 6000);
+      return;
+    }
     const diagramData = JSON.stringify({
       blocks,
       connections,
@@ -2962,7 +3012,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       setToastMessage('Export failed');
       setTimeout(() => setToastMessage(null), 2000);
     }
-  }, [blocks, connections, systemType, ioCounts]);
+  }, [blocks, connections, systemType, ioCounts, domainError]);
 
   // ========================================================================
   // Render
@@ -3059,7 +3109,8 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
           <button className="bd-action-btn" onClick={handleExportPNG} title="Export PNG">PNG</button>
           <button className="bd-action-btn" onClick={handleExportJSON}
             disabled={ioCounts.inputs > 1 || ioCounts.outputs > 1}
-            title={ioCounts.inputs > 1 || ioCounts.outputs > 1 ? 'Signal Flow Scope supports SISO only' : 'Export diagram for Signal Flow Scope'}
+            title={ioCounts.inputs > 1 || ioCounts.outputs > 1 ? 'Signal Flow Scope supports SISO only'
+              : domainError ? `Export blocked: ${domainError}` : 'Export diagram for Signal Flow Scope'}
           >Export to Signal Scope</button>
         </div>
       </div>
@@ -3081,10 +3132,14 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       )}
 
       {/* Transfer Function display */}
-      {(tfResult || error || Object.keys(blocks).length > 0) && (
+      {(tfResult || error || tfError || Object.keys(blocks).length > 0) && (
         <div className="bd-tf-bar">
           {error ? (
             <span className="bd-tf-bar-error">{error}</span>
+          ) : tfError && tfErrorKind !== 'incomplete' && !tfResult ? (
+            // Persistent: the diagram itself is invalid (e.g. a block from
+            // the other CT/DT domain), so keep the reason after the flash.
+            <span className="bd-tf-bar-error" role="alert">{tfError}</span>
           ) : tfResult ? (
             tfResult.mimo ? (
               <MimoTfDisplay tfResult={tfResult} systemType={systemType} />
@@ -3113,7 +3168,9 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
               </>
             )
           ) : (
-            <span className="bd-tf-bar-hint">Connect Input \u2192 blocks \u2192 Output to compute TF</span>
+            <span className="bd-tf-bar-hint">
+              {tfError || 'Connect Input \u2192 blocks \u2192 Output to compute TF'}
+            </span>
           )}
         </div>
       )}
@@ -3132,12 +3189,15 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
             }}
           >
             <option value="">Select a block...</option>
-            {customTfBlocks.map(b => (
-              <option key={b.id} value={b.id}>
-                {b.label || b.id}: {b.expression || '1'}
-                {b.converted_from ? ` (${b.converted_from}→R)` : ''}
-              </option>
-            ))}
+            {customTfBlocks.map(b => {
+              const tag = customTfConversionTag(b.converted_from, systemType);
+              return (
+                <option key={b.id} value={b.id}>
+                  {b.label || b.id}: {b.expression || '1'}
+                  {tag ? ` (${tag})` : ''}
+                </option>
+              );
+            })}
           </select>
           <button
             className="bd-tf-panel-edit-btn"
@@ -3376,19 +3436,38 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
                   if (e.key === 'Enter') handleTfDialogSubmit();
                   if (e.key === 'Escape') handleTfDialogCancel();
                 }}
-                placeholder={systemType === 'dt' ? 'e.g. (1+2R)/(1-0.5R) or 1/(s+1)' : 'e.g. (s+1)/(s^2+2s+1)'}
+                placeholder={systemType === 'dt' ? 'e.g. (1+2R)/(1-0.5R) or z/(z-0.5)' : 'e.g. (s+1)/(s^2+2s+1)'}
                 autoFocus
               />
-              {systemType === 'dt' && /(?<![a-zA-Z])s(?![a-zA-Z])/.test(tfDialogValue) && (
-                <div className="bd-tf-dialog-hint">
-                  s-domain detected — will auto-convert to R-domain (discrete-time)
-                </div>
-              )}
-              {systemType === 'dt' && /(?<![a-zA-Z])z(?![a-zA-Z])/i.test(tfDialogValue) && (
-                <div className="bd-tf-dialog-hint">
-                  z-domain detected — will auto-convert to R-domain
-                </div>
-              )}
+              {systemType === 'dt' && !tfDialogError && (() => {
+                // Same variable priority as the backend's _detect_tf_variable: s, z, R, A.
+                const v = tfDialogValue.replace(/H\([^)]*\)\s*=\s*/, '');
+                const hasS = /(?<![a-zA-Z])s(?![a-zA-Z])/.test(v);
+                const hasZ = /(?<![a-zA-Z])z(?![a-zA-Z])/i.test(v);
+                const hasR = /(?<![a-zA-Z])R(?![a-zA-Z])/.test(v);
+                const hasA = /(?<![a-zA-Z])A(?![a-zA-Z])/.test(v);
+                if (hasS || (hasA && !hasZ && !hasR)) {
+                  return (
+                    <div className="bd-tf-dialog-hint">
+                      {hasS
+                        ? 's-domain is not allowed in discrete-time mode: swapping s for z is not a valid conversion. '
+                        : 'A-domain (A = 1/s, the continuous-time integrator) is not allowed in discrete-time mode. '}
+                      Converting CT to DT needs a sampling period T (each pole maps as z = e<sup>pT</sup>).
+                      {' '}Enter z, z<sup>−1</sup> or R instead, or explore the mapping in the{' '}
+                      <a href="/simulation/ct_dt_poles" target="_blank" rel="noopener noreferrer"
+                        style={{ color: 'inherit', textDecoration: 'underline' }}>CT/DT Poles Conversion</a> tool.
+                    </div>
+                  );
+                }
+                if (hasZ) {
+                  return (
+                    <div className="bd-tf-dialog-hint">
+                      z-domain detected — will auto-convert to R-domain (R = z<sup>−1</sup>)
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
             {tfDialogError && <div className="bd-tf-dialog-error">{tfDialogError}</div>}
             <div className="bd-tf-dialog-actions">
@@ -3401,6 +3480,7 @@ function BlockDiagramViewer({ metadata, plots, currentParams, onParamChange, onM
       {toastMessage && (
         <div className="bd-toast" style={{
           position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
+          width: 'max-content', maxWidth: 'calc(100% - 32px)',
           background: 'var(--surface-color, #131b2e)', border: '1px solid var(--primary-color, #14b8a6)',
           borderRadius: 'var(--radius-md, 8px)', padding: '8px 16px',
           color: 'var(--text-primary, #f1f5f9)', fontSize: '13px', zIndex: 100,

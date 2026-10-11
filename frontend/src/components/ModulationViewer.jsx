@@ -175,6 +175,7 @@ const AudioControls = memo(function AudioControls({ audioData, demoMode }) {
  * Waveform Plots Display - vertical layout matching PyQt5
  */
 const WaveformPlots = memo(function WaveformPlots({ plots }) {
+  const isDark = useTheme() === 'dark';
   if (!plots || plots.length === 0) return null;
 
   return (

@@ -25,6 +25,18 @@ from .base_simulator import BaseSimulator
 import re
 import uuid
 
+from core.executor import ExecutionError
+
+
+class IncompleteDiagramError(ValueError):
+    """The diagram has no Input or no Output block yet, so no TF exists."""
+
+
+class DomainMismatchError(ValueError):
+    """A block belongs to the other time domain (a CT element in DT mode or
+    a DT element in CT mode), so its stored operator coefficients would be
+    read in the wrong operator (A as R, i.e. z = s, or the reverse)."""
+
 
 class BlockDiagramSimulator(BaseSimulator):
     """
@@ -141,8 +153,20 @@ class BlockDiagramSimulator(BaseSimulator):
         self.system_type = "dt"
         self.tf_input = ""
         self._tf_result: Optional[Dict[str, Any]] = None
+        # _error is what the UI flashes after any request: the last action's
+        # own failure, or else the failure of the TF recompute it triggered.
         self._error: Optional[str] = None
+        # Why the CURRENT diagram has no TF (persists until the diagram
+        # changes), and its kind: "incomplete" (no Input/Output yet),
+        # "domain" (a block from the other CT/DT domain) or "invalid".
+        self._tf_error: Optional[str] = None
+        self._tf_error_kind: Optional[str] = None
+        # The exception raised by the most recent handle_action() handler
+        # itself (the action was rejected and changed nothing), as opposed
+        # to a recompute failure after an accepted action.
+        self._last_action_error: Optional[str] = None
         self._next_block_id = 0
+        # Undo/redo entries are dicts from _snapshot_state().
         self._history: deque = deque(maxlen=30)
         self._redo_history: deque = deque(maxlen=30)
 
@@ -170,13 +194,42 @@ class BlockDiagramSimulator(BaseSimulator):
             if b.get("label", "").startswith(prefix):
                 b["label"] = f"{prefix}{self._subscript(i)}"
 
+    def _snapshot_state(self) -> Dict[str, Any]:
+        """Capture everything an undo/redo entry needs to restore.
+
+        system_type is part of the snapshot because it decides how the
+        blocks are read: delay and integrator are both [0, 1] in _block_tf
+        (R in DT, A in CT), and custom_tf coefficients are R- or
+        A-polynomials. Restoring blocks without their domain would turn
+        integrators into delays (or the reverse) without any error.
+
+        Returns:
+            A dict with deep copies of blocks and connections, the next
+            block id and the system type.
+        """
+        return {
+            "blocks": copy.deepcopy(self.blocks),
+            "connections": copy.deepcopy(self.connections),
+            "next_id": self._next_block_id,
+            "system_type": self.system_type,
+        }
+
+    def _restore_snapshot(self, snapshot: Dict[str, Any]) -> None:
+        """Restore a _snapshot_state() entry, including its domain, and recompute.
+
+        Args:
+            snapshot: An entry popped from the undo or redo stack.
+        """
+        self.blocks = snapshot["blocks"]
+        self.connections = snapshot["connections"]
+        self._next_block_id = snapshot["next_id"]
+        self.system_type = snapshot["system_type"]
+        self.parameters["system_type"] = snapshot["system_type"]
+        self._recompute_tf()
+
     def _save_history(self) -> None:
         """Save current state to history stack for undo."""
-        self._history.append((
-            copy.deepcopy(self.blocks),
-            copy.deepcopy(self.connections),
-            self._next_block_id,
-        ))
+        self._history.append(self._snapshot_state())
         # deque(maxlen=30) auto-evicts oldest entries
         # Clear redo on new action
         self._redo_history.clear()
@@ -205,22 +258,39 @@ class BlockDiagramSimulator(BaseSimulator):
         self.tf_input = ""
         self._tf_result = None
         self._error = None
+        self._set_tf_error(None)
+        self._last_action_error = None
         self._next_block_id = 0
         self._initialized = True
 
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
-        """Update a parameter (system_type or mode)."""
+        """Update a parameter (system_type or mode).
+
+        A system_type change goes through _action_set_system_type, the same
+        path as the CT/DT toggle: it saves an undo entry and clears the
+        diagram, because delay blocks are invalid in CT, integrators in DT,
+        and custom-TF coefficients are tied to their operator (R or A).
+        Setting the current system type again is a no-op, so an idempotent
+        /update (e.g. a shared-link restore that names the current domain)
+        keeps the diagram. The viewer's CT/DT toggle does not send a
+        follow-up /update: a debounced echo landing after a quick Undo would
+        switch the domain again and clear the restored diagram.
+        """
+        if name == "system_type":
+            sanitized = self._validate_param(name, value)
+            if sanitized != self.system_type:
+                self._action_set_system_type({"system_type": sanitized})
+            else:
+                self.parameters["system_type"] = sanitized
+            return self.get_state()
+
         if name in self.parameters:
             sanitized = self._validate_param(name, value)
             self.parameters[name] = sanitized
         else:
             sanitized = value
 
-        if name == "system_type":
-            self.system_type = sanitized
-            # Recompute TF when switching system type
-            self._recompute_tf()
-        elif name == "mode":
+        if name == "mode":
             self.mode = sanitized
 
         return self.get_state()
@@ -255,13 +325,24 @@ class BlockDiagramSimulator(BaseSimulator):
         handler = action_map.get(action)
         if handler is None:
             self._error = f"Unknown action: {action}"
+            self._last_action_error = self._error
             return self.get_state()
 
+        # Handlers validate before they mutate, so a handler that raises has
+        # left the diagram unchanged. Some save the undo entry before their
+        # last check; restore both stacks so a rejected action neither adds a
+        # duplicate undo step nor discards the redo history.
+        history_before = list(self._history)
+        redo_before = list(self._redo_history)
         try:
             self._error = None
+            self._last_action_error = None
             handler(params)
         except Exception as e:
             self._error = str(e)
+            self._last_action_error = str(e)
+            self._history = deque(history_before, maxlen=self._history.maxlen)
+            self._redo_history = deque(redo_before, maxlen=self._redo_history.maxlen)
 
         return self.get_state()
 
@@ -374,14 +455,18 @@ class BlockDiagramSimulator(BaseSimulator):
         # No TF recomputation needed — position is visual only
 
     def _action_update_block_value(self, params: Dict[str, Any]) -> None:
-        """Update a block's value (e.g., gain)."""
-        self._save_history()
+        """Update a block's value (gain value, or custom-TF expression/label).
+
+        Everything is validated first; the undo entry is saved and the block
+        changed only once the edit is known to be valid, so a rejected edit
+        leaves no undo step behind and keeps the redo stack.
+        """
         block_id = params.get("block_id")
         value = params.get("value")
         if block_id not in self.blocks:
             raise ValueError(f"Block not found: {block_id}")
         block = self.blocks[block_id]
-        # Validate label early (before any mutations) to prevent partial updates
+        updates: Dict[str, Any] = {}
         label = params.get("label")
         if label is not None and block["type"] == "custom_tf":
             label_str = str(label).strip()
@@ -391,7 +476,7 @@ class BlockDiagramSimulator(BaseSimulator):
             val = float(value)
             if not np.isfinite(val):
                 raise ValueError("Gain value must be a finite number.")
-            block["value"] = val
+            updates["value"] = val
         elif block["type"] == "custom_tf":
             expr = str(value).strip()
             if not expr:
@@ -400,35 +485,22 @@ class BlockDiagramSimulator(BaseSimulator):
                 raise ValueError("Transfer function expression too long (max 200 chars).")
             # Auto-detect variable in the expression
             tf_clean = re.sub(r'H\([^)]*\)\s*=\s*', '', expr).strip()
-            detected_var = None
+            detected_var = self._detect_tf_variable(expr)
             converted_from = None
-            if re.search(r'(?<![a-zA-Z])s(?![a-zA-Z])', tf_clean):
-                detected_var = "s"
-            elif re.search(r'(?<![a-zA-Z])z(?![a-zA-Z])', tf_clean, re.IGNORECASE):
-                detected_var = "z"
-            elif re.search(r'(?<![a-zA-Z])R(?![a-zA-Z])', tf_clean):
-                detected_var = "R"
-            elif re.search(r'(?<![a-zA-Z])A(?![a-zA-Z])', tf_clean):
-                detected_var = "A"
+            # CT expression (s or A) entered in DT mode: reject before parsing.
+            # There is no sampling period T here, so no valid CT->DT map exists
+            # (z = e^{pT}, Tustin, Euler all need T). Reusing the A-domain
+            # coefficients as R-domain coefficients would mean z = s, turning
+            # 1/(s+2) (stable) into 1/(z+2) (unstable).
+            if self.system_type == "dt" and detected_var in ("s", "A"):
+                raise ValueError(self._ct_expr_in_dt_message(detected_var))
             # Default to native variable if no variable detected (constant)
             if detected_var is None:
                 detected_var = "R" if self.system_type == "dt" else "A"
             # Parse with the detected variable
             num_coeffs, den_coeffs = self._parse_ratio(expr, detected_var)
             # Convert if the detected domain doesn't match system type
-            if self.system_type == "dt" and detected_var == "s":
-                # s-domain entered in DT mode: s → A → reverse to R
-                # s → A conversion (A = 1/s)
-                num_a, den_a = self._s_to_a_coeffs(num_coeffs, den_coeffs)
-                # A-domain is structurally identical to R-domain (both are
-                # unit-operator polynomials in low-power-first order), so the
-                # coefficients can be used directly as R-domain coefficients.
-                num_coeffs, den_coeffs = num_a, den_a
-                converted_from = "s"
-            elif self.system_type == "dt" and detected_var == "A":
-                # A (CT operator) entered in DT: treat coefficients as R-domain
-                converted_from = "A"
-            elif self.system_type == "ct" and detected_var == "s":
+            if self.system_type == "ct" and detected_var == "s":
                 # s-domain entered in CT mode: convert s → A (A = 1/s)
                 num_coeffs, den_coeffs = self._s_to_a_coeffs(num_coeffs, den_coeffs)
                 converted_from = "s"
@@ -449,14 +521,123 @@ class BlockDiagramSimulator(BaseSimulator):
                 raise ValueError("Numerator contains non-finite coefficients.")
             if not all(np.isfinite(c) for c in den_coeffs):
                 raise ValueError("Denominator contains non-finite coefficients.")
-            block["expression"] = expr
-            block["num_coeffs"] = list(num_coeffs)
-            block["den_coeffs"] = list(den_coeffs)
-            block["converted_from"] = converted_from  # None clears previous conversion
-        # Update label if provided (already validated above)
+            updates["expression"] = expr
+            updates["num_coeffs"] = list(num_coeffs)
+            updates["den_coeffs"] = list(den_coeffs)
+            updates["converted_from"] = converted_from  # None clears previous conversion
         if label is not None and block["type"] == "custom_tf":
-            block["label"] = str(label).strip()
+            updates["label"] = str(label).strip()
+        # The edit is valid: record the pre-edit state, then apply it.
+        self._save_history()
+        block.update(updates)
         self._recompute_tf()
+
+    @staticmethod
+    def _detect_tf_variable(expr: str) -> Optional[str]:
+        """Detect which variable a custom-TF expression is written in.
+
+        A leading ``H(.) =`` prefix is ignored. Standalone symbols are checked
+        in priority order: ``s``, ``z`` (case-insensitive), ``R``, ``A``.
+
+        Args:
+            expr: The expression as typed by the user.
+
+        Returns:
+            ``"s"``, ``"z"``, ``"R"`` or ``"A"``, or None for a constant.
+        """
+        tf_clean = re.sub(r'H\([^)]*\)\s*=\s*', '', str(expr)).strip()
+        if re.search(r'(?<![a-zA-Z])s(?![a-zA-Z])', tf_clean):
+            return "s"
+        if re.search(r'(?<![a-zA-Z])z(?![a-zA-Z])', tf_clean, re.IGNORECASE):
+            return "z"
+        if re.search(r'(?<![a-zA-Z])R(?![a-zA-Z])', tf_clean):
+            return "R"
+        if re.search(r'(?<![a-zA-Z])A(?![a-zA-Z])', tf_clean):
+            return "A"
+        return None
+
+    @staticmethod
+    def _ct_expr_in_dt_message(var: str) -> str:
+        """Build the error shown when an s- or A-domain TF is used in DT mode.
+
+        Args:
+            var: The detected continuous-time variable, ``"s"`` or ``"A"``.
+
+        Returns:
+            An explanation of why the expression is rejected and what to enter.
+        """
+        if var == "A":
+            reason = (
+                "Cannot use A-domain expression in discrete-time mode. "
+                "A = 1/s is the continuous-time integrator, not the delay "
+                "R = z^-1, so its coefficients cannot be reused as R-coefficients. "
+            )
+        else:
+            reason = (
+                "Cannot use s-domain expression in discrete-time mode. "
+                "Swapping s for z is not a valid conversion. "
+            )
+        return (
+            reason
+            + "Converting a continuous-time system to discrete time requires a "
+            "sampling period T (e.g. each pole maps as z = e^(pT)). "
+            "Enter the transfer function in z, z^-1 or R, e.g. z/(z-0.5) or "
+            "1/(1-0.5R), or switch to CT mode. The CT/DT Poles Conversion tool "
+            "shows how s-plane poles map to the z-plane."
+        )
+
+    def _domain_mismatch_message(self) -> Optional[str]:
+        """Describe the first block that belongs to the other time domain.
+
+        No action can create such a block: add_block rejects delay in CT and
+        integrator in DT, update_block_value rejects s/A in DT and z/R in CT,
+        and undo/redo, presets, update_parameter('system_type') and parse_tf
+        keep blocks and system_type together. This is the guard against a
+        future path that breaks that invariant. Such a block would be read
+        in the wrong operator: delay and integrator are both [0, 1] in
+        _block_tf, and custom-TF A-coefficients read as R mean z = s.
+
+        Returns:
+            An explanation naming the block, or None if every block fits the
+            current system type.
+        """
+        for bid, block in self.blocks.items():
+            btype = block.get("type")
+            name = block.get("label") or bid
+            if btype == "delay" and self.system_type == "ct":
+                return (
+                    f"Block {name} is a Delay (R = z^-1), a discrete-time "
+                    "element, but the diagram is in continuous-time mode. "
+                    "Remove it (use an Integrator) or switch to DT mode."
+                )
+            if btype == "integrator" and self.system_type == "dt":
+                return (
+                    f"Block {name} is an Integrator (A = 1/s), a "
+                    "continuous-time element, but the diagram is in "
+                    "discrete-time mode. Remove it (use a Delay) or switch "
+                    "to CT mode."
+                )
+            if btype != "custom_tf":
+                continue
+            expr = str(block.get("expression", "1"))
+            var = self._detect_tf_variable(expr)
+            if self.system_type == "dt" and var in ("s", "A"):
+                return (
+                    f"Block {name} holds the {var}-domain expression {expr}, "
+                    "which is not valid in discrete-time mode (it was created in "
+                    "continuous-time mode). Converting CT to DT requires a "
+                    "sampling period T (e.g. each pole maps as z = e^(pT)). "
+                    "Edit the block to enter a z, z^-1 or R expression, or "
+                    "switch to CT mode."
+                )
+            if self.system_type == "ct" and var in ("z", "R"):
+                return (
+                    f"Block {name} holds the {var}-domain expression {expr}, "
+                    "which is not valid in continuous-time mode (it was created in "
+                    "discrete-time mode). Edit the block to enter an s or "
+                    "A expression, or switch to DT mode."
+                )
+        return None
 
     def _action_update_block_label(self, params: Dict[str, Any]) -> None:
         """Update an I/O block's display label."""
@@ -673,6 +854,7 @@ class BlockDiagramSimulator(BaseSimulator):
         self.connections = []
         self._tf_result = None
         self._error = None
+        self._set_tf_error(None)
         self._next_block_id = 0
 
     def _action_clear(self, params: Dict[str, Any]) -> None:
@@ -682,6 +864,7 @@ class BlockDiagramSimulator(BaseSimulator):
         self.connections = []
         self._tf_result = None
         self._error = None
+        self._set_tf_error(None)
         self._next_block_id = 0
         self.tf_input = ""
 
@@ -724,36 +907,24 @@ class BlockDiagramSimulator(BaseSimulator):
         self._recompute_tf()
 
     def _action_undo(self, params: Dict[str, Any]) -> None:
-        """Undo the last mutating action by restoring previous state."""
+        """Undo the last mutating action, restoring the diagram and its domain.
+
+        Undoing a CT/DT switch or a preset of the other domain returns to
+        the system type the restored blocks were built in.
+        """
         if not self._history:
             raise ValueError("Nothing to undo")
         # Save current state to redo stack
-        self._redo_history.append((
-            copy.deepcopy(self.blocks),
-            copy.deepcopy(self.connections),
-            self._next_block_id,
-        ))
-        blocks, connections, next_id = self._history.pop()
-        self.blocks = blocks
-        self.connections = connections
-        self._next_block_id = next_id
-        self._recompute_tf()
+        self._redo_history.append(self._snapshot_state())
+        self._restore_snapshot(self._history.pop())
 
     def _action_redo(self, params: Dict[str, Any]) -> None:
-        """Redo a previously undone action."""
+        """Redo a previously undone action, restoring its domain as well."""
         if not self._redo_history:
             raise ValueError("Nothing to redo")
         # Save current state to undo stack (without clearing redo)
-        self._history.append((
-            copy.deepcopy(self.blocks),
-            copy.deepcopy(self.connections),
-            self._next_block_id,
-        ))
-        blocks, connections, next_id = self._redo_history.pop()
-        self.blocks = blocks
-        self.connections = connections
-        self._next_block_id = next_id
-        self._recompute_tf()
+        self._history.append(self._snapshot_state())
+        self._restore_snapshot(self._redo_history.pop())
 
     def _action_split_wire(self, params: Dict[str, Any]) -> None:
         """Split a wire by inserting a junction node at the given position.
@@ -1468,14 +1639,35 @@ class BlockDiagramSimulator(BaseSimulator):
         """Recompute transfer function from current diagram."""
         if not self.blocks:
             self._tf_result = None
+            self._set_tf_error(None)
             return
 
         try:
             self._tf_result = self._compute_transfer_function()
             self._error = None
+            self._set_tf_error(None)
         except Exception as e:
             self._tf_result = None
             self._error = str(e)
+            self._set_tf_error(e)
+
+    def _set_tf_error(self, exc: Optional[Exception]) -> None:
+        """Record why the current diagram has no TF (None clears it).
+
+        Args:
+            exc: The exception raised by _compute_transfer_function, or None.
+        """
+        if exc is None:
+            self._tf_error = None
+            self._tf_error_kind = None
+            return
+        self._tf_error = str(exc)
+        if isinstance(exc, DomainMismatchError):
+            self._tf_error_kind = "domain"
+        elif isinstance(exc, IncompleteDiagramError):
+            self._tf_error_kind = "incomplete"
+        else:
+            self._tf_error_kind = "invalid"
 
     def _compute_transfer_function(self) -> Dict[str, Any]:
         """
@@ -1487,6 +1679,11 @@ class BlockDiagramSimulator(BaseSimulator):
         MATH-01: Delta (graph determinant) is computed ONCE from the full graph
         and shared across all G_ij entries. Only forward paths differ per I/O pair.
         """
+        # Must run here, not inside _block_tf: _solve_for_pair_with_shared_delta
+        # turns ValueErrors from path gains into a silent zero TF.
+        mismatch = self._domain_mismatch_message()
+        if mismatch:
+            raise DomainMismatchError(mismatch)
         input_blocks = sorted(
             [b for b in self.blocks.values() if b["type"] == "input"],
             key=lambda b: b.get("index", 0)
@@ -1497,9 +1694,9 @@ class BlockDiagramSimulator(BaseSimulator):
         )
 
         if not input_blocks:
-            raise ValueError("No input block found. Add an Input block.")
+            raise IncompleteDiagramError("No input block found. Add an Input block.")
         if not output_blocks:
-            raise ValueError("No output block found. Add an Output block.")
+            raise IncompleteDiagramError("No output block found. Add an Output block.")
 
         m = len(input_blocks)   # columns (inputs)
         p = len(output_blocks)  # rows (outputs)
@@ -2252,22 +2449,22 @@ class BlockDiagramSimulator(BaseSimulator):
         tf_clean = tf_string.strip()
 
         # Detect variable and system type using word-boundary-aware regex
-        # Look for standalone R, z, or s used as operator variables
+        # Look for standalone R, z, or s used as operator variables.
+        # The system type is only switched once parsing has succeeded: a
+        # failed parse must leave the current diagram in its own domain.
         if re.search(r'(?<![a-zA-Z])R(?![a-zA-Z])', tf_clean):
             var = "R"
-            self.system_type = "dt"
-            self.parameters["system_type"] = "dt"
+            new_system_type = "dt"
         elif re.search(r'(?<![a-zA-Z])z(?![a-zA-Z])', tf_clean, re.IGNORECASE):
             var = "z"
-            self.system_type = "dt"
-            self.parameters["system_type"] = "dt"
+            new_system_type = "dt"
         elif re.search(r'(?<![a-zA-Z])s(?![a-zA-Z])', tf_clean) or \
              re.search(r'(?<![a-zA-Z])A(?![a-zA-Z])', tf_clean):
             var = "s"
-            self.system_type = "ct"
-            self.parameters["system_type"] = "ct"
+            new_system_type = "ct"
         else:
-            var = "R"  # default to DT
+            var = "R"  # constant: no delay/integrator, keep the current domain
+            new_system_type = self.system_type
 
         try:
             num_coeffs, den_coeffs = self._parse_ratio(tf_clean, var)
@@ -2288,6 +2485,9 @@ class BlockDiagramSimulator(BaseSimulator):
             uses_negative_z = bool(re.search(r'z\s*\^\s*-', tf_clean, re.IGNORECASE))
             if not uses_negative_z:
                 num_coeffs, den_coeffs = self._z_to_r_coeffs(num_coeffs, den_coeffs)
+
+        self.system_type = new_system_type
+        self.parameters["system_type"] = new_system_type
 
         # Generate direct-form block diagram from operator-domain coefficients
         self._generate_direct_form_diagram(num_coeffs, den_coeffs)
@@ -3299,7 +3499,17 @@ class BlockDiagramSimulator(BaseSimulator):
     # =========================================================================
 
     def to_hub_data(self):
-        """Export block diagram topology and computed TF(s)."""
+        """Export block diagram topology and computed TF(s).
+
+        Raises:
+            ExecutionError: If a block belongs to the other time domain.
+                The blocks would be exported under the wrong domain tag
+                (a CT block read as DT downstream), so the push is refused
+                with the reason instead of shipping a stale diagram.
+        """
+        mismatch = self._domain_mismatch_message()
+        if mismatch:
+            raise ExecutionError(f"Cannot push to the hub: {mismatch}")
         # Use runtime system_type rather than class-level HUB_DOMAIN, since
         # BDB toggles between CT and DT but HUB_DOMAIN is fixed at "ct".
         # Consumers (e.g., Signal Scope) need the actual domain to interpret
@@ -3399,7 +3609,17 @@ class BlockDiagramSimulator(BaseSimulator):
             "connections": self.connections,
             "transfer_function": self._tf_result,
             "tf_input": self.tf_input,
+            # Shown briefly after each request: the action's own failure, or
+            # else the recompute failure it triggered.
             "error": self._error,
+            # Set only when the last action itself was rejected (and changed
+            # nothing); None when it was applied, even if the TF then failed.
+            "last_action_error": self._last_action_error,
+            # Why the current diagram has no TF; persists until it changes.
+            "tf_error": self._tf_error,
+            "tf_error_kind": self._tf_error_kind,
+            # A block from the other CT/DT domain (exports are refused).
+            "domain_error": self._domain_mismatch_message(),
             "presets": {k: {"name": v["name"], "equation": v["equation"], "system_type": v["system_type"]}
                        for k, v in self.PRESETS.items()},
             "block_types": {

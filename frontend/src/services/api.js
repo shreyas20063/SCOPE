@@ -19,7 +19,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL
 const API_TIMEOUT = 30000; // 30 seconds
 
 // Session ID — per-tab isolation so concurrent users don't share simulator state.
-// sessionStorage is scoped to each browser tab, so two tabs = two sessions.
+// sessionStorage is scoped to each browser tab, so two tabs = two sessions
+// (duplicated tabs inherit a copy; see the duplicate check below).
 //
 // Note: `crypto.randomUUID()` requires a secure context (HTTPS or localhost).
 // On plain HTTP over a LAN IP (e.g. http://10.200.240.13:8000), `crypto.randomUUID`
@@ -44,16 +45,112 @@ function generateUUID() {
   });
 }
 
-function getSessionId() {
-  let sid = sessionStorage.getItem('scope_session_id');
-  if (!sid) {
-    sid = generateUUID();
-    sessionStorage.setItem('scope_session_id', sid);
-  }
+const SESSION_STORAGE_KEY = 'scope_session_id';
+
+function safeGet(storage, key) {
+  try { return storage.getItem(key); } catch { return null; }
+}
+
+function safeSet(storage, key, value) {
+  try { storage.setItem(key, value); } catch { /* storage unavailable */ }
+}
+
+function mintSessionId() {
+  const sid = generateUUID();
+  safeSet(sessionStorage, SESSION_STORAGE_KEY, sid);
   return sid;
 }
 
-const SESSION_ID = getSessionId();
+let SESSION_ID = safeGet(sessionStorage, SESSION_STORAGE_KEY);
+const restoredSession = !!SESSION_ID;
+if (!SESSION_ID) {
+  SESSION_ID = mintSessionId();
+}
+
+// Duplicated tabs — "Duplicate Tab" (and window.open with an opener) copies
+// sessionStorage, so the copy would silently share the original tab's backend
+// simulator instances. Each page claims its session id in localStorage
+// (released on pagehide, so reloads and reopened tabs keep their session). A
+// page that restores an id already claimed by another page asks over a
+// BroadcastChannel whether that page is still alive; if it answers, this page
+// mints a fresh id. API requests wait for that check (at most
+// DUPLICATE_PROBE_MS, and only in the rare claimed-id case). A stale claim left
+// by a crash or a discarded tab simply times out and the id is kept.
+const SESSION_CLAIM_PREFIX = 'scope_session_claim:';
+const SESSION_CHANNEL_NAME = 'scope-session';
+const DUPLICATE_PROBE_MS = 150;
+// One token per page load; kept on window so an HMR re-run of this module in
+// the same page is not mistaken for a duplicate.
+const PAGE_TOKEN = window.__scopePageToken || (window.__scopePageToken = generateUUID());
+
+let sessionChannel = null;
+try {
+  sessionChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel(SESSION_CHANNEL_NAME) : null;
+} catch {
+  sessionChannel = null;
+}
+
+function claimSession() {
+  safeSet(localStorage, SESSION_CLAIM_PREFIX + SESSION_ID, PAGE_TOKEN);
+}
+
+function releaseSession() {
+  const key = SESSION_CLAIM_PREFIX + SESSION_ID;
+  if (safeGet(localStorage, key) === PAGE_TOKEN) {
+    try { localStorage.removeItem(key); } catch { /* storage unavailable */ }
+  }
+}
+
+function reclaimAfterBfcache(e) {
+  if (e.persisted) claimSession();
+}
+
+window.addEventListener('pagehide', releaseSession);
+window.addEventListener('pageshow', reclaimAfterBfcache);
+
+// Answer liveness probes for the session this page is using.
+sessionChannel?.addEventListener('message', (e) => {
+  const msg = e.data;
+  if (msg?.type === 'probe' && msg.sid === SESSION_ID && msg.token !== PAGE_TOKEN) {
+    sessionChannel.postMessage({ type: 'alive', sid: SESSION_ID, token: PAGE_TOKEN });
+  }
+});
+
+const claimOwner = safeGet(localStorage, SESSION_CLAIM_PREFIX + SESSION_ID);
+const possiblyDuplicated = restoredSession && claimOwner && claimOwner !== PAGE_TOKEN
+  && !document.wasDiscarded && sessionChannel;
+
+const sessionReady = possiblyDuplicated
+  ? new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      sessionChannel.removeEventListener('message', onMessage);
+      claimSession();
+      resolve();
+    };
+    const onMessage = (e) => {
+      const msg = e.data;
+      if (msg?.type === 'alive' && msg.sid === SESSION_ID && msg.token !== PAGE_TOKEN) {
+        SESSION_ID = mintSessionId();
+        finish();
+      }
+    };
+    const timer = setTimeout(finish, DUPLICATE_PROBE_MS);
+    sessionChannel.addEventListener('message', onMessage);
+    sessionChannel.postMessage({ type: 'probe', sid: SESSION_ID, token: PAGE_TOKEN });
+  })
+  : (claimSession(), Promise.resolve());
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    sessionChannel?.close();
+    window.removeEventListener('pagehide', releaseSession);
+    window.removeEventListener('pageshow', reclaimAfterBfcache);
+  });
+}
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -61,8 +158,14 @@ const apiClient = axios.create({
   timeout: API_TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
-    'X-Session-ID': SESSION_ID,
   },
+});
+
+// Attach the (possibly re-minted) session id once the duplicate check settles.
+apiClient.interceptors.request.use(async (config) => {
+  await sessionReady;
+  config.headers.set('X-Session-ID', SESSION_ID);
+  return config;
 });
 
 /**

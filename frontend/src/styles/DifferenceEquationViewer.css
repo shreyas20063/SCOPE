@@ -86,15 +86,17 @@
 /* ============================================================
    Top Panels (Equation + Block Diagram side by side)
    ============================================================ */
+/* minmax(0, 1fr): a long substitution line must not widen its column
+   (it pushed the page wider than a phone screen) */
 .diff-eq-panels {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
 }
 
 @media (max-width: 768px) {
   .diff-eq-panels {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -148,8 +150,13 @@
   border-radius: var(--radius-sm);
   border-left: 3px solid transparent;
   transition: all var(--transition-fast);
-  white-space: nowrap;
+  /* wrap at spaces when the line is wider than the panel */
+  white-space: normal;
+  overflow-wrap: break-word;
   overflow-x: auto;
+  /* overflow makes this a scroll container whose flex min-height is 0:
+     without this, a long history squashed every line instead of scrolling */
+  flex-shrink: 0;
 }
 
 .diff-eq-step::-webkit-scrollbar {
@@ -297,13 +304,13 @@
    ============================================================ */
 .diff-eq-plots {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
 }
 
 @media (max-width: 768px) {
   .diff-eq-plots {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -313,4 +320,266 @@
   border-radius: var(--radius-lg);
   padding: 8px;
   min-height: 250px;
+}
+
+/* ============================================================
+   Initial conditions (amber = initial condition / zero-input response)
+   ============================================================ */
+.diff-eq-viewer {
+  --diff-eq-ic: var(--warning-color);
+  --diff-eq-ic-ink: var(--warning-color);
+  --diff-eq-ic-tint: color-mix(in srgb, var(--warning-color) 12%, transparent);
+  --diff-eq-ic-border: color-mix(in srgb, var(--warning-color) 45%, transparent);
+  --diff-eq-zs: var(--primary-color);
+  min-width: 0;
+}
+
+[data-theme="light"] .diff-eq-viewer {
+  /* darker amber for text on the light surface (contrast) */
+  --diff-eq-ic-ink: color-mix(in srgb, var(--warning-color) 55%, var(--text-primary));
+}
+
+.diff-eq-tex {
+  color: var(--text-primary);
+}
+
+.diff-eq-tex .katex {
+  font-size: 1.05em;
+}
+
+.diff-eq-ic {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.diff-eq-ic--active {
+  border-color: var(--diff-eq-ic-border);
+  background: linear-gradient(0deg, var(--diff-eq-ic-tint), var(--diff-eq-ic-tint)), var(--surface-color);
+}
+
+.diff-eq-ic__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+}
+
+.diff-eq-ic__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-hover);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.diff-eq-ic__chip--active {
+  border-color: var(--diff-eq-ic);
+  color: var(--diff-eq-ic-ink);
+  background: var(--diff-eq-ic-tint);
+}
+
+.diff-eq-ic__value {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.diff-eq-ic--active .diff-eq-ic__value {
+  color: var(--diff-eq-ic-ink);
+}
+
+.diff-eq-ic__text {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.diff-eq-ic__lti {
+  padding: 8px 12px;
+  border-left: 3px solid var(--diff-eq-ic);
+  border-radius: var(--radius-sm);
+  background: var(--background-secondary);
+  color: var(--text-secondary);
+}
+
+.diff-eq-ic__lti strong {
+  color: var(--text-primary);
+}
+
+/* Substitution step that reads an initial condition */
+.diff-eq-step--ic {
+  border-left-color: var(--diff-eq-ic);
+}
+
+.diff-eq-step__ic-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: var(--diff-eq-ic-tint);
+  border: 1px solid var(--diff-eq-ic-border);
+  color: var(--diff-eq-ic-ink);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+/* Block diagram: delay holding the IC */
+.diff-eq-diagram-svg .block--delay-ic {
+  stroke: var(--diff-eq-ic);
+  stroke-width: 2.5;
+}
+
+.diff-eq-diagram-svg .wire-value--ic {
+  fill: var(--diff-eq-ic-ink);
+}
+
+.diff-eq-diagram-svg .wire-value--pending {
+  fill: var(--text-muted);
+  font-weight: 500;
+}
+
+.diff-eq-diagram-svg .wire-value-bg--pending {
+  stroke-dasharray: 3 2;
+}
+
+.diff-eq-diagram-svg .wire-value-bg--ic {
+  stroke: var(--diff-eq-ic);
+}
+
+.diff-eq-diagram-svg .register-badge__bg {
+  fill: var(--surface-color);
+  stroke: var(--diff-eq-ic);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 2;
+}
+
+.diff-eq-diagram-svg .register-badge__text {
+  fill: var(--diff-eq-ic-ink);
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* ============================================================
+   Zero-input + zero-state decomposition
+   ============================================================ */
+.diff-eq-decomp {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+.diff-eq-decomp__header {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.diff-eq-decomp__header .katex-display {
+  margin: 0;
+}
+
+.diff-eq-decomp__legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+}
+
+@media (max-width: 768px) {
+  .diff-eq-decomp__legend {
+    grid-template-columns: 1fr;
+  }
+}
+
+.diff-eq-decomp__item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.diff-eq-decomp__item > div {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.diff-eq-decomp__name {
+  margin-bottom: 2px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.diff-eq-decomp__swatch {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 3px;
+}
+
+.diff-eq-decomp__swatch--zi {
+  background: var(--diff-eq-ic);
+}
+
+.diff-eq-decomp__swatch--zs {
+  background: var(--diff-eq-zs);
+}
+
+.diff-eq-decomp__check {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--background-secondary);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.diff-eq-decomp__hint {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.diff-eq-decomp__foot {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.diff-eq-plot-wrapper--decomp {
+  min-height: 300px;
+}
+
+/* Narrow screens: keep the step toolbar compact */
+@media (max-width: 480px) {
+  .diff-eq-controls {
+    gap: 6px;
+    padding: 8px 10px;
+  }
+
+  .diff-eq-controls__btn {
+    padding: 6px 10px;
+    font-size: 12.5px;
+  }
+
+  .diff-eq-ic {
+    padding: 10px 12px;
+  }
 }

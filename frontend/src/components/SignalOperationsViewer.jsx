@@ -277,7 +277,6 @@ function DualSignalPlot({ topPlot, bottomPlot, theme }) {
         topTraces.concat(botTraces).map(t => t.y?.slice(0, 3))
       )}`,
       uirevision: 'dual-plot',
-      transition: { duration: 0 },
     };
 
     return { data: [...topTraces, ...botTraces], layout: mergedLayout };
@@ -331,7 +330,6 @@ function SingleSignalPlot({ plot, theme, height = 380 }) {
       },
       datarevision: `${plot.id}-${plot.title}-${JSON.stringify(plot.data?.map(t => t.y?.slice(0, 3)))}`,
       uirevision: plot.id,
-      transition: { duration: 0 },
     };
   }, [plot, isDark, height]);
 

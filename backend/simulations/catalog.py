@@ -316,47 +316,41 @@ SIMULATION_CATALOG = [
     },
 
     # =========================================================================
-    # 5. CT/DT POLES CONVERSION (Matching PyQt5 exactly)
+    # 5. CT/DT POLES CONVERSION
     # =========================================================================
     {
         "id": "ct_dt_poles",
         "name": "CT/DT Poles Conversion",
-        "description": "Interactive learning tool for understanding CT to DT system transformations using Forward Euler, Backward Euler, and Trapezoidal methods. Features S-plane and Z-plane visualization, step response comparison, stability analysis, and educational theory panels.",
+        "description": "How a continuous-time pole becomes a discrete-time pole. Sampling maps s exactly to z = e^(sT); Forward Euler, Backward Euler and Trapezoidal (Tustin) only approximate that map. Compare each method's pole with the exact one, map it back to an equivalent CT pole (s = ln z / T), and see how the resulting difference equation's step response compares with the CT one.",
         "category": "Transforms",
         "thumbnail": "🎯",
-        "tags": ["poles", "zeros", "s-plane", "z-plane", "stability", "numerical integration", "euler", "bilinear", "sampling"],
+        "tags": ["poles", "s-plane", "z-plane", "sampling", "z = e^sT", "zoh", "euler", "tustin", "bilinear", "difference equation", "stability"],
         "has_simulator": True,
         "controls": [
-            # T/τ Ratio slider (matching PyQt5: 0.01 to 3.0, default 0.50)
-            {"type": "slider", "name": "t_tau_ratio", "label": "T/τ Ratio", "min": 0.01, "max": 3.0, "step": 0.01, "default": 0.50, "unit": "", "group": "System", "description": "Sampling period relative to time constant"},
-            # Method selection (matching PyQt5: Forward Euler default)
-            {"type": "select", "name": "method", "label": "Transformation Method", "options": [
-                {"value": "forward_euler", "label": "Forward Euler"},
-                {"value": "backward_euler", "label": "Backward Euler"},
-                {"value": "trapezoidal", "label": "Trapezoidal (Bilinear)"}
-            ], "default": "forward_euler", "group": "Method", "description": "Numerical integration method for CT to DT conversion"},
-            # Guided scenarios (matching PyQt5 guided mode)
-            {"type": "select", "name": "guided_scenario", "label": "Guided Scenario", "options": [
-                {"value": "none", "label": "Free Exploration"},
-                {"value": "0", "label": "1: Small Step (Stable)"},
-                {"value": "1", "label": "2: Moderate Step"},
-                {"value": "2", "label": "3: Near Limit"},
-                {"value": "3", "label": "4: FE Unstable"},
-                {"value": "4", "label": "5: BE Stable"},
-                {"value": "5", "label": "6: Trapezoidal"}
-            ], "default": "none", "group": "Learning", "description": "Select a guided learning scenario"},
+            {"type": "slider", "name": "t_tau_ratio", "label": "Step size T/τ", "min": 0.01, "max": 3.0, "step": 0.01, "default": 0.50, "unit": "", "group": "Sampling", "description": "Sampling period T relative to the time constant τ = 1 s"},
+            {"type": "select", "name": "method", "label": "CT → DT method", "options": [
+                {"value": "forward_euler", "label": "Forward Euler: z = 1 + sT"},
+                {"value": "backward_euler", "label": "Backward Euler: z = 1/(1 − sT)"},
+                {"value": "trapezoidal", "label": "Trapezoidal (Tustin): z = (1 + sT/2)/(1 − sT/2)"},
+                {"value": "exact_zoh", "label": "Exact sampling (ZOH): z = e^(sT)"},
+            ], "default": "forward_euler", "group": "Sampling", "description": "How the differential equation is turned into a difference equation"},
+            {"type": "select", "name": "guided_scenario", "label": "Guided scenario", "options": [
+                {"value": "none", "label": "Free exploration"},
+                {"value": "0", "label": "1: Small step (stable)"},
+                {"value": "1", "label": "2: Deadbeat at T = τ"},
+                {"value": "2", "label": "3: Near the FE limit"},
+                {"value": "3", "label": "4: FE unstable"},
+                {"value": "4", "label": "5: Backward Euler, same T"},
+                {"value": "5", "label": "6: Trapezoidal, same T"},
+                {"value": "6", "label": "7: Exact sampling"},
+            ], "default": "none", "group": "Guided Scenarios", "description": "Load a preset that illustrates one idea"},
         ],
         "default_params": {"t_tau_ratio": 0.50, "method": "forward_euler", "guided_scenario": "none"},
         "plots": [
-            # Main Tab plots
-            {"id": "s_plane", "title": "S-Domain Analysis", "description": "Continuous-time pole location with stability regions"},
-            {"id": "z_plane", "title": "Z-Domain Analysis", "description": "Discrete-time pole with unit circle and stability status"},
-            {"id": "step_response", "title": "Step Response", "description": "CT vs DT step response with RMS error quality indicator"},
-            # Stability Tab plots
-            {"id": "stability_map", "title": "Stability Analysis", "description": "Pole magnitude vs T/τ ratio with stability regions"},
-            {"id": "pole_trajectory", "title": "Pole Movement", "description": "How poles travel in Z-plane as parameters change"},
-            # Theory Tab
-            {"id": "theory_panel", "title": "Theory & Learning", "description": "Method explanations and educational content"},
+            {"id": "s_plane", "title": "s-plane", "description": "CT pole, the region the method maps inside |z| < 1, and the equivalent CT pole ln(z)/T"},
+            {"id": "z_plane", "title": "z-plane", "description": "Method pole vs the exact sampled pole e^(sT), with the image of the jω axis"},
+            {"id": "response", "title": "Step response", "description": "Step response y[n] of the difference equation against the exact CT step response y(t)"},
+            {"id": "pole_vs_step", "title": "DT pole vs step size", "description": "Method pole and exact pole as T/τ varies"},
         ],
     },
 
@@ -1046,10 +1040,10 @@ SIMULATION_CATALOG = [
     {
         "id": "dt_difference_equation",
         "name": "DT Difference Equation Solver",
-        "description": "Step-by-step evaluation of discrete-time difference equations with synchronized block diagram visualization. Watch signal values propagate through gain, delay, and adder blocks one sample at a time.",
+        "description": "Step-by-step evaluation of discrete-time difference equations with synchronized block diagram visualization. Watch signal values propagate through gain, delay, and adder blocks one sample at a time. For the recursive equations, load an initial condition y[−1] into the feedback delay and split the output into zero-input and zero-state responses.",
         "category": "Signal Processing",
         "thumbnail": "\U0001f522",
-        "tags": ["difference equation", "discrete-time", "block diagram", "step-by-step", "impulse response", "accumulator"],
+        "tags": ["difference equation", "discrete-time", "block diagram", "step-by-step", "impulse response", "accumulator", "initial conditions", "zero-input response", "zero-state response"],
         "has_simulator": True,
         "controls": [
             {"type": "select", "name": "equation_preset", "label": "Difference Equation", "options": [
@@ -1063,6 +1057,15 @@ SIMULATION_CATALOG = [
                 {"value": "step", "label": "Unit Step u[n]"},
                 {"value": "ramp", "label": "Ramp n\u00b7u[n]"},
             ], "default": "impulse", "group": "Input Signal"},
+            # Initial condition = auxiliary condition y[-1], held in the feedback delay at n = 0
+            # (O&W 2.4.2, O&S 2.5). Recursive presets only: a non-recursive equation (N = 0)
+            # needs no auxiliary conditions. 0 = initial rest (original behaviour).
+            {"type": "slider", "name": "ic_y_minus_1", "label": "y[−1] (stored in delay)", "min": -5.0, "max": 5.0, "step": 0.1, "default": 0.0, "group": "Initial Conditions",
+             "visible_when": {"equation_preset": ["accumulator", "leaky_integrator"]},
+             "description": "Initial condition: the past output y[−1] held in the feedback delay at n = 0. 0 = initial rest."},
+            {"type": "checkbox", "name": "show_decomposition", "label": "Show zero-input + zero-state split", "default": False, "group": "Initial Conditions",
+             "visible_when": {"equation_preset": ["accumulator", "leaky_integrator"]},
+             "description": "Plot the zero-input response (IC only, x = 0) and the zero-state response (input only, IC = 0); their sum is the output."},
             {"type": "slider", "name": "animation_speed", "label": "Animation Speed", "min": 0.5, "max": 3.0, "step": 0.5, "default": 1.0, "unit": "x", "group": "Playback"},
             {"type": "button", "name": "step_forward", "label": "Step Forward", "group": "Playback"},
             {"type": "button", "name": "step_backward", "label": "Step Back", "group": "Playback"},
@@ -1072,11 +1075,14 @@ SIMULATION_CATALOG = [
         "default_params": {
             "equation_preset": "difference_machine",
             "input_signal": "impulse",
+            "ic_y_minus_1": 0.0,
+            "show_decomposition": False,
             "animation_speed": 1.0,
         },
         "plots": [
             {"id": "input_signal", "title": "Input Signal x[n]", "description": "Discrete input signal stem plot, growing incrementally"},
-            {"id": "output_signal", "title": "Output Signal y[n]", "description": "Computed output signal stem plot, growing incrementally"},
+            {"id": "output_signal", "title": "Output Signal y[n]", "description": "Computed output signal stem plot, growing incrementally; a y[−1] initial condition is drawn at n = −1"},
+            {"id": "decomposition", "title": "Zero-Input + Zero-State Decomposition", "description": "Recursive equations, when the split is enabled: y[n] = y_zi[n] + y_zs[n]"},
         ],
     },
     # =========================================================================
@@ -1391,13 +1397,13 @@ SIMULATION_CATALOG = [
     {
         "id": "dt_ct_comparator",
         "name": "DT \u2194 CT Comparator",
-        "description": "Side-by-side comparison of first-order DT and CT systems sharing the same pole value p. See how p\u207f u[n] in DT and e\u1d56\u1d57 u(t) in CT produce fundamentally different stability behavior \u2014 the same number, two different worlds.",
+        "description": "Puts the same number p into two different first-order systems: the DT system H(z) = 1/(1 \u2212 p z\u207b\u00b9) with impulse response p\u207f u[n] (stable exactly when |p| < 1) and the CT system H(s) = 1/(s \u2212 p) with e\u1d56\u1d57 u(t) (stable exactly when Re(p) < 0) \u2014 the same number, two different worlds. They are not a sampling pair: sampling e\u1d56\u1d57 every T seconds gives the DT pole z = e\u1d56\u1d40, not p.",
         "category": "Signal Processing",
         "thumbnail": "\u2696\ufe0f",
         "tags": ["DT", "CT", "poles", "stability", "unit circle", "s-plane", "impulse response", "exponential", "comparison"],
         "has_simulator": True,
         "controls": [
-            {"type": "slider", "name": "p", "label": "Pole Value (p)", "min": -2.0, "max": 2.0, "step": 0.01, "default": 0.5, "unit": "", "group": "Pole", "description": "Controls both systems simultaneously"},
+            {"type": "slider", "name": "p", "label": "Pole Value (p)", "min": -2.0, "max": 2.0, "step": 0.01, "default": 0.5, "unit": "", "group": "Pole", "description": "The same number is used as the DT pole (z = p) and the CT pole (s = p); the two systems are not related by sampling"},
             {"type": "slider", "name": "num_samples", "label": "DT Samples", "min": 5, "max": 30, "step": 1, "default": 20, "unit": "", "group": "Display"},
             {"type": "slider", "name": "ct_duration", "label": "CT Duration", "min": 1.0, "max": 8.0, "step": 0.5, "default": 4.0, "unit": "s", "group": "Display"},
             {"type": "checkbox", "name": "show_envelope", "label": "Show Envelope", "default": True, "group": "Display"},
@@ -2085,10 +2091,10 @@ SIMULATION_CATALOG = [
     {
         "id": "ode_laplace_solver",
         "name": "ODE Solver via Laplace Transform",
-        "description": "Step-by-step solution of linear constant-coefficient ODEs using the Laplace transform pipeline: take L{}, solve algebraically for Y(s), partial fractions, inverse Laplace, and plot y(t). No homogeneous/particular solution splitting needed!",
+        "description": "Step-by-step solution of linear constant-coefficient ODEs with initial conditions using the unilateral Laplace transform: take L{} (initial conditions at t = 0\u207b enter through the derivative property), solve algebraically for Y(s), split it into zero-state and zero-input parts, partial fractions, inverse Laplace, and plot y(t). See why y(0\u207a) can differ from y(0\u207b).",
         "category": "Transforms",
         "thumbnail": "\u2112",
-        "tags": ["ODE", "Laplace transform", "differential equation", "partial fractions", "inverse Laplace", "s-domain"],
+        "tags": ["ODE", "Laplace transform", "unilateral Laplace", "initial conditions", "zero-input response", "zero-state response", "differential equation", "partial fractions", "inverse Laplace", "s-domain"],
         "has_simulator": True,
         "controls": [
             {"type": "select", "name": "preset", "label": "ODE Preset", "options": [
@@ -2111,6 +2117,15 @@ SIMULATION_CATALOG = [
             ], "default": "delta", "group": "Input"},
             {"type": "slider", "name": "alpha", "label": "\u03b1 (decay rate)", "min": 0.1, "max": 10.0, "step": 0.1, "default": 1.0, "unit": "", "group": "Input", "visible_when": {"input_signal": "exp"}},
             {"type": "slider", "name": "omega", "label": "\u03c9 (frequency)", "min": 0.1, "max": 20.0, "step": 0.1, "default": 2.0, "unit": "rad/s", "group": "Input", "visible_when": {"input_signal": "cosine"}},
+            # Initial conditions at t = 0\u207b (unilateral Laplace). Sliders shown = ODE order for presets;
+            # for custom coefficients all three are shown and the backend uses exactly the first n.
+            {"type": "slider", "name": "ic_y0", "label": "y(0\u207b)", "min": -5.0, "max": 5.0, "step": 0.1, "default": 0.0, "unit": "", "group": "Initial Conditions", "description": "Output value at t = 0\u207b, just before the input acts"},
+            {"type": "slider", "name": "ic_y1", "label": "y\u2032(0\u207b)", "min": -5.0, "max": 5.0, "step": 0.1, "default": 0.0, "unit": "", "group": "Initial Conditions", "description": "First derivative at t = 0\u207b (used for order \u2265 2)", "visible_when": {"preset": ["second_order_impulse", "second_order_step", "underdamped", "repeated_poles", "third_order", "custom"]}},
+            {"type": "slider", "name": "ic_y2", "label": "y\u2033(0\u207b)", "min": -5.0, "max": 5.0, "step": 0.1, "default": 0.0, "unit": "", "group": "Initial Conditions", "description": "Second derivative at t = 0\u207b (used for order \u2265 3)", "visible_when": {"preset": ["third_order", "custom"]}},
+            {"type": "select", "name": "response_view", "label": "y(t) plot", "options": [
+                {"value": "total", "label": "Total y(t)"},
+                {"value": "decomposition", "label": "Zero-input + zero-state + total"},
+            ], "default": "total", "group": "Display"},
             {"type": "checkbox", "name": "show_compare", "label": "Compare: Classical Method", "default": False, "group": "Display"},
             {"type": "slider", "name": "t_max", "label": "Time Range", "min": 2.0, "max": 20.0, "step": 0.5, "default": 8.0, "unit": "s", "group": "Display"},
         ],
@@ -2121,13 +2136,17 @@ SIMULATION_CATALOG = [
             "input_signal": "delta",
             "alpha": 1.0,
             "omega": 2.0,
+            "ic_y0": 0.0,
+            "ic_y1": 0.0,
+            "ic_y2": 0.0,
+            "response_view": "total",
             "show_compare": False,
             "t_max": 8.0,
         },
         "plots": [
             {"id": "input_signal", "title": "Input Signal x(t)", "description": "The input driving signal"},
-            {"id": "pole_zero_splane", "title": "Pole-Zero Map (s-plane)", "description": "Poles and zeros of Y(s) in the complex s-plane"},
-            {"id": "time_response", "title": "Time-Domain Response y(t)", "description": "The solution of the ODE"},
+            {"id": "pole_zero_splane", "title": "Pole-Zero Map (s-plane)", "description": "Poles and zeros of Y(s) in the complex s-plane; the zeros move with the initial conditions, the poles do not"},
+            {"id": "time_response", "title": "Time-Domain Response y(t)", "description": "The solution of the ODE for t > 0, optionally split into zero-input and zero-state responses"},
         ],
     },
     # =========================================================================

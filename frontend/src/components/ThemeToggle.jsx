@@ -2,10 +2,60 @@
  * ThemeToggle Component
  *
  * Toggle button for switching between dark and light themes.
- * Persists preference to localStorage and respects system preference.
+ * Persists preference to localStorage.
+ *
+ * Single source of truth: the `data-theme` attribute on <html>. index.html
+ * applies the saved theme (default dark) before React mounts; this component
+ * and the D keyboard shortcut read and write that attribute through the
+ * helpers below, so the button can never disagree with the page.
  */
 
 import React, { useEffect, useState } from 'react';
+
+const THEME_STORAGE_KEY = 'theme';
+const DEFAULT_THEME = 'dark';
+
+function readSavedTheme() {
+  try {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    return saved === 'light' || saved === 'dark' ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Theme currently applied to the document.
+ * @returns {'dark'|'light'}
+ */
+export function getTheme() {
+  const applied = document.documentElement.getAttribute('data-theme');
+  if (applied === 'light' || applied === 'dark') return applied;
+  return readSavedTheme() || DEFAULT_THEME;
+}
+
+/**
+ * Apply a theme to the document and remember it.
+ * @param {'dark'|'light'} theme
+ */
+export function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // Storage unavailable (private mode): the theme still applies for this page.
+  }
+}
+
+/**
+ * Switch between dark and light.
+ * @returns {'dark'|'light'} The newly applied theme
+ */
+export function toggleTheme() {
+  const next = getTheme() === 'dark' ? 'light' : 'dark';
+  setTheme(next);
+  return next;
+}
 
 // Sun icon for dark mode (click to switch to light)
 function SunIcon() {
@@ -54,30 +104,19 @@ function MoonIcon() {
 }
 
 function ThemeToggle() {
-  const [theme, setTheme] = useState('dark');
+  const [theme, setThemeState] = useState(getTheme);
 
-  // Initialize theme from localStorage or system preference
+  // Follow the document attribute so changes made elsewhere (D shortcut) show here
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      setTheme(savedTheme);
-      document.documentElement.setAttribute('data-theme', savedTheme);
-    } else {
-      // Check system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const defaultTheme = prefersDark ? 'dark' : 'light';
-      setTheme(defaultTheme);
-      document.documentElement.setAttribute('data-theme', defaultTheme);
+    const root = document.documentElement;
+    if (!root.hasAttribute('data-theme')) {
+      root.setAttribute('data-theme', getTheme());
     }
+    setThemeState(getTheme());
+    const observer = new MutationObserver(() => setThemeState(getTheme()));
+    observer.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
   }, []);
-
-  // Toggle theme
-  const toggleTheme = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(newTheme);
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-  };
 
   return (
     <button

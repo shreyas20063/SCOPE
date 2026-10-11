@@ -171,30 +171,34 @@
 }
 
 /* Viewer content - Desktop: side by side, Mobile: tabbed */
+/* minmax(0, 1fr): the plots column may shrink below its content's min-content
+   width instead of pushing the control panel off-screen. */
 .viewer-content {
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: minmax(0, 1fr) 380px;
   gap: 1.5rem;
   align-items: start; /* Prevent grid items from stretching to fill height */
 }
 
 /* Full width when no controls panel */
 .viewer-content.no-controls {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .plots-section {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  min-width: 0;
   /* No height constraints - let plots determine their natural height */
 }
 
+/* Sticky below the sticky site header; --header-height is measured in App.jsx */
 .controls-section {
   position: sticky;
-  top: 1rem;
+  top: calc(var(--header-height, 78px) + 1rem);
   align-self: start;
-  max-height: calc(100vh - 2rem);
+  max-height: calc(100vh - var(--header-height, 78px) - 2rem);
   overflow-y: auto;
 }
 
@@ -234,7 +238,7 @@
 /* Responsive styles */
 @media (max-width: 1024px) {
   .viewer-content {
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: minmax(0, 1fr) 320px;
     gap: 1rem;
   }
 }
@@ -249,8 +253,9 @@
     gap: 0.75rem;
   }
 
+  /* Shares the actions row with the Share button: width:100% overflowed the page */
   .header-meta {
-    width: 100%;
+    min-width: 0;
     justify-content: flex-start;
   }
 
@@ -263,7 +268,7 @@
   }
 
   .viewer-content {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0;
   }
 
@@ -620,8 +625,10 @@
   .header-actions {
     width: 100%;
     flex-direction: row;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
+    gap: 0.5rem 0.75rem;
   }
 
   .share-button {
@@ -1005,9 +1012,23 @@
 /* Info Cards Row */
 .info-cards-row {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
   margin: 0 1rem 1rem;
+}
+
+/* Cards in a row are spaced by the row's gap; the standalone-card margin
+   would double every gutter and inflate the row's min-content width. */
+.info-cards-row > .info-card {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* A row directly under a section title takes over the top spacing that the
+   card margin used to provide. */
+.info-section-title + .info-cards-row {
+  margin-top: 1rem;
 }
 
 /* Poles Card */
@@ -1142,8 +1163,12 @@
   }
 
   .info-cards-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     margin: 0 0.75rem 0.75rem;
+  }
+
+  .info-section-title + .info-cards-row {
+    margin-top: 0.75rem;
   }
 
   .info-card {
@@ -1181,9 +1206,9 @@
 
 .sticky-controls-mode .controls-section {
   position: sticky;
-  top: 1rem;
+  top: calc(var(--header-height, 78px) + 1rem);
   height: fit-content;
-  max-height: calc(100vh - 2rem);
+  max-height: calc(100vh - var(--header-height, 78px) - 2rem);
   overflow-y: auto;
   align-self: flex-start;
 }
@@ -1326,225 +1351,6 @@
 /* Mobile responsive for Second-Order panel */
 @media (max-width: 768px) {
   .second-order-info-panel {
-    margin-bottom: 1rem;
-  }
-}
-
-/* ============================================================================
-   CT/DT Poles Info Panel Styles
-   ============================================================================ */
-
-.ct-dt-poles-info-panel {
-  margin-bottom: 1.5rem;
-}
-
-/* Method Card */
-.ct-dt-poles-info-panel .method-card {
-  border-color: rgba(59, 130, 246, 0.25);
-}
-
-.ct-dt-poles-info-panel .method-card .info-card-icon {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-  font-weight: 700;
-  font-style: italic;
-}
-
-.ct-dt-poles-info-panel .method-card .info-card-value {
-  color: #60a5fa;
-}
-
-/* T/τ Ratio Card */
-.ct-dt-poles-info-panel .ratio-card {
-  border-color: rgba(251, 191, 36, 0.25);
-}
-
-.ct-dt-poles-info-panel .ratio-card .info-card-icon {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
-  font-size: 0.7rem;
-  font-weight: 600;
-}
-
-.ct-dt-poles-info-panel .ratio-card .info-card-value {
-  color: #fbbf24;
-}
-
-/* S-Pole Card (CT) */
-.ct-dt-poles-info-panel .s-pole-card {
-  border-color: rgba(34, 211, 238, 0.25);
-}
-
-.ct-dt-poles-info-panel .s-pole-card .info-card-icon {
-  background: rgba(34, 211, 238, 0.15);
-  color: #22d3ee;
-  font-weight: 700;
-  font-style: italic;
-}
-
-.ct-dt-poles-info-panel .s-pole-card .info-card-value {
-  color: #22d3ee;
-}
-
-/* Z-Pole Card (DT) */
-.ct-dt-poles-info-panel .z-pole-card {
-  border-color: rgba(168, 85, 247, 0.25);
-}
-
-.ct-dt-poles-info-panel .z-pole-card .info-card-icon {
-  background: rgba(168, 85, 247, 0.15);
-  color: #a855f7;
-  font-weight: 700;
-  font-style: italic;
-}
-
-.ct-dt-poles-info-panel .z-pole-card .info-card-value {
-  color: #a855f7;
-}
-
-.ct-dt-poles-info-panel .z-pole-card.stable {
-  border-color: rgba(52, 211, 153, 0.25);
-}
-
-.ct-dt-poles-info-panel .z-pole-card.stable .info-card-value {
-  color: #34d399;
-}
-
-.ct-dt-poles-info-panel .z-pole-card.unstable {
-  border-color: rgba(248, 113, 113, 0.25);
-}
-
-.ct-dt-poles-info-panel .z-pole-card.unstable .info-card-value {
-  color: #f87171;
-}
-
-/* Stability Card */
-.ct-dt-poles-info-panel .stability-card {
-  border-color: rgba(148, 163, 184, 0.25);
-}
-
-.ct-dt-poles-info-panel .stability-card .info-card-icon {
-  background: rgba(148, 163, 184, 0.15);
-  color: #94a3b8;
-  font-weight: 700;
-}
-
-.ct-dt-poles-info-panel .stability-card.stable {
-  border-color: rgba(52, 211, 153, 0.25);
-}
-
-.ct-dt-poles-info-panel .stability-card.stable .info-card-icon {
-  background: rgba(52, 211, 153, 0.15);
-  color: #34d399;
-}
-
-.ct-dt-poles-info-panel .stability-card.stable .info-card-value {
-  color: #34d399;
-}
-
-.ct-dt-poles-info-panel .stability-card.unstable {
-  border-color: rgba(248, 113, 113, 0.25);
-}
-
-.ct-dt-poles-info-panel .stability-card.unstable .info-card-icon {
-  background: rgba(248, 113, 113, 0.15);
-  color: #f87171;
-}
-
-.ct-dt-poles-info-panel .stability-card.unstable .info-card-value {
-  color: #f87171;
-}
-
-/* Stability badges */
-.ct-dt-poles-info-panel .info-card-badge.stable {
-  background: rgba(52, 211, 153, 0.15);
-  color: #34d399;
-}
-
-.ct-dt-poles-info-panel .info-card-badge.unstable {
-  background: rgba(248, 113, 113, 0.15);
-  color: #f87171;
-}
-
-/* Performance Card */
-.ct-dt-poles-info-panel .performance-card {
-  border-color: rgba(148, 163, 184, 0.25);
-}
-
-.ct-dt-poles-info-panel .performance-card .info-card-icon {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
-}
-
-.ct-dt-poles-info-panel .performance-card.excellent {
-  border-color: rgba(52, 211, 153, 0.25);
-}
-
-.ct-dt-poles-info-panel .performance-card.excellent .info-card-value {
-  color: #34d399;
-}
-
-.ct-dt-poles-info-panel .performance-card.excellent .info-card-icon {
-  background: rgba(52, 211, 153, 0.15);
-  color: #34d399;
-}
-
-.ct-dt-poles-info-panel .performance-card.good {
-  border-color: rgba(251, 191, 36, 0.25);
-}
-
-.ct-dt-poles-info-panel .performance-card.good .info-card-value {
-  color: #fbbf24;
-}
-
-.ct-dt-poles-info-panel .performance-card.fair {
-  border-color: rgba(245, 158, 11, 0.25);
-}
-
-.ct-dt-poles-info-panel .performance-card.fair .info-card-value {
-  color: #f59e0b;
-}
-
-.ct-dt-poles-info-panel .performance-card.fair .info-card-icon {
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
-}
-
-.ct-dt-poles-info-panel .performance-card.poor {
-  border-color: rgba(239, 68, 68, 0.25);
-}
-
-.ct-dt-poles-info-panel .performance-card.poor .info-card-value {
-  color: #ef4444;
-}
-
-.ct-dt-poles-info-panel .performance-card.poor .info-card-icon {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-}
-
-.ct-dt-poles-info-panel .performance-card.unstable {
-  border-color: rgba(248, 113, 113, 0.25);
-}
-
-.ct-dt-poles-info-panel .performance-card.unstable .info-card-value {
-  color: #f87171;
-}
-
-.ct-dt-poles-info-panel .performance-card.unstable .info-card-icon {
-  background: rgba(248, 113, 113, 0.15);
-  color: #f87171;
-}
-
-/* Light mode for CT/DT Poles panel */
-[data-theme="light"] .ct-dt-poles-info-panel .system-info-section {
-  background: linear-gradient(135deg, #ffffff, #f8fafc);
-  border-color: rgba(148, 163, 184, 0.3);
-}
-
-/* Mobile responsive for CT/DT Poles panel */
-@media (max-width: 768px) {
-  .ct-dt-poles-info-panel {
     margin-bottom: 1rem;
   }
 }
@@ -3433,4 +3239,23 @@
     width: 24px;
     opacity: 1;
   }
+}
+
+/* ============================================================================
+   Update error toast (SimulationPage) — reuses the shared .toast styles
+   ============================================================================ */
+
+.simulation-error-toast {
+  max-width: min(28rem, calc(100vw - 2rem));
+}
+
+.simulation-error-toast .toast-icon {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--error-color);
+}
+
+.simulation-error-toast .toast-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }

@@ -4,13 +4,13 @@
  * Main application component with dark theme and navigation.
  */
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 import SimulationPage from './pages/SimulationPage'
 import WebsiteLaunchAnimation from './components/WebsiteLaunchAnimation'
 import ErrorBoundary from './components/ErrorBoundary'
-import ThemeToggle from './components/ThemeToggle'
+import ThemeToggle, { toggleTheme } from './components/ThemeToggle'
 import KeyboardShortcutsModal, { useKeyboardShortcuts } from './components/KeyboardShortcuts'
 import { HubProvider } from './contexts/HubContext'
 import HubButton from './components/HubButton'
@@ -38,12 +38,24 @@ function App() {
     setShowLaunch(false);
   }, []);
 
-  // Initialize dark theme on first load
+  // Theme is applied before first paint by index.html; ThemeToggle owns it from there.
+
+  // Publish the sticky header's height as --header-height so sticky content
+  // (e.g. the simulation control panel) can sit below it instead of under it.
+  const headerRef = useRef(null);
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (!savedTheme) {
-      document.documentElement.setAttribute('data-theme', 'dark');
+    const header = headerRef.current;
+    if (!header) return undefined;
+    const root = document.documentElement;
+    const publish = () => root.style.setProperty('--header-height', `${Math.ceil(header.getBoundingClientRect().height)}px`);
+    publish();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', publish);
+      return () => window.removeEventListener('resize', publish);
     }
+    const observer = new ResizeObserver(publish);
+    observer.observe(header);
+    return () => observer.disconnect();
   }, []);
 
   // Scroll to top on route change
@@ -59,9 +71,10 @@ function App() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Global keyboard shortcuts
+  // Global keyboard shortcuts (R / Space / Esc are page-level, see SimulationPage)
   useKeyboardShortcuts({
     onShowShortcuts: useCallback(() => setShowShortcuts(prev => !prev), []),
+    onToggleTheme: toggleTheme,
   });
 
   return (
@@ -77,7 +90,7 @@ function App() {
         Skip to main content
       </a>
 
-      <header className={`app-header ${scrolled ? 'scrolled' : ''}`}>
+      <header ref={headerRef} className={`app-header ${scrolled ? 'scrolled' : ''}`}>
         <Link to="/" className="logo">
           <h1>SCOPE</h1>
         </Link>
@@ -108,7 +121,7 @@ function App() {
         </nav>
       </header>
 
-      <main id="main-content" className="app-main" role="main">
+      <main id="main-content" className="app-main" role="main" tabIndex={-1}>
         <ErrorBoundary>
           <Routes>
             <Route path="/" element={<LandingPage />} />

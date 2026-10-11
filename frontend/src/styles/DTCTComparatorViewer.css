@@ -85,6 +85,11 @@
   border-color: rgba(245, 158, 11, 0.3);
 }
 
+/* Open quiz question: no stability colour on the panel border */
+.dtct-plot-panel--neutral {
+  border-color: var(--border-color);
+}
+
 .dtct-plot-panel__label {
   text-align: center;
   font-size: 0.75rem;
@@ -124,6 +129,49 @@
   width: 100%;
   height: auto;
   user-select: none;
+}
+
+/* ── Sampling Note ──────────────────────────────────────────────── */
+
+.dtct-note {
+  padding: 12px 16px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--warning-color);
+  border-radius: var(--radius-lg);
+}
+
+.dtct-note__title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.dtct-note__text {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.dtct-note__text + .dtct-note__text {
+  margin-top: 6px;
+}
+
+.dtct-note__text strong {
+  color: var(--text-primary);
+}
+
+.dtct-note__math {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.dtct-note__math sup {
+  font-size: 0.7em;
 }
 
 /* ── Quiz Panel ─────────────────────────────────────────────────── */

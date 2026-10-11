@@ -28,32 +28,98 @@ const displayTransforms = {
   },
 };
 
+// Horizontal travel (px) after which a touch on a slider counts as a drag
+const TOUCH_SLOP_PX = 6;
+
 /**
  * Slider Control - Simple controlled slider with local state
  */
 function SliderControl({ param, value, onChange, disabled }) {
   const [localValue, setLocalValue] = useState(value ?? param.default ?? param.min);
+  const [dragEndCount, setDragEndCount] = useState(0);
   const isDragging = useRef(false);
+  const activePointerId = useRef(null);
+  // Touch that has not yet shown it is a slider gesture: { x, y, held }
+  const pendingTouch = useRef(null);
+  const removeWindowListeners = useRef(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
-  // Sync with external value only when not dragging
+  // Sync with external value when not dragging, and once more when a drag ends
+  // so a value changed elsewhere mid-drag (preset, reset, backend) shows up.
   useEffect(() => {
     if (!isDragging.current) {
       setLocalValue(value ?? param.default ?? param.min);
     }
-  }, [value, param.default, param.min]);
+  }, [value, param.default, param.min, dragEndCount]);
+
+  const commitPendingTouch = useCallback(() => {
+    const touch = pendingTouch.current;
+    pendingTouch.current = null;
+    if (touch && touch.held !== undefined) {
+      onChangeRef.current(param.name, touch.held);
+    }
+  }, [param.name]);
+
+  // End a drag however the pointer is released: pointerup/cancel on the input,
+  // lost pointer capture, or a release outside the input (window listener).
+  const endDrag = useCallback((e) => {
+    if (e && activePointerId.current !== null && e.pointerId !== undefined &&
+        e.pointerId !== activePointerId.current) {
+      return;
+    }
+    if (removeWindowListeners.current) {
+      removeWindowListeners.current();
+      removeWindowListeners.current = null;
+    }
+    // A touch released with pointerup was a tap or a horizontal drag: apply it.
+    // A pointercancel means the browser took the touch over to scroll the page,
+    // so the held value is dropped and the re-sync puts the thumb back.
+    if (e && e.type === 'pointerup') commitPendingTouch();
+    pendingTouch.current = null;
+    activePointerId.current = null;
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    setDragEndCount((n) => n + 1);
+  }, [commitPendingTouch]);
+
+  useEffect(() => () => removeWindowListeners.current?.(), []);
 
   const handleInput = (e) => {
     const newValue = parseFloat(e.target.value);
     setLocalValue(newValue);
+    // Chrome jumps the thumb to the finger on touchstart, before it knows
+    // whether the gesture is a vertical page scroll (touch-action: pan-y).
+    // Hold the update until the touch proves to be a slider gesture.
+    if (pendingTouch.current) {
+      pendingTouch.current.held = newValue;
+      return;
+    }
     onChange(param.name, newValue);
   };
 
-  const handlePointerDown = () => {
+  const handlePointerDown = (e) => {
     isDragging.current = true;
+    activePointerId.current = e.pointerId;
+    pendingTouch.current = e.pointerType === 'touch'
+      ? { x: e.clientX, y: e.clientY, held: undefined }
+      : null;
+    if (!removeWindowListeners.current) {
+      window.addEventListener('pointerup', endDrag);
+      window.addEventListener('pointercancel', endDrag);
+      removeWindowListeners.current = () => {
+        window.removeEventListener('pointerup', endDrag);
+        window.removeEventListener('pointercancel', endDrag);
+      };
+    }
   };
 
-  const handlePointerUp = () => {
-    isDragging.current = false;
+  const handlePointerMove = (e) => {
+    const touch = pendingTouch.current;
+    if (!touch || e.pointerId !== activePointerId.current) return;
+    const dx = Math.abs(e.clientX - touch.x);
+    const dy = Math.abs(e.clientY - touch.y);
+    if (dx > TOUCH_SLOP_PX && dx >= dy) commitPendingTouch();
   };
 
   const percentage = useMemo(() => {
@@ -93,8 +159,10 @@ function SliderControl({ param, value, onChange, disabled }) {
           value={localValue}
           onInput={handleInput}
           onPointerDown={handlePointerDown}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onLostPointerCapture={endDrag}
           disabled={disabled}
           className="slider-input"
         />
@@ -328,7 +396,7 @@ function ExpressionControl({ param, value, onChange, disabled, mode }) {
 /**
  * Button Control with special handling for play_pause and step buttons
  */
-function ButtonControl({ param, onClick, onStepForward, onStepBackward, disabled, isRunning }) {
+function ButtonControl({ param, onClick, onStepForward, onStepBackward, disabled, isRunning, actionPending }) {
   const buttonName = param.name;
 
   // Special handling for play/pause button
@@ -387,13 +455,16 @@ function ButtonControl({ param, onClick, onStepForward, onStepBackward, disabled
     );
   }
 
-  // Generic button
+  // Generic action button. While an action is in flight it is locked with
+  // aria-disabled (clicks are ignored by ControlPanel) rather than `disabled`,
+  // so keyboard focus stays on it.
   return (
     <div className="control-group">
       <button
         type="button"
         onClick={() => onClick(buttonName)}
         disabled={disabled}
+        aria-disabled={actionPending || undefined}
         className="control-button"
       >
         {param.label || param.name}
@@ -424,7 +495,7 @@ function shouldShowControl(param, currentValues) {
 /**
  * Control renderer - selects appropriate control type
  */
-function Control({ param, value, onChange, onButtonClick, onStepForward, onStepBackward, disabled, isRunning, mode, metadata }) {
+function Control({ param, value, onChange, onButtonClick, onStepForward, onStepBackward, disabled, isRunning, actionPending, mode, metadata }) {
   switch (param.type) {
     case 'slider':
       return (
@@ -483,11 +554,12 @@ function Control({ param, value, onChange, onButtonClick, onStepForward, onStepB
       return (
         <ButtonControl
           param={param}
-          onClick={onButtonClick || onChange}
+          onClick={onButtonClick}
           onStepForward={onStepForward}
           onStepBackward={onStepBackward}
           disabled={disabled}
           isRunning={isRunning}
+          actionPending={actionPending}
         />
       );
 
@@ -553,6 +625,32 @@ function ControlPanel({
     }
   }, [onReset]);
 
+  // Action buttons (every button except play/pause and the step buttons,
+  // which have their own guards) start backend work that can take tens of
+  // seconds, e.g. compute_roa. The backend runs it on its event loop, so a
+  // duplicate click would block every request for another full compute.
+  // Lock action buttons until the running one finishes; the ref makes the
+  // guard synchronous, the state drives aria-disabled.
+  const actionInFlightRef = useRef(false);
+  const [actionInFlight, setActionInFlight] = useState(false);
+
+  const handleButtonClick = useCallback(async (buttonName) => {
+    const handler = onButtonClick || handleChange;
+    if (buttonName === 'play_pause') {
+      handler(buttonName);
+      return;
+    }
+    if (actionInFlightRef.current) return;
+    actionInFlightRef.current = true;
+    setActionInFlight(true);
+    try {
+      await handler(buttonName);
+    } finally {
+      actionInFlightRef.current = false;
+      setActionInFlight(false);
+    }
+  }, [onButtonClick, handleChange]);
+
   if (!parameters || parameters.length === 0) {
     return (
       <div className="control-panel">
@@ -563,10 +661,18 @@ function ControlPanel({
     );
   }
 
-  const disabled = isLoading || isUpdating;
+  // Only block input during the initial load. Background updates must not
+  // disable controls: a disabled input aborts an in-progress drag (pointer
+  // capture is dropped) and throws keyboard focus to <body>. useSimulation
+  // already serializes parameter updates and queues edits made while one is
+  // in flight; action buttons are locked separately (handleButtonClick).
+  const disabled = isLoading;
 
   return (
-    <div className={`control-panel ${disabled ? 'control-panel-disabled' : ''}`}>
+    <div
+      className={`control-panel ${disabled ? 'control-panel-disabled' : ''}`}
+      aria-busy={isLoading || isUpdating}
+    >
       <div className="control-panel-header">
         <h3>Parameters</h3>
         {isUpdating && (
@@ -588,11 +694,12 @@ function ControlPanel({
                   param={param}
                   value={currentValues[param.name]}
                   onChange={handleChange}
-                  onButtonClick={onButtonClick}
+                  onButtonClick={handleButtonClick}
                   onStepForward={onStepForward}
                   onStepBackward={onStepBackward}
                   disabled={disabled}
                   isRunning={isRunning}
+                  actionPending={actionInFlight}
                   mode={mode}
                   metadata={metadata}
                 />

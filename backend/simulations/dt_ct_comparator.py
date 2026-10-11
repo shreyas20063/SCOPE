@@ -1,9 +1,15 @@
 """
 DT ↔ CT Side-by-Side Comparator
 
-Shows how the same pole value p produces pⁿu[n] in DT vs eᵖᵗu(t) in CT,
-with fundamentally different stability regions: unit circle (DT) vs left
-half-plane (CT).
+Puts the same NUMBER p into two different first-order systems:
+
+    DT:  H(z) = 1 / (1 − p z⁻¹)   →  h[n] = pⁿ u[n]    stable ⇔ |p| < 1
+    CT:  H(s) = 1 / (s − p)       →  h(t) = eᵖᵗ u(t)   stable ⇔ Re(p) < 0
+
+The two systems are NOT a sampling pair. Sampling eᵖᵗ every T seconds gives
+(e^{pT})ⁿ, i.e. the sampled-data DT pole is z = e^{pT} (Oppenheim & Willsky
+§7, Ogata DTCS §4-3), not p. The tool deliberately uses the same p in both
+only to contrast the two stability regions.
 """
 
 import random
@@ -20,7 +26,18 @@ class DTCTComparatorSimulator(BaseSimulator):
 
     # Constants
     CT_NUM_POINTS = 500
-    Y_CLIP = 50.0  # Clip extreme values to prevent Plotly overflow
+    # Responses are NOT clipped: clipping drew divergent signals as fake
+    # plateaus. The schema bounds the worst case at |2|^29 ≈ 5.4e8 (DT) and
+    # e^(2·8) ≈ 8.9e6 (CT), which float64 and Plotly handle without trouble.
+    # Tolerance for "exactly on the stability boundary" (slider step is 0.01).
+    BOUNDARY_TOL = 1e-9
+    # Sampling period used for the sampled-pole example z = e^{pT}.
+    SAMPLING_PERIOD = 1.0
+    # Trace colours by stability status (stable / marginal / unstable).
+    STATUS_COLORS = {"Stable": "#3b82f6", "Marginal": "#f59e0b", "Unstable": "#ef4444"}
+    # Status-free trace colour while a quiz question is open (not in STATUS_COLORS,
+    # so it cannot be read as "stable"/"unstable").
+    QUIZ_NEUTRAL_COLOR = "#8b5cf6"
 
     PARAMETER_SCHEMA = {
         "p": {
@@ -133,7 +150,10 @@ class DTCTComparatorSimulator(BaseSimulator):
     # ── Computation ──────────────────────────────────────────────────────
 
     def _compute_dt(self, p: float, N: int) -> Dict[str, np.ndarray]:
-        """Compute DT response y[n] = pⁿ u[n]."""
+        """Compute DT response y[n] = pⁿ u[n] (unclipped).
+
+        For p = 0 this is the unit impulse δ[n] (0⁰ = 1, 0ⁿ = 0 for n ≥ 1).
+        """
         n = np.arange(0, N)
         if p == 0.0:
             y = np.zeros(N)
@@ -149,19 +169,12 @@ class DTCTComparatorSimulator(BaseSimulator):
         else:
             envelope = np.float64(abs_p) ** n
 
-        # Clip extreme values
-        y = np.clip(y, -self.Y_CLIP, self.Y_CLIP)
-        envelope = np.clip(envelope, 0, self.Y_CLIP)
-
         return {"n": n, "y": y, "envelope": envelope}
 
     def _compute_ct(self, p: float, duration: float) -> Dict[str, np.ndarray]:
-        """Compute CT response y(t) = eᵖᵗ u(t)."""
+        """Compute CT response y(t) = eᵖᵗ u(t) (unclipped)."""
         t = np.linspace(0, duration, self.CT_NUM_POINTS)
         y = np.exp(p * t)
-
-        # Clip extreme values
-        y = np.clip(y, -self.Y_CLIP, self.Y_CLIP)
 
         # Envelope for CT
         envelope = np.abs(y)
@@ -183,15 +196,22 @@ class DTCTComparatorSimulator(BaseSimulator):
         return [y_min - pad * span, y_max + pad * span]
 
     def _classify_stability(self, p: float) -> Dict[str, Any]:
-        """Classify stability for both DT and CT."""
+        """Classify stability for both DT and CT.
+
+        ``dt_stable``/``ct_stable`` (and hence ``agreement``, which is the quiz
+        answer key) mean asymptotic stability: a marginal system is bounded
+        but is not "stable". The human-readable ``insight`` distinguishes the
+        three cases decays / bounded-but-non-decaying / grows without bound.
+        """
         abs_p = abs(p)
+        tol = self.BOUNDARY_TOL
 
         # DT stability: |p| < 1
-        if abs_p < 1.0 - 1e-9:
+        if abs_p < 1.0 - tol:
             dt_stable = True
             dt_status = "Stable"
             dt_behavior = "convergent"
-        elif abs(abs_p - 1.0) < 1e-9:
+        elif abs(abs_p - 1.0) < tol:
             dt_stable = False
             dt_status = "Marginal"
             dt_behavior = "marginally_stable"
@@ -201,11 +221,11 @@ class DTCTComparatorSimulator(BaseSimulator):
             dt_behavior = "divergent"
 
         # CT stability: p < 0
-        if p < -1e-9:
+        if p < -tol:
             ct_stable = True
             ct_status = "Stable"
             ct_behavior = "convergent"
-        elif abs(p) < 1e-9:
+        elif abs(p) < tol:
             ct_stable = False
             ct_status = "Marginal"
             ct_behavior = "marginally_stable"
@@ -224,6 +244,13 @@ class DTCTComparatorSimulator(BaseSimulator):
         else:
             agreement = "neither_stable"
 
+        # Sampled-data counterpart of the CT system: z = e^{pT}. It lies
+        # inside / on / outside |z| = 1 exactly when Re(p) <, =, > 0, so
+        # sampling never changes stability (unlike reusing the number p).
+        T = self.SAMPLING_PERIOD
+        sampled_pole = float(np.exp(p * T))
+        sampled_location = {"Stable": "inside", "Marginal": "on", "Unstable": "outside"}[ct_status]
+
         return {
             "dt_stable": dt_stable,
             "dt_status": dt_status,
@@ -233,9 +260,57 @@ class DTCTComparatorSimulator(BaseSimulator):
             "ct_status": ct_status,
             "ct_behavior": ct_behavior,
             "agreement": agreement,
+            **self._describe_responses(p),
             "pole_value": round(p, 4),
             "abs_pole": round(abs_p, 4),
+            "sampling_period": T,
+            "sampled_pole": round(sampled_pole, 4),
+            "sampled_pole_location": sampled_location,
         }
+
+    def _describe_responses(self, p: float) -> Dict[str, str]:
+        """Plain-language description of pⁿu[n] and eᵖᵗu(t) for a real pole p.
+
+        DT pⁿ u[n]:  p = 0 → δ[n] (FIR, stable); 0 < |p| < 1 → decays;
+                     p = 1 → constant 1 (marginal); p = −1 → (−1)ⁿ, constant
+                     amplitude (marginal); |p| > 1 → grows without bound.
+                     p < 0 alternates in sign.
+        CT eᵖᵗ u(t): p < 0 → decays; p = 0 → constant 1 (marginal);
+                     p > 0 → grows without bound.
+
+        Returns:
+            Dict with ``dt_description``, ``ct_description`` and ``insight``.
+        """
+        tol = self.BOUNDARY_TOL
+        abs_p = abs(p)
+
+        if abs_p < tol:
+            dt_desc = "DT is the impulse δ[n] (stable, FIR)"
+        elif abs_p < 1.0 - tol:
+            dt_desc = "DT decays to zero" + (" (alternating sign)" if p < 0 else "")
+        elif abs(p - 1.0) < tol:
+            dt_desc = "DT stays constant at 1 (marginal)"
+        elif abs(p + 1.0) < tol:
+            dt_desc = "DT alternates ±1 with constant amplitude (marginal)"
+        else:
+            dt_desc = "DT grows without bound" + (" (alternating sign)" if p < 0 else "")
+
+        if p < -tol:
+            ct_desc = "CT decays to zero"
+        elif abs(p) < tol:
+            ct_desc = "CT stays constant at 1 (marginal)"
+        else:
+            ct_desc = "CT grows without bound"
+
+        if -1.0 + tol < p < -tol:
+            insight = "Both decay to zero (DT alternates in sign)"
+        elif p > 1.0 + tol:
+            insight = "Both grow without bound"
+        else:
+            # Every other real p puts the two systems in different classes.
+            insight = f"{dt_desc}, but {ct_desc}"
+
+        return {"dt_description": dt_desc, "ct_description": ct_desc, "insight": insight}
 
     # ── Quiz ─────────────────────────────────────────────────────────────
 
@@ -275,12 +350,60 @@ class DTCTComparatorSimulator(BaseSimulator):
             "legend": {"font": {"color": "#94a3b8", "size": 10}, "bgcolor": "rgba(0,0,0,0)"},
         }
 
+    @staticmethod
+    def _dt_tick_settings(N: int) -> Dict[str, Any]:
+        """n-axis tick settings that keep labels horizontal, legible and integer.
+
+        N ≤ 10: one tick per sample. N > 10: Plotly's width-aware auto ticks
+        (5–10 ticks for the plot width); since the range spans N ≥ 11 samples
+        the auto step is ≥ 2 and integer, so it adapts from phone to desktop.
+        """
+        if N <= 10:
+            return {"tickmode": "linear", "tick0": 0, "dtick": 1}
+        return {"tickmode": "auto"}
+
+    def _hide_stability_cues(self) -> bool:
+        """True while a quiz question is open (quiz mode, not yet answered).
+
+        The plots must not give the answer away: status-coloured traces and the
+        "Grows without bound" note are withheld until the answer is checked,
+        matching the viewer hiding the badge, maps and sampling note in quiz mode.
+        """
+        return self.parameters["mode"] == "quiz" and not self._quiz_answered
+
+    def _trace_color(self, status: str) -> str:
+        """Trace colour for a domain status, neutral while a quiz is open."""
+        if self._hide_stability_cues():
+            return self.QUIZ_NEUTRAL_COLOR
+        return self.STATUS_COLORS[status]
+
+    @staticmethod
+    def _growth_annotation(text: str) -> Dict[str, Any]:
+        """Top-left in-plot note flagging an unbounded (unstable) response."""
+        return {
+            "text": text,
+            "xref": "paper",
+            "yref": "paper",
+            "x": 0.03,
+            "y": 0.98,
+            "xanchor": "left",
+            "yanchor": "top",
+            "align": "left",
+            "showarrow": False,
+            "font": {"color": "#ef4444", "size": 10},
+            # Translucent red tint reads on both the dark and light themes
+            "bgcolor": "rgba(239,68,68,0.10)",
+            "bordercolor": "rgba(239,68,68,0.35)",
+            "borderwidth": 1,
+            "borderpad": 3,
+        }
+
     def _build_dt_plot(self, dt_data: Dict, stability: Dict, show_envelope: bool) -> Dict[str, Any]:
         """Build Plotly dict for DT stem plot."""
         n = dt_data["n"]
         y = dt_data["y"]
         p = stability["pole_value"]
-        color = "#3b82f6" if stability["dt_stable"] else "#ef4444"
+        color = self._trace_color(stability["dt_status"])
 
         traces = []
 
@@ -344,6 +467,13 @@ class DTCTComparatorSimulator(BaseSimulator):
             all_y.extend((-dt_data["envelope"]).tolist())
         y_range = self._smart_y_range(np.array(all_y))
 
+        N = len(n)
+        annotations = []
+        if stability["dt_status"] == "Unstable" and not self._hide_stability_cues():
+            annotations.append(self._growth_annotation(
+                f"Grows without bound<br>|y[{N - 1}]| = {abs(float(y[-1])):.4g}"
+            ))
+
         rev = self._revision
         layout = {
             **self._base_layout(),
@@ -353,7 +483,10 @@ class DTCTComparatorSimulator(BaseSimulator):
                 "zerolinecolor": "rgba(148,163,184,0.3)",
                 "zerolinewidth": 2,
                 "color": "#94a3b8",
-                "dtick": 1 if len(n) <= 25 else 5,
+                # Span exactly the samples n = 0..N−1 (no phantom −1 / N ticks)
+                "range": [-0.5, N - 0.5],
+                **self._dt_tick_settings(N),
+                "tickangle": 0,
             },
             "yaxis": {
                 "title": {"text": "y[n]", "font": {"color": "#f1f5f9", "size": 13}},
@@ -363,6 +496,7 @@ class DTCTComparatorSimulator(BaseSimulator):
                 "color": "#94a3b8",
                 "range": y_range,
             },
+            "annotations": annotations,
             "datarevision": f"dt-{rev}-{time.time()}",
             "uirevision": f"dt-{rev}",
         }
@@ -379,7 +513,7 @@ class DTCTComparatorSimulator(BaseSimulator):
         t = ct_data["t"]
         y = ct_data["y"]
         p = stability["pole_value"]
-        color = "#3b82f6" if stability["ct_stable"] else "#ef4444"
+        color = self._trace_color(stability["ct_status"])
 
         traces = []
 
@@ -411,6 +545,12 @@ class DTCTComparatorSimulator(BaseSimulator):
             all_y.extend(ct_data["envelope"].tolist())
         y_range = self._smart_y_range(np.array(all_y))
 
+        annotations = []
+        if stability["ct_status"] == "Unstable" and not self._hide_stability_cues():
+            annotations.append(self._growth_annotation(
+                f"Grows without bound<br>y({float(t[-1]):g}) = {float(y[-1]):.4g}"
+            ))
+
         rev = self._revision
         layout = {
             **self._base_layout(),
@@ -429,6 +569,7 @@ class DTCTComparatorSimulator(BaseSimulator):
                 "color": "#94a3b8",
                 "range": y_range,
             },
+            "annotations": annotations,
             "datarevision": f"ct-{rev}-{time.time()}",
             "uirevision": f"ct-{rev}",
         }

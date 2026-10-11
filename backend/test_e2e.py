@@ -425,20 +425,35 @@ def test_tf_parsing():
     run_test("Small: 1e-8/(1+R)", t_small_coeff)
 
     def t_s_dt_custom():
-        """s-domain TF entered into custom_tf block in DT mode."""
+        """s-domain TF entered into a custom_tf block in DT mode is rejected.
+
+        No sampling period exists, so there is no valid CT->DT map; the old
+        behaviour reused the A-coefficients as R (z = s), turning 1/(s+1)
+        into the marginal H(z) = 1/(z+1). The block must keep its previous
+        expression and the TF must stay H = 1.
+        """
         sim = make_bdb("dt")
         inp = add_block(sim, "input")
         ctf = add_block(sim, "custom_tf")
         out = add_block(sim, "output")
         connect(sim, inp, ctf, 0, 0)
         connect(sim, ctf, out, 1, 0)
-        # Update custom TF with s-domain expr in DT mode
+        assert len(sim.connections) == 2, "diagram not wired"
         sim.handle_action("update_block_value", {
             "block_id": ctf, "value": "1/(s+1)"
         })
+        err = sim._error or ""
+        assert "sampling period" in err and "discrete-time" in err, \
+            f"s-domain expression not rejected in DT mode (error: {sim._error!r})"
+        block = sim.blocks[ctf]
+        assert block["expression"] == "1", f"block changed to {block['expression']!r}"
+        assert block["num_coeffs"] == [1.0] and block["den_coeffs"] == [1.0], \
+            f"coefficients changed: {block['num_coeffs']} / {block['den_coeffs']}"
         n, d = get_tf(sim)
-        assert n is not None, "TF not computed"
-    run_test("s-domain in DT custom_tf: 1/(s+1)", t_s_dt_custom)
+        assert n is not None, "previous TF lost"
+        assert_array_close(n, [1.0], msg="num (H must stay 1, not 1/(z+1))")
+        assert_array_close(d, [1.0], msg="den (H must stay 1, not 1/(z+1))")
+    run_test("s-domain in DT custom_tf is rejected: 1/(s+1)", t_s_dt_custom)
 
 
 # ============================================================================

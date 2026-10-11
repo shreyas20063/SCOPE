@@ -1,0 +1,317 @@
+/* CT/DT Poles Conversion viewer */
+
+.ctdt-viewer {
+  --ctdt-ct: #60a5fa;
+  --ctdt-stable: #2dd4bf;
+  --ctdt-marginal: #fbbf24;
+  --ctdt-unstable: #f87171;
+  --ctdt-gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ctdt-gap);
+  min-width: 0;
+}
+
+[data-theme="light"] .ctdt-viewer {
+  --ctdt-ct: #1d4ed8;
+  --ctdt-stable: #0f766e;
+  --ctdt-marginal: #b45309;
+  --ctdt-unstable: #b91c1c;
+}
+
+.ctdt-color-ct { color: var(--ctdt-ct); }
+.ctdt-color-stable { color: var(--ctdt-stable); }
+.ctdt-color-marginal { color: var(--ctdt-marginal); }
+.ctdt-color-unstable { color: var(--ctdt-unstable); }
+
+/* Guided scenario banner */
+.ctdt-guided {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--primary-color);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  background: var(--primary-light);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.ctdt-guided__tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary-color);
+}
+
+.ctdt-guided__title { font-weight: 600; }
+
+.ctdt-guided__msg {
+  flex-basis: 100%;
+  color: var(--text-secondary);
+}
+
+/* Pole conversion cards */
+.ctdt-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 185px), 1fr));
+  gap: 0.75rem;
+}
+
+.ctdt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--surface-color);
+}
+
+.ctdt-card--exact { border-color: color-mix(in srgb, var(--ctdt-ct) 45%, var(--border-color)); }
+.ctdt-card--stable { border-color: color-mix(in srgb, var(--ctdt-stable) 40%, var(--border-color)); }
+.ctdt-card--marginal { border-color: color-mix(in srgb, var(--ctdt-marginal) 55%, var(--border-color)); }
+.ctdt-card--unstable { border-color: color-mix(in srgb, var(--ctdt-unstable) 55%, var(--border-color)); }
+
+.ctdt-card__label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ctdt-card__value {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.ctdt-math {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.ctdt-card__sub {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.ctdt-rating--exact,
+.ctdt-rating--excellent { color: var(--ctdt-stable); }
+.ctdt-rating--good,
+.ctdt-rating--fair { color: var(--ctdt-marginal); }
+.ctdt-rating--poor,
+.ctdt-rating--unstable { color: var(--ctdt-unstable); }
+.ctdt-rating--marginal { color: var(--ctdt-marginal); }
+
+/* Panels */
+.ctdt-panel {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--surface-color);
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.ctdt-panel__title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ctdt-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.ctdt-steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.ctdt-steps > li {
+  min-width: 0;
+  padding-left: 0.25rem;
+}
+
+.ctdt-steps > li::marker {
+  color: var(--primary-color);
+  font-weight: 700;
+}
+
+.ctdt-step__label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ctdt-tex { color: var(--text-primary); }
+
+div.ctdt-tex {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.1rem 0;
+  font-size: 0.95rem;
+}
+
+div.ctdt-tex .katex-display {
+  margin: 0.2rem 0;
+  text-align: left;
+}
+
+div.ctdt-tex .katex-display > .katex { text-align: left; }
+
+.ctdt-tex--small { font-size: 0.85rem; }
+.ctdt-tex--ct { color: var(--ctdt-ct); }
+
+.ctdt-note {
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* Samples table */
+.ctdt-table-wrap {
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.ctdt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctdt-table caption {
+  caption-side: top;
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.ctdt-table th,
+.ctdt-table td {
+  padding: 0.4rem 0.6rem;
+  text-align: right;
+  white-space: nowrap;
+  border-top: 1px solid var(--border-color);
+}
+
+.ctdt-table th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-hover);
+}
+
+.ctdt-table td { font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace; }
+.ctdt-table th:first-child,
+.ctdt-table td:first-child { text-align: center; }
+
+.ctdt-table__ic td { background: var(--primary-light); }
+
+/* Plots */
+.ctdt-plot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ctdt-gap);
+}
+
+.ctdt-plot-card {
+  min-width: 0;
+  padding: 0.75rem 0.75rem 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--surface-color);
+  overflow: hidden;
+}
+
+.ctdt-plot-card__header { padding: 0 0.25rem 0.5rem; }
+
+.ctdt-plot-card__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ctdt-plot-card__caption {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+/* Theory */
+.ctdt-theory__maps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.ctdt-theory__list {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.5rem 1rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.ctdt-theory__list dt {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ctdt-theory__list dd {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 1280px) {
+  .ctdt-stage { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 1100px) {
+  .ctdt-plot-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .ctdt-viewer { --ctdt-gap: 0.75rem; }
+  .ctdt-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+  .ctdt-card { padding: 0.65rem 0.7rem; }
+  .ctdt-card__value { font-size: 0.95rem; }
+  div.ctdt-tex { font-size: 0.82rem; }
+  .ctdt-panel { padding: 0.85rem; }
+  .ctdt-plot-card { padding: 0.6rem 0.4rem 0.4rem; }
+  .ctdt-theory__list { grid-template-columns: minmax(0, 1fr); gap: 0.15rem; }
+  .ctdt-theory__list dd { margin-bottom: 0.5rem; }
+}

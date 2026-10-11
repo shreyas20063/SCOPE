@@ -189,7 +189,9 @@
   .plot-card {
     border-radius: var(--radius-md, 8px);
     min-height: 260px;
-    max-height: 280px;
+    /* No cap: the Plotly graph is 300px tall (layout.height), so a 280px cap
+       with overflow:hidden cut off the x-axis title */
+    max-height: none;
   }
 
   .plot-description {

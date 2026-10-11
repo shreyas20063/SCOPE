@@ -1,1021 +1,712 @@
 """
 CT/DT Poles Conversion Simulator
 
-Demonstrates continuous-time to discrete-time pole transformations
-using Forward Euler, Backward Euler, and Trapezoidal methods.
+First-order CT system  tau*y'(t) + y(t) = x(t),  initially at rest,  pole s_p = -1/tau.
 
-Features:
-- S-Plane visualization with stability regions
-- Z-Plane with unit circle and pole trajectory
-- Step response comparison with RMS error
-- Stability analysis map
-- Pole trajectory visualization
-- Theory/Learning panel with method explanations
+Sampling with period T maps a CT pole exactly to z = e^{sT} (ZOH / impulse
+invariance).  Forward Euler, Backward Euler and Trapezoidal (Tustin) are
+numerical-integration approximations of that map.  The tool shows:
+- CT -> DT: the method's DT pole next to the exact pole e^{sT}
+- DT -> CT: the equivalent CT pole s_eq = ln(z)/T of the method's DT pole
+- the difference equation each method produces and its unit-step response.
 
-Math extracted from: ct_dt_poles/core/math_handler.py
+Every recursion started at rest has the closed form y[n] = 1 - z^n, the DT
+image of the CT step response y(t) = 1 - e^{s_p t}.
 """
 
-import numpy as np
+import cmath
+import math
 from typing import Any, Dict, List, Optional
+
+import numpy as np
+
 from .base_simulator import BaseSimulator
 
 
 class CTDTPolesSimulator(BaseSimulator):
-    """
-    CT/DT Poles Conversion simulation.
+    """CT -> DT pole conversion and the step response of the resulting difference equation."""
 
-    Parameters:
-    - t_tau_ratio: T/τ ratio (step size relative to time constant)
-    - method: Transformation method (forward_euler, backward_euler, trapezoidal)
-
-    Internal:
-    - tau is fixed at 1.0 (matching PyQt5)
-    - T = t_tau_ratio * tau
-    """
-
-    # Configuration - fixed tau as in PyQt5
     TAU = 1.0
-    NUM_SAMPLES = 100
-    T_TAU_RANGE = np.linspace(0.01, 3.0, 150)
-    TRAJECTORY_T_TAU_VALUES = np.linspace(0.1, 3.0, 60)
+    T_HORIZON = 6.0          # CT transient window (6 tau)
+    MIN_SAMPLES = 10         # always show at least this many steps after y[0]
+    MAX_SAMPLES = 600
+    STEM_LIMIT = 60          # draw stems up to this many samples, markers only beyond
+    H_GRID = np.linspace(0.005, 3.0, 600)
+    TOL = 1e-9
 
-    # Unified color palette - matches DC Motor simulation
+    S_VIEW = {"x": [-4.5, 1.5], "y": [-3.4, 3.4]}
+    Z_VIEW = {"x": [-2.25, 1.75], "y": [-1.6, 1.6]}
+
     COLORS = {
-        # Primary response colors
-        "continuous": "#22d3ee",       # Cyan - CT system (matches DC Motor step response)
-        "reference": "#f472b6",        # Pink - reference lines (matches DC Motor final value)
-        "envelope": "#fbbf24",         # Amber - envelope/accent curves
-
-        # Stability colors
-        "stable_discrete": "#34d399",  # Emerald green - stable DT
-        "unstable_discrete": "#f87171", # Coral red - unstable DT/poles
-        "pole_marker": "#f87171",      # Coral red - poles (matches DC Motor)
-
-        # S-plane/Z-plane colors
-        "imaginary_axis": "#a855f7",   # Purple - stability boundary (matches DC Motor)
-        "unit_circle": "#a855f7",      # Purple for unit circle (same as imaginary axis)
-        "omega_circle": "#fbbf24",     # Amber - natural frequency circle
-
-        # Region fills
-        "fill_stable": "rgba(52, 211, 153, 0.08)",   # Light emerald (matches DC Motor)
-        "fill_unstable": "rgba(248, 113, 113, 0.08)",
-
-        # Trajectory colors
-        "trajectory_stable": "#34d399",
-        "trajectory_marginal": "#fbbf24",
-        "trajectory_unstable": "#f87171",
-
-        # Grid and text
+        "ct": "#3b82f6",
+        "stable": "#14b8a6",
+        "marginal": "#f59e0b",
+        "unstable": "#ef4444",
+        "boundary": "#8b5cf6",
+        "image": "#f59e0b",
+        "reference": "#10b981",
+        "fill_stable": "rgba(16, 185, 129, 0.12)",
+        "fill_image": "rgba(245, 158, 11, 0.05)",
         "grid": "rgba(148, 163, 184, 0.2)",
-        "text": "#e2e8f0",
+        "axis": "rgba(148, 163, 184, 0.55)",
     }
 
-    # Method explanations from PyQt5 Config.METHOD_EXPLANATIONS
-    METHOD_EXPLANATIONS = {
+    METHODS: Dict[str, Dict[str, str]] = {
         "forward_euler": {
             "name": "Forward Euler",
-            "formula": "z = 1 + sT",
-            "concept": "Estimates derivatives by looking forward in time",
-            "strength": "Simple and intuitive implementation",
-            "weakness": "Can become unstable for large step sizes",
-            "stability_limit": "Stable only when T/τ < 2",
-            "real_world": "Used in real-time systems where simplicity matters",
+            "derivative": r"\dot y(nT) \approx \dfrac{y[n+1]-y[n]}{T}",
+            "substitution": r"s \;\to\; \dfrac{z-1}{T}",
+            "pole_map": r"z = 1 + sT",
+            "inverse_map": r"s = \dfrac{z-1}{T}",
+            "region": "The jω axis maps to the vertical line Re z = 1, so the left half-plane maps to Re z < 1, "
+                      "which reaches outside the unit circle. A CT pole lands inside the unit circle only if it lies "
+                      "in the disk |s + 1/T| < 1/T. For s = −1/τ this means T/τ < 2.",
+            "concept": "Uses the slope at the start of each step to predict the next sample (explicit).",
+            "strength": "Simplest possible update; no equation to solve each step.",
+            "weakness": "The DT pole 1 − T/τ turns negative for T > τ (alternating samples) and leaves the unit "
+                        "circle for T > 2τ, although the CT system is stable.",
         },
         "backward_euler": {
             "name": "Backward Euler",
-            "formula": "z = 1/(1-sT)",
-            "concept": "Estimates derivatives by looking backward in time",
-            "strength": "Inherently stable for all step sizes",
-            "weakness": "Can be overly conservative (too damped)",
-            "stability_limit": "Always stable if CT system is stable",
-            "real_world": "Preferred for stiff differential equations",
+            "derivative": r"\dot y(nT) \approx \dfrac{y[n]-y[n-1]}{T}",
+            "substitution": r"s \;\to\; \dfrac{z-1}{zT}",
+            "pole_map": r"z = \dfrac{1}{1 - sT}",
+            "inverse_map": r"s = \dfrac{z-1}{zT}",
+            "region": "The jω axis maps to the circle |z − ½| = ½ and the whole left half-plane maps inside it, "
+                      "so a stable CT system always gives a stable DT system. It also maps the right half-plane "
+                      "outside the disk |s − 1/T| < 1/T inside the unit circle, so an unstable CT system can "
+                      "look stable.",
+            "concept": "Uses the slope at the end of each step (implicit).",
+            "strength": "Stable for every T when the CT system is stable; real poles stay positive (no alternation).",
+            "weakness": "The DT pole 1/(1 + T/τ) is larger than e^(−T/τ), so the response decays too slowly "
+                        "(over-damped) for large T.",
         },
         "trapezoidal": {
-            "name": "Trapezoidal (Bilinear)",
-            "formula": "z = (1+sT/2)/(1-sT/2)",
-            "concept": "Averages forward and backward estimates",
-            "strength": "Best accuracy and stability balance",
-            "weakness": "Slightly more complex to implement",
-            "stability_limit": "Maps imaginary axis to unit circle exactly",
-            "real_world": "Industry standard for most applications",
+            "name": "Trapezoidal (Tustin)",
+            "derivative": r"\dfrac{y[n]-y[n-1]}{T} \approx \tfrac{1}{2}\big(\dot y(nT) + \dot y((n-1)T)\big)",
+            "substitution": r"s \;\to\; \dfrac{2}{T}\,\dfrac{z-1}{z+1}",
+            "pole_map": r"z = \dfrac{1 + sT/2}{1 - sT/2}",
+            "inverse_map": r"s = \dfrac{2}{T}\,\dfrac{z-1}{z+1}",
+            "region": "The jω axis maps exactly onto the unit circle and the left half-plane onto the unit disk, "
+                      "so stability is preserved in both directions. Frequencies are warped: "
+                      "ω = (2/T)·tan(Ω/2).",
+            "concept": "Averages the slopes at both ends of each step (bilinear transform).",
+            "strength": "Second-order accurate; preserves stability exactly.",
+            "weakness": "For s = −1/τ the DT pole (2τ − T)/(2τ + T) turns negative for T > 2τ, giving alternating "
+                        "samples the CT system does not have.",
+        },
+        "exact_zoh": {
+            "name": "Exact sampling (ZOH)",
+            "derivative": r"y\big((n+1)T\big) = e^{-T/\tau}\,y(nT) + \big(1-e^{-T/\tau}\big)\,x[n]",
+            "substitution": r"\text{solve the ODE exactly over each step with } x \text{ held constant}",
+            "pole_map": r"z = e^{sT}",
+            "inverse_map": r"s = \dfrac{\ln z}{T}",
+            "region": "The left half-plane maps into the unit disk and the jω axis onto the unit circle, but the map "
+                      "is many-to-one: s and s + j2πk/T give the same z (aliasing; primary strip |ω| < π/T).",
+            "concept": "This is the true CT → DT pole conversion: every exact sampled-data equivalent "
+                       "(zero-order hold, impulse invariance) has its poles at z = e^(sT).",
+            "strength": "With the input held between samples the samples equal y(nT) exactly, for any T.",
+            "weakness": "Needs the exponential e^(sT); the input must really be piecewise constant for the "
+                        "match to be exact.",
         },
     }
 
-    # Guided scenarios from PyQt5 Config.GUIDED_SCENARIOS
-    GUIDED_SCENARIOS = [
-        {"t_tau": 0.3, "method": "forward_euler", "message": "Start here: Small step size, very stable"},
-        {"t_tau": 1.0, "method": "forward_euler", "message": "Moderate step size, still stable but see the difference"},
-        {"t_tau": 1.8, "method": "forward_euler", "message": "Getting close to instability limit"},
-        {"t_tau": 2.2, "method": "forward_euler", "message": "UNSTABLE! See the oscillations"},
-        {"t_tau": 2.2, "method": "backward_euler", "message": "Same step size, but now stable with Backward Euler"},
-        {"t_tau": 2.2, "method": "trapezoidal", "message": "Trapezoidal also handles large steps well"},
+    GUIDED_SCENARIOS: List[Dict[str, Any]] = [
+        {"title": "Small step (stable)", "t_tau_ratio": 0.3, "method": "forward_euler",
+         "message": "Small T: the Forward-Euler pole 1 − T/τ = 0.70 is close to the exact pole "
+                    "e^(−T/τ) = 0.741, so the samples track the CT curve closely."},
+        {"title": "Deadbeat at T = τ", "t_tau_ratio": 1.0, "method": "forward_euler",
+         "message": "At T = τ the Forward-Euler pole is z = 0: the response reaches 1 in a single step. "
+                    "The true sampled pole is e^(−1) = 0.368."},
+        {"title": "Near the FE limit", "t_tau_ratio": 1.8, "method": "forward_euler",
+         "message": "z = −0.8 is still inside the unit circle, but it is negative, so the samples alternate around "
+                    "the final value. A real CT pole never maps to a negative z under exact sampling."},
+        {"title": "FE unstable", "t_tau_ratio": 2.2, "method": "forward_euler",
+         "message": "z = −1.2 is outside the unit circle: the difference equation diverges although the CT system "
+                    "is stable. Its equivalent CT pole ln(z)/T lies in the right half-plane."},
+        {"title": "Backward Euler, same T", "t_tau_ratio": 2.2, "method": "backward_euler",
+         "message": "Backward Euler maps the whole left half-plane inside |z − ½| = ½: z = 0.3125 is stable, "
+                    "but slower than the exact pole e^(−2.2) = 0.111."},
+        {"title": "Trapezoidal, same T", "t_tau_ratio": 2.2, "method": "trapezoidal",
+         "message": "Tustin keeps the pole inside the unit circle for every T, but z = −0.0476 is negative, "
+                    "so the samples alternate slightly. Exact pole: 0.111."},
+        {"title": "Exact sampling", "t_tau_ratio": 2.2, "method": "exact_zoh",
+         "message": "z = e^(sT) = 0.1108: the ZOH difference equation reproduces y(nT) exactly at every sample, "
+                    "for any step size."},
     ]
 
-    # Parameter schema - T/τ ratio slider matching PyQt5 (0.01 to 3.0, default 0.50)
     PARAMETER_SCHEMA = {
-        "t_tau_ratio": {
-            "type": "slider",
-            "label": "T/τ Ratio",
-            "min": 0.01,
-            "max": 3.0,
-            "step": 0.01,
-            "default": 0.50,
-            "unit": "",
-            "description": "Sampling period relative to time constant",
-        },
-        "method": {
-            "type": "select",
-            "label": "Transformation Method",
-            "options": [
-                {"value": "forward_euler", "label": "Forward Euler"},
-                {"value": "backward_euler", "label": "Backward Euler"},
-                {"value": "trapezoidal", "label": "Trapezoidal (Bilinear)"},
-            ],
-            "default": "forward_euler",
-            "description": "Numerical integration method for CT to DT conversion",
-        },
-        "guided_scenario": {
-            "type": "select",
-            "label": "Guided Scenario",
-            "options": [
-                {"value": "none", "label": "Free Exploration"},
-                {"value": "0", "label": "1: Small Step (Stable)"},
-                {"value": "1", "label": "2: Moderate Step"},
-                {"value": "2", "label": "3: Near Limit"},
-                {"value": "3", "label": "4: FE Unstable"},
-                {"value": "4", "label": "5: BE Stable"},
-                {"value": "5", "label": "6: Trapezoidal"},
-            ],
-            "default": "none",
-            "description": "Select a guided learning scenario",
-        },
+        "t_tau_ratio": {"type": "slider", "min": 0.01, "max": 3.0, "step": 0.01, "default": 0.5},
+        "method": {"type": "select", "options": ["forward_euler", "backward_euler", "trapezoidal", "exact_zoh"],
+                   "default": "forward_euler"},
+        "guided_scenario": {"type": "select",
+                            "options": ["none"] + [str(i) for i in range(len(GUIDED_SCENARIOS))],
+                            "default": "none"},
     }
 
     DEFAULT_PARAMS = {
-        "t_tau_ratio": 0.50,
+        "t_tau_ratio": 0.5,
         "method": "forward_euler",
         "guided_scenario": "none",
     }
 
+    SCENARIO_KEYS = ("t_tau_ratio", "method")
 
     def __init__(self, simulation_id: str):
         super().__init__(simulation_id)
-        self._tau = self.TAU
-        self._T = 0.5
-        self._s_pole = None
-        self._z_pole = None
-        self._ct_response = None
-        self._dt_response = None
-        self._t_continuous = None
-        self._t_discrete = None
-        self._stability_curve = None
-        self._pole_trajectory = None
-        self._trajectory_t_tau = None
-        self._is_stable = True
-        self._rms_error = 0.0
-        self._performance_rating = "GOOD"
+        self._r: Dict[str, Any] = {}
+
+    # ------------------------------------------------------------------ params
 
     def initialize(self, params: Optional[Dict[str, Any]] = None) -> None:
-        """Initialize simulation with parameters."""
         self.parameters = self.DEFAULT_PARAMS.copy()
-        if params:
-            for name, value in params.items():
-                if name in self.parameters:
-                    self.parameters[name] = self._validate_param(name, value)
+        for name, value in (params or {}).items():
+            if name in self.parameters:
+                self.parameters[name] = self._validate_param(name, value)
+        if self.parameters["guided_scenario"] != "none":
+            self._apply_scenario(self.parameters["guided_scenario"])
         self._initialized = True
         self._compute()
 
     def update_parameter(self, name: str, value: Any) -> Dict[str, Any]:
-        """Update a single parameter and recompute."""
-        if name == "guided_scenario" and value != "none":
-            # Apply guided scenario settings
-            try:
-                scenario_idx = int(value)
-                if 0 <= scenario_idx < len(self.GUIDED_SCENARIOS):
-                    scenario = self.GUIDED_SCENARIOS[scenario_idx]
-                    self.parameters["t_tau_ratio"] = scenario["t_tau"]
-                    self.parameters["method"] = scenario["method"]
-                    self.parameters["guided_scenario"] = value
-            except (ValueError, TypeError):
-                pass
+        if name == "guided_scenario":
+            value = self._validate_param(name, value)
+            if value == "none":
+                self.parameters["guided_scenario"] = "none"
+            else:
+                self._apply_scenario(value)
         elif name in self.parameters:
             self.parameters[name] = self._validate_param(name, value)
-            # Reset guided scenario if manually changing parameters
-            if name in ["t_tau_ratio", "method"]:
-                self.parameters["guided_scenario"] = "none"
-
-        self._compute()
+            self.parameters["guided_scenario"] = "none"
         return self.get_state()
 
     def reset(self) -> Dict[str, Any]:
-        """Reset simulation to default parameters."""
-        self.parameters = self.DEFAULT_PARAMS.copy()
-        self._initialized = True
-        self._compute()
+        self.initialize()
         return self.get_state()
 
+    def _apply_scenario(self, key: str) -> None:
+        scenario = self.GUIDED_SCENARIOS[int(key)]
+        for k in self.SCENARIO_KEYS:
+            self.parameters[k] = scenario[k]
+        self.parameters["guided_scenario"] = key
+
+    # ------------------------------------------------------------------- math
+
+    @staticmethod
+    def _s_to_z(s: Any, T: float, method: str) -> Any:
+        """CT -> DT pole map of the given method (vectorised over complex s)."""
+        sT = s * T
+        if method == "forward_euler":
+            return 1 + sT
+        if method == "backward_euler":
+            return 1 / (1 - sT)
+        if method == "trapezoidal":
+            return (1 + sT / 2) / (1 - sT / 2)
+        return np.exp(sT)
+
+    @classmethod
+    def _equivalent_s(cls, z: float, T: float) -> Dict[str, Any]:
+        """DT -> CT: s_eq = ln(z)/T (principal branch; a negative real z gives the pair (ln|z| +- j*pi)/T)."""
+        if abs(z) < cls.TOL:
+            return {"kind": "deadbeat", "re": None, "im": 0.0}
+        log_z = cmath.log(complex(z))
+        s = log_z / T
+        im = abs(s.imag) if abs(s.imag) > cls.TOL else 0.0
+        return {"kind": "pair" if im else "real", "re": s.real, "im": im}
+
+    def _classify(self, z: float) -> str:
+        mag = abs(z)
+        if mag < 1 - self.TOL:
+            return "stable"
+        if mag > 1 + self.TOL:
+            return "unstable"
+        return "marginal"
+
+    def _mode_text(self, z: float) -> str:
+        if abs(z) < self.TOL:
+            return "deadbeat: the transient vanishes after one step"
+        if z > 0:
+            return "monotonic decay" if z < 1 - self.TOL else (
+                "constant (marginal)" if z <= 1 + self.TOL else "monotonic growth")
+        if z > -1 + self.TOL:
+            return "alternating decay: the sign of the transient flips every sample"
+        if z >= -1 - self.TOL:
+            return "alternating with constant amplitude (marginal)"
+        return "alternating growth: the samples diverge"
+
     def _compute(self) -> None:
-        """Compute CT/DT transformation."""
-        t_tau_ratio = self.parameters["t_tau_ratio"]
-        method = self.parameters["method"]
+        p = self.parameters
+        tau = self.TAU
+        h = float(p["t_tau_ratio"])
+        T = h * tau
+        method = p["method"]
 
-        # Compute T from T/τ ratio (τ is fixed at 1.0)
-        self._T = t_tau_ratio * self._tau
+        s_p = -1.0 / tau
+        z_d = float(self._s_to_z(s_p, T, method))
+        z_exact = math.exp(s_p * T)
 
-        # CT pole: s = -1/τ
-        self._s_pole = -1.0 / self._tau
+        # Difference equation started at rest: y[0] = y(0) = 0, x[n] = u(nT) = 1 for n >= 0
+        n_steps = int(min(self.MAX_SAMPLES, max(self.MIN_SAMPLES, math.floor(self.T_HORIZON / T + 1e-9))))
+        n = np.arange(n_steps + 1)
+        x = np.ones(n_steps + 1)
+        a = math.exp(-h)
+        y = np.empty(n_steps + 1)
+        y[0] = 0.0
+        with np.errstate(over="ignore", invalid="ignore"):
+            for k in range(1, n_steps + 1):
+                if method == "forward_euler":
+                    y[k] = (1 - h) * y[k - 1] + h * x[k - 1]
+                elif method == "backward_euler":
+                    y[k] = (y[k - 1] + h * x[k]) / (1 + h)
+                elif method == "trapezoidal":
+                    y[k] = ((2 - h) * y[k - 1] + h * (x[k] + x[k - 1])) / (2 + h)
+                else:
+                    y[k] = a * y[k - 1] + (1 - a) * x[k - 1]
 
-        # DT pole using selected method
-        self._z_pole = self._get_dt_pole(self._s_pole, self._T, method)
+        t_n = n * T
+        t_end = float(t_n[-1])
+        t_ct = np.linspace(0.0, t_end, 1201)
+        y_ct = 1 - np.exp(s_p * t_ct)
+        y_ct_n = 1 - np.exp(s_p * t_n)
 
-        # Check stability
-        self._is_stable = abs(self._z_pole) < 1.0
-
-        # Compute step responses
-        self._compute_step_responses(self._tau, self._T, method)
-
-        # Compute RMS error
-        self._compute_rms_error()
-
-        # Compute stability curve
-        self._compute_stability_curve(self._tau, method)
-
-        # Compute pole trajectory
-        self._compute_pole_trajectory(self._tau, method)
-
-    def _get_dt_pole(self, s_pole: float, T: float, method: str) -> complex:
-        """Compute DT pole using selected method."""
-        if method == "forward_euler":
-            return 1 + s_pole * T
-        elif method == "backward_euler":
-            return 1 / (1 - s_pole * T)
-        elif method == "trapezoidal":
-            return (1 + s_pole * T / 2) / (1 - s_pole * T / 2)
-        return 1 + s_pole * T
-
-    def _compute_step_responses(self, tau: float, T: float, method: str) -> None:
-        """Compute CT and DT step responses."""
-        # Time range depends on stability
-        if self._is_stable:
-            t_max = min(6 * tau, 15)
+        stability = self._classify(z_d)
+        window = t_n <= self.T_HORIZON + 1e-9
+        err = y[window] - y_ct_n[window]
+        if stability != "stable":
+            rms, rating = None, stability.upper()
         else:
-            t_max = min(3 * tau, 8)
-
-        # Continuous-time response
-        self._t_continuous = np.linspace(0, t_max, 1000)
-        self._ct_response = (1 - np.exp(-self._t_continuous / tau)) * (self._t_continuous >= 0)
-
-        # Discrete-time response
-        n_samples = min(int(t_max / T) + 1, 300)
-        self._t_discrete = np.arange(n_samples) * T
-
-        y = np.zeros(n_samples)
-        if method == "forward_euler":
-            y_val = 0.0
-            for i in range(n_samples):
-                y_val = (1 - T / tau) * y_val + (T / tau)
-                y[i] = y_val
-                if abs(y_val) > 50:  # Prevent explosion
-                    y[i:] = np.nan
-                    break
-        elif method == "backward_euler":
-            y_prev = 0.0
-            for i in range(n_samples):
-                y_val = (y_prev + T / tau) / (1 + T / tau)
-                y[i] = y_val
-                y_prev = y_val
-        elif method == "trapezoidal":
-            y_prev = 0.0
-            x_prev = 0.0
-            for i in range(n_samples):
-                x_current = 1.0
-                numerator = y_prev * (1 - T / (2 * tau)) + (T / (2 * tau)) * (x_current + x_prev)
-                denominator = 1 + T / (2 * tau)
-                y_val = numerator / denominator
-                y[i] = y_val
-                y_prev = y_val
-                x_prev = x_current
-
-        self._dt_response = y
-
-    def _compute_rms_error(self) -> None:
-        """Calculate RMS error between CT and DT responses."""
-        try:
-            # Only compute if we have valid data
-            valid_dt = ~np.isnan(self._dt_response)
-            if not np.any(valid_dt):
-                self._rms_error = float("inf")
-                self._performance_rating = "UNSTABLE"
-                return
-
-            # Interpolate discrete response for comparison
-            t_valid = self._t_discrete[valid_dt]
-            y_dt_valid = self._dt_response[valid_dt]
-
-            if len(t_valid) < 2:
-                self._rms_error = float("inf")
-                self._performance_rating = "UNSTABLE"
-                return
-
-            # Get CT values at discrete time points
-            y_ct_at_discrete = np.interp(t_valid, self._t_continuous, self._ct_response)
-
-            # Calculate RMS error
-            self._rms_error = np.sqrt(np.mean((y_ct_at_discrete - y_dt_valid) ** 2))
-
-            # Performance categories matching PyQt5
-            if self._rms_error < 0.05:
-                self._performance_rating = "EXCELLENT"
-            elif self._rms_error < 0.15:
-                self._performance_rating = "GOOD"
-            elif self._rms_error < 0.3:
-                self._performance_rating = "FAIR"
+            rms = float(np.sqrt(np.mean(err ** 2)))
+            if rms < 1e-9:
+                rating = "EXACT"
+            elif rms < 0.05:
+                rating = "EXCELLENT"
+            elif rms < 0.15:
+                rating = "GOOD"
+            elif rms < 0.3:
+                rating = "FAIR"
             else:
-                self._performance_rating = "POOR"
+                rating = "POOR"
 
-        except Exception:
-            self._rms_error = float("inf")
-            self._performance_rating = "ERROR"
+        self._r = {
+            "h": h, "T": T, "tau": tau, "method": method,
+            "s_p": s_p, "z_d": z_d, "z_exact": z_exact, "s_eq": self._equivalent_s(z_d, T),
+            "stability": stability, "n": n, "t_n": t_n, "y": y, "t_ct": t_ct, "y_ct": y_ct,
+            "y_ct_n": y_ct_n, "rms": rms, "rating": rating,
+        }
 
-    def _compute_stability_curve(self, tau: float, method: str) -> None:
-        """Compute pole magnitude across T/τ range."""
-        s_pole = -1.0 / tau
-        magnitudes = []
-        for T_tau in self.T_TAU_RANGE:
-            T_temp = T_tau * tau
-            z_pole = self._get_dt_pole(s_pole, T_temp, method)
-            magnitudes.append(abs(z_pole))
-        self._stability_curve = np.array(magnitudes)
+    # --------------------------------------------------------------- formatting
 
-    def _compute_pole_trajectory(self, tau: float, method: str) -> None:
-        """Compute pole positions for trajectory visualization."""
-        s_pole = -1.0 / tau
-        trajectory = []
-        self._trajectory_t_tau = self.TRAJECTORY_T_TAU_VALUES
-        for T_tau in self._trajectory_t_tau:
-            T_temp = T_tau * tau
-            z_pole = self._get_dt_pole(s_pole, T_temp, method)
-            trajectory.append(z_pole)
-        self._pole_trajectory = trajectory
+    @staticmethod
+    def _f(v: float, d: int = 4) -> str:
+        """Fixed-decimal format with '-0.0000' normalised to '0.0000'."""
+        if v is None or not math.isfinite(v):
+            return "∞" if v is not None and v > 0 else ("−∞" if v is not None else "—")
+        s = f"{v:.{d}f}"
+        return s[1:] if s.startswith("-") and float(s) == 0 else s
 
-    # =========================================================================
-    # Plot generation - matching PyQt5 exactly
-    # =========================================================================
+    def _equations(self) -> Dict[str, str]:
+        r = self._r
+        h, T, z, method = r["h"], r["T"], r["z_d"], r["method"]
+        f = self._f
+        m = self.METHODS[method]
+
+        if method == "forward_euler":
+            diff_sym = r"y[n+1] = \Big(1-\tfrac{T}{\tau}\Big)\,y[n] + \tfrac{T}{\tau}\,x[n]"
+            diff_num = rf"y[n+1] = {f(1 - h)}\,y[n] + {f(h)}\,x[n]"
+        elif method == "backward_euler":
+            diff_sym = r"y[n] = \dfrac{\tau}{\tau+T}\,y[n-1] + \dfrac{T}{\tau+T}\,x[n]"
+            diff_num = rf"y[n] = {f(1 / (1 + h))}\,y[n-1] + {f(h / (1 + h))}\,x[n]"
+        elif method == "trapezoidal":
+            diff_sym = (r"y[n] = \dfrac{2\tau-T}{2\tau+T}\,y[n-1] + "
+                        r"\dfrac{T}{2\tau+T}\,\big(x[n]+x[n-1]\big)")
+            diff_num = rf"y[n] = {f((2 - h) / (2 + h))}\,y[n-1] + {f(h / (2 + h))}\,\big(x[n]+x[n-1]\big)"
+        else:
+            diff_sym = r"y[n+1] = e^{-T/\tau}\,y[n] + \big(1-e^{-T/\tau}\big)\,x[n]"
+            diff_num = rf"y[n+1] = {f(math.exp(-h))}\,y[n] + {f(1 - math.exp(-h))}\,x[n]"
+
+        s_eq = r["s_eq"]
+        if s_eq["kind"] == "deadbeat":
+            inverse = rf"z = 0 \;\Rightarrow\; s_{{eq}} = \tfrac{{\ln z}}{{T}} \to -\infty"
+        elif s_eq["kind"] == "pair":
+            inverse = (rf"s_{{eq}} = \dfrac{{\ln|z| \pm j\pi}}{{T}} = {f(s_eq['re'])} \pm j\,{f(s_eq['im'])}"
+                       rf"\quad (s_p = {f(r['s_p'])})")
+        else:
+            inverse = rf"s_{{eq}} = \dfrac{{\ln z}}{{T}} = {f(s_eq['re'])}\quad (s_p = {f(r['s_p'])})"
+
+        return {
+            "ct_ode": r"\tau\,\dot y(t) + y(t) = x(t),\qquad y(0) = 0 \;\text{(at rest)}",
+            "ct_tf": r"H(s) = \dfrac{1}{\tau s + 1},\qquad s_p = -\dfrac{1}{\tau}",
+            "params": rf"\tau = 1\,\text{{s}},\;\; T = {f(T, 2)}\,\text{{s}}",
+            "input": r"x(t) = u(t),\;\; x[n] = 1\;(n \ge 0)",
+            "derivative": m["derivative"],
+            "substitution": m["substitution"],
+            "pole_map": m["pole_map"],
+            "pole_map_num": rf"z_d = {f(z)}",
+            "exact_map": rf"z_{{exact}} = e^{{s_p T}} = e^{{{f(-h, 2)}}} = {f(r['z_exact'])}",
+            "diff_sym": diff_sym,
+            "diff_num": diff_num,
+            "ic": r"y[0] = y(0) = 0",
+            "dt_sym": r"y[n] = 1 - z_d^{\,n}",
+            "dt_closed": rf"y[n] = 1 - ({f(z)})^{{n}}",
+            "ct_closed": r"y(t) = 1 - e^{-t/\tau}",
+            "inverse_map": m["inverse_map"],
+            "inverse_num": inverse,
+        }
+
+    # ------------------------------------------------------------------- plots
 
     def get_plots(self) -> List[Dict[str, Any]]:
-        """Generate Plotly plot dictionaries matching PyQt5 layout."""
         if not self._initialized:
             self.initialize()
+        return [self._s_plane_plot(), self._z_plane_plot(), self._response_plot(), self._pole_vs_step_plot()]
 
-        plots = [
-            # Main Tab plots
-            self._create_s_plane_plot(),
-            self._create_z_plane_plot(),
-            self._create_step_response_plot(),
-            # Stability Tab plots
-            self._create_stability_map_plot(),
-            self._create_pole_trajectory_plot(),
-        ]
-        return plots
 
-    def _create_s_plane_plot(self) -> Dict[str, Any]:
-        """Create S-plane pole plot with stability regions (matching DC Motor style)."""
-        method = self.parameters["method"]
-        T = self._T
+    @staticmethod
+    def _axis(title: str, rng: List[float], **extra: Any) -> Dict[str, Any]:
+        return {"title": title, "range": rng, "autorange": False, "showgrid": True, "zeroline": True, **extra}
 
-        traces = []
+    @staticmethod
+    def _legend() -> Dict[str, Any]:
+        return {"orientation": "h", "x": 0.5, "xanchor": "center", "y": -0.18, "yanchor": "top",
+                "font": {"size": 11}}
 
-        # 1. Left half-plane stability region (filled) - matches DC Motor
-        traces.append({
-            "x": [-5, 0, 0, -5, -5],
-            "y": [-4, -4, 4, 4, -4],
-            "type": "scatter",
-            "mode": "lines",
-            "fill": "toself",
-            "fillcolor": self.COLORS["fill_stable"],
-            "line": {"color": "rgba(52, 211, 153, 0.4)", "width": 1.5},
-            "name": "Stable Region (Re < 0)",
-            "showlegend": True,
-            "hoverinfo": "skip",
-        })
+    def _circle(self, cx: float, cy: float, r: float, n: int = 721, reverse: bool = False) -> Dict[str, List[float]]:
+        th = np.linspace(0, 2 * np.pi, n)
+        if reverse:
+            th = th[::-1]
+        return {"x": (cx + r * np.cos(th)).tolist(), "y": (cy + r * np.sin(th)).tolist()}
 
-        # 2. Imaginary axis (jω axis) - the stability boundary (purple like DC Motor)
-        traces.append({
-            "x": [0, 0],
-            "y": [-4, 4],
-            "type": "scatter",
-            "mode": "lines",
-            "line": {"color": self.COLORS["imaginary_axis"], "width": 2.5, "dash": "solid"},
-            "name": "jω axis (Stability Boundary)",
-            "showlegend": True,
-            "hoverinfo": "name",
-        })
+    def _s_plane_plot(self) -> Dict[str, Any]:
+        r = self._r
+        T, method = r["T"], r["method"]
+        (x0, x1), (y0, y1) = self.S_VIEW["x"], self.S_VIEW["y"]
+        c = self.COLORS
+        traces: List[Dict[str, Any]] = []
+        region_name = "Maps inside |z| < 1"
 
-        # 3. Forward Euler stability boundary circle (if applicable)
-        if method == "forward_euler" and T > 0 and (1/T) < 5:
-            center_x = -1/T
-            radius = 1/T
-            theta = np.linspace(0, 2 * np.pi, 100)
-            circle_x = center_x + radius * np.cos(theta)
-            circle_y = radius * np.sin(theta)
-            traces.append({
-                "x": circle_x.tolist(),
-                "y": circle_y.tolist(),
-                "type": "scatter",
-                "mode": "lines",
-                "name": f"FE Limit (r=1/T={1/T:.2f})",
-                "line": {"color": self.COLORS["envelope"], "width": 2, "dash": "dash"},
-            })
+        if method == "forward_euler":
+            circ = self._circle(-1 / T, 0, 1 / T, n=2001)
+            traces.append({"x": circ["x"], "y": circ["y"], "type": "scatter", "mode": "lines", "fill": "toself",
+                           "fillcolor": c["fill_stable"], "line": {"color": c["image"], "width": 2, "dash": "dash"},
+                           "name": f"{region_name}: |s + 1/T| < 1/T", "hoverinfo": "skip"})
+        elif method == "backward_euler":
+            # View rectangle with the disk |s - 1/T| < 1/T cut out (slit polygon, opposite orientation).
+            hole = self._circle(1 / T, 0, 1 / T, n=2001, reverse=True)
+            xs = [x0, x1, x1, x0, x0, 0.0] + hole["x"] + [0.0, x0]
+            ys = [y0, y0, y1, y1, y0, 0.0] + hole["y"] + [0.0, y0]
+            traces.append({"x": xs, "y": ys, "type": "scatter", "mode": "lines", "fill": "toself",
+                           "fillcolor": c["fill_stable"], "line": {"width": 0, "color": "rgba(0,0,0,0)"},
+                           "name": f"{region_name}: |s − 1/T| > 1/T", "hoverinfo": "skip"})
+            circ = self._circle(1 / T, 0, 1 / T, n=2001)
+            traces.append({"x": circ["x"], "y": circ["y"], "type": "scatter", "mode": "lines",
+                           "line": {"color": c["image"], "width": 2, "dash": "dash"},
+                           "name": "Boundary |s − 1/T| = 1/T", "hoverinfo": "skip"})
+        else:
+            traces.append({"x": [x0, 0, 0, x0, x0], "y": [y0, y0, y1, y1, y0], "type": "scatter", "mode": "lines",
+                           "fill": "toself", "fillcolor": c["fill_stable"], "line": {"width": 0},
+                           "name": f"{region_name}: Re s < 0", "hoverinfo": "skip"})
+            if method == "exact_zoh" and math.pi / T < y1:
+                w = math.pi / T
+                traces.append({"x": [x0, x1, None, x0, x1], "y": [w, w, None, -w, -w], "type": "scatter",
+                               "mode": "lines", "line": {"color": c["axis"], "width": 1.5, "dash": "dot"},
+                               "name": f"Aliasing strip |ω| = π/T = {self._f(w, 2)}", "hoverinfo": "skip"})
 
-        # 4. CT Pole marker (styled like DC Motor)
-        traces.append({
-            "x": [self._s_pole],
-            "y": [0],
-            "type": "scatter",
-            "mode": "markers",
-            "name": f"CT Pole: s = {self._s_pole:.2f}",
-            "marker": {
-                "symbol": "x",
-                "size": 16,
-                "color": self.COLORS["pole_marker"],
-                "line": {"width": 3, "color": self.COLORS["pole_marker"]},
-            },
-            "hovertemplate": f"CT Pole<br>σ = {self._s_pole:.3f}<extra></extra>",
-        })
+        traces.append({"x": [0, 0], "y": [y0, y1], "type": "scatter", "mode": "lines",
+                       "line": {"color": c["boundary"], "width": 2.5}, "name": "jω axis", "hoverinfo": "skip"})
+
+        traces.append({"x": [r["s_p"]], "y": [0], "type": "scatter", "mode": "markers",
+                       "marker": {"symbol": "x", "size": 15, "color": c["ct"], "line": {"width": 2, "color": c["ct"]}},
+                       "name": f"CT pole s_p = {self._f(r['s_p'])}",
+                       "hovertemplate": f"CT pole<br>s_p = −1/τ = {self._f(r['s_p'])}<extra></extra>"})
+
+        annotations = []
+        s_eq = r["s_eq"]
+        color = self.COLORS[r["stability"]]
+        if method != "exact_zoh":
+            label = "s_eq = ln(z_d)/T"
+            if s_eq["kind"] == "deadbeat" or s_eq["re"] < x0:
+                txt = "s_eq → −∞ (z_d = 0)" if s_eq["kind"] == "deadbeat" else f"s_eq = {self._f(s_eq['re'])} (off-scale)"
+                ys = [s_eq["im"], -s_eq["im"]] if s_eq["im"] else [0.0]
+                traces.append({"x": [x0] * len(ys), "y": ys, "type": "scatter", "mode": "markers",
+                               "marker": {"symbol": "triangle-left", "size": 13, "color": color},
+                               "cliponaxis": False, "name": f"{label} (off-scale)",
+                               "hovertemplate": f"{txt}<extra></extra>"})
+                annotations.append({"x": x0, "y": ys[0], "xref": "x", "yref": "y", "text": txt, "showarrow": False,
+                                    "xanchor": "left", "yanchor": "bottom", "xshift": 10, "yshift": 4,
+                                    "font": {"size": 11, "color": color}})
+            else:
+                ys = [s_eq["im"], -s_eq["im"]] if s_eq["im"] else [0.0]
+                pair = f" ± j{self._f(s_eq['im'])}" if s_eq["im"] else ""
+                traces.append({"x": [s_eq["re"]] * len(ys), "y": ys, "type": "scatter", "mode": "markers",
+                               "marker": {"symbol": "x-open", "size": 13, "color": color,
+                                          "line": {"width": 2, "color": color}},
+                               "name": f"{label} = {self._f(s_eq['re'])}{pair}",
+                               "hovertemplate": (f"Equivalent CT pole of the DT approximation<br>"
+                                                 f"s_eq = {self._f(s_eq['re'])}{pair}<extra></extra>")})
 
         return {
             "id": "s_plane",
-            "title": f"S-Domain Analysis | Method: {self.METHOD_EXPLANATIONS[method]['name']}",
-            "plotType": "main",
+            "title": "s-plane: CT pole and the region mapped inside |z| < 1",
             "data": traces,
             "layout": {
-                "xaxis": {
-                    "title": "Real (σ)",
-                    "showgrid": True,
-                    "gridcolor": self.COLORS["grid"],
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(0, 0, 0, 0.5)",
-                    "zerolinewidth": 1,
-                    "range": [-5, 3],
-                    "fixedrange": False,
-                },
-                "yaxis": {
-                    "title": "Imaginary (ω)",
-                    "showgrid": True,
-                    "gridcolor": self.COLORS["grid"],
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(0, 0, 0, 0.5)",
-                    "zerolinewidth": 1,
-                    "range": [-4, 4],
-                    "scaleanchor": "x",
-                    "scaleratio": 1,
-                    "fixedrange": False,
-                },
-                "legend": {
-                    "orientation": "v",
-                    "yanchor": "bottom",
-                    "y": 0.02,
-                    "xanchor": "left",
-                    "x": 0.02,
-                    "bgcolor": "rgba(15, 23, 42, 0.8)",
-                    "bordercolor": "rgba(148, 163, 184, 0.2)",
-                    "borderwidth": 1,
-                    "font": {"size": 11},
-                },
-                "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
+                "xaxis": self._axis("Re(s)  [1/s]", self.S_VIEW["x"], constrain="domain"),
+                "yaxis": self._axis("Im(s)  [rad/s]", self.S_VIEW["y"], scaleanchor="x", scaleratio=1,
+                                    constrain="domain"),
+                "annotations": annotations,
+                "legend": self._legend(),
+                "margin": {"l": 60, "r": 20, "t": 20, "b": 60},
                 "uirevision": "s_plane",
             },
         }
 
-    def _create_z_plane_plot(self) -> Dict[str, Any]:
-        """Create Z-plane pole plot with unit circle (matching DC Motor style)."""
-        z_real = float(np.real(self._z_pole))
-        z_imag = float(np.imag(self._z_pole))
-        z_magnitude = abs(self._z_pole)
+    def _z_plane_plot(self) -> Dict[str, Any]:
+        r = self._r
+        method, z, z_ex, h = r["method"], r["z_d"], r["z_exact"], r["h"]
+        c = self.COLORS
+        color = self.COLORS[r["stability"]]
+        traces: List[Dict[str, Any]] = []
 
-        status = "STABLE" if self._is_stable else "UNSTABLE"
-        status_color = self.COLORS["stable_discrete"] if self._is_stable else self.COLORS["unstable_discrete"]
+        unit = self._circle(0, 0, 1)
+        traces.append({"x": unit["x"], "y": unit["y"], "type": "scatter", "mode": "lines", "fill": "toself",
+                       "fillcolor": c["fill_stable"], "line": {"color": c["boundary"], "width": 2.5},
+                       "name": "Unit circle |z| = 1", "hoverinfo": "skip"})
 
-        traces = []
+        (x0, x1), (y0, y1) = self.Z_VIEW["x"], self.Z_VIEW["y"]
+        if method == "forward_euler":
+            traces.append({"x": [x0, 1, 1, x0, x0], "y": [y0, y0, y1, y1, y0], "type": "scatter", "mode": "lines",
+                           "fill": "toself", "fillcolor": c["fill_image"], "line": {"width": 0},
+                           "name": "Image of Re s < 0: Re z < 1", "hoverinfo": "skip"})
+            traces.append({"x": [1, 1], "y": [y0, y1], "type": "scatter", "mode": "lines",
+                           "line": {"color": c["image"], "width": 2, "dash": "dash"},
+                           "name": "Image of jω axis: Re z = 1", "hoverinfo": "skip"})
+        elif method == "backward_euler":
+            img = self._circle(0.5, 0, 0.5)
+            traces.append({"x": img["x"], "y": img["y"], "type": "scatter", "mode": "lines", "fill": "toself",
+                           "fillcolor": c["fill_image"], "line": {"color": c["image"], "width": 2, "dash": "dash"},
+                           "name": "Image of jω axis: |z − ½| = ½", "hoverinfo": "skip"})
+        else:
+            traces.append({"x": [None], "y": [None], "type": "scatter", "mode": "lines",
+                           "line": {"color": c["boundary"], "width": 2.5},
+                           "name": "Image of jω axis = unit circle", "hoverinfo": "skip"})
 
-        # 1. Unit circle filled (stability region) - matches DC Motor style
-        theta = np.linspace(0, 2 * np.pi, 200)
-        circle_x = np.cos(theta)
-        circle_y = np.sin(theta)
+        zeros = {"backward_euler": 0.0, "trapezoidal": -1.0}.get(method)
+        if zeros is not None:
+            traces.append({"x": [zeros], "y": [0], "type": "scatter", "mode": "markers",
+                           "marker": {"symbol": "circle-open", "size": 12, "color": color, "line": {"width": 2}},
+                           "name": f"DT zero z = {self._f(zeros, 0)}",
+                           "hovertemplate": f"Zero of H(z) ({self.METHODS[method]['name']})<br>z = "
+                                            f"{self._f(zeros, 0)}<extra></extra>"})
 
-        traces.append({
-            "x": circle_x.tolist(),
-            "y": circle_y.tolist(),
-            "type": "scatter",
-            "fill": "toself",
-            "fillcolor": self.COLORS["fill_stable"],
-            "line": {"color": self.COLORS["unit_circle"], "width": 2.5},
-            "name": "Unit Circle (Stability Boundary)",
-        })
-
-        # 2. Distance line from origin to pole
-        if self._z_pole != 0:
-            traces.append({
-                "x": [0, z_real],
-                "y": [0, z_imag],
-                "type": "scatter",
-                "mode": "lines",
-                "line": {"color": self.COLORS["reference"], "width": 2, "dash": "dash"},
-                "name": f"|z| = {z_magnitude:.3f}",
-            })
-
-        # 3. DT Pole marker (styled like DC Motor)
-        traces.append({
-            "x": [z_real],
-            "y": [z_imag],
-            "type": "scatter",
-            "mode": "markers",
-            "name": f"DT Pole: z = {z_real:.3f}",
-            "marker": {
-                "symbol": "x",
-                "size": 16,
-                "color": status_color,
-                "line": {"width": 3, "color": status_color},
-            },
-            "hovertemplate": f"DT Pole<br>Re = {z_real:.3f}<br>Im = {z_imag:.3f}<br>|z| = {z_magnitude:.3f}<extra></extra>",
-        })
-
-        # Annotations for stability info
-        annotations = [{
-            "x": 0.02,
-            "y": 0.98,
-            "xref": "paper",
-            "yref": "paper",
-            "text": f"<b>|z| = {z_magnitude:.3f} | {status}</b>",
-            "showarrow": False,
-            "font": {"color": status_color, "size": 11},
-            "bgcolor": "rgba(15, 23, 42, 0.9)",
-            "bordercolor": status_color,
-            "borderwidth": 1,
-            "borderpad": 4,
-            "xanchor": "left",
-            "yanchor": "top",
-        }]
+        traces.append({"x": [z_ex], "y": [0], "type": "scatter", "mode": "markers",
+                       "marker": {"symbol": "diamond-open", "size": 14, "color": c["ct"],
+                                  "line": {"width": 2.5, "color": c["ct"]}},
+                       "name": f"Exact e^(s_p T) = {self._f(z_ex)}",
+                       "hovertemplate": f"Exact sampled pole<br>z = e^(s_p T) = e^({self._f(-h, 2)}) = "
+                                        f"{self._f(z_ex)}<extra></extra>"})
+        if method != "exact_zoh":
+            traces.append({"x": [z], "y": [0], "type": "scatter", "mode": "markers",
+                           "marker": {"symbol": "x", "size": 15, "color": color, "line": {"width": 2, "color": color}},
+                           "cliponaxis": False,
+                           "name": f"{self.METHODS[method]['name']} z_d = {self._f(z)}",
+                           "hovertemplate": (f"{self.METHODS[method]['name']} pole<br>z_d = {self._f(z)}"
+                                             f"<br>|z_d| = {self._f(abs(z))}<br>error vs exact = "
+                                             f"{self._f(z - z_ex)}<extra></extra>")})
 
         return {
             "id": "z_plane",
-            "title": f"Z-Domain Analysis | {status} (|z| = {z_magnitude:.3f})",
-            "plotType": "main",
+            "title": "z-plane: method pole vs exact pole e^(sT)",
             "data": traces,
             "layout": {
-                "xaxis": {
-                    "title": "Real (Re)",
-                    "showgrid": True,
-                    "gridcolor": self.COLORS["grid"],
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(0, 0, 0, 0.5)",
-                    "zerolinewidth": 1,
-                    "range": [-2.2, 2.2],
-                    "fixedrange": False,
-                },
-                "yaxis": {
-                    "title": "Imaginary (Im)",
-                    "showgrid": True,
-                    "gridcolor": self.COLORS["grid"],
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(0, 0, 0, 0.5)",
-                    "zerolinewidth": 1,
-                    "range": [-2.2, 2.2],
-                    "scaleanchor": "x",
-                    "scaleratio": 1,
-                    "fixedrange": False,
-                },
-                "annotations": annotations,
-                "legend": {
-                    "x": 0.02, "y": 0.02,
-                    "xanchor": "left", "yanchor": "bottom",
-                    "bgcolor": "rgba(15, 23, 42, 0.8)",
-                    "bordercolor": "rgba(148, 163, 184, 0.2)",
-                    "borderwidth": 1,
-                    "font": {"size": 11},
-                },
-                "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
+                "xaxis": self._axis("Re(z)", self.Z_VIEW["x"], constrain="domain"),
+                "yaxis": self._axis("Im(z)", self.Z_VIEW["y"], scaleanchor="x", scaleratio=1, constrain="domain"),
+                "legend": self._legend(),
+                "margin": {"l": 55, "r": 20, "t": 20, "b": 60},
                 "uirevision": "z_plane",
             },
         }
 
-    def _create_step_response_plot(self) -> Dict[str, Any]:
-        """Create step response comparison plot with RMS error (matching DC Motor style)."""
-        method_info = self.METHOD_EXPLANATIONS.get(self.parameters["method"], {})
-        method_name = method_info.get("name", "Unknown")
+    def _response_plot(self) -> Dict[str, Any]:
+        r = self._r
+        c = self.COLORS
+        color = self.COLORS[r["stability"]]
+        t_n, y = r["t_n"], r["y"]
+        name = self.METHODS[r["method"]]["name"]
 
-        traces = []
+        base_lo, base_hi = 0.0, 1.0
+        bound = 3.0
+        finite = np.isfinite(y)
+        inside = finite & (np.abs(y) <= bound)
+        lo = min(base_lo, float(np.min(y[inside])) if inside.any() else base_lo)
+        hi = max(base_hi, float(np.max(y[inside])) if inside.any() else base_hi)
+        clipped = ~inside
+        if clipped.any():
+            lo = min(lo, -bound) if np.any(~finite | (y < -bound)) else lo
+            hi = max(hi, bound) if np.any(~finite | (y > bound)) else hi
+        pad = 0.08 * (hi - lo if hi > lo else 1.0)
+        y_lo, y_hi = lo - pad, hi + pad
+        y_draw = np.where(inside, y, np.where(np.nan_to_num(y, nan=bound, posinf=bound, neginf=-bound) > 0,
+                                              y_hi, y_lo))
 
-        # 1. Continuous-time analytical solution (cyan like DC Motor)
-        traces.append({
-            "x": self._t_continuous.tolist(),
-            "y": self._ct_response.tolist(),
-            "type": "scatter",
-            "mode": "lines",
-            "name": "CT Analytical Solution",
-            "line": {"color": self.COLORS["continuous"], "width": 2.5, "shape": "spline"},
-            "hovertemplate": "t = %{x:.3f}s<br>y = %{y:.4f}<extra></extra>",
-        })
+        traces: List[Dict[str, Any]] = [
+            {"x": r["t_ct"].tolist(), "y": r["y_ct"].tolist(), "type": "scatter", "mode": "lines",
+             "line": {"color": c["ct"], "width": 2.5}, "name": "CT step response y(t)",
+             "hovertemplate": "t = %{x:.3f} s<br>y(t) = %{y:.4f}<extra>CT</extra>"},
+        ]
+        traces.append({"x": [0, float(t_n[-1])], "y": [1, 1], "type": "scatter", "mode": "lines",
+                       "line": {"color": c["reference"], "width": 1.5, "dash": "dash"},
+                       "name": "Steady state y = 1", "hoverinfo": "skip"})
 
-        # 2. Final value line (pink like DC Motor)
-        traces.append({
-            "x": [0, float(self._t_continuous[-1])],
-            "y": [1.0, 1.0],
-            "type": "scatter",
-            "mode": "lines",
-            "name": "Steady-State (y = 1)",
-            "line": {"color": self.COLORS["reference"], "width": 2, "dash": "dash"},
-            "hoverinfo": "name",
-        })
 
-        # 3. Discrete-time approximation
-        valid_mask = ~np.isnan(self._dt_response)
-        t_valid = self._t_discrete[valid_mask].tolist()
-        y_valid = self._dt_response[valid_mask].tolist()
-
-        if self._is_stable:
-            line_color = self.COLORS["stable_discrete"]
-            method_label = f"{method_name} (DT)"
-        else:
-            line_color = self.COLORS["unstable_discrete"]
-            method_label = f"{method_name} (UNSTABLE)"
-
-        if len(y_valid) > 0 and max(abs(v) for v in y_valid if not np.isnan(v)) < 20:
-            traces.append({
-                "x": t_valid,
-                "y": y_valid,
-                "type": "scatter",
-                "mode": "lines+markers",
-                "name": method_label,
-                "line": {"color": line_color, "width": 2},
-                "marker": {"color": line_color, "size": 4},
-                "hovertemplate": "n·T = %{x:.3f}s<br>y[n] = %{y:.4f}<extra></extra>",
-            })
-
-        # Performance annotation
-        perf_colors = {
-            "EXCELLENT": self.COLORS["stable_discrete"],
-            "GOOD": self.COLORS["envelope"],
-            "FAIR": self.COLORS["envelope"],
-            "POOR": self.COLORS["unstable_discrete"],
-            "UNSTABLE": self.COLORS["unstable_discrete"],
-            "ERROR": self.COLORS["unstable_discrete"],
-        }
-        perf_color = perf_colors.get(self._performance_rating, "#94a3b8")
-
-        annotations = [{
-            "x": 0.02,
-            "y": 0.98,
-            "xref": "paper",
-            "yref": "paper",
-            "text": f"<b>Quality: {self._performance_rating} | RMS: {self._rms_error:.4f}</b>",
-            "showarrow": False,
-            "font": {"color": perf_color, "size": 11},
-            "bgcolor": "rgba(15, 23, 42, 0.9)",
-            "bordercolor": perf_color,
-            "borderwidth": 1,
-            "borderpad": 4,
-            "xanchor": "left",
-            "yanchor": "top",
-        }]
-
-        # Y-axis range based on stability
-        y_range = [-0.1, 1.3] if self._is_stable else [-2, 2]
+        stems = len(t_n) <= self.STEM_LIMIT
+        if stems:
+            sx: List[Any] = []
+            sy: List[Any] = []
+            for tk, yk in zip(t_n.tolist(), y_draw.tolist()):
+                sx += [tk, tk, None]
+                sy += [0.0, yk, None]
+            traces.append({"x": sx, "y": sy, "type": "scatter", "mode": "lines",
+                           "line": {"color": color, "width": 1.5}, "showlegend": False, "hoverinfo": "skip"})
+        hover = [f"n = {k}<br>n·T = {tk:.3f} s<br>y[n] = {self._f(yk) if np.isfinite(yk) else 'overflow'}"
+                 f"<br>y(nT) = {self._f(yc)}" for k, tk, yk, yc in zip(r["n"].tolist(), t_n.tolist(), y.tolist(),
+                                                                       r["y_ct_n"].tolist())]
+        traces.append({"x": t_n[inside].tolist(), "y": y[inside].tolist(), "type": "scatter", "mode": "markers",
+                       "marker": {"color": color, "size": 8 if stems else 5}, "name": f"{name}: y[n]",
+                       "text": [hv for hv, ok in zip(hover, inside) if ok],
+                       "hovertemplate": "%{text}<extra></extra>"})
+        annotations = []
+        if clipped.any():
+            up = clipped & (np.nan_to_num(y, nan=bound, posinf=bound, neginf=-bound) > 0)
+            for mask, sym, yy in ((up, "triangle-up", y_hi), (clipped & ~up, "triangle-down", y_lo)):
+                if mask.any():
+                    traces.append({"x": t_n[mask].tolist(), "y": [yy] * int(mask.sum()), "type": "scatter",
+                                   "mode": "markers", "cliponaxis": False,
+                                   "marker": {"symbol": sym, "size": 10, "color": color},
+                                   "name": "off-scale y[n]", "showlegend": bool(sym == "triangle-up" or not up.any()),
+                                   "text": [hv for hv, ok in zip(hover, mask) if ok],
+                                   "hovertemplate": "%{text}<extra>off-scale</extra>"})
+            annotations.append({"x": 1.0, "y": 1.0, "xref": "paper", "yref": "paper", "xanchor": "right",
+                                "yanchor": "bottom", "yshift": 10, "showarrow": False,
+                                "font": {"size": 11, "color": color},
+                                "text": f"|y[n]| grows like |z_d|ⁿ = {self._f(abs(r['z_d']), 2)}ⁿ — "
+                                        f"▲▼ mark off-scale samples"})
 
         return {
-            "id": "step_response",
-            "title": f"Step Response Comparison | {method_name}",
-            "plotType": "main",
+            "id": "response",
+            "title": "Step response of the difference equation: y[n] vs y(nT)",
             "data": traces,
             "layout": {
-                "xaxis": {
-                    "title": "Time (s)",
-                    "showgrid": True,
-                    "gridcolor": self.COLORS["grid"],
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "fixedrange": False,
-                },
-                "yaxis": {
-                    "title": "y(t)",
-                    "showgrid": True,
-                    "gridcolor": self.COLORS["grid"],
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": y_range,
-                    "fixedrange": False,
-                },
+                "xaxis": self._axis("t = nT  [s]", [0, float(t_n[-1])]),
+                "yaxis": self._axis("y", [y_lo, y_hi]),
                 "annotations": annotations,
-                "legend": {
-                    "x": 0.98, "y": 0.02,
-                    "xanchor": "right", "yanchor": "bottom",
-                    "bgcolor": "rgba(15, 23, 42, 0.8)",
-                    "bordercolor": "rgba(148, 163, 184, 0.2)",
-                    "borderwidth": 1,
-                    "font": {"size": 11},
-                },
-                "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "step_response",
+                "legend": self._legend(),
+                "margin": {"l": 60, "r": 20, "t": 38, "b": 60},
+                "uirevision": "response",
             },
         }
 
-    def _create_stability_map_plot(self) -> Dict[str, Any]:
-        """Create stability analysis plot (matching DC Motor style)."""
-        t_tau_current = self.parameters["t_tau_ratio"]
-        z_magnitude = abs(self._z_pole)
-        method = self.parameters["method"]
-        method_name = self.METHOD_EXPLANATIONS[method]["name"]
-
-        traces = []
-
-        # 1. Stable region fill (|z| < 1)
-        traces.append({
-            "x": self.T_TAU_RANGE.tolist() + self.T_TAU_RANGE[::-1].tolist(),
-            "y": [0] * len(self.T_TAU_RANGE) + [1] * len(self.T_TAU_RANGE),
-            "type": "scatter",
-            "fill": "toself",
-            "fillcolor": self.COLORS["fill_stable"],
-            "line": {"color": "rgba(52, 211, 153, 0.4)", "width": 1},
-            "name": "Stable Region (|z| < 1)",
-            "hoverinfo": "skip",
-        })
-
-        # 2. Stability curve (cyan like DC Motor step response)
-        traces.append({
-            "x": self.T_TAU_RANGE.tolist(),
-            "y": self._stability_curve.tolist(),
-            "type": "scatter",
-            "mode": "lines",
-            "name": "|z| Pole Magnitude",
-            "line": {"color": self.COLORS["continuous"], "width": 2.5},
-            "hovertemplate": "T/τ = %{x:.2f}<br>|z| = %{y:.3f}<extra></extra>",
-        })
-
-        # 3. Stability boundary line at |z| = 1 (pink like DC Motor final value)
-        traces.append({
-            "x": [0, 3],
-            "y": [1, 1],
-            "type": "scatter",
-            "mode": "lines",
-            "name": "Stability Boundary (|z| = 1)",
-            "line": {"color": self.COLORS["reference"], "width": 2, "dash": "dash"},
-        })
-
-        # 4. Critical point marker for Forward Euler at T/τ = 2
+    def _pole_vs_step_plot(self) -> Dict[str, Any]:
+        r = self._r
+        c = self.COLORS
+        method = r["method"]
+        hg = self.H_GRID
+        z_m = np.real(self._s_to_z(-1.0, hg, method)).astype(float)
+        z_e = np.exp(-hg)
+        y_lo = min(-1.25, float(np.min(z_m)) - 0.15)
+        y_hi = 1.15
+        name = self.METHODS[method]["name"]
+        color = self.COLORS[r["stability"]]
+        traces: List[Dict[str, Any]] = [
+            {"x": [0, 3.05, 3.05, 0, 0], "y": [-1, -1, 1, 1, -1], "type": "scatter", "mode": "lines",
+             "fill": "toself", "fillcolor": c["fill_stable"], "line": {"width": 0},
+             "name": "Stable band −1 < z < 1", "hoverinfo": "skip"},
+            {"x": [0, 3.05, None, 0, 3.05], "y": [1, 1, None, -1, -1], "type": "scatter", "mode": "lines",
+             "line": {"color": c["boundary"], "width": 1.5, "dash": "dash"}, "name": "|z| = 1",
+             "hoverinfo": "skip"},
+            {"x": hg.tolist(), "y": z_e.tolist(), "type": "scatter", "mode": "lines",
+             "line": {"color": c["ct"], "width": 2, "dash": "dash"}, "name": "Exact e^(−T/τ)",
+             "hovertemplate": "T/τ = %{x:.2f}<br>e^(−T/τ) = %{y:.4f}<extra></extra>"},
+        ]
+        if method != "exact_zoh":
+            traces.append({"x": hg.tolist(), "y": z_m.tolist(), "type": "scatter", "mode": "lines",
+                           "line": {"color": c["stable"] if method != "forward_euler" else c["image"], "width": 2.5},
+                           "name": f"{name} z_d(T/τ)",
+                           "hovertemplate": "T/τ = %{x:.2f}<br>z_d = %{y:.4f}<extra></extra>"})
         if method == "forward_euler":
-            traces.append({
-                "x": [2.0, 2.0],
-                "y": [0, 2.5],
-                "type": "scatter",
-                "mode": "lines",
-                "name": "FE Critical (T/τ = 2)",
-                "line": {"color": self.COLORS["unstable_discrete"], "width": 2, "dash": "dot"},
-            })
-
-        # 5. Current operating point
-        point_color = self.COLORS["stable_discrete"] if z_magnitude <= 1 else self.COLORS["unstable_discrete"]
-        traces.append({
-            "x": [t_tau_current],
-            "y": [z_magnitude],
-            "type": "scatter",
-            "mode": "markers",
-            "name": f"Current (T/τ = {t_tau_current:.2f})",
-            "marker": {
-                "symbol": "circle",
-                "color": point_color,
-                "size": 14,
-                "line": {"color": "white", "width": 2},
-            },
-            "hovertemplate": f"T/τ = {t_tau_current:.3f}<br>|z| = {z_magnitude:.3f}<extra></extra>",
-        })
-
-        # Y-axis max
-        y_max = min(2.5, float(np.max(self._stability_curve) * 1.1))
-
+            traces.append({"x": [2, 2], "y": [y_lo, y_hi], "type": "scatter", "mode": "lines",
+                           "line": {"color": c["unstable"], "width": 1.5, "dash": "dot"},
+                           "name": "FE limit T/τ = 2", "hoverinfo": "skip"})
+        traces.append({"x": [r["h"]], "y": [r["z_exact"]], "type": "scatter", "mode": "markers", "cliponaxis": False,
+                       "marker": {"symbol": "diamond-open", "size": 12, "color": c["ct"], "line": {"width": 2.5}},
+                       "name": "Exact (current T/τ)",
+                       "hovertemplate": f"T/τ = {self._f(r['h'], 2)}<br>e^(−T/τ) = {self._f(r['z_exact'])}"
+                                        f"<extra></extra>"})
+        if method != "exact_zoh":
+            traces.append({"x": [r["h"]], "y": [r["z_d"]], "type": "scatter", "mode": "markers",
+                           "cliponaxis": False,
+                           "marker": {"symbol": "circle", "size": 11, "color": color,
+                                      "line": {"width": 1.5, "color": "#ffffff"}},
+                           "name": f"{name} (current T/τ)",
+                           "hovertemplate": f"T/τ = {self._f(r['h'], 2)}<br>z_d = {self._f(r['z_d'])}"
+                                            f"<extra></extra>"})
         return {
-            "id": "stability_map",
-            "title": f"Stability Analysis | {method_name}",
-            "plotType": "stability",
+            "id": "pole_vs_step",
+            "title": "DT pole vs step size T/τ",
             "data": traces,
             "layout": {
-                "xaxis": {
-                    "title": "T/τ Ratio",
-                    "showgrid": True,
-                    "gridcolor": self.COLORS["grid"],
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": [0, 3],
-                    "fixedrange": False,
-                },
-                "yaxis": {
-                    "title": "|z| (Pole Magnitude)",
-                    "showgrid": True,
-                    "gridcolor": self.COLORS["grid"],
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(148, 163, 184, 0.3)",
-                    "range": [0, y_max],
-                    "fixedrange": False,
-                },
-                "legend": {
-                    "x": 0.02, "y": 0.98,
-                    "xanchor": "left", "yanchor": "top",
-                    "bgcolor": "rgba(15, 23, 42, 0.8)",
-                    "bordercolor": "rgba(148, 163, 184, 0.2)",
-                    "borderwidth": 1,
-                    "font": {"size": 11},
-                },
-                "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "stability_map",
+                "xaxis": self._axis("T/τ", [0, 3.05]),
+                "yaxis": self._axis("DT pole z (real)", [y_lo, y_hi]),
+                "legend": self._legend(),
+                "margin": {"l": 60, "r": 20, "t": 20, "b": 60},
+                "uirevision": "pole_vs_step",
             },
         }
 
-    def _create_pole_trajectory_plot(self) -> Dict[str, Any]:
-        """Create pole movement visualization (matching DC Motor style)."""
-        current_pole = self._z_pole
-        current_magnitude = abs(current_pole)
-        method_name = self.METHOD_EXPLANATIONS[self.parameters["method"]]["name"]
-
-        traces = []
-
-        # 1. Unit circle (stability boundary) - purple like DC Motor imaginary axis
-        theta = np.linspace(0, 2 * np.pi, 100)
-        unit_x = np.cos(theta)
-        unit_y = np.sin(theta)
-
-        traces.append({
-            "x": unit_x.tolist(),
-            "y": unit_y.tolist(),
-            "type": "scatter",
-            "fill": "toself",
-            "fillcolor": self.COLORS["fill_stable"],
-            "line": {"color": self.COLORS["unit_circle"], "width": 2.5},
-            "name": "Unit Circle (Stability)",
-        })
-
-        # 2. Pole trajectory with color coding
-        for i in range(len(self._pole_trajectory) - 1):
-            z_current = self._pole_trajectory[i]
-            z_next = self._pole_trajectory[i + 1]
-            magnitude = abs(z_current)
-
-            if magnitude <= 1.0:
-                color = self.COLORS["trajectory_stable"]
-                width = 2
-            elif magnitude <= 1.5:
-                color = self.COLORS["trajectory_marginal"]
-                width = 2.5
-            else:
-                color = self.COLORS["trajectory_unstable"]
-                width = 3
-
-            traces.append({
-                "x": [float(np.real(z_current)), float(np.real(z_next))],
-                "y": [float(np.imag(z_current)), float(np.imag(z_next))],
-                "type": "scatter",
-                "mode": "lines",
-                "line": {"color": color, "width": width},
-                "opacity": 0.7,
-                "showlegend": False,
-                "hoverinfo": "skip",
-            })
-
-        # 3. Start point (small T/τ)
-        if len(self._pole_trajectory) > 0:
-            start_point = self._pole_trajectory[0]
-            traces.append({
-                "x": [float(np.real(start_point))],
-                "y": [float(np.imag(start_point))],
-                "type": "scatter",
-                "mode": "markers",
-                "name": "Start (small T/τ)",
-                "marker": {"color": self.COLORS["continuous"], "size": 8, "symbol": "circle", "line": {"color": "white", "width": 1}},
-            })
-
-        # 4. End point (large T/τ - if unstable)
-        if len(self._pole_trajectory) > 0:
-            end_point = self._pole_trajectory[-1]
-            if abs(end_point) > 1.5:
-                traces.append({
-                    "x": [float(np.real(end_point))],
-                    "y": [float(np.imag(end_point))],
-                    "type": "scatter",
-                    "mode": "markers",
-                    "name": "End (large T/τ)",
-                    "marker": {"color": self.COLORS["unstable_discrete"], "size": 8, "symbol": "circle", "line": {"color": "white", "width": 1}},
-                })
-
-        # 5. Current pole position (styled like DC Motor)
-        current_color = self.COLORS["stable_discrete"] if current_magnitude <= 1 else self.COLORS["unstable_discrete"]
-        traces.append({
-            "x": [float(np.real(current_pole))],
-            "y": [float(np.imag(current_pole))],
-            "type": "scatter",
-            "mode": "markers",
-            "name": f"Current (|z| = {current_magnitude:.3f})",
-            "marker": {
-                "symbol": "x",
-                "size": 16,
-                "color": current_color,
-                "line": {"width": 3, "color": current_color},
-            },
-            "hovertemplate": f"Current Pole<br>Re = {float(np.real(current_pole)):.3f}<br>|z| = {current_magnitude:.3f}<extra></extra>",
-        })
-
-        return {
-            "id": "pole_trajectory",
-            "title": f"Pole Trajectory | {method_name}",
-            "plotType": "stability",
-            "data": traces,
-            "layout": {
-                "xaxis": {
-                    "title": "Real (Re)",
-                    "showgrid": True,
-                    "gridcolor": self.COLORS["grid"],
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(0, 0, 0, 0.5)",
-                    "zerolinewidth": 1,
-                    "range": [-2, 2],
-                    "fixedrange": False,
-                },
-                "yaxis": {
-                    "title": "Imaginary (Im)",
-                    "showgrid": True,
-                    "gridcolor": self.COLORS["grid"],
-                    "zeroline": True,
-                    "zerolinecolor": "rgba(0, 0, 0, 0.5)",
-                    "zerolinewidth": 1,
-                    "range": [-2, 2],
-                    "scaleanchor": "x",
-                    "scaleratio": 1,
-                    "fixedrange": False,
-                },
-                "legend": {
-                    "x": 0.02, "y": 0.02,
-                    "xanchor": "left", "yanchor": "bottom",
-                    "bgcolor": "rgba(15, 23, 42, 0.8)",
-                    "bordercolor": "rgba(148, 163, 184, 0.2)",
-                    "borderwidth": 1,
-                    "font": {"size": 11},
-                },
-                "margin": {"l": 60, "r": 30, "t": 50, "b": 50},
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "uirevision": "pole_trajectory",
-            },
-        }
-
-    def get_computed_values(self) -> Dict[str, Any]:
-        """Return computed values for display (matching PyQt5 status display)."""
-        return {
-            "s_pole": self._s_pole,
-            "z_pole_real": float(np.real(self._z_pole)),
-            "z_pole_imag": float(np.imag(self._z_pole)),
-            "z_magnitude": abs(self._z_pole),
-            "t_tau_ratio": self.parameters["t_tau_ratio"],
-            "T": self._T,
-            "tau": self._tau,
-            "is_stable": self._is_stable,
-            "stability_status": "STABLE" if self._is_stable else "UNSTABLE",
-            "rms_error": self._rms_error,
-            "performance_rating": self._performance_rating,
-            "method": self.parameters["method"],
-            "method_info": self.METHOD_EXPLANATIONS.get(self.parameters["method"], {}),
-        }
+    # ------------------------------------------------------------------- state
 
     def get_state(self) -> Dict[str, Any]:
-        """Return current simulation state with computed values and metadata."""
-        state = super().get_state()
-        state["computed_values"] = self.get_computed_values()
-        state["guided_scenarios"] = self.GUIDED_SCENARIOS
+        if not self._initialized:
+            self.initialize()
+        self._compute()
+        r = self._r
+        method_info = self.METHODS[r["method"]]
+        s_eq = r["s_eq"]
+        samples = [{"n": int(k), "t": float(r["t_n"][k]), "y_dt": float(r["y"][k]),
+                    "y_ct": float(r["y_ct_n"][k]), "error": float(r["y"][k] - r["y_ct_n"][k])}
+                   for k in range(min(6, len(r["n"])))]
+        scenario_key = self.parameters["guided_scenario"]
+        guided = None
+        if scenario_key != "none":
+            sc = self.GUIDED_SCENARIOS[int(scenario_key)]
+            guided = {"index": int(scenario_key), "title": sc["title"], "message": sc["message"]}
 
-        # Add metadata with sticky_controls flag
+        state = super().get_state()
         state["metadata"] = {
             "simulation_type": "ct_dt_poles",
             "hub_slots": self.HUB_SLOTS,
             "hub_domain": self.HUB_DOMAIN,
             "hub_dimensions": self.HUB_DIMENSIONS,
-            "sticky_controls": True,  # Keep control panel fixed when scrolling
+            "sticky_controls": True,
             "system_info": {
-                "method": self.parameters["method"],
-                "t_tau_ratio": round(self.parameters["t_tau_ratio"], 3),
-                "T": round(self._T, 4),
-                "tau": self._tau,
-                "s_pole": round(self._s_pole, 3),
-                "z_pole_real": round(float(np.real(self._z_pole)), 4),
-                "z_pole_imag": round(float(np.imag(self._z_pole)), 4),
-                "z_magnitude": round(abs(self._z_pole), 4),
-                "is_stable": self._is_stable,
-                "rms_error": round(self._rms_error, 4) if self._rms_error != float("inf") else None,
-                "performance_rating": self._performance_rating,
+                "method": r["method"],
+                "method_name": method_info["name"],
+                "t_tau_ratio": r["h"],
+                "T": r["T"],
+                "tau": r["tau"],
+                "s_pole": r["s_p"],
+                "z_method": r["z_d"],
+                "z_exact": r["z_exact"],
+                "pole_error": r["z_d"] - r["z_exact"],
+                "z_magnitude": abs(r["z_d"]),
+                "s_equivalent": s_eq,
+                "stability": r["stability"],
+                "is_stable": r["stability"] == "stable",
+                "mode_behavior": self._mode_text(r["z_d"]),
+                "rms_error": r["rms"],
+                "performance_rating": r["rating"],
             },
+            "method_info": method_info,
+            "equations": self._equations(),
+            "samples": samples,
+            "guided": guided,
         }
-
         return state

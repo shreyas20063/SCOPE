@@ -155,7 +155,10 @@
   border-radius: 3px;
   outline: none;
   cursor: pointer;
-  touch-action: none;
+  /* Vertical swipes that start on a slider scroll the page; horizontal drags
+     still move the thumb. SliderControl rolls back the touchstart jump when
+     the browser takes the touch over to scroll. */
+  touch-action: pan-y;
 }
 
 .slider-input::-webkit-slider-thumb {
@@ -355,9 +358,14 @@
   transform: scale(0.98);
 }
 
-.control-button:disabled {
+.control-button:disabled,
+.control-button[aria-disabled="true"] {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.control-button[aria-disabled="true"]:active {
+  transform: none;
 }
 
 /* Play button style */

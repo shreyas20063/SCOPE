@@ -18,24 +18,36 @@ import api from '../services/api';
 
 const ANIMATION_BASE_INTERVAL = 50; // Base 50ms between frames (like PyQt5)
 const DEBOUNCE_WAIT = 150; // Reduced from 500ms for more responsive feel
+const DEBOUNCE_MAX_WAIT = 300; // Flush at least this often during a continuous drag
 
 /**
  * Debounce utility function with cancel support
  * @param {Function} func - Function to debounce
  * @param {number} wait - Wait time in ms
+ * @param {number} [maxWait] - Longest a call may be deferred while calls keep coming
  * @returns {Function} Debounced function with cancel method
  */
-function debounce(func, wait) {
+function debounce(func, wait, maxWait) {
   let timeout;
+  let firstCallTime = null;
   const debouncedFn = function executedFunction(...args) {
+    const now = Date.now();
+    if (firstCallTime === null) firstCallTime = now;
     const later = () => {
       clearTimeout(timeout);
+      firstCallTime = null;
       func(...args);
     };
+    const delay = maxWait === undefined
+      ? wait
+      : Math.min(wait, Math.max(0, maxWait - (now - firstCallTime)));
     clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
+    timeout = setTimeout(later, delay);
   };
-  debouncedFn.cancel = () => clearTimeout(timeout);
+  debouncedFn.cancel = () => {
+    clearTimeout(timeout);
+    firstCallTime = null;
+  };
   return debouncedFn;
 }
 
@@ -63,6 +75,25 @@ export function useSimulation(simId) {
   const isAnimatingRef = useRef(false); // Prevent overlapping animation frames
   const isFlushingRef = useRef(false); // Prevent overlapping parameter updates
   const mountedRef = useRef(true); // Track if component is mounted
+  const inFlightRef = useRef(0); // Requests in flight; isUpdating is true while > 0
+  const resetEpochRef = useRef(0); // Bumped by reset so older flush responses are dropped
+
+  /**
+   * Track a backend request for the isUpdating flag. Controls stay enabled
+   * during updates, so requests can overlap (e.g. Reset during a flush);
+   * isUpdating must stay true until the last one finishes.
+   */
+  const beginRequest = useCallback(() => {
+    inFlightRef.current += 1;
+    setIsUpdating(true);
+  }, []);
+
+  const endRequest = useCallback(() => {
+    inFlightRef.current = Math.max(0, inFlightRef.current - 1);
+    if (mountedRef.current && inFlightRef.current === 0) {
+      setIsUpdating(false);
+    }
+  }, []);
 
   /**
    * Validate a parameter value against its definition
@@ -130,18 +161,21 @@ export function useSimulation(simId) {
     if (Object.keys(updates).length === 0) return;
 
     isFlushingRef.current = true;
-    setIsUpdating(true);
+    beginRequest();
+    const epoch = resetEpochRef.current;
 
     try {
       const result = await api.updateParameters(simId, updates);
 
       if (!mountedRef.current) return;
+      // A reset started while this request was in flight; its response is
+      // the newer state, so don't let this one overwrite it.
+      if (epoch !== resetEpochRef.current) return;
 
       if (result.success) {
         setPlots(result.plots || []);
         // Update metadata if present
         if (result.metadata) {
-          console.log('[useSimulation flushUpdates] Updating metadata, is_stable:', result.metadata?.system_info?.is_stable);
           setMetadata(result.metadata);
         }
         // Sync animation-related params (like time_shift) from backend
@@ -169,19 +203,19 @@ export function useSimulation(simId) {
       }
     } finally {
       isFlushingRef.current = false;
+      endRequest();
       if (mountedRef.current) {
-        setIsUpdating(false);
         // If new updates accumulated while we were flushing, trigger another flush
         if (Object.keys(pendingUpdates.current).length > 0 && debouncedUpdateRef.current) {
           debouncedUpdateRef.current();
         }
       }
     }
-  }, [simId]);
+  }, [simId, beginRequest, endRequest]);
 
   // Create debounced update function
   useEffect(() => {
-    debouncedUpdateRef.current = debounce(flushUpdates, DEBOUNCE_WAIT);
+    debouncedUpdateRef.current = debounce(flushUpdates, DEBOUNCE_WAIT, DEBOUNCE_MAX_WAIT);
     return () => {
       if (debouncedUpdateRef.current?.cancel) {
         debouncedUpdateRef.current.cancel();
@@ -209,7 +243,11 @@ export function useSimulation(simId) {
       [paramName]: validation.value,
     }));
 
-    // Queue the update
+    // Queue the update. Re-insert the key so the batch keeps the order the
+    // user made changes in: the backend applies keys in order, and a later
+    // edit (e.g. method) must not be overridden by an earlier one (e.g. a
+    // guided scenario that sets the method).
+    delete pendingUpdates.current[paramName];
     pendingUpdates.current[paramName] = validation.value;
 
     // Trigger debounced backend update
@@ -252,7 +290,7 @@ export function useSimulation(simId) {
     }));
 
     // Send to backend immediately (no debounce for URL params)
-    setIsUpdating(true);
+    beginRequest();
     try {
       const result = await api.updateParameters(simId, validatedParams);
       if (result.success) {
@@ -262,9 +300,9 @@ export function useSimulation(simId) {
     } catch (err) {
       console.warn('Failed to apply URL parameters:', err);
     } finally {
-      setIsUpdating(false);
+      endRequest();
     }
-  }, [simId, simulation?.controls, validateParam]);
+  }, [simId, simulation?.controls, validateParam, beginRequest, endRequest]);
 
   /**
    * Initialize simulation with parameters
@@ -301,7 +339,9 @@ export function useSimulation(simId) {
   const resetToDefaults = useCallback(async () => {
     // Stop animation when resetting
     setIsRunning(false);
-    setIsUpdating(true);
+    beginRequest();
+    resetEpochRef.current += 1;
+    const epoch = resetEpochRef.current;
     pendingUpdates.current = {};
     // Cancel any pending debounced updates to prevent stale overwrites
     if (debouncedUpdateRef.current?.cancel) {
@@ -311,10 +351,14 @@ export function useSimulation(simId) {
     try {
       const result = await api.resetSimulation(simId);
 
+      // A second reset superseded this one
+      if (epoch !== resetEpochRef.current) return { success: true };
+
       if (result.success) {
         setPlots(result.plots || []);
         if (result.parameters) {
-          setCurrentParams(result.parameters);
+          // Keep edits the user made after pressing Reset (still queued)
+          setCurrentParams({ ...result.parameters, ...pendingUpdates.current });
         }
         if (result.metadata) {
           setMetadata(result.metadata);
@@ -330,9 +374,9 @@ export function useSimulation(simId) {
       setError(errorMsg);
       return { success: false, error: errorMsg };
     } finally {
-      setIsUpdating(false);
+      endRequest();
     }
-  }, [simId]);
+  }, [simId, beginRequest, endRequest]);
 
   /**
    * Toggle animation (play/pause)
@@ -348,7 +392,7 @@ export function useSimulation(simId) {
     if (isAnimatingRef.current || !mountedRef.current) return;
 
     isAnimatingRef.current = true;
-    setIsUpdating(true);
+    beginRequest();
 
     try {
       const result = await api.executeSimulation(simId, 'step_forward', {});
@@ -368,11 +412,9 @@ export function useSimulation(simId) {
       console.error('Step forward failed:', err);
     } finally {
       isAnimatingRef.current = false;
-      if (mountedRef.current) {
-        setIsUpdating(false);
-      }
+      endRequest();
     }
-  }, [simId]);
+  }, [simId, beginRequest, endRequest]);
 
   /**
    * Step backward one frame (for manual navigation)
@@ -381,7 +423,7 @@ export function useSimulation(simId) {
     if (isAnimatingRef.current || !mountedRef.current) return;
 
     isAnimatingRef.current = true;
-    setIsUpdating(true);
+    beginRequest();
 
     try {
       const result = await api.executeSimulation(simId, 'step_backward', {});
@@ -401,11 +443,9 @@ export function useSimulation(simId) {
       console.error('Step backward failed:', err);
     } finally {
       isAnimatingRef.current = false;
-      if (mountedRef.current) {
-        setIsUpdating(false);
-      }
+      endRequest();
     }
-  }, [simId]);
+  }, [simId, beginRequest, endRequest]);
 
   /**
    * Advance animation by one frame
@@ -454,7 +494,7 @@ export function useSimulation(simId) {
     } else {
       // Route custom button actions to backend handle_action
       try {
-        setIsUpdating(true);
+        beginRequest();
         const result = await api.executeSimulation(simId, buttonName, actionParams);
         if (!mountedRef.current) return;
         if (result.success) {
@@ -469,12 +509,10 @@ export function useSimulation(simId) {
       } catch (err) {
         console.error(`Button action '${buttonName}' failed:`, err);
       } finally {
-        if (mountedRef.current) {
-          setIsUpdating(false);
-        }
+        endRequest();
       }
     }
-  }, [toggleAnimation, resetToDefaults, simId]);
+  }, [toggleAnimation, resetToDefaults, simId, beginRequest, endRequest]);
 
   // Animation loop effect - uses setTimeout chain to prevent overlapping
   // Uses animation_speed from currentParams for speed control
@@ -574,7 +612,6 @@ export function useSimulation(simId) {
               setCurrentParams(stateResult.parameters);
             }
             if (stateResult.metadata) {
-              console.log('[useSimulation init] Setting initial metadata, is_stable:', stateResult.metadata?.system_info?.is_stable);
               setMetadata(stateResult.metadata);
             }
 

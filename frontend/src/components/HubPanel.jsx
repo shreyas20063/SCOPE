@@ -9,7 +9,7 @@
  * produces sanitized HTML output.
  */
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useEffect, useRef } from 'react';
 import { useHubContext } from '../contexts/HubContext';
 import katex from 'katex';
 import '../styles/Hub.css';
@@ -413,6 +413,63 @@ function HubPanel({ isOpen, onClose }) {
     }
   }, [onClose]);
 
+  // While closed the panel sits off-screen; make it inert so its buttons leave
+  // the Tab order and the accessibility tree (React 18 has no `inert` prop).
+  const panelRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    if (isOpen) {
+      panel.removeAttribute('inert');
+    } else {
+      panel.setAttribute('inert', '');
+    }
+  }, [isOpen]);
+
+  // Move focus into the panel when it opens, keep Tab inside it while open
+  // (it is modal: the backdrop covers the page), return focus when it closes,
+  // and close on Escape. onClose is read through a ref: App passes a new
+  // arrow each render, which must not re-run this effect and bounce focus.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const previouslyFocused = document.activeElement;
+    closeButtonRef.current?.focus();
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onCloseRef.current();
+        return;
+      }
+      const panel = panelRef.current;
+      if (e.key !== 'Tab' || !panel) return;
+      const focusable = [...panel.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )];
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!panel.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      if (previouslyFocused instanceof HTMLElement && document.contains(previouslyFocused)) {
+        previouslyFocused.focus();
+      }
+    };
+  }, [isOpen]);
+
   return (
     <>
       {/* Backdrop */}
@@ -425,11 +482,19 @@ function HubPanel({ isOpen, onClose }) {
       )}
 
       {/* Panel */}
-      <div className={`hub-panel${isOpen ? ' hub-panel--open' : ''}`}>
+      <div
+        ref={panelRef}
+        className={`hub-panel${isOpen ? ' hub-panel--open' : ''}`}
+        role="dialog"
+        aria-modal={isOpen ? 'true' : undefined}
+        aria-hidden={isOpen ? undefined : 'true'}
+        aria-labelledby="hub-panel-title"
+      >
         {/* Header */}
         <div className="hub-panel__header">
-          <h3 className="hub-panel__title">System Hub</h3>
+          <h3 className="hub-panel__title" id="hub-panel-title">System Hub</h3>
           <button
+            ref={closeButtonRef}
             className="hub-panel__close"
             onClick={onClose}
             aria-label="Close Hub"

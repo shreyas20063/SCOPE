@@ -8,12 +8,21 @@
 import React, { useEffect, useCallback } from 'react';
 
 const SHORTCUTS = [
-  { key: 'R', description: 'Reset parameters to defaults' },
+  { key: 'R', description: 'Reset simulation parameters to defaults' },
   { key: 'D', description: 'Toggle dark/light mode' },
   { key: '?', description: 'Show keyboard shortcuts' },
-  { key: 'Esc', description: 'Close modal / Stop animation' },
-  { key: 'Space', description: 'Play/Pause animation' },
+  { key: 'Esc', description: 'Close dialog / Stop animation' },
+  { key: 'Space', description: 'Play/Pause animation (animated simulations)' },
 ];
+
+// Focus targets where single-key shortcuts must not fire: the user is typing.
+const TEXT_ENTRY_SELECTOR = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
+// Focus targets that Space natively activates (or scrolls within).
+const SPACE_ACTIVATED_SELECTOR = [
+  'button', 'a[href]', 'summary', 'audio', 'video',
+  '[role="button"]', '[role="link"]', '[role="checkbox"]', '[role="switch"]', '[role="radio"]',
+  '[role="tab"]', '[role="menuitem"]', '[role="option"]', '[role="slider"]', '[role="listbox"]',
+].join(', ');
 
 function KeyboardShortcutsModal({ isOpen, onClose }) {
   // Close on Escape key
@@ -88,6 +97,12 @@ function KeyboardShortcutsModal({ isOpen, onClose }) {
 
 /**
  * Hook for handling keyboard shortcuts
+ *
+ * A key is only claimed (preventDefault) when its callback is provided, so
+ * unhandled keys keep their browser behaviour (Space scrolls / activates the
+ * focused button). Shortcuts never fire while typing in a form field, with
+ * Ctrl/Cmd/Alt held (Cmd+R, Ctrl+D stay with the browser), or — apart from
+ * "?" — while a modal dialog is open.
  */
 export function useKeyboardShortcuts({
   onReset,
@@ -97,38 +112,44 @@ export function useKeyboardShortcuts({
   onEscape,
 }) {
   const handleKeyDown = useCallback((e) => {
-    // Don't trigger shortcuts when typing in inputs
-    if (
-      e.target.tagName === 'INPUT' ||
-      e.target.tagName === 'TEXTAREA' ||
-      e.target.tagName === 'SELECT'
-    ) {
+    if (e.defaultPrevented || e.isComposing) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+    const target = e.target instanceof Element ? e.target : null;
+    if (target && (target.isContentEditable || target.closest(TEXT_ENTRY_SELECTOR))) {
       return;
     }
 
-    switch (e.key.toLowerCase()) {
+    const modalOpen = !!document.querySelector('[aria-modal="true"]');
+    let handler;
+    switch (e.key) {
+      case '?':
+        handler = onShowShortcuts;
+        break;
       case 'r':
-        e.preventDefault();
-        onReset?.();
+      case 'R':
+        handler = modalOpen ? undefined : onReset;
         break;
       case 'd':
-        e.preventDefault();
-        onToggleTheme?.();
-        break;
-      case '?':
-        e.preventDefault();
-        onShowShortcuts?.();
+      case 'D':
+        handler = modalOpen ? undefined : onToggleTheme;
         break;
       case ' ':
-        e.preventDefault();
-        onToggleAnimation?.();
+        if (!modalOpen && !target?.closest(SPACE_ACTIVATED_SELECTOR)) {
+          handler = onToggleAnimation;
+        }
         break;
-      case 'escape':
-        onEscape?.();
-        break;
+      case 'Escape':
+        // Never claimed: dialogs and other widgets handle Escape themselves.
+        if (!modalOpen) onEscape?.();
+        return;
       default:
-        break;
+        return;
     }
+
+    if (!handler) return;
+    e.preventDefault();
+    if (!e.repeat) handler();
   }, [onReset, onToggleTheme, onShowShortcuts, onToggleAnimation, onEscape]);
 
   useEffect(() => {

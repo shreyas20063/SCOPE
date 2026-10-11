@@ -6,6 +6,7 @@
  * - Status badge with stability info for both domains
  * - Side-by-side Plotly plots (DT stem + CT continuous)
  * - SVG stability maps (unit circle + s-plane)
+ * - Note that the two systems share the number p but are NOT a sampling pair
  * - Quiz mode for testing stability intuition
  */
 
@@ -51,13 +52,6 @@ function StatusBadge({ metadata }) {
     ? 'dtct-status-badge__tag--marginal'
     : 'dtct-status-badge__tag--unstable';
 
-  const insightMap = {
-    both_stable: 'Both systems converge',
-    dt_only: 'DT converges but CT diverges!',
-    ct_only: 'CT converges but DT diverges!',
-    neither_stable: 'Both systems diverge',
-  };
-
   return (
     <div className="dtct-status-badge" role="status" aria-live="polite">
       <span className="dtct-status-badge__pole">
@@ -78,8 +72,9 @@ function StatusBadge({ metadata }) {
           Alternating
         </span>
       )}
+      {/* Backend derives this per domain: decays / marginal / grows */}
       <span className="dtct-status-badge__insight">
-        {insightMap[metadata.agreement] || ''}
+        {metadata.insight || ''}
       </span>
     </div>
   );
@@ -155,29 +150,43 @@ const MAP_W = 240;
 const MAP_H = 240;
 const CX = MAP_W / 2;
 const CY = MAP_H / 2;
-const RADIUS = 80; // Unit circle radius in SVG coords
+// SVG px per unit of p, shared by both maps. Every element (pole marker,
+// ticks, ±1 markers and the unit circle itself) uses this one scale, so the
+// circle passes through the ±1 ticks and p ∈ [−2, 2] spans CX ± 90 px.
+const SCALE = 45;
+const toX = (v) => CX + v * SCALE;
 
-function UnitCircleMap({ poleValue, isStable, theme }) {
+// Pole colour by stability status (stable / marginal / unstable)
+function poleColorFor(status) {
+  if (status === 'Stable') return '#10b981';
+  if (status === 'Marginal') return '#f59e0b';
+  return '#ef4444';
+}
+
+function UnitCircleMap({ poleValue, status, theme }) {
   const isDark = theme === 'dark';
   const axisColor = isDark ? '#475569' : '#94a3b8';
   const textColor = isDark ? '#94a3b8' : '#64748b';
 
   // Map pole to SVG x coordinate (real axis maps to horizontal)
-  const poleX = CX + (poleValue / 2) * RADIUS;
-  const poleColor = isStable ? '#10b981' : '#ef4444';
+  const poleX = toX(poleValue);
+  const poleColor = poleColorFor(status);
   const isOnBoundary = Math.abs(Math.abs(poleValue) - 1.0) < 0.05;
 
   return (
     <div className="dtct-stability-map">
       <div className="dtct-stability-map__title">DT: Unit Circle (|p| {'<'} 1)</div>
       <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} aria-label="DT stability map with unit circle">
-        {/* Stable region fill (inside circle) */}
-        <circle cx={CX} cy={CY} r={RADIUS}
-          fill="rgba(16,185,129,0.08)" stroke="none" />
-        {/* Unit circle */}
-        <circle cx={CX} cy={CY} r={RADIUS}
+        {/* Unstable region fill (outside circle) */}
+        <rect x="20" y="20" width={MAP_W - 40} height={MAP_H - 40}
+          fill="rgba(239,68,68,0.04)" rx="4" />
+        {/* Stable region fill (inside circle, |p| < 1) */}
+        <circle cx={CX} cy={CY} r={SCALE}
+          fill="rgba(16,185,129,0.12)" stroke="none" />
+        {/* Unit circle |p| = 1 */}
+        <circle cx={CX} cy={CY} r={SCALE}
           fill="none" stroke={isDark ? '#10b981' : '#059669'}
-          strokeWidth="2" strokeDasharray="6,3" opacity="0.7" />
+          strokeWidth="2" strokeDasharray="6,3" opacity="0.8" />
 
         {/* Axes */}
         <line x1="20" y1={CY} x2={MAP_W - 20} y2={CY}
@@ -187,7 +196,7 @@ function UnitCircleMap({ poleValue, isStable, theme }) {
 
         {/* Tick marks on real axis */}
         {[-2, -1, 0, 1, 2].map(v => {
-          const tx = CX + (v / 2) * RADIUS;
+          const tx = toX(v);
           return (
             <g key={v}>
               <line x1={tx} y1={CY - 4} x2={tx} y2={CY + 4}
@@ -200,25 +209,27 @@ function UnitCircleMap({ poleValue, isStable, theme }) {
           );
         })}
 
-        {/* Axis labels */}
-        <text x={MAP_W - 15} y={CY - 8} textAnchor="end"
+        {/* Axis labels. "Re" sits just past the axis end, on the axis line,
+            so the pole label above the axis (up to p = ±2) never collides with it */}
+        <text x={MAP_W - 16} y={CY + 3.5} textAnchor="start"
           fontSize="10" fill={textColor} fontFamily="Inter, sans-serif">Re</text>
         <text x={CX + 8} y="18"
           fontSize="10" fill={textColor} fontFamily="Inter, sans-serif">Im</text>
 
-        {/* Boundary markers at ±1 */}
-        <circle cx={CX + RADIUS / 2} cy={CY} r="3"
+        {/* Boundary markers at ±1 (on the unit circle) */}
+        <circle cx={toX(1)} cy={CY} r="3"
           fill="none" stroke={isDark ? '#f59e0b' : '#d97706'} strokeWidth="1.5" />
-        <circle cx={CX - RADIUS / 2} cy={CY} r="3"
+        <circle cx={toX(-1)} cy={CY} r="3"
           fill="none" stroke={isDark ? '#f59e0b' : '#d97706'} strokeWidth="1.5" />
 
-        {/* Region labels */}
-        <text x={CX} y={CY - RADIUS / 2 - 4} textAnchor="middle"
+        {/* Region labels: STABLE inside the circle (below the axis), UNSTABLE
+            in the upper-right corner, well outside |p| = 1 */}
+        <text x={CX} y={CY + 0.8 * SCALE} textAnchor="middle"
           fontSize="8" fill="#10b981" fontWeight="600" fontFamily="Inter, sans-serif"
-          opacity="0.8">STABLE</text>
-        <text x={CX + RADIUS + 16} y={CY - 4} textAnchor="middle"
-          fontSize="7" fill="#ef4444" fontWeight="500" fontFamily="Inter, sans-serif"
-          opacity="0.7">UNSTABLE</text>
+          opacity="0.9">STABLE</text>
+        <text x={CX + 1.45 * SCALE} y={CY - 1.4 * SCALE} textAnchor="middle"
+          fontSize="8" fill="#ef4444" fontWeight="600" fontFamily="Inter, sans-serif"
+          opacity="0.8">UNSTABLE</text>
 
         {/* Pole marker glow */}
         <circle cx={poleX} cy={CY} r="12"
@@ -239,15 +250,14 @@ function UnitCircleMap({ poleValue, isStable, theme }) {
   );
 }
 
-function SPlaneMap({ poleValue, isStable, theme }) {
+function SPlaneMap({ poleValue, status, theme }) {
   const isDark = theme === 'dark';
   const axisColor = isDark ? '#475569' : '#94a3b8';
   const textColor = isDark ? '#94a3b8' : '#64748b';
 
-  // Map pole to SVG x (left half = stable for CT)
-  // Scale: p in [-2, 2] maps to [20, MAP_W-20]
-  const poleX = CX + (poleValue / 2) * RADIUS;
-  const poleColor = isStable ? '#10b981' : '#ef4444';
+  // Map pole to SVG x (left half = stable for CT), same scale as the z-map
+  const poleX = toX(poleValue);
+  const poleColor = poleColorFor(status);
   const isOnBoundary = Math.abs(poleValue) < 0.05;
 
   return (
@@ -276,7 +286,7 @@ function SPlaneMap({ poleValue, isStable, theme }) {
 
         {/* Tick marks */}
         {[-2, -1, 0, 1, 2].map(v => {
-          const tx = CX + (v / 2) * RADIUS;
+          const tx = toX(v);
           return (
             <g key={v}>
               <line x1={tx} y1={CY - 4} x2={tx} y2={CY + 4}
@@ -289,8 +299,9 @@ function SPlaneMap({ poleValue, isStable, theme }) {
           );
         })}
 
-        {/* Axis labels */}
-        <text x={MAP_W - 15} y={CY - 8} textAnchor="end"
+        {/* Axis labels. "Re" sits just past the axis end, on the axis line,
+            so the pole label above the axis (up to p = ±2) never collides with it */}
+        <text x={MAP_W - 16} y={CY + 3.5} textAnchor="start"
           fontSize="10" fill={textColor} fontFamily="Inter, sans-serif">Re</text>
         <text x={CX + 8} y="18"
           fontSize="10" fill={textColor} fontFamily="Inter, sans-serif">Im</text>
@@ -318,6 +329,41 @@ function SPlaneMap({ poleValue, isStable, theme }) {
           p={poleValue}
         </text>
       </svg>
+    </div>
+  );
+}
+
+// ── Sampling Note ───────────────────────────────────────────────────────────
+// The two systems share the number p but are NOT related by sampling:
+// sampling e^{pt} every T seconds gives the DT pole z = e^{pT}, not p.
+
+function SamplingNote({ metadata }) {
+  if (!metadata || metadata.sampled_pole == null) return null;
+
+  const T = metadata.sampling_period ?? 1;
+  const exponent = String(Number((metadata.pole_value * T).toFixed(4))).replace('-', '−');
+  const location = metadata.sampled_pole_location; // inside | on | outside
+
+  return (
+    <div className="dtct-note" role="note" aria-label="Not a sampling pair">
+      <div className="dtct-note__title">Same number, two different systems: not a sampling pair</div>
+      <p className="dtct-note__text">
+        The DT system <span className="dtct-note__math">H(z) = 1/(1 − p z<sup>−1</sup>)</span> and
+        the CT system <span className="dtct-note__math">H(s) = 1/(s − p)</span> are unrelated
+        systems that happen to share the number p. Using the same p in both only contrasts the
+        stability regions: <span className="dtct-note__math">|p| {'<'} 1</span> for DT
+        versus <span className="dtct-note__math">Re(p) {'<'} 0</span> for CT.
+      </p>
+      <p className="dtct-note__text">
+        Sampling the CT response every T seconds gives{' '}
+        <span className="dtct-note__math">e<sup>p·nT</sup> = (e<sup>pT</sup>)<sup>n</sup></span>,
+        so its DT counterpart has the pole <span className="dtct-note__math">z = e<sup>pT</sup></span>,{' '}
+        <strong>not</strong> <span className="dtct-note__math">z = p</span>. With T = {T} s the
+        current p gives <span className="dtct-note__math">z = e<sup>{exponent}</sup> ≈ {metadata.sampled_pole}</span>,{' '}
+        {location} the unit circle: the same verdict as the CT system (CT: {metadata.ct_status}).
+        Sampling never changes stability, because{' '}
+        <span className="dtct-note__math">Re(p) {'<'} 0 ⇔ |e<sup>pT</sup>| {'<'} 1</span>.
+      </p>
     </div>
   );
 }
@@ -392,8 +438,14 @@ function DTCTComparatorViewer({ metadata, plots, onButtonClick, isUpdating }) {
   const ctPlot = plots?.find(p => p.id === 'ct_response');
 
   const p = metadata?.pole_value ?? 0.5;
-  const dtStabilityClass = metadata?.dt_stable ? 'stable' : metadata?.dt_status === 'Marginal' ? 'marginal' : 'unstable';
-  const ctStabilityClass = metadata?.ct_stable ? 'stable' : metadata?.ct_status === 'Marginal' ? 'marginal' : 'unstable';
+  // While a quiz question is open, the panel borders carry no stability colour
+  // (the backend likewise neutralises trace colours and drops the growth note).
+  const hideStabilityCues = isQuizMode && !metadata?.quiz?.answered;
+  const stabilityClassFor = (stable, status) => (
+    hideStabilityCues ? 'neutral' : stable ? 'stable' : status === 'Marginal' ? 'marginal' : 'unstable'
+  );
+  const dtStabilityClass = stabilityClassFor(metadata?.dt_stable, metadata?.dt_status);
+  const ctStabilityClass = stabilityClassFor(metadata?.ct_stable, metadata?.ct_status);
 
   const handleQuizAnswer = useCallback((answer) => {
     onButtonClick('check_quiz', { answer });
@@ -433,16 +485,19 @@ function DTCTComparatorViewer({ metadata, plots, onButtonClick, isUpdating }) {
         <div className="dtct-stability-maps">
           <UnitCircleMap
             poleValue={p}
-            isStable={metadata?.dt_stable ?? false}
+            status={metadata?.dt_status}
             theme={theme}
           />
           <SPlaneMap
             poleValue={p}
-            isStable={metadata?.ct_stable ?? false}
+            status={metadata?.ct_status}
             theme={theme}
           />
         </div>
       )}
+
+      {/* Not-a-sampling-pair note (hidden in quiz mode: e^{pT} reveals CT stability) */}
+      {!isQuizMode && <SamplingNote metadata={metadata} />}
 
       {/* Quiz panel */}
       {isQuizMode && (

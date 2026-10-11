@@ -2159,9 +2159,13 @@ body,
     min-height: 44px;
   }
 
-  /* Improve slider on touch */
+  /* Improve slider on touch: 44px touch target with a thin visible track.
+     appearance:none sliders paint their track as the input's background, so
+     clip it to a 6px content band; native sliders are unaffected. */
   input[type="range"] {
     height: 44px;
+    padding: 19px 0;
+    background-clip: content-box;
   }
 
   input[type="range"]::-webkit-slider-thumb {

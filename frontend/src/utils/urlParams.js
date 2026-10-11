@@ -13,13 +13,18 @@ export function encodeParams(params) {
   const searchParams = new URLSearchParams();
 
   Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
+    // Objects/arrays (backend-internal state) cannot round-trip through a
+    // query string, so leave them out rather than emitting "[object Object]".
+    if (value !== undefined && value !== null && typeof value !== 'object') {
       // Handle different types
       if (typeof value === 'boolean') {
         searchParams.set(key, value ? '1' : '0');
       } else if (typeof value === 'number') {
-        // Round to 4 decimal places to avoid floating point issues
-        searchParams.set(key, String(Math.round(value * 10000) / 10000));
+        // Trim float noise (0.30000000000000004) without the absolute
+        // rounding that would collapse small values such as 1e-5 to 0.
+        if (Number.isFinite(value)) {
+          searchParams.set(key, String(Number(value.toPrecision(12))));
+        }
       } else {
         searchParams.set(key, String(value));
       }
@@ -55,6 +60,59 @@ export function decodeParams(search, defaults = {}) {
       } else {
         result[key] = value;
       }
+    }
+  });
+
+  return result;
+}
+
+const NUMERIC_CONTROL_TYPES = new Set(['slider', 'number', 'number_input']);
+const CHOICE_CONTROL_TYPES = new Set(['select', 'dropdown', 'radio']);
+const TEXT_CONTROL_TYPES = new Set(['expression', 'text', 'text_input', 'textarea']);
+const MAX_TEXT_PARAM_LENGTH = 2000;
+
+/**
+ * Decode URL search string against a simulation's catalog controls.
+ *
+ * Only keys that name a catalog control (`control.name`) are accepted, and each
+ * value is validated against that control: sliders are parsed and clamped to
+ * [min, max], selects must match one of their options (the option's own value
+ * is returned so numeric option values keep their type), checkboxes must be a
+ * boolean literal, and expressions pass through as strings. Buttons and
+ * unknown keys are ignored. Keys are returned in URL order, which is the
+ * order the backend reported its parameters when the link was shared.
+ *
+ * @param {string} search - URL search string
+ * @param {Array<Object>} controls - Catalog control definitions
+ * @returns {Object} Validated parameters, keyed by control name
+ */
+export function decodeParamsForControls(search, controls = []) {
+  const byName = new Map();
+  controls.forEach(control => {
+    if (control?.name) byName.set(control.name, control);
+  });
+
+  const result = {};
+  new URLSearchParams(search).forEach((raw, key) => {
+    const control = byName.get(key);
+    if (!control) return;
+
+    if (NUMERIC_CONTROL_TYPES.has(control.type)) {
+      let value = parseFloat(raw);
+      if (!Number.isFinite(value)) return;
+      if (typeof control.min === 'number') value = Math.max(control.min, value);
+      if (typeof control.max === 'number') value = Math.min(control.max, value);
+      result[key] = value;
+    } else if (CHOICE_CONTROL_TYPES.has(control.type)) {
+      const match = (control.options || [])
+        .map(opt => (opt !== null && typeof opt === 'object' ? opt.value : opt))
+        .find(value => String(value) === raw);
+      if (match !== undefined) result[key] = match;
+    } else if (control.type === 'checkbox') {
+      if (raw === '1' || raw === 'true') result[key] = true;
+      else if (raw === '0' || raw === 'false') result[key] = false;
+    } else if (TEXT_CONTROL_TYPES.has(control.type)) {
+      if (raw.length <= MAX_TEXT_PARAM_LENGTH) result[key] = raw;
     }
   });
 

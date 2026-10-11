@@ -68,6 +68,7 @@ const MIMODesignStudioViewer = lazy(() => import('./MIMODesignStudioViewer'));
 const InvertedPendulum3DViewer = lazy(() => import('./InvertedPendulum3DViewer'));
 const BallBeam3DViewer = lazy(() => import('./BallBeam3DViewer'));
 const CoupledTanks3DViewer = lazy(() => import('./CoupledTanks3DViewer'));
+const CTDTPolesViewer = lazy(() => import('./CTDTPolesViewer'));
 
 // Loading fallback for lazy-loaded components
 const LazyLoadFallback = () => (
@@ -104,8 +105,11 @@ function MobileTabSwitcher({ activeTab, onTabChange, hasControls = true }) {
   if (!hasControls) return null;
 
   return (
-    <div className="mobile-tabs">
+    <div className="mobile-tabs" role="tablist" aria-label="Simulation view">
       <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'plots'}
         className={`tab-button ${activeTab === 'plots' ? 'active' : ''}`}
         onClick={() => onTabChange('plots')}
       >
@@ -127,6 +131,9 @@ function MobileTabSwitcher({ activeTab, onTabChange, hasControls = true }) {
         Plots
       </button>
       <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'controls'}
         className={`tab-button ${activeTab === 'controls' ? 'active' : ''}`}
         onClick={() => onTabChange('controls')}
       >
@@ -584,133 +591,6 @@ function SecondOrderInfoPanel({ metadata }) {
             </div>
             {!system_info.resonant_freq && (
               <div className="info-card-subtext">No resonance peak</div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * CT/DT Poles Info Panel
- * Displays method, poles, and stability information for pole conversion simulation
- */
-function CTDTPolesInfoPanel({ metadata }) {
-  if (!metadata?.simulation_type || metadata.simulation_type !== 'ct_dt_poles') {
-    return null;
-  }
-
-  const { system_info } = metadata;
-  if (!system_info) return null;
-
-  // Method display names
-  const methodNames = {
-    forward_euler: 'Forward Euler',
-    backward_euler: 'Backward Euler',
-    trapezoidal: 'Trapezoidal (Bilinear)',
-  };
-
-  // Format DT pole for display
-  const formatDTPole = () => {
-    const real = system_info.z_pole_real;
-    const imag = system_info.z_pole_imag;
-    if (Math.abs(imag) < 0.0001) {
-      return `z = ${real}`;
-    }
-    const sign = imag >= 0 ? '+' : '-';
-    return `z = ${real} ${sign} j${Math.abs(imag).toFixed(4)}`;
-  };
-
-  // Performance badge style
-  const perfBadgeClass = {
-    EXCELLENT: 'excellent',
-    GOOD: 'good',
-    FAIR: 'fair',
-    POOR: 'poor',
-    UNSTABLE: 'unstable',
-  };
-
-  return (
-    <div className="ct-dt-poles-info-panel">
-      <div className="system-info-section">
-        <h4 className="info-section-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="16" x2="12" y2="12"/>
-            <line x1="12" y1="8" x2="12.01" y2="8"/>
-          </svg>
-          CT → DT Pole Conversion
-        </h4>
-
-        {/* Method and T/τ Ratio Row */}
-        <div className="info-cards-row">
-          {/* Transformation Method */}
-          <div className="info-card method-card">
-            <div className="info-card-header">
-              <span className="info-card-icon">f</span>
-              <span className="info-card-label">Method</span>
-            </div>
-            <div className="info-card-value">{methodNames[system_info.method] || system_info.method}</div>
-          </div>
-
-          {/* T/τ Ratio */}
-          <div className="info-card ratio-card">
-            <div className="info-card-header">
-              <span className="info-card-icon">T/τ</span>
-              <span className="info-card-label">Step Size Ratio</span>
-            </div>
-            <div className="info-card-value">{system_info.t_tau_ratio}</div>
-            <div className="info-card-subtext">T = {system_info.T}s, τ = {system_info.tau}s</div>
-          </div>
-        </div>
-
-        {/* Poles Row */}
-        <div className="info-cards-row">
-          {/* CT Pole (s-domain) */}
-          <div className="info-card s-pole-card">
-            <div className="info-card-header">
-              <span className="info-card-icon">s</span>
-              <span className="info-card-label">CT Pole (s-domain)</span>
-            </div>
-            <div className="info-card-value">s = {system_info.s_pole}</div>
-            <div className="info-card-subtext">Time constant τ = {system_info.tau}s</div>
-          </div>
-
-          {/* DT Pole (z-domain) */}
-          <div className={`info-card z-pole-card ${system_info.is_stable ? 'stable' : 'unstable'}`}>
-            <div className="info-card-header">
-              <span className="info-card-icon">z</span>
-              <span className="info-card-label">DT Pole (z-domain)</span>
-            </div>
-            <div className="info-card-value">{formatDTPole()}</div>
-            <div className="info-card-subtext">|z| = {system_info.z_magnitude}</div>
-          </div>
-        </div>
-
-        {/* Stability and Performance Row */}
-        <div className="info-cards-row">
-          {/* Stability Status */}
-          <div className={`info-card stability-card ${system_info.is_stable ? 'stable' : 'unstable'}`}>
-            <div className="info-card-header">
-              <span className="info-card-icon">{system_info.is_stable ? '✓' : '!'}</span>
-              <span className="info-card-label">Stability</span>
-            </div>
-            <div className="info-card-value">{system_info.is_stable ? 'STABLE' : 'UNSTABLE'}</div>
-            <div className={`info-card-badge ${system_info.is_stable ? 'stable' : 'unstable'}`}>
-              {system_info.is_stable ? '|z| < 1' : '|z| ≥ 1'}
-            </div>
-          </div>
-
-          {/* Performance Rating */}
-          <div className={`info-card performance-card ${perfBadgeClass[system_info.performance_rating] || ''}`}>
-            <div className="info-card-header">
-              <span className="info-card-icon">★</span>
-              <span className="info-card-label">Approximation Quality</span>
-            </div>
-            <div className="info-card-value">{system_info.performance_rating}</div>
-            {system_info.rms_error !== null && (
-              <div className="info-card-subtext">RMS Error: {system_info.rms_error}</div>
             )}
           </div>
         </div>
@@ -1718,9 +1598,6 @@ function SimulationViewer({
               {/* Second-Order System Info Panel */}
               <SecondOrderInfoPanel metadata={metadata} />
 
-              {/* CT/DT Poles Info Panel */}
-              <CTDTPolesInfoPanel metadata={metadata} />
-
               {/* Feedback System Info Panel */}
               <FeedbackSystemInfoPanel metadata={metadata} />
 
@@ -1932,6 +1809,13 @@ function SimulationViewer({
               ) : metadata?.simulation_type === 'impulse_construction' ? (
                 <Suspense fallback={<LazyLoadFallback />}>
                   <ImpulseConstructionViewer
+                    metadata={metadata}
+                    plots={plots}
+                  />
+                </Suspense>
+              ) : metadata?.simulation_type === 'ct_dt_poles' ? (
+                <Suspense fallback={<LazyLoadFallback />}>
+                  <CTDTPolesViewer
                     metadata={metadata}
                     plots={plots}
                   />
