@@ -132,11 +132,7 @@ frontend/
 3. Add a catalog entry in `backend/simulations/catalog.py` — name, description, category, controls, default params, plots.
 4. Optionally add a custom viewer in `frontend/src/components/<Name>Viewer.jsx` and wire it into the viewer chain in `SimulationViewer.jsx`.
 
-## Status & License
 
-**Submission status.** This repository accompanies a manuscript submitted to
-the IEEE Conference on Decision and Control (CDC) and is currently under
-peer review. If you use the code or ideas in published work, please cite
-the paper once it is out.
+## License
 
-**License.** Released under the [MIT License](LICENSE).
+Released under the [MIT License](LICENSE).
